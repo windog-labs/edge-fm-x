@@ -1,0 +1,13 @@
+{
+    "git.ignoreLimitWarning": true,
+    // clangd 配置
+    "clangd.arguments": [
+        "--compile-commands-dir=build",
+        "--background-index",
+        "--clang-tidy",
+        "--header-insertion=never",
+        "--query-driver=/usr/bin/g++",
+        "--query-driver=/usr/bin/x86_64-linux-gnu-g++-11"
+    ],
+    "clangd.path": "clangd"
+}
