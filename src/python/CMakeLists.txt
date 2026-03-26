@@ -1,0 +1,83 @@
+# ============================================================================
+# Python 绑定模块
+# ============================================================================
+if(TARGET pybind11::module)
+    # pybind11_add_module(edge_fm_python pybind.cpp)
+    pybind11_add_module(edge_fm_python pybind_debug.cpp)
+    target_link_libraries(edge_fm_python PRIVATE 
+        edge_fm 
+        edge_fm_utils
+        pybind11::module
+    )
+    
+    set_target_properties(edge_fm_python PROPERTIES
+        OUTPUT_NAME "edge_fm"
+        PREFIX ""
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/python
+        INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+        BUILD_WITH_INSTALL_RPATH FALSE
+        BUILD_RPATH "${CMAKE_BINARY_DIR}/lib"
+    )
+    
+    install(TARGETS edge_fm_python
+        LIBRARY DESTINATION python
+        RUNTIME DESTINATION python
+    )
+else()
+    message(WARNING "pybind11 not available. Python module will not be built.")
+endif()
+
+# ============================================================================
+# TRT-Edge-LLM Python 绑定 (可选，用于 in-process benchmark)
+# 需先: bash tests/scripts/setup_trt_edgellm_benchmark.sh
+# ============================================================================
+if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABLE)
+    find_library(CUDA_DRIVER_LIB cuda HINTS ${CUDAToolkit_LIBRARY_DIR} /usr/lib/x86_64-linux-gnu PATH_SUFFIXES lib lib64 lib/stubs)
+    if(NOT CUDA_DRIVER_LIB)
+        set(CUDA_DRIVER_LIB "cuda")  # Let linker find it
+    endif()
+
+    pybind11_add_module(edge_fm_trt_python pybind_trt_runtime.cpp)
+    target_include_directories(edge_fm_trt_python PRIVATE
+        ${TRT_EDGELLM_ROOT}/cpp
+        ${TRT_EDGELLM_ROOT}/examples
+        ${TRT_EDGELLM_ROOT}/examples/multimodal
+        ${TRT_EDGELLM_ROOT}/3rdParty/nlohmannJson/include
+        ${TRT_EDGELLM_ROOT}/3rdParty/stb
+        ${TRT_PACKAGE_DIR}/include
+    )
+    if(CUDAToolkit_FOUND)
+        target_include_directories(edge_fm_trt_python PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+    endif()
+    target_link_libraries(edge_fm_trt_python PRIVATE
+        ${TRT_EDGELLM_UTILS_LIB}
+        ${TRT_EDGELLM_CORE_LIB}
+        ${TRT_EDGELLM_TOKENIZER_LIB}
+        ${TRT_PACKAGE_DIR}/lib/libnvinfer.so
+        CUDA::cudart
+        ${CUDA_DRIVER_LIB}
+        dl
+        pybind11::module
+    )
+    # RPATH: TensorRT + CUDA (需与 TRT 构建时的 CUDA 版本一致)
+    set(_trt_rpath "${TRT_PACKAGE_DIR}/lib")
+    if(CUDAToolkit_ROOT)
+        list(APPEND _trt_rpath "${CUDAToolkit_ROOT}/lib64")
+    elseif(CUDAToolkit_LIBRARY_DIR)
+        list(APPEND _trt_rpath "${CUDAToolkit_LIBRARY_DIR}")
+    endif()
+    set_target_properties(edge_fm_trt_python PROPERTIES
+        OUTPUT_NAME "edge_fm_trt"
+        PREFIX ""
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/python
+        INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${_trt_rpath}"
+        BUILD_WITH_INSTALL_RPATH FALSE
+        BUILD_RPATH "${CMAKE_BINARY_DIR}/lib:${_trt_rpath}"
+    )
+    install(TARGETS edge_fm_trt_python
+        LIBRARY DESTINATION python
+        RUNTIME DESTINATION python
+    )
+    message(STATUS "edge_fm_trt Python module will be built")
+endif()
+

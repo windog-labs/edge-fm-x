@@ -1,0 +1,15 @@
+*.DS_Store
+build/*
+*.pyc
+
+# ignore model files in examples directory
+examples/*/*/
+
+.cache/
+.cursor/*.log
+**.pytest_cache/
+tags*
+tests/data/*
+
+ncu_*
+nsys_*

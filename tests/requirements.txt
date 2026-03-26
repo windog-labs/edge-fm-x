@@ -1,0 +1,8 @@
+torch>=2.0.0
+prettytable>=3.0.0
+safetensors>=0.5.1
+pytest-order>=1.0.0
+transformers>=4.30.0
+
+# TRT-Edge-LLM benchmark (optional): install in horizon_quant for ONNX export
+# pip install third_party/TensorRT-Edge-LLM  # then run setup_trt_edgellm_benchmark.sh

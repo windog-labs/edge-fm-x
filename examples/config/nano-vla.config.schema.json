@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "edge-fm.config.schema.json",
+  "title": "EdgeFM Inference Config Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["model_name", "runtime", "prefill_model_path", "kvcache", "sampling"],
+  "properties": {
+    "model_name": { "type": "string" },
+    "runtime": { "$ref": "#/$defs/runtime" },
+    "prefill_model_path": { "type": "string" },
+    "decode_model_path": { "type": ["string", "null"] },
+    "speculative": {
+      "type": "object",
+      "required": ["enabled", "algorithm", "draft_model"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "algorithm": { "type": "string", "enum": ["EAGLE3"] },
+        "draft_model": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "kvcache": {
+      "type": "object",
+      "required": ["attention_type", "requests"],
+      "properties": {
+        "dtype": {
+          "type": "string",
+          "enum": ["fp16", "int4", "int8", "fp4"],
+          "default": "fp16"
+        },
+        "attention_type": {
+          "type": "string",
+          "enum": ["mha", "gqa", "mla"],
+          "default": "mha"
+        },
+        "requests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["request_id", "prefix_token_ids", "max_tokens"],
+            "properties": {
+              "request_id": { "type": "integer", "minimum": 0 },
+              "prefix_token_ids": { "type": "array", "items": { "type": "integer" } },
+              "max_tokens": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "sampling": {
+      "type": "object",
+      "required": ["max_new_tokens", "temperature", "top_k", "top_p"],
+      "properties": {
+        "max_new_tokens": { "type": "integer", "minimum": 0 },
+        "temperature": { "type": "number", "minimum": 0.0 },
+        "top_k": { "type": "integer", "minimum": 1 },
+        "top_p": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "seed": { "type": "integer" }
+      },
+      "additionalProperties": true
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["enabled", "log_path"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "log_path": { "oneOf": [{ "type": "null" }, { "type": "string" }] }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "num_threads": { "type": "integer", "minimum": 0 },
+        "use_cuda_graph": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    }
+  }
+}
+
+

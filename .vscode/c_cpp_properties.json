@@ -1,0 +1,35 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/third_party/dlpack/include",
+                "${workspaceFolder}/third_party/json/include",
+                "${workspaceFolder}/third_party/spdlog/include",
+                "${workspaceFolder}/third_party/safetensors/include",
+                "/usr/include/c++/11",
+                "/usr/include/x86_64-linux-gnu/c++/11",
+                "/usr/include",
+                "/usr/local/include",
+                "/usr/local/cuda/include"
+            ],
+            "defines": [
+                "DEBUG",
+                "PLATFORM_RTX5090=1",
+                "PLATFORM_X86=1",
+                "SPDLOG_COMPILED_LIB"
+            ],
+            "compilerPath": "/usr/bin/c++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
+}
+
