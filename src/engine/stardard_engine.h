@@ -6,10 +6,15 @@ namespace edge_fm {
 
 class StandardEngine : public Engine {
 public:
-    explicit StandardEngine(const EngineConfig& config): Engine(config) {}
+    explicit StandardEngine(const EngineConfig& config)
+        : Engine(config)
+    {
+        initialize_standard_runtime();
+    }
     ~StandardEngine() override = default;
 
     void warmup() override;
+    void tune() override;
     Response generate(const Request& request) override;
     void prepare_tensors(ModelStage stage, Context& context) override;
 
@@ -34,6 +39,8 @@ private:
     /// Read per-layer K/V write pointers from the current step's tensors
     /// and push them into the decode graph's dynamic nodes.
     void sync_decode_graph(Context& context);
+
+    void run_tuning_pass(const Request& request);
 };
 
 } // namespace edge_fm

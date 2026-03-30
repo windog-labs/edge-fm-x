@@ -2,6 +2,7 @@
 #include <edge-fm/edge-fm.h>
 #include <dlpack/dlpack.h>
 #include "engine/engine.h"
+#include "engine/horizon_engine.h"
 #include "engine/stardard_engine.h"
 #include "utils/device/weight_loader.h"
 #include <cuda_runtime.h>
@@ -661,6 +662,16 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
     if (speculative_enabled) {
         throw std::runtime_error("Speculative decoding (EagleEngine) not yet supported in EdgeFM facade");
     }
+    const std::string backend_target = config.backend_target();
+    if (backend_target == "horizon") {
+        impl_->engine = std::make_unique<HorizonEngine>(config);
+        impl_->engine->warmup();
+        return;
+    }
+    if (backend_target != "cuda") {
+        throw ConfigurationError("Unsupported backend_target: " + backend_target);
+    }
+
     WeightLoader& loader = WeightLoader::instance();
     // Clear cache before loading: FusedQKVLinearLayer modifies cache in-place (erases q/k/v_proj),
     // so a previously created engine leaves the cache in an invalid state for a new engine.
@@ -732,6 +743,10 @@ EdgeFM::~EdgeFM() noexcept = default;
 
 Response EdgeFM::generate(const Request& request) const {
     return impl_->engine->generate(request);
+}
+
+void EdgeFM::tune() {
+    impl_->engine->tune();
 }
 
 } // namespace edge_fm

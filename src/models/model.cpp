@@ -3,11 +3,9 @@
 #include "engine/scheduler.h"
 #include "utils/check.h"
 #include <edge-fm/core.h>
-#include <algorithm>
-#include <cctype>
 #include <nlohmann/json.hpp>
 
-#include "models/qwen2_5/qwen2_5.h"
+#include "models/layered_transformer.h"
 
 namespace edge_fm {
 
@@ -45,24 +43,13 @@ Model::Model(const EngineConfig& config)
 }
 
 std::unique_ptr<Model> Model::create(const EngineConfig& config) {
-    const std::string& model_name = config.model_name();
-    if (model_name.empty()) {
-        throw ConfigurationError("model_name is required in configuration");
+    if (config.has_execution_plan()) {
+        return std::make_unique<LayeredTransformerModel>(config);
     }
-    
-    std::string model_name_lower = model_name;
-    std::transform(model_name_lower.begin(), model_name_lower.end(), 
-                   model_name_lower.begin(), [](unsigned char c) { return std::tolower(c); });
-    
-    if (model_name_lower == "qwen2.5" || 
-        model_name_lower == "qwen2_5" || 
-        model_name_lower == "qwen2-5") 
-    {
-        return std::make_unique<Qwen2_5>(config);
-    } else {
-        throw ConfigurationError("Unsupported model_name: " + model_name + ". Supported models: qwen2.5");
-    }
+
+    throw ConfigurationError(
+        "Missing _edgefm_internal.execution_plan in configuration. "
+        "Please construct the engine with EdgeFM.from_model(model, engine_json).");
 }
 
 } // namespace edge_fm
-

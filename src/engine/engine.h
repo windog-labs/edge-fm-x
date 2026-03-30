@@ -58,6 +58,16 @@ public:
     uint64_t sampling_seed() const;
     std::vector<int32_t> eos_token_ids() const;
     std::vector<int32_t> stop_token_ids() const;
+    std::string backend_target() const;
+    bool has_model_description() const;
+    nlohmann::json model_description() const;
+    std::string model_description_hash() const;
+    bool has_execution_plan() const;
+    nlohmann::json execution_plan() const;
+    bool has_backend_artifact() const;
+    nlohmann::json backend_artifact() const;
+    std::string backend_cache_key() const;
+    std::string tuning_model_key() const;
     
     const nlohmann::json& raw() const noexcept { return config_; }
 
@@ -174,12 +184,20 @@ public:
     virtual ~Engine() = 0;
 
     virtual void warmup() = 0;
+    virtual void tune() = 0;
     virtual Response generate(const Request& request) = 0;
     virtual void prepare_tensors(ModelStage stage, Context& context) = 0;
 
-    KVManagerStatus get_kv_status() const { return kv_manager_->get_status(); }
+    KVManagerStatus get_kv_status() const {
+        if (kv_manager_ == nullptr) {
+            throw InternalError("KVManager is not initialized for the active backend");
+        }
+        return kv_manager_->get_status();
+    }
 
 protected:
+    void initialize_standard_runtime();
+
     Device device_;
     int32_t device_id_;
     EngineConfig config_;

@@ -2,6 +2,7 @@
 #include "layers/sampler.h"
 #include "models/model.h"
 #include "utils/device/memory.h"
+#include "utils/device/tuning_cache.h"
 #include "engine/kv_manager.h"
 #include "utils/device/cuda_utils.h"
 #include <edge-fm/core.h>
@@ -135,6 +136,30 @@ void StandardEngine::warmup() {
     }
 
     CUDA_CHECK_THROW(cudaDeviceSynchronize(), "Failed to synchronize device after warmup");
+}
+
+void StandardEngine::tune() {
+    const std::string model_key = config_.tuning_model_key();
+    TuningCache::instance().begin_session(model_key);
+    try {
+        KVManagerStatus kv_status = kv_manager_->get_status();
+        for (const auto& slot : kv_status.slots) {
+            const int32_t available = slot.max_tokens - static_cast<int32_t>(slot.prefix_size);
+            if (available <= 0) {
+                continue;
+            }
+            const int32_t tune_seq_len = std::min(available, 16);
+            std::vector<int32_t> token_ids = slot.prefix_token_ids;
+            token_ids.insert(token_ids.end(), static_cast<size_t>(tune_seq_len), 0);
+            Request request(slot.request_id, token_ids);
+            request.set_ignore_stop_tokens(true);
+            run_tuning_pass(request);
+        }
+        TuningCache::instance().end_session();
+    } catch (...) {
+        TuningCache::instance().end_session();
+        throw;
+    }
 }
 
 Response StandardEngine::generate(const Request& request) {
@@ -739,6 +764,52 @@ void StandardEngine::sync_decode_graph(Context& context) {
         v[i] = tensors.at(ModelTensors::v_write_layer(i)).data_ptr();
     }
     cuda_graph_manager_.update_decode_nodes(k, v);
+}
+
+void StandardEngine::run_tuning_pass(const Request& request) {
+    Response response;
+    Context context = scheduler_->create_context(request, &response);
+    cudaStream_t stream = context.stream();
+    auto& tensors = context.tensors();
+    const int32_t vocab_size = model_->vocab_size();
+
+    prepare_tensors(ModelStage::Prefill, context);
+    if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
+        return;
+    }
+    Tensor& token_out_tensor = tensors.at(ModelTensors::SAMPLER_TOKEN_OUT);
+    auto run_sampler = [this](Tensor& logits, Tensor& token_out, cudaStream_t s, ModelStage stage) {
+        std::unordered_map<std::string, Tensor> in, out;
+        in.emplace("logits", std::move(logits));
+        out.emplace("token_ids", std::move(token_out));
+        sampler_->forward(in, out, s, stage);
+    };
+
+    model_->prefill(context);
+
+    const Tensor& logits_prefill = tensors.at(ModelTensors::LOGITS);
+    const int32_t seq_len = static_cast<int32_t>(logits_prefill.shape()[0]);
+    void* last_row_ptr = static_cast<char*>(logits_prefill.data_ptr())
+        + (seq_len - 1) * static_cast<int64_t>(vocab_size) * static_cast<int64_t>(sizeof(float));
+    Tensor last_logits = Tensor::view(last_row_ptr, {1, vocab_size}, DType::Float32, device_, device_id_);
+    run_sampler(last_logits, token_out_tensor, stream, ModelStage::Prefill);
+
+    context.advance_after_prefill(seq_len);
+    if (context.is_finished()) {
+        if (stream != nullptr) {
+            CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "Failed to sync tuning prefill stream");
+        }
+        return;
+    }
+
+    prepare_tensors(ModelStage::Decode, context);
+    model_->decode_step(context);
+    Tensor& decode_token_out = tensors.at(ModelTensors::SAMPLER_TOKEN_OUT);
+    run_sampler(tensors.at(ModelTensors::LOGITS), decode_token_out, stream, ModelStage::Decode);
+
+    if (stream != nullptr) {
+        CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "Failed to sync tuning decode stream");
+    }
 }
 
 } // namespace edge_fm

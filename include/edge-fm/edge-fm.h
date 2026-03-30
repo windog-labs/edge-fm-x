@@ -1,6 +1,8 @@
 #pragma once
-#include <string>
 #include <edge-fm/core.h>
+
+#include <memory>
+#include <string>
 
 namespace edge_fm {
 
@@ -36,6 +38,16 @@ public:
      *         or inference fails (e.g., GPU memory不足, timeout)
      */
     Response generate(const Request& request) const;
+
+    /**
+     * @brief Build or tune backend-specific execution artifacts for the current model/configuration.
+     *
+     * CUDA-like backends may benchmark fixed layer ops and fused ops, while
+     * whole-graph backends may emit or refresh compiled artifacts such as HBM.
+     * This method does not change user-facing model structure, weights, or
+     * quantization.
+     */
+    void tune();
 
 private:
     struct Impl;

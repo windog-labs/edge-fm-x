@@ -21,6 +21,11 @@ from pathlib import Path
 import pytest
 import numpy as np
 
+pytest.skip(
+    "Legacy Qwen2.5 engine path has been removed; use EdgeFM.from_model(...) coverage instead.",
+    allow_module_level=True,
+)
+
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:

@@ -10,6 +10,7 @@
 #include "utils/check.h"
 #include "utils/device/memory.h"
 #include "utils/device/weight_loader.h"
+#include "utils/device/tuning_cache.h"
 #include "layers/int4GroupwiseGemmKernels/int4GroupwiseGemm.h"
 
 using namespace trt_edgellm::kernel;
@@ -555,12 +556,50 @@ void LinearLayer::forward_fp16_bf16(
     );
 
     // Benchmark top-K candidates and select best on first call for this (m, stage)
+    const std::string tuning_model_key = engine_config_.tuning_model_key();
     if (cached.has_algo_ && cached.best_algo_index_ < 0 &&
         cached.heuristic_candidates_.size() > 1) {
-        select_best_algo_benchmark(
-            input_ptr, weight_ptr, output_ptr, bias_ptr,
-            matmul_desc, Adesc, Bdesc, Cdesc, Ddesc,
-            stream, cached);
+        if (!tuning_model_key.empty()) {
+            auto persisted = TuningCache::instance().get_record(
+                tuning_model_key,
+                layer_prefix_,
+                stage,
+                m);
+            if (persisted.has_value() &&
+                persisted->backend == "cublasLt" &&
+                persisted->algo_index >= 0 &&
+                persisted->algo_index < static_cast<int32_t>(cached.heuristic_candidates_.size()))
+            {
+                cached.heuristic_ = cached.heuristic_candidates_[persisted->algo_index];
+                cached.best_algo_index_ = persisted->algo_index;
+                cached.heuristic_candidates_.clear();
+            }
+        }
+        if (cached.best_algo_index_ < 0 && TuningCache::instance().is_session_active_for(tuning_model_key)) {
+            select_best_algo_benchmark(
+                input_ptr, weight_ptr, output_ptr, bias_ptr,
+                matmul_desc, Adesc, Bdesc, Cdesc, Ddesc,
+                stream, cached);
+            if (cached.best_algo_index_ >= 0) {
+                TuningRecord record;
+                record.op_name = layer_prefix_;
+                record.backend = "cublasLt";
+                record.stage = stage;
+                record.m = m;
+                record.algo_index = cached.best_algo_index_;
+                TuningCache::instance().set_record(tuning_model_key, record);
+            }
+        }
+        if (cached.best_algo_index_ < 0 && !cached.heuristic_candidates_.empty()) {
+            cached.heuristic_ = cached.heuristic_candidates_.front();
+            cached.best_algo_index_ = 0;
+            cached.heuristic_candidates_.clear();
+        }
+    } else if (cached.best_algo_index_ < 0 && cached.has_algo_ &&
+               cached.heuristic_candidates_.size() == 1) {
+        cached.best_algo_index_ = 0;
+        cached.heuristic_ = cached.heuristic_candidates_.front();
+        cached.heuristic_candidates_.clear();
     }
 
     // Allocate workspace for the heuristic-selected algorithm
