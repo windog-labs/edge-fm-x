@@ -43,24 +43,40 @@ def _load_model_config(model_path: str) -> dict:
     return config
 
 
-def _create_engine_config(model_path: str, max_tokens: int = 32, runtime_device: str = "cuda") -> str:
+def _create_engine_config(
+    model_path: str,
+    max_tokens: int = 32,
+    runtime_device: str = "cuda",
+    model_name: str = "Qwen2.5",
+    include_model_name: bool = True,
+) -> str:
     config = _load_model_config(model_path)
     num_heads = config.get("num_attention_heads", 8)
     num_kv_heads = config.get("num_key_value_heads", num_heads)
     attention_type = "gqa" if num_kv_heads < num_heads else "mha"
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
+
+    engine_config = {
+        "runtime": {
+            "device": runtime_device,
+            "device_id": int(os.environ.get("EDGE_FM_DEVICE_ID", "0")),
+            "hw_profile": runtime_device,
+        },
+        "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
+        "prefill_model_path": str(Path(model_path).resolve()),
+        "kvcache": {
+            "dtype": "fp16",
+            "attention_type": attention_type,
+            "requests": [{"request_id": 0, "prefix_token_ids": [], "max_tokens": max_tokens}],
+        },
+        "sampling": {"temperature": 0.0, "seed": 42},
+    }
+    if include_model_name:
+        engine_config["model_name"] = model_name
+
     with open(engine_config_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "runtime": {"device": runtime_device, "device_id": int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))},
-            "prefill_model_path": str(Path(model_path).resolve()),
-            "kvcache": {
-                "dtype": "fp16",
-                "attention_type": attention_type,
-                "requests": [{"request_id": 0, "prefix_token_ids": [], "max_tokens": max_tokens}],
-            },
-            "sampling": {"temperature": 0.0, "seed": 42},
-        }, f, indent=2)
+        json.dump(engine_config, f, indent=2)
     return str(engine_config_path)
 
 
@@ -68,26 +84,25 @@ def _create_engine_config(model_path: str, max_tokens: int = 32, runtime_device:
 def hf_model_path() -> str:
     model_path = _find_hf_model_path()
     if model_path is None:
-        pytest.skip("Model path not found for from_model API tests")
+        pytest.skip("Model path not found for engine config API tests")
     return model_path
 
 
-def test_from_model_rejects_layer_mismatch(hf_model_path: str):
+def test_from_model_is_deprecated(hf_model_path: str):
     engine_json = _create_engine_config(hf_model_path)
-    model_config = _load_model_config(hf_model_path)
-    num_layers = model_config["num_hidden_layers"]
-    model = edge_fm.DecoderOnlyModel.hf(num_layers + 1)
-    with pytest.raises(Exception):
-        edge_fm.EdgeFM.from_model(model, engine_json)
+    with pytest.raises(Exception, match="deprecated"):
+        edge_fm.EdgeFM.from_model(object(), engine_json)
 
 
-def test_from_model_and_tune_api(hf_model_path: str):
-    engine_json = _create_engine_config(hf_model_path)
-    model_config = _load_model_config(hf_model_path)
-    num_layers = model_config["num_hidden_layers"]
+def test_engine_requires_explicit_model_name(hf_model_path: str):
+    engine_json = _create_engine_config(hf_model_path, include_model_name=False)
+    with pytest.raises(Exception, match="model_name"):
+        edge_fm.EdgeFM(engine_json)
 
-    model = edge_fm.DecoderOnlyModel.hf(num_layers)
-    engine = edge_fm.EdgeFM.from_model(model, engine_json)
+
+def test_engine_from_config_and_tune_api(hf_model_path: str):
+    engine_json = _create_engine_config(hf_model_path, model_name="Qwen2.5")
+    engine = edge_fm.EdgeFM(engine_json)
     engine.tune()
 
     request = edge_fm.Request(request_id=0, token_ids=[0, 1, 2, 3])
@@ -95,13 +110,9 @@ def test_from_model_and_tune_api(hf_model_path: str):
     assert isinstance(list(response.token_ids()), list)
 
 
-def test_from_model_horizon_tune_emits_compile_spec(hf_model_path: str):
-    engine_json = _create_engine_config(hf_model_path, runtime_device="horizon")
-    model_config = _load_model_config(hf_model_path)
-    num_layers = model_config["num_hidden_layers"]
-
-    model = edge_fm.DecoderOnlyModel.hf(num_layers)
-    engine = edge_fm.EdgeFM.from_model(model, engine_json)
+def test_horizon_tune_emits_compile_spec_v2(hf_model_path: str):
+    engine_json = _create_engine_config(hf_model_path, runtime_device="horizon", model_name="Qwen2.5")
+    engine = edge_fm.EdgeFM(engine_json)
     engine.tune()
 
     with pytest.raises(Exception) as exc_info:
@@ -116,5 +127,11 @@ def test_from_model_horizon_tune_emits_compile_spec(hf_model_path: str):
     compile_spec = json.loads(compile_spec_path.read_text(encoding="utf-8"))
     module_path = Path(compile_spec["generated_module"]["module_path"])
     assert module_path.exists()
+    assert compile_spec["schema"] == "edgefm_horizon_compile_spec_v2"
+    assert compile_spec["model_name"] == "qwen2_5"
+    assert "graph_tuning" in compile_spec
+    assert "model_description" not in compile_spec
+    assert "linear_operator_table" in compile_spec["graph_tuning"]
+    assert "linear_impl_overrides" not in compile_spec["graph_tuning"]
     assert compile_spec["generated_module"]["factory_function"] == "build_model"
     assert compile_spec["helper_script"] == "scripts/compile_horizon_from_spec.py"

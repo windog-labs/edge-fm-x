@@ -39,8 +39,6 @@ private:
     /// Read per-layer K/V write pointers from the current step's tensors
     /// and push them into the decode graph's dynamic nodes.
     void sync_decode_graph(Context& context);
-
-    void run_tuning_pass(const Request& request);
 };
 
 } // namespace edge_fm

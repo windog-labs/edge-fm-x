@@ -5,7 +5,7 @@
 #include <edge-fm/core.h>
 #include <nlohmann/json.hpp>
 
-#include "models/layered_transformer.h"
+#include "models/qwen2_5/qwen2_5.h"
 
 namespace edge_fm {
 
@@ -43,13 +43,14 @@ Model::Model(const EngineConfig& config)
 }
 
 std::unique_ptr<Model> Model::create(const EngineConfig& config) {
-    if (config.has_execution_plan()) {
-        return std::make_unique<LayeredTransformerModel>(config);
+    const std::string resolved_name = config.resolved_model_name();
+    if (resolved_name == "qwen2_5" || resolved_name == "qwen2_5_vl") {
+        return std::make_unique<Qwen2_5>(config);
     }
 
     throw ConfigurationError(
-        "Missing _edgefm_internal.execution_plan in configuration. "
-        "Please construct the engine with EdgeFM.from_model(model, engine_json).");
+        "Unsupported model_name: " + resolved_name +
+        ". This build currently supports: qwen2_5, qwen2_5_vl");
 }
 
 } // namespace edge_fm

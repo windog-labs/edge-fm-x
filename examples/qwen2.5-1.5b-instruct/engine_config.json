@@ -4,8 +4,10 @@
     "num_threads": 0,
     "use_cuda_graph": true,
     "device": "cuda",
-    "device_id": 0
+    "device_id": 0,
+    "hw_profile": "cuda"
   },
+  "operator_impl_table_path": "../config/operator_impl_table.json",
   "prefill_model_path": "qwen2.5-1.5b-instruct",
   "decode_model_path": null,
   "speculative": {

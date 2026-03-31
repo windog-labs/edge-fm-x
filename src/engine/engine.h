@@ -41,16 +41,20 @@ public:
     std::string decode_model_path() const;
     nlohmann::json prefill_model_config() const;
     nlohmann::json decode_model_config() const;
+    std::string resolved_model_name() const;
     
     nlohmann::json runtime() const;
     nlohmann::json speculative() const;
     nlohmann::json kvcache() const;
     nlohmann::json sampling() const;
     nlohmann::json metrics() const;
+    std::string operator_impl_table_path() const;
 
     // 安全访问器：当值为 null 或缺失时返回默认值，避免 type_error.306
     std::string runtime_device() const;
     int32_t runtime_device_id() const;
+    std::string runtime_hw_profile() const;
+    std::string resolved_hw_profile() const;
     bool use_cuda_graph() const;
     std::string kvcache_dtype() const;
     std::string kvcache_attention_type() const;
@@ -59,19 +63,14 @@ public:
     std::vector<int32_t> eos_token_ids() const;
     std::vector<int32_t> stop_token_ids() const;
     std::string backend_target() const;
-    bool has_model_description() const;
-    nlohmann::json model_description() const;
-    std::string model_description_hash() const;
-    bool has_execution_plan() const;
-    nlohmann::json execution_plan() const;
     bool has_backend_artifact() const;
     nlohmann::json backend_artifact() const;
     std::string backend_cache_key() const;
-    std::string tuning_model_key() const;
     
     const nlohmann::json& raw() const noexcept { return config_; }
 
 private:
+    std::filesystem::path config_dir_;
     nlohmann::json config_;
 };
 

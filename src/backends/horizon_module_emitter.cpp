@@ -1,4 +1,4 @@
-#include "utils/horizon_module_emitter.h"
+#include "backends/horizon_module_emitter.h"
 
 #include "utils/check.h"
 
@@ -21,29 +21,12 @@ std::string py_json_expr(const nlohmann::json& json) {
         + "''')";
 }
 
-int32_t num_layers_from_model_description(const nlohmann::json& model_description) {
-    check<ConfigurationError>(
-        model_description.contains("nodes") && model_description["nodes"].is_array(),
-        "model_description.nodes must be an array");
-
-    int32_t max_layer_id = -1;
-    for (const auto& node : model_description["nodes"]) {
-        if (!node.contains("attrs") || !node["attrs"].is_object()) {
-            continue;
-        }
-        const auto& attrs = node["attrs"];
-        if (attrs.contains("layer_id") && attrs["layer_id"].is_number_integer()) {
-            max_layer_id = std::max(max_layer_id, attrs["layer_id"].get<int32_t>());
-        }
-    }
-    return max_layer_id + 1;
-}
-
 std::string horizon_module_source(
-    const nlohmann::json& model_description,
+    const std::string& model_name,
     const nlohmann::json& model_config,
     const std::string& prefill_model_path,
     const std::string& decode_model_path,
+    const nlohmann::json& graph_tuning,
     const nlohmann::json& lowering)
 {
     const int32_t hidden_size = model_config.value("hidden_size", 0);
@@ -54,13 +37,15 @@ std::string horizon_module_source(
     const int32_t vocab_size = model_config.value("vocab_size", 0);
     const bool tie_word_embeddings = model_config.value("tie_word_embeddings", false);
     const float rope_theta = model_config.value("rope_theta", 1000000.0f);
-    const bool uses_mrope =
+    const bool uses_mrope = graph_tuning.value(
+        "uses_mrope",
         model_config.contains("rope_scaling") &&
-        model_config["rope_scaling"].is_object() &&
-        model_config["rope_scaling"].value(
-            "type",
-            model_config["rope_scaling"].value("rope_type", std::string(""))) == "mrope";
-    const int32_t num_layers = num_layers_from_model_description(model_description);
+            model_config["rope_scaling"].is_object() &&
+            model_config["rope_scaling"].value(
+                "type",
+                model_config["rope_scaling"].value("rope_type", std::string(""))) == "mrope");
+    const int32_t num_layers = model_config.value("num_hidden_layers", 0);
+    check<ConfigurationError>(num_layers > 0, "Horizon module emitter requires num_hidden_layers > 0");
 
     std::ostringstream oss;
     oss
@@ -73,8 +58,9 @@ std::string horizon_module_source(
         << "import torch.nn as nn\n"
         << "import torch.nn.functional as F\n"
         << "from safetensors.torch import load_file\n\n"
+        << "MODEL_NAME = " << py_path_literal(model_name) << "\n"
         << "MODEL_CONFIG = " << py_json_expr(model_config) << "\n"
-        << "EDGEFM_MODEL_DESCRIPTION = " << py_json_expr(model_description) << "\n"
+        << "EDGEFM_GRAPH_TUNING = " << py_json_expr(graph_tuning) << "\n"
         << "EDGEFM_HORIZON_LOWERING = " << py_json_expr(lowering) << "\n"
         << "PREFILL_MODEL_PATH = Path(" << py_path_literal(prefill_model_path) << ")\n"
         << "DECODE_MODEL_PATH = Path(" << py_path_literal(decode_model_path) << ")\n\n"
@@ -327,15 +313,16 @@ nlohmann::json HorizonModuleExport::to_json() const {
 }
 
 HorizonModuleExport emit_horizon_module(
-    const nlohmann::json& model_description,
+    const std::string& model_name,
     const nlohmann::json& model_config,
     const std::string& prefill_model_path,
     const std::string& decode_model_path,
+    const nlohmann::json& graph_tuning,
     const std::filesystem::path& output_dir)
 {
     check<ConfigurationError>(
-        model_description.is_object(),
-        "Horizon module emitter requires model_description");
+        model_name == "qwen2_5" || model_name == "qwen2_5_vl",
+        "Horizon module emitter only supports qwen2_5 / qwen2_5_vl");
     check<ConfigurationError>(
         model_config.is_object(),
         "Horizon module emitter requires model_config");
@@ -361,17 +348,18 @@ HorizonModuleExport emit_horizon_module(
             {"InjectEmbedding", "python_embedding_injection"},
         }},
         {"notes", nlohmann::json::array({
-            "This module is generated from EdgeFM model_description and serves as the Python source of truth for Horizon whole-graph compilation.",
+            "This module is generated from explicit model_name + model_config and serves as the Python source of truth for Horizon whole-graph compilation.",
             "Attention and fused projections remain explicit module boundaries so Horizon-specific tooling can replace or lower them further.",
-            "M-RoPE keeps an op boundary; the Python fallback path leaves it to backend replacement instead of emulating full runtime semantics.",
+            "Graph metadata embeds the resolved operator implementation table so backend-specific lowering can honor the chosen linear implementations later.",
         })},
     };
 
     const std::string source = horizon_module_source(
-        model_description,
+        model_name,
         model_config,
         prefill_model_path,
         decode_model_path.empty() ? prefill_model_path : decode_model_path,
+        graph_tuning,
         exported.lowering);
 
     std::ofstream output(exported.module_path);

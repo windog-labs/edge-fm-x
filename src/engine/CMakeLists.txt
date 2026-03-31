@@ -23,6 +23,8 @@ target_include_directories(edge_fm_engine PUBLIC
 
 target_link_libraries(edge_fm_engine PUBLIC
     edge_fm_utils
+    edge_fm_backends
+    edge_fm_operators
     edge_fm_layers
 )
 
@@ -49,4 +51,3 @@ install(TARGETS edge_fm_engine
     EXPORT edge_fm_targets
     ARCHIVE DESTINATION lib
 )
-

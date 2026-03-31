@@ -3,13 +3,11 @@
 # ============================================================================
 
 set(UTILS_SOURCES
-    backend_artifact_cache.cpp
-    horizon_module_emitter.cpp
     logging.cpp
 )
 
 if(ENABLE_CUDA)
-    list(APPEND UTILS_SOURCES device/weight_loader.cpp device/cuda_graph.cpp device/tuning_cache.cpp)
+    list(APPEND UTILS_SOURCES device/weight_loader.cpp device/cuda_graph.cpp)
 endif()
 
 add_library(edge_fm_utils STATIC ${UTILS_SOURCES})

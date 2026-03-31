@@ -10,12 +10,43 @@
 #include "utils/check.h"
 #include "utils/device/memory.h"
 #include "utils/device/weight_loader.h"
-#include "utils/device/tuning_cache.h"
-#include "layers/int4GroupwiseGemmKernels/int4GroupwiseGemm.h"
+#include "operators/kernels/int4_groupwise_gemm/int4GroupwiseGemm.h"
 
 using namespace trt_edgellm::kernel;
 
 namespace edge_fm {
+
+std::string LinearLayer::LinearShapeSignature::to_string() const {
+    return "m=" + std::to_string(m) +
+        "|input=" + std::to_string(static_cast<int>(input_dtype)) +
+        "|weight=" + std::to_string(static_cast<int>(weight_dtype)) +
+        "|output=" + std::to_string(static_cast<int>(output_dtype)) +
+        "|in_features=" + std::to_string(in_features) +
+        "|out_features=" + std::to_string(out_features);
+}
+
+namespace {
+
+std::string infer_layer_role(const std::string& layer_prefix) {
+    if (layer_prefix == "lm_head" || layer_prefix.find("lm_head") != std::string::npos) {
+        return "lm_head";
+    }
+    if (layer_prefix.find("qkv_fused") != std::string::npos) {
+        return "fused_qkv";
+    }
+    if (layer_prefix.find("gate_up_fused") != std::string::npos) {
+        return "fused_gate_up";
+    }
+    if (layer_prefix.find(".o_proj") != std::string::npos) {
+        return "attention_output";
+    }
+    if (layer_prefix.find(".down_proj") != std::string::npos) {
+        return "mlp_down";
+    }
+    return "linear";
+}
+
+} // namespace
 
 LinearLayer::LinearLayer(const std::string& layer_prefix,
                          const EngineConfig& engine_config,
@@ -26,7 +57,8 @@ LinearLayer::LinearLayer(const std::string& layer_prefix,
     cublaslt_handle_(nullptr),
     in_features_(in_features),
     out_features_(out_features),
-    layer_prefix_(layer_prefix)
+    layer_prefix_(layer_prefix),
+    layer_role_(infer_layer_role(layer_prefix))
 {
     // Check if we need CUBLASLt handle based on model dtype
     auto check_dtype_needs_cublaslt = [](const nlohmann::json& config) -> bool {
@@ -50,6 +82,8 @@ LinearLayer::LinearLayer(const std::string& layer_prefix,
                           "Failed to create CUBLASLt handle: " + 
                           std::to_string(static_cast<int>(status)));
     }
+
+    register_default_impls();
 }
 
 LinearLayer::~LinearLayer()
@@ -240,6 +274,10 @@ void LinearLayer::cleanup_cached_descriptors(CachedDescriptors& cached)
     destroy_layout(cached.Cdesc_);
     destroy_layout(cached.Ddesc_);
     cached.cached_m_ = -1;
+    cached.has_algo_ = false;
+    cached.best_algo_index_ = -1;
+    cached.heuristic_candidates_.clear();
+    cached.selected_impl_id_.clear();
 }
 
 void LinearLayer::get_or_create_descriptors(
@@ -362,7 +400,7 @@ void LinearLayer::get_or_create_descriptors(
         cached.heuristic_candidates_.clear();
         cached.best_algo_index_ = -1;
 
-        // Query top-K algorithms via heuristic; benchmark will select best per (m, stage)
+        // Query top-K algorithms via heuristic; operator_impl_table may optionally pin algo_index.
         constexpr int kMaxAlgoCandidates = 5;
         std::vector<cublasLtMatmulHeuristicResult_t> results(kMaxAlgoCandidates);
         cublasLtMatmulPreference_t pref = nullptr;
@@ -382,7 +420,7 @@ void LinearLayer::get_or_create_descriptors(
             cublasLtMatmulPreferenceDestroy(pref);
             if (status == CUBLAS_STATUS_SUCCESS && returned > 0) {
                 cached.heuristic_candidates_.assign(results.begin(), results.begin() + returned);
-                cached.heuristic_ = cached.heuristic_candidates_[0];  // fallback if no benchmark
+                cached.heuristic_ = cached.heuristic_candidates_[0];
                 cached.has_algo_ = true;
                 cached.best_algo_index_ = (returned == 1) ? 0 : -1;  // single candidate: use directly
             }
@@ -395,81 +433,6 @@ void LinearLayer::get_or_create_descriptors(
     Bdesc = cached.Bdesc_;
     Cdesc = cached.Cdesc_;
     Ddesc = cached.Ddesc_;
-}
-
-void LinearLayer::select_best_algo_benchmark(
-    const void* input_ptr,
-    const void* weight_ptr,
-    void* /*output_ptr*/,
-    const void* /*bias_ptr*/,
-    cublasLtMatmulDesc_t matmul_desc,
-    cublasLtMatrixLayout_t Adesc,
-    cublasLtMatrixLayout_t Bdesc,
-    cublasLtMatrixLayout_t Cdesc,
-    cublasLtMatrixLayout_t Ddesc,
-    cudaStream_t stream,
-    CachedDescriptors& cached)
-{
-    if (cached.heuristic_candidates_.size() <= 1) return;
-    const int m = cached.cached_m_;
-    const int n = static_cast<int>(out_features_);
-    const size_t output_bytes = static_cast<size_t>(m) * n *
-        (cached.cached_output_type_ == CUDA_R_32F ? 4u : 2u);
-
-    size_t max_workspace = 0;
-    for (const auto& h : cached.heuristic_candidates_) {
-        if (h.workspaceSize > max_workspace) max_workspace = h.workspaceSize;
-    }
-    std::string bench_ws_key = "linear_bench_ws_" + layer_prefix_ + "_m" + std::to_string(m);
-    void* workspace_ptr = max_workspace > 0
-        ? StaticBufferManager::get_cache_buf(bench_ws_key, max_workspace, device_id_)
-        : nullptr;
-    std::string bench_out_key = "linear_bench_out_" + layer_prefix_ + "_m" + std::to_string(m);
-    void* temp_out = StaticBufferManager::get_cache_buf(bench_out_key, output_bytes, device_id_);
-
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
-    int best_idx = 0;
-    float best_time_ms = 1e30f;
-
-    cudaEvent_t start_ev = nullptr, stop_ev = nullptr;
-    CUDA_CHECK_THROW(cudaEventCreate(&start_ev), "cudaEventCreate start");
-    CUDA_CHECK_THROW(cudaEventCreate(&stop_ev), "cudaEventCreate stop");
-
-    constexpr int kBenchIters = 20;
-    for (size_t i = 0; i < cached.heuristic_candidates_.size(); ++i) {
-        const auto& h = cached.heuristic_candidates_[i];
-        cublasStatus_t st = cublasLtMatmul(
-            cublaslt_handle_, matmul_desc,
-            &alpha, weight_ptr, Bdesc, input_ptr, Adesc,
-            &beta, temp_out, Cdesc, temp_out, Ddesc,
-            &h.algo, workspace_ptr, h.workspaceSize, stream);
-        if (st != CUBLAS_STATUS_SUCCESS) continue;
-
-        CUDA_CHECK_THROW(cudaEventRecord(start_ev, stream), "cudaEventRecord start");
-        for (int iter = 0; iter < kBenchIters; ++iter) {
-            cublasLtMatmul(cublaslt_handle_, matmul_desc,
-                &alpha, weight_ptr, Bdesc, input_ptr, Adesc,
-                &beta, temp_out, Cdesc, temp_out, Ddesc,
-                &h.algo, workspace_ptr, h.workspaceSize, stream);
-        }
-        CUDA_CHECK_THROW(cudaEventRecord(stop_ev, stream), "cudaEventRecord stop");
-        CUDA_CHECK_THROW(cudaEventSynchronize(stop_ev), "cudaEventSynchronize");
-
-        float ms = 0.0f;
-        CUDA_CHECK_THROW(cudaEventElapsedTime(&ms, start_ev, stop_ev), "cudaEventElapsedTime");
-        if (ms < best_time_ms) {
-            best_time_ms = ms;
-            best_idx = static_cast<int>(i);
-        }
-    }
-
-    cudaEventDestroy(start_ev);
-    cudaEventDestroy(stop_ev);
-
-    cached.heuristic_ = cached.heuristic_candidates_[best_idx];
-    cached.best_algo_index_ = best_idx;
-    cached.heuristic_candidates_.clear();
 }
 
 void LinearLayer::forward_fp16_bf16(
@@ -522,117 +485,30 @@ void LinearLayer::forward_fp16_bf16(
     check<InvalidRequestError>(output_dtype == DType::Float16 || output_dtype == DType::BFloat16 || output_dtype == DType::Float32,
                               "LinearLayer: output dtype must be Float16, BFloat16, or Float32");
     
-    // Get data pointers
-    const void* input_ptr = input.data_ptr();
-    const void* weight_ptr = weight_set.weight_->data_ptr();
-    void* output_ptr = output.data_ptr();
     const void* bias_ptr = weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr;
     
     int m = static_cast<int>(batch_size);
-    const float alpha = 1.0f;
-    const float beta = 0.0f;
     
-    // Determine cuBLASLt data types (lm_head 需 Float32 输出供 sampler)
-    cudaDataType_t input_type = (input_dtype == DType::Float16) ? CUDA_R_16F : CUDA_R_16BF;
-    cudaDataType_t weight_type = (weight_dtype == DType::Float16) ? CUDA_R_16F : CUDA_R_16BF;
-    cudaDataType_t output_type = (output_dtype == DType::Float32) ? CUDA_R_32F :
-                                 (output_dtype == DType::Float16) ? CUDA_R_16F : CUDA_R_16BF;
-    
-    // Lazy-init cuBLASLt descriptors: matmul_desc, layouts (A/B/C/D), and heuristic algo
-    // are created on first call and cached per (layer, stage, m).
-    // Prefill: map m -> CachedDescriptors (different slot sizes get separate tuning).
-    // Decode: single CachedDescriptors (m=1, GEMV-optimized).
     CachedDescriptors& cached = (stage == ModelStage::Prefill)
         ? prefill_descriptors_map_[m]
         : decode_descriptors_;
-    
-    cublasLtMatmulDesc_t matmul_desc = nullptr;
-    cublasLtMatrixLayout_t Adesc = nullptr, Bdesc = nullptr, Cdesc = nullptr, Ddesc = nullptr;
-    
-    get_or_create_descriptors(
-        m, input_type, weight_type, output_type,
-        bias_ptr, cached,
-        matmul_desc, Adesc, Bdesc, Cdesc, Ddesc
-    );
 
-    // Benchmark top-K candidates and select best on first call for this (m, stage)
-    const std::string tuning_model_key = engine_config_.tuning_model_key();
-    if (cached.has_algo_ && cached.best_algo_index_ < 0 &&
-        cached.heuristic_candidates_.size() > 1) {
-        if (!tuning_model_key.empty()) {
-            auto persisted = TuningCache::instance().get_record(
-                tuning_model_key,
-                layer_prefix_,
-                stage,
-                m);
-            if (persisted.has_value() &&
-                persisted->backend == "cublasLt" &&
-                persisted->algo_index >= 0 &&
-                persisted->algo_index < static_cast<int32_t>(cached.heuristic_candidates_.size()))
-            {
-                cached.heuristic_ = cached.heuristic_candidates_[persisted->algo_index];
-                cached.best_algo_index_ = persisted->algo_index;
-                cached.heuristic_candidates_.clear();
-            }
-        }
-        if (cached.best_algo_index_ < 0 && TuningCache::instance().is_session_active_for(tuning_model_key)) {
-            select_best_algo_benchmark(
-                input_ptr, weight_ptr, output_ptr, bias_ptr,
-                matmul_desc, Adesc, Bdesc, Cdesc, Ddesc,
-                stream, cached);
-            if (cached.best_algo_index_ >= 0) {
-                TuningRecord record;
-                record.op_name = layer_prefix_;
-                record.backend = "cublasLt";
-                record.stage = stage;
-                record.m = m;
-                record.algo_index = cached.best_algo_index_;
-                TuningCache::instance().set_record(tuning_model_key, record);
-            }
-        }
-        if (cached.best_algo_index_ < 0 && !cached.heuristic_candidates_.empty()) {
-            cached.heuristic_ = cached.heuristic_candidates_.front();
-            cached.best_algo_index_ = 0;
-            cached.heuristic_candidates_.clear();
-        }
-    } else if (cached.best_algo_index_ < 0 && cached.has_algo_ &&
-               cached.heuristic_candidates_.size() == 1) {
-        cached.best_algo_index_ = 0;
-        cached.heuristic_ = cached.heuristic_candidates_.front();
-        cached.heuristic_candidates_.clear();
-    }
+    LinearOpContext ctx;
+    ctx.layer_prefix = layer_prefix_;
+    ctx.layer_role = layer_role_;
+    ctx.stage = stage;
+    ctx.shape = LinearShapeSignature{
+        m,
+        input_dtype,
+        weight_dtype,
+        output_dtype,
+        in_features_,
+        out_features_,
+    };
+    ctx.has_bias = (bias_ptr != nullptr);
 
-    // Allocate workspace for the heuristic-selected algorithm
-    void* workspace_ptr = nullptr;
-    size_t workspace_bytes = 0;
-    if (cached.has_algo_) {
-        workspace_bytes = cached.heuristic_.workspaceSize;
-        if (workspace_bytes > 0) {
-            std::string ws_key = "linear_ws_" + layer_prefix_ + "_" +
-                (stage == ModelStage::Prefill ? "P_m" + std::to_string(m) : "D");
-            workspace_ptr = StaticBufferManager::get_cache_buf(ws_key, workspace_bytes, device_id_);
-        }
-    }
-
-    // Perform matmul: D = alpha * A @ B^T + beta * C
-    cublasStatus_t status = cublasLtMatmul(
-        cublaslt_handle_,
-        matmul_desc,
-        &alpha,
-        weight_ptr, Bdesc,
-        input_ptr, Adesc,
-        &beta,
-        output_ptr, Cdesc,
-        output_ptr, Ddesc,
-        cached.has_algo_ ? &cached.heuristic_.algo : nullptr,
-        workspace_ptr,
-        workspace_bytes,
-        stream
-    );
-    
-    check<DeviceError>(status == CUBLAS_STATUS_SUCCESS,
-                      "LinearLayer: cuBLASLt matmul failed with status " + 
-                      std::to_string(static_cast<int>(status)));
+    LinearImpl* impl = resolve_impl(ctx, weight_set, cached);
+    impl->forward(*this, ctx, weight_set, input, output, stream, cached);
 }
 
 void LinearLayer::forward_int4_groupwise(

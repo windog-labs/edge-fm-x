@@ -21,11 +21,6 @@ from pathlib import Path
 import pytest
 import numpy as np
 
-pytest.skip(
-    "Legacy Qwen2.5 engine path has been removed; use EdgeFM.from_model(...) coverage instead.",
-    allow_module_level=True,
-)
-
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
@@ -235,6 +230,7 @@ def _create_engine_config(
     num_steps: int,
     use_cuda_graph: bool = False,
     prefix_token_ids: list | None = None,
+    model_name: str = "Qwen2.5",
 ) -> str:
     config = _load_model_config_for_engine(model_path)
     num_heads = config.get("num_attention_heads", 8)
@@ -243,14 +239,15 @@ def _create_engine_config(
     max_tokens = seq_len + num_steps + 2
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
-    runtime = {"device": "cuda", "device_id": DEVICE_ID}
+    runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda"}
     if use_cuda_graph:
         runtime["use_cuda_graph"] = True
     prefix = prefix_token_ids if prefix_token_ids is not None else []
     with open(engine_config_path, "w", encoding="utf-8") as f:
         json.dump({
-            "model_name": "Qwen2.5",
+            "model_name": model_name,
             "runtime": runtime,
+            "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
             "prefill_model_path": str(Path(model_path).resolve()),
             "kvcache": {
                 "dtype": "fp16",
@@ -362,7 +359,7 @@ def engine_and_dump_vl(dump_data_vl):
     model_path = dump_data_vl["model_path"]
     num_steps = manifest["num_decode_steps"]
     seq_len = int(dump_data_vl["token_ids"].size)
-    engine_config_path = _create_engine_config(model_path, seq_len, num_steps)
+    engine_config_path = _create_engine_config(model_path, seq_len, num_steps, model_name="Qwen2.5-VL")
     engine = edge_fm.EdgeFM(engine_config_path)
     return {
         **dump_data_vl,
@@ -646,6 +643,54 @@ BENCH_WARMUP_RUNS = 3
 BENCH_TIMED_RUNS = 5
 
 
+def _parse_bench_lengths(env_key: str) -> list[int] | None:
+    """Parse comma-separated positive integer list from env, e.g. '256,512,1024'."""
+    raw = os.environ.get(env_key, "").strip()
+    if not raw:
+        return None
+    vals = []
+    for part in raw.split(","):
+        s = part.strip()
+        if not s:
+            continue
+        n = int(s)
+        if n <= 0:
+            raise ValueError(f"{env_key} must contain positive integers, got {n}")
+        vals.append(n)
+    return vals or None
+
+
+def _build_prefill_token_ids(token_ids_list: list[int], prefill_len: int) -> list[int]:
+    """Resize token_ids to target prefill length by repeating the base sequence."""
+    if prefill_len <= 0:
+        raise ValueError(f"prefill_len must be > 0, got {prefill_len}")
+    if not token_ids_list:
+        raise ValueError("token_ids_list is empty")
+    if len(token_ids_list) >= prefill_len:
+        return token_ids_list[:prefill_len]
+    mul = (prefill_len + len(token_ids_list) - 1) // len(token_ids_list)
+    expanded = (token_ids_list * mul)[:prefill_len]
+    return expanded
+
+
+def _resolve_bench_cases(default_prefill: int, default_decode: int) -> list[tuple[int, int]]:
+    """Resolve benchmark cases from env.
+
+    - EDGE_FM_BENCH_PREFILL_LIST: comma-separated prefill lengths
+    - EDGE_FM_BENCH_DECODE_LIST: comma-separated decode lengths
+    If both lists are provided and have equal length, run zip pairs; otherwise run cross-product.
+    """
+    p_list = _parse_bench_lengths("EDGE_FM_BENCH_PREFILL_LIST")
+    d_list = _parse_bench_lengths("EDGE_FM_BENCH_DECODE_LIST")
+    if p_list is None:
+        p_list = [default_prefill]
+    if d_list is None:
+        d_list = [default_decode]
+    if len(p_list) == len(d_list):
+        return list(zip(p_list, d_list))
+    return [(p, d) for p in p_list for d in d_list]
+
+
 def _bench_transformers_llm(model_path: str, token_ids_list: list[int], num_steps: int,
                             warmup: int, runs: int) -> dict:
     """Benchmark Transformers KV-cached greedy decode for LLM."""
@@ -856,11 +901,24 @@ def _bench_trt_edgellm(
     ignore_stop_tokens: bool = False,
     prompt: str | None = None,
 ) -> dict:
-    """Benchmark TRT-Edge-LLM. Prefer in-process (edge_fm_trt) when available, else subprocess."""
+    """Benchmark TRT-Edge-LLM.
+
+    Fairness note:
+    - In-process mode (edge_fm_trt): apples-to-apples with token_ids / fixed decode steps.
+    - Subprocess mode (llm_inference): uses prompt JSON path and may not match token_ids prefill exactly.
+      For strict comparisons, disable subprocess fallback.
+    """
     # In-process: use edge_fm_trt with token_ids for same prefill as Edge-FM
     if edge_fm_trt is not None:
         return _bench_trt_edgellm_inprocess(
             engine_dir, inference_bin, token_ids_list, num_steps, prefill_len, warmup, runs, ignore_stop_tokens
+        )
+
+    allow_subprocess = os.environ.get("EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS", "0") == "1"
+    if not allow_subprocess:
+        raise RuntimeError(
+            "edge_fm_trt not available and subprocess TRT benchmark is disabled "
+            "(set EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS=1 to override, non-strict comparison)."
         )
 
     # Fallback: subprocess (不支持 ignore_stop_tokens，可能因 EOS 提前停止；使用 prompt)
@@ -1094,12 +1152,14 @@ def test_benchmark_llm(dump_data):
 
 def test_benchmark_trt_edgellm(dump_data):
     """LLM 性能基准：Transformers vs EdgeFM vs TRT-Edge-LLM（batch=1，同步计时）。"""
+    import torch
 
     model_path = dump_data["model_path"]
     token_ids = dump_data["token_ids"]
-    token_ids_list = token_ids.flatten().tolist()
-    num_steps = BENCH_NUM_STEPS
-    prefill_len = len(token_ids_list)
+    base_token_ids = token_ids.flatten().tolist()
+    default_prefill_len = len(base_token_ids)
+    default_decode_steps = BENCH_NUM_STEPS
+    bench_cases = _resolve_bench_cases(default_prefill_len, default_decode_steps)
     prompt = dump_data["manifest"].get("prompt", DEFAULT_PROMPT)
 
     engine_dir = Path(os.environ.get("TRT_EDGELLM_ENGINE_DIR", "")) or (
@@ -1118,34 +1178,52 @@ def test_benchmark_trt_edgellm(dump_data):
             f"llm_inference not found at {inference_bin}. "
             "Run: bash tests/scripts/setup_trt_edgellm_benchmark.sh"
         )
+    if edge_fm_trt is None and os.environ.get("EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS", "0") != "1":
+        pytest.skip(
+            "edge_fm_trt (in-process TRT runtime) not found. "
+            "For strict/fair benchmark, build with BUILD_TRT_EDGELLM_PYBIND=ON. "
+            "If you still want subprocess fallback, set EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS=1."
+        )
 
-    tf_result = _bench_transformers_llm(
-        model_path, token_ids_list, num_steps,
-        warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+    print("\n[benchmark] test_benchmark_trt_edgellm cases:")
+    for p, d in bench_cases:
+        print(f"  - prefill={p}, decode={d}")
 
-    engine_config_path = _create_engine_config(model_path, prefill_len, num_steps)
-    engine = edge_fm.EdgeFM(engine_config_path)
+    for prefill_len, num_steps in bench_cases:
+        token_ids_list = _build_prefill_token_ids(base_token_ids, prefill_len)
 
-    def make_request():
-        req = edge_fm.Request(0, token_ids_list)
-        req.set_ignore_stop_tokens(True)  # 公平对比：固定生成 num_steps 个 token，不因 EOS 提前停止
-        return req
+        tf_result = _bench_transformers_llm(
+            model_path, token_ids_list, num_steps,
+            warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
 
-    efm_result = _bench_edgefm(
-        engine, make_request, num_steps, prefill_len,
-        warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+        # Run TRT before EdgeFM to reduce peak memory overlap with EdgeFM runtime allocations.
+        trt_result = _bench_trt_edgellm(
+            engine_dir, inference_bin, token_ids_list, num_steps, prefill_len,
+            warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS,
+            ignore_stop_tokens=True,  # 公平对比：固定生成 num_steps 个 token
+            prompt=prompt,  # subprocess fallback 使用
+        )
 
-    trt_result = _bench_trt_edgellm(
-        engine_dir, inference_bin, token_ids_list, num_steps, prefill_len,
-        warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS,
-        ignore_stop_tokens=True,  # 公平对比：固定生成 num_steps 个 token
-        prompt=prompt,  # subprocess fallback 使用
-    )
+        torch.cuda.empty_cache()
 
-    _print_bench_comparison_3way(
-        "LLM: Transformers vs EdgeFM vs TRT-Edge-LLM",
-        tf_result, efm_result, trt_result,
-    )
+        engine_config_path = _create_engine_config(model_path, prefill_len, num_steps)
+        engine = edge_fm.EdgeFM(engine_config_path)
+
+        def make_request():
+            req = edge_fm.Request(0, token_ids_list)
+            req.set_ignore_stop_tokens(True)  # 公平对比：固定生成 num_steps 个 token，不因 EOS 提前停止
+            return req
+
+        efm_result = _bench_edgefm(
+            engine, make_request, num_steps, prefill_len,
+            warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+        del engine
+        torch.cuda.empty_cache()
+
+        _print_bench_comparison_3way(
+            f"LLM: Transformers vs EdgeFM vs TRT-Edge-LLM (prefill={prefill_len}, decode={num_steps})",
+            tf_result, efm_result, trt_result,
+        )
 
 
 def test_benchmark_vlm(dump_data_vl):

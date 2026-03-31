@@ -2,7 +2,6 @@
 
 #include "layer.h"
 #include <edge-fm/core.h>
-#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -18,7 +17,7 @@ enum class RoPEMode {
 class AttentionLayer : public Layer {
 public:
     explicit AttentionLayer(const EngineConfig& engine_config, std::string layer_name = "");
-    ~AttentionLayer() override = default;
+    ~AttentionLayer() override;
 
     void forward(
         const std::unordered_map<std::string, Tensor>& inputs,

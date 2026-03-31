@@ -2,6 +2,8 @@
 # 模块化构建
 # ============================================================================
 add_subdirectory(utils)
+add_subdirectory(operators)
+add_subdirectory(backends)
 add_subdirectory(layers)
 add_subdirectory(engine)
 add_subdirectory(models)
@@ -18,6 +20,8 @@ target_include_directories(edge_fm PUBLIC
 
 target_link_libraries(edge_fm PUBLIC
     edge_fm_utils
+    edge_fm_operators
+    edge_fm_backends
     edge_fm_layers
     edge_fm_engine
     edge_fm_models
@@ -67,6 +71,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dlpack/include/dlpa
 )
 
 # 安装默认配置文件
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../examples/config/engine_default.json
+install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../examples/config/engine_default.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/../examples/config/operator_impl_table.json
     DESTINATION config
 )

@@ -2,7 +2,11 @@
 #include "layers/sampler.h"
 #include "utils/device/cuda_utils.h"
 #include <edge-fm/core.h>
+#include <cuda_runtime.h>
+#include <algorithm>
+#include <cctype>
 #include <fstream>
+#include <sstream>
 
 namespace edge_fm {
 
@@ -28,6 +32,27 @@ namespace {
         }
         
         return json_data;
+    }
+
+    std::string load_text_file(const std::filesystem::path& file_path, const std::string& error_context = "") {
+        std::ifstream file(file_path);
+        if (!file.is_open()) {
+            std::string error_msg = "Cannot open " + (error_context.empty() ? "file" : error_context) + ": " + file_path.string();
+            throw ConfigurationError(error_msg);
+        }
+
+        std::ostringstream buffer;
+        buffer << file.rdbuf();
+        return buffer.str();
+    }
+
+    nlohmann::json load_model_top_config_from_path(const std::string& model_path) {
+        if (model_path.empty()) {
+            throw ConfigurationError("model_path is required in config");
+        }
+
+        std::filesystem::path config_path = std::filesystem::path(model_path) / "config.json";
+        return load_json_file(config_path, "config.json file");
     }
     
     void validate_model_path(const std::string& path, const std::string& path_name) {
@@ -65,9 +90,75 @@ namespace {
             return default_val;
         }
     }
+
+    std::string fnv1a_hex(const std::string& data) {
+        constexpr uint64_t kOffset = 14695981039346656037ull;
+        constexpr uint64_t kPrime = 1099511628211ull;
+        uint64_t hash = kOffset;
+        for (unsigned char c : data) {
+            hash ^= static_cast<uint64_t>(c);
+            hash *= kPrime;
+        }
+        std::ostringstream oss;
+        oss << std::hex << hash;
+        return oss.str();
+    }
+
+    std::string normalize_model_name(const std::string& raw_name) {
+        std::string normalized;
+        normalized.reserve(raw_name.size());
+        for (unsigned char ch : raw_name) {
+            if (std::isalnum(ch)) {
+                normalized.push_back(static_cast<char>(std::tolower(ch)));
+            } else if (ch == '.' || ch == '-' || ch == ' ' || ch == '/') {
+                normalized.push_back('_');
+            }
+        }
+
+        if (normalized == "qwen2_5" || normalized == "qwen25" || normalized == "qwen2") {
+            return "qwen2_5";
+        }
+        if (normalized == "qwen2_5_vl" || normalized == "qwen25_vl" || normalized == "qwen2_vl") {
+            return "qwen2_5_vl";
+        }
+        return normalized;
+    }
+
+    std::string normalize_hw_profile(const std::string& raw_profile) {
+        std::string normalized;
+        normalized.reserve(raw_profile.size());
+        for (unsigned char ch : raw_profile) {
+            if (std::isalnum(ch)) {
+                normalized.push_back(static_cast<char>(std::tolower(ch)));
+            } else if (ch == '.' || ch == '-' || ch == ' ' || ch == '/') {
+                normalized.push_back('_');
+            }
+        }
+        return normalized;
+    }
+
+    std::string current_hardware_fingerprint(int32_t device_id) {
+        cudaDeviceProp prop{};
+        if (cudaGetDeviceProperties(&prop, device_id) != cudaSuccess) {
+            return "unknown-device-" + std::to_string(device_id);
+        }
+
+        std::ostringstream oss;
+        oss << prop.name << "|cc=" << prop.major << "." << prop.minor;
+        return oss.str();
+    }
+
+    std::string current_backend_fingerprint(const std::string& backend_target, int32_t device_id) {
+        if (backend_target == "cuda") {
+            return current_hardware_fingerprint(device_id);
+        }
+        return backend_target + "-toolchain";
+    }
 }
 
 EngineConfig::EngineConfig(const std::string& config_path) {
+    config_dir_ = std::filesystem::absolute(std::filesystem::path(config_path)).parent_path();
+
     // Load default configuration first
     std::filesystem::path default_config_path = find_default_config_file();
     nlohmann::json config = load_json_file(default_config_path, "default configuration file");
@@ -107,15 +198,7 @@ std::string EngineConfig::decode_model_path() const {
 }
 
 nlohmann::json EngineConfig::prefill_model_config() const {
-    std::string model_path = prefill_model_path();
-    if (model_path.empty()) {
-        throw ConfigurationError("prefill_model_path is required in config");
-    }
-    
-    std::filesystem::path config_path = model_path;
-    config_path /= "config.json";
-    
-    nlohmann::json config = load_json_file(config_path, "config.json file");
+    nlohmann::json config = load_model_top_config_from_path(prefill_model_path());
     // Qwen2.5-VL 等 VLM 的 config 中 LLM 参数在 text_config 下
     if (config.contains("text_config") && config["text_config"].is_object()) {
         return config["text_config"];
@@ -124,19 +207,22 @@ nlohmann::json EngineConfig::prefill_model_config() const {
 }
 
 nlohmann::json EngineConfig::decode_model_config() const {
-    std::string model_path = decode_model_path();
-    if (model_path.empty()) {
-        throw ConfigurationError("decode_model_path is required in config");
-    }
-    
-    std::filesystem::path config_path = model_path;
-    config_path /= "config.json";
-    
-    nlohmann::json config = load_json_file(config_path, "config.json file");
+    nlohmann::json config = load_model_top_config_from_path(decode_model_path());
     if (config.contains("text_config") && config["text_config"].is_object()) {
         return config["text_config"];
     }
     return config;
+}
+
+std::string EngineConfig::resolved_model_name() const {
+    const std::string normalized = normalize_model_name(model_name());
+    if (normalized == "qwen2_5" || normalized == "qwen2_5_vl") {
+        return normalized;
+    }
+
+    throw ConfigurationError(
+        "Unsupported or missing model_name in engine config. "
+        "Supported values include: Qwen2.5, qwen2_5, Qwen2.5-VL, qwen2_5_vl");
 }
 
 nlohmann::json EngineConfig::runtime() const { return get_object_or_empty(config_, "runtime"); }
@@ -144,6 +230,18 @@ nlohmann::json EngineConfig::speculative() const { return get_object_or_empty(co
 nlohmann::json EngineConfig::kvcache() const { return get_object_or_empty(config_, "kvcache"); }
 nlohmann::json EngineConfig::sampling() const { return get_object_or_empty(config_, "sampling"); }
 nlohmann::json EngineConfig::metrics() const { return get_object_or_empty(config_, "metrics"); }
+std::string EngineConfig::operator_impl_table_path() const {
+    const std::string raw_path = config_.value("operator_impl_table_path", std::string(""));
+    if (raw_path.empty()) {
+        return raw_path;
+    }
+
+    const std::filesystem::path path(raw_path);
+    if (path.is_absolute()) {
+        return path.string();
+    }
+    return (config_dir_ / path).lexically_normal().string();
+}
 std::string EngineConfig::backend_target() const {
     if (config_.contains("_edgefm_internal") && config_["_edgefm_internal"].is_object()) {
         const std::string internal = safe_value(config_["_edgefm_internal"], "backend_target", std::string(""));
@@ -164,35 +262,30 @@ std::string EngineConfig::backend_target() const {
     }
     return runtime_device_str;
 }
-bool EngineConfig::has_model_description() const {
-    return config_.contains("_edgefm_internal") &&
-           config_["_edgefm_internal"].is_object() &&
-           config_["_edgefm_internal"].contains("model_description") &&
-           config_["_edgefm_internal"]["model_description"].is_object();
+std::string EngineConfig::runtime_hw_profile() const {
+    return safe_value(runtime(), "hw_profile", std::string(""));
 }
-nlohmann::json EngineConfig::model_description() const {
-    if (!has_model_description()) {
-        return nlohmann::json::object();
+std::string EngineConfig::resolved_hw_profile() const {
+    const std::string explicit_profile = normalize_hw_profile(runtime_hw_profile());
+    if (!explicit_profile.empty()) {
+        return explicit_profile;
     }
-    return config_["_edgefm_internal"]["model_description"];
-}
-std::string EngineConfig::model_description_hash() const {
-    if (!config_.contains("_edgefm_internal") || !config_["_edgefm_internal"].is_object()) {
-        return "";
+
+    const std::string backend = backend_target();
+    if (backend == "cuda") {
+        cudaDeviceProp prop{};
+        if (cudaGetDeviceProperties(&prop, runtime_device_id()) == cudaSuccess) {
+            return "cuda_sm" + std::to_string(prop.major) + std::to_string(prop.minor);
+        }
+        return "cuda";
     }
-    return safe_value(config_["_edgefm_internal"], "model_description_hash", std::string(""));
-}
-bool EngineConfig::has_execution_plan() const {
-    return config_.contains("_edgefm_internal") &&
-           config_["_edgefm_internal"].is_object() &&
-           config_["_edgefm_internal"].contains("execution_plan") &&
-           config_["_edgefm_internal"]["execution_plan"].is_object();
-}
-nlohmann::json EngineConfig::execution_plan() const {
-    if (!has_execution_plan()) {
-        return nlohmann::json::object();
+    if (backend == "horizon") {
+        return "horizon";
     }
-    return config_["_edgefm_internal"]["execution_plan"];
+    if (backend == "cpu") {
+        return "cpu";
+    }
+    return normalize_hw_profile(backend);
 }
 bool EngineConfig::has_backend_artifact() const {
     return config_.contains("_edgefm_internal") &&
@@ -207,18 +300,47 @@ nlohmann::json EngineConfig::backend_artifact() const {
     return config_["_edgefm_internal"]["backend_artifact"];
 }
 std::string EngineConfig::backend_cache_key() const {
+    const std::string operator_impl_table_material = operator_impl_table_path().empty()
+        ? std::string("builtin-operator-impl-table-v1")
+        : load_text_file(operator_impl_table_path(), "operator_impl_table file");
     if (!config_.contains("_edgefm_internal") || !config_["_edgefm_internal"].is_object()) {
-        return "";
+        nlohmann::json normalized_engine_config = config_;
+        normalized_engine_config.erase("_edgefm_internal");
+        normalized_engine_config["model_name"] = resolved_model_name();
+        normalized_engine_config["operator_impl_table_path"] = operator_impl_table_path();
+        normalized_engine_config["runtime"]["hw_profile"] = resolved_hw_profile();
+        const std::string backend = backend_target();
+        const std::string hardware = current_backend_fingerprint(backend, runtime_device_id());
+        return fnv1a_hex(
+            backend + "|" +
+            resolved_model_name() + "|" +
+            resolved_hw_profile() + "|" +
+            normalized_engine_config.dump() + "|" +
+            prefill_model_config().dump() + "|" +
+            operator_impl_table_material + "|" +
+            hardware);
     }
     const auto& internal = config_["_edgefm_internal"];
     const std::string key = safe_value(internal, "backend_cache_key", std::string(""));
     if (!key.empty()) {
         return key;
     }
-    return safe_value(internal, "tuning_model_key", std::string(""));
-}
-std::string EngineConfig::tuning_model_key() const {
-    return backend_cache_key();
+
+    nlohmann::json normalized_engine_config = config_;
+    normalized_engine_config.erase("_edgefm_internal");
+    normalized_engine_config["model_name"] = resolved_model_name();
+    normalized_engine_config["operator_impl_table_path"] = operator_impl_table_path();
+    normalized_engine_config["runtime"]["hw_profile"] = resolved_hw_profile();
+    const std::string backend = backend_target();
+    const std::string hardware = current_backend_fingerprint(backend, runtime_device_id());
+    return fnv1a_hex(
+        backend + "|" +
+        resolved_model_name() + "|" +
+        resolved_hw_profile() + "|" +
+        normalized_engine_config.dump() + "|" +
+        prefill_model_config().dump() + "|" +
+        operator_impl_table_material + "|" +
+        hardware);
 }
 
 std::string EngineConfig::runtime_device() const { return safe_value(runtime(), "device", std::string("cuda")); }

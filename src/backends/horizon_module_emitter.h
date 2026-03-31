@@ -18,10 +18,11 @@ struct HorizonModuleExport {
 };
 
 HorizonModuleExport emit_horizon_module(
-    const nlohmann::json& model_description,
+    const std::string& model_name,
     const nlohmann::json& model_config,
     const std::string& prefill_model_path,
     const std::string& decode_model_path,
+    const nlohmann::json& graph_tuning,
     const std::filesystem::path& output_dir);
 
 } // namespace edge_fm

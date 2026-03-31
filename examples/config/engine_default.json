@@ -5,9 +5,11 @@
     "num_threads": 0,
     "use_cuda_graph": false,
     "device": "cuda",
-    "device_id": 0
+    "device_id": 0,
+    "hw_profile": ""
   },
 
+  "operator_impl_table_path": "",
   "prefill_model_path": "",
   "decode_model_path": null,
 
@@ -45,4 +47,3 @@
     "log_path": null
   }
 }
-

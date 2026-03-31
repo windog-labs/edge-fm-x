@@ -680,20 +680,8 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
     std::string prefill_path = config.prefill_model_path();
     int32_t device_id = config.runtime_device_id();
 
-    // 检测是否为 VLM（Qwen2.5-VL 等）：config.json 含 text_config 且权重为 model.model.*
-    bool is_vlm = false;
-    std::filesystem::path model_config_path = std::filesystem::path(prefill_path) / "config.json";
-    if (std::filesystem::exists(model_config_path)) {
-        std::ifstream f(model_config_path);
-        if (f) {
-            try {
-                nlohmann::json raw_config = nlohmann::json::parse(f);
-                if (raw_config.contains("text_config") && raw_config["text_config"].is_object()) {
-                    is_vlm = true;
-                }
-            } catch (...) { /* 忽略解析错误 */ }
-        }
-    }
+    // 模型族由 engine.json 中显式的 model_name 决定；装权重时不再从模型文件推断 text / vl。
+    const bool is_vlm = (config.resolved_model_name() == "qwen2_5_vl");
 
     std::vector<std::string> prefill_files = collect_safetensors_files(prefill_path);
     if (prefill_files.empty()) {

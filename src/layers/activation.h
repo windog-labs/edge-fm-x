@@ -1,7 +1,6 @@
 #pragma once
 #include "layer.h"
 #include <edge-fm/core.h>
-#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -13,7 +12,7 @@ namespace edge_fm {
 class ActivationLayer : public Layer {
 public:
     explicit ActivationLayer(const EngineConfig& engine_config, std::string layer_name = "");
-    ~ActivationLayer() override = default;
+    ~ActivationLayer() override;
 
     void load_weights(
         [[maybe_unused]] const std::unordered_map<std::string, Tensor>& prefill_weights,
@@ -36,18 +35,8 @@ public:
     );
 
 private:
-    template <typename T, float (*Activation)(const float&)>
-    void launch_activation(
-        void* output,
-        const void* input,
-        int64_t batch_size,
-        int64_t hidden_size,
-        cudaStream_t stream
-    );
-
     uint32_t hidden_size_;
     std::string activation_type_;
 };
 
 } // namespace edge_fm
-

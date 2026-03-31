@@ -1,8 +1,9 @@
 #include "engine/horizon_engine.h"
 
-#include "utils/backend_artifact_cache.h"
+#include "backends/backend_artifact_cache.h"
+#include "backends/horizon_module_emitter.h"
+#include "operators/operator_impl_table.h"
 #include "utils/check.h"
-#include "utils/horizon_module_emitter.h"
 
 #include <fstream>
 
@@ -22,9 +23,51 @@ BackendArtifact build_horizon_artifact(const EngineConfig& config) {
     artifact.metadata = {
         {"status", "external_compile_required"},
         {"backend_target", config.backend_target()},
-        {"model_description_hash", config.model_description_hash()},
+        {"model_name", config.resolved_model_name()},
+        {"resolved_hw_profile", config.resolved_hw_profile()},
     };
     return artifact;
+}
+
+bool config_uses_mrope(const EngineConfig& config) {
+    const nlohmann::json model_config = config.prefill_model_config();
+    return model_config.contains("rope_scaling") &&
+        model_config["rope_scaling"].is_object() &&
+        model_config["rope_scaling"].value(
+            "type",
+            model_config["rope_scaling"].value("rope_type", std::string(""))) == "mrope";
+}
+
+nlohmann::json linear_operator_table_for_model(const EngineConfig& config) {
+    nlohmann::json records = nlohmann::json::array();
+    for (const auto& record : OperatorImplTable::instance().records_for_model(
+             config.resolved_model_name(),
+             config.resolved_hw_profile(),
+             config.operator_impl_table_path(),
+             "linear"))
+    {
+        records.push_back(record.to_json());
+    }
+    return records;
+}
+
+nlohmann::json build_graph_tuning(const EngineConfig& config) {
+    return nlohmann::json{
+        {"attention_type", config.kvcache_attention_type()},
+        {"kv_cache", {
+            {"dtype", config.kvcache_dtype()},
+            {"layout", config.kvcache_attention_type()},
+        }},
+        {"uses_mrope", config_uses_mrope(config)},
+        {"uses_embedding_injection", config.resolved_model_name() == "qwen2_5_vl"},
+        {"linear_operator_table", linear_operator_table_for_model(config)},
+        {"target_hw_constraints", {
+            {"backend_target", config.backend_target()},
+            {"runtime_device", config.runtime_device()},
+            {"runtime_device_id", config.runtime_device_id()},
+            {"resolved_hw_profile", config.resolved_hw_profile()},
+        }},
+    };
 }
 
 } // namespace
@@ -41,33 +84,40 @@ void HorizonEngine::tune() {
     check<ConfigurationError>(
         config_.backend_target() == "horizon",
         "HorizonEngine requires backend_target=horizon");
+    const std::string resolved_model_name = config_.resolved_model_name();
     check<ConfigurationError>(
-        config_.has_model_description(),
-        "HorizonEngine requires _edgefm_internal.model_description");
+        resolved_model_name == "qwen2_5" || resolved_model_name == "qwen2_5_vl",
+        "HorizonEngine currently supports qwen2_5 / qwen2_5_vl");
 
     const std::string model_key = config_.backend_cache_key();
     check<ConfigurationError>(
         !model_key.empty(),
-        "HorizonEngine requires _edgefm_internal.backend_cache_key");
+        "HorizonEngine failed to resolve backend_cache_key");
 
     BackendArtifact artifact = build_horizon_artifact(config_);
     std::filesystem::create_directories(std::filesystem::path(artifact.manifest_path).parent_path());
+    const nlohmann::json graph_tuning = build_graph_tuning(config_);
     HorizonModuleExport module_export = emit_horizon_module(
-        config_.model_description(),
+        resolved_model_name,
         config_.prefill_model_config(),
         config_.prefill_model_path(),
         config_.decode_model_path(),
+        graph_tuning,
         std::filesystem::path(artifact.manifest_path).parent_path());
     artifact.metadata["generated_module"] = module_export.to_json();
 
     nlohmann::json compile_spec = {
-        {"schema", "edgefm_horizon_compile_spec_v1"},
+        {"schema", "edgefm_horizon_compile_spec_v2"},
         {"backend", "horizon"},
-        {"model_description", config_.model_description()},
+        {"model_name", resolved_model_name},
+        {"model_variant", resolved_model_name},
         {"model_config", config_.prefill_model_config()},
+        {"graph_tuning", graph_tuning},
         {"generated_module", module_export.to_json()},
         {"helper_script", "scripts/compile_horizon_from_spec.py"},
         {"engine_config", {
+            {"model_name", config_.model_name()},
+            {"operator_impl_table_path", config_.operator_impl_table_path()},
             {"runtime", config_.runtime()},
             {"kvcache", config_.kvcache()},
             {"sampling", config_.sampling()},

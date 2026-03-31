@@ -1,7 +1,6 @@
 #pragma once
 #include "layer.h"
 #include <edge-fm/core.h>
-#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -17,7 +16,7 @@ enum class NormWeightType {
 class RMSNormLayer : public Layer {
 public:
     explicit RMSNormLayer(uint32_t layer_id, NormWeightType weight_type, const EngineConfig& engine_config, std::string layer_name = "");
-    ~RMSNormLayer() override = default;
+    ~RMSNormLayer() override;
 
     void load_weights(
         const std::unordered_map<std::string, Tensor>& prefill_weights,
