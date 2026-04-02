@@ -177,6 +177,7 @@ void EmbedHeadLayer::load_weights(
     const std::unordered_map<std::string, Tensor>& prefill_weights,
     [[maybe_unused]] const std::unordered_map<std::string, Tensor>& decode_weights)
 {
+    embedding_table_ = nullptr;
     // Embedding 通常 prefill 和 decode 共享，只从 prefill_weights 加载
     std::vector<std::string> possible_weights_ = {"model.embed_tokens.weight"};
     for (const auto& weight_name : possible_weights_) { 

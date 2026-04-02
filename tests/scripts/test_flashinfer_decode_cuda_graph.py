@@ -131,9 +131,15 @@ def test_cuda_graph_different_kv_len():
 def _try_import_edge_fm():
     """Try to import edge_fm; return None on failure."""
     try:
-        build_python = project_root / "build" / "install" / "python"
-        if str(build_python) not in sys.path:
+        install_python = project_root / "build" / "install" / "python"
+        build_python = project_root / "build" / "python"
+        for p in [str(install_python), str(build_python)]:
+            while p in sys.path:
+                sys.path.remove(p)
+        if build_python.exists():
             sys.path.insert(0, str(build_python))
+        if install_python.exists():
+            sys.path.insert(0, str(install_python))
         import edge_fm
         return edge_fm
     except Exception as e:
@@ -141,10 +147,16 @@ def _try_import_edge_fm():
         return None
 
 
-def _create_attention_layer(edge_fm, num_qo_heads, num_kv_heads, head_dim):
+def _create_attention_layer(edge_fm, num_qo_heads, num_kv_heads, head_dim, dtype=torch.float16):
     """Create an edge_fm AttentionLayer with minimal config."""
     import json, tempfile, os
     hidden_size = num_qo_heads * head_dim
+    torch_dtype = {
+        torch.float16: "float16",
+        torch.bfloat16: "bfloat16",
+    }.get(dtype)
+    if torch_dtype is None:
+        raise ValueError(f"Unsupported test dtype: {dtype}")
     model_dir = tempfile.mkdtemp()
     with open(os.path.join(model_dir, "config.json"), "w") as f:
         json.dump({
@@ -152,6 +164,7 @@ def _create_attention_layer(edge_fm, num_qo_heads, num_kv_heads, head_dim):
             "num_key_value_heads": num_kv_heads,
             "hidden_size": hidden_size,
             "rope_theta": 1000000.0,
+            "torch_dtype": torch_dtype,
         }, f)
     engine_dir = tempfile.mkdtemp()
     engine_path = os.path.join(engine_dir, "engine_config.json")
@@ -193,7 +206,7 @@ def test_capture_once_replay_many():
     max_kv_len = 200
     dtype = torch.bfloat16
 
-    layer = _create_attention_layer(edge_fm, num_qo_heads, num_kv_heads, head_dim)
+    layer = _create_attention_layer(edge_fm, num_qo_heads, num_kv_heads, head_dim, dtype=dtype)
 
     # Pre-allocate KV buffers at max_kv_len; views into [:kv_len] for actual use
     k_full = torch.randn(max_kv_len, num_kv_heads, head_dim, device=DEVICE, dtype=dtype)

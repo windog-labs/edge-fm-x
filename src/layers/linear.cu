@@ -83,7 +83,6 @@ LinearLayer::LinearLayer(const std::string& layer_prefix,
                           std::to_string(static_cast<int>(status)));
     }
 
-    register_default_impls();
 }
 
 LinearLayer::~LinearLayer()

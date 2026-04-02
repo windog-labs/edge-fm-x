@@ -12,6 +12,7 @@
 
 namespace edge_fm {
 
+class LinearOpRegistry;
 class LinearCublasLtImpl;
 class LinearCutlassImpl;
 class LinearCutileImpl;
@@ -54,6 +55,7 @@ public:
     );
 
 protected:
+    friend class LinearOpRegistry;
     friend class LinearCublasLtImpl;
     friend class LinearCutlassImpl;
     friend class LinearCutileImpl;
@@ -168,7 +170,6 @@ protected:
     // Helper function to cleanup cached descriptors
     void cleanup_cached_descriptors(CachedDescriptors& cached);
 
-    void register_default_impls();
     LinearImpl* find_impl_by_id(const std::string& impl_id) const;
     LinearImpl* resolve_impl(
         const LinearOpContext& ctx,
@@ -189,7 +190,6 @@ protected:
     // Cached descriptors: prefill per-m (different slot sizes), decode m=1 only
     std::unordered_map<int, CachedDescriptors> prefill_descriptors_map_;
     CachedDescriptors decode_descriptors_;
-    std::vector<std::unique_ptr<LinearImpl>> impls_;
 };
 
 /**

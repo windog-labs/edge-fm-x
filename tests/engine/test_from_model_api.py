@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 project_root = Path(__file__).resolve().parent.parent.parent
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
+for _p in [project_root / "build" / "install" / "python", project_root / "build" / "python"]:
     if _p.exists():
         sys.path.insert(0, str(_p))
         break
@@ -51,6 +51,8 @@ def _create_engine_config(
     include_model_name: bool = True,
 ) -> str:
     config = _load_model_config(model_path)
+    torch_dtype = str(config.get("torch_dtype", "float16")).lower()
+    kvcache_dtype = "bf16" if ("bfloat" in torch_dtype or "bf16" in torch_dtype) else "fp16"
     num_heads = config.get("num_attention_heads", 8)
     num_kv_heads = config.get("num_key_value_heads", num_heads)
     attention_type = "gqa" if num_kv_heads < num_heads else "mha"
@@ -61,12 +63,12 @@ def _create_engine_config(
         "runtime": {
             "device": runtime_device,
             "device_id": int(os.environ.get("EDGE_FM_DEVICE_ID", "0")),
-            "hw_profile": runtime_device,
+            "hw_profile": "cuda_sm80" if runtime_device == "cuda" else runtime_device,
         },
         "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
         "prefill_model_path": str(Path(model_path).resolve()),
         "kvcache": {
-            "dtype": "fp16",
+            "dtype": kvcache_dtype,
             "attention_type": attention_type,
             "requests": [{"request_id": 0, "prefix_token_ids": [], "max_tokens": max_tokens}],
         },

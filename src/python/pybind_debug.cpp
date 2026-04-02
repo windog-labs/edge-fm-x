@@ -438,30 +438,40 @@ PYBIND11_MODULE(edge_fm, m) {
                                   const Tensor& k,
                                   const Tensor& v,
                                   Tensor& o,
-                                  uintptr_t stream_ptr = 0) {
+                                  uintptr_t stream_ptr = 0,
+                                  uint32_t max_kv_len = 0) {
                 cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
-                self.forward_decode(q, k, v, o, stream);
+                self.forward_decode(q, k, v, o, stream, nullptr, max_kv_len);
             },
             py::arg("q"),
             py::arg("k"),
             py::arg("v"),
             py::arg("o"),
             py::arg("stream") = 0,
-            "执行 Decode 模式的前向传播\n\n"
-            "参数:\n"
-            "    q: 查询张量，形状 [1, num_qo_heads, head_dim]\n"
-            "    k: 键张量（来自 KV cache），形状 [kv_len, num_kv_heads, head_dim]\n"
-            "    v: 值张量（来自 KV cache），形状 [kv_len, num_kv_heads, head_dim]\n"
-            "    o: 输出张量，形状 [1, num_qo_heads, head_dim]（用于存储输出）\n"
-            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n\n"
-            "注意:\n"
-            "    - 函数本身是异步的，kernel 启动后立即返回\n"
-            "    - 如果需要在函数返回后立即使用结果，需要手动调用 stream.synchronize() 或 cudaDeviceSynchronize()\n\n"
-            "示例:\n"
-            "    # 使用默认 stream\n"
-            "    layer.forward_decode(q, k, v, o)\n\n"
-            "    # 使用自定义 stream\n"
-            "    layer.forward_decode(q, k, v, o, stream)");
+            py::arg("max_kv_len") = 0,
+            R"doc(执行 Decode 模式的前向传播
+
+参数:
+    q: 查询张量，形状 [1, num_qo_heads, head_dim]
+    k: 键张量（来自 KV cache），形状 [kv_len 或 max_kv_len, num_kv_heads, head_dim]
+    v: 值张量（来自 KV cache），形状 [kv_len 或 max_kv_len, num_kv_heads, head_dim]
+    o: 输出张量，形状 [1, num_qo_heads, head_dim]（用于存储输出）
+    stream: CUDA stream 指针地址（整数），0 表示默认 stream
+    max_kv_len: 可选的最大 KV 长度，用于 decode/cuda graph 场景（默认: 0）
+
+注意:
+    - 函数本身是异步的，kernel 启动后立即返回
+    - 如果需要在函数返回后立即使用结果，需要手动调用 stream.synchronize() 或 cudaDeviceSynchronize()
+
+示例:
+    # 使用默认 stream
+    layer.forward_decode(q, k, v, o)
+
+    # 使用自定义 stream
+    layer.forward_decode(q, k, v, o, stream)
+
+    # 使用 decode/cuda graph 的 max_kv_len
+    layer.forward_decode(q, k, v, o, stream, max_kv_len))doc");
 
     // ============================================================================
     // RMSNormLayer 类绑定
@@ -1152,6 +1162,14 @@ PYBIND11_MODULE(edge_fm, m) {
             "示例:\n"
             "    loader = edge_fm.WeightLoader.instance()\n"
             "    weights = loader.get(edge_fm.ModelStage.Prefill)")
+        .def("clear_stage", &WeightLoader::clear_stage,
+            py::arg("cache_key"),
+            "清空指定 stage 的权重缓存\n\n"
+            "参数:\n"
+            "    cache_key: 缓存键（ModelStage 类型）\n\n"
+            "示例:\n"
+            "    loader = edge_fm.WeightLoader.instance()\n"
+            "    loader.clear_stage(edge_fm.ModelStage.Prefill)")
         .def("load_weights_from_file", &WeightLoader::load_weights_from_file,
             py::arg("cache_key"),
             py::arg("safetensors_file"),

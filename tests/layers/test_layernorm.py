@@ -41,13 +41,20 @@ def create_rmsnorm_layer(layer_id, model_path):
         model_path: 模型路径（可选），如果提供则使用该路径，否则使用默认路径
                     默认路径为 examples/qwen2.5-0.5b-instruct/qwen2.5-0.5b-instruct
     """
+    loader = edge_fm.WeightLoader.instance()
+    loader.clear_stage(edge_fm.ModelStage.Prefill)
+    loader.clear_stage(edge_fm.ModelStage.Decode)
+
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
     engine_config = {
+        "model_name": "Qwen2.5",
         "runtime": {
             "device": "cuda",
-            "device_id": 0
+            "device_id": 0,
+            "hw_profile": "cuda_sm80"
         },
+        "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
         "prefill_model_path": str(model_path)
     }
     with open(engine_config_path, "w") as f:

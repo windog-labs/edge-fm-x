@@ -225,7 +225,7 @@ void Qwen2_5::forward_prefill(
         layer_outputs.emplace(prefix + "q_proj_output", Tensor::view(q_buf, {seq_len, q_dim}, dtype_, Device::GPU, device_id));
         layer_outputs.emplace(prefix + "k_proj_output", Tensor::view(k_buf, {seq_len, k_dim}, dtype_, Device::GPU, device_id));
         layer_outputs.emplace(prefix + "v_proj_output", Tensor::view(v_buf, {seq_len, k_dim}, dtype_, Device::GPU, device_id));
-        layer_outputs.emplace(prefix + "attention_output", Tensor::view(attn_buf, {seq_len, hidden_size_}, dtype_, Device::GPU, device_id));
+        layer_outputs.emplace(prefix + "attention_output", Tensor::view(attn_buf, {seq_len, num_attention_heads_, head_dim_}, dtype_, Device::GPU, device_id));
         layer_outputs.emplace(prefix + "post_attn_norm_output", Tensor::view(post_norm_buf, {seq_len, hidden_size_}, dtype_, Device::GPU, device_id));
         layer_outputs.emplace(prefix + "mlp_activation_input", Tensor::view(gate_up_buf, {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id));
         layer_outputs.emplace(prefix + "mlp_intermediate", Tensor::view(mlp_inter_buf, {seq_len, intermediate_size_}, dtype_, Device::GPU, device_id));
@@ -311,7 +311,7 @@ void Qwen2_5::forward_prefill(
         attn_inputs.emplace("k", std::move(k_view));
         attn_inputs.emplace("v", std::move(v_view));
         std::unordered_map<std::string, Tensor> attn_outputs;
-        attn_outputs.emplace("o", Tensor::view(attn_output.data_ptr(), attn_output.shape(),
+        attn_outputs.emplace("o", Tensor::view(attn_output.data_ptr(), {seq_len, num_attention_heads_, head_dim_},
             attn_output.dtype(), std::get<0>(attn_output.device()), std::get<1>(attn_output.device())));
         attentions_[layer_prefix + ".attn"]->forward(attn_inputs, attn_outputs, stream, ModelStage::Prefill);
 
@@ -454,32 +454,37 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_out, stream, stage);
         Tensor& k_write = tensors[ModelTensors::k_write_layer(layer_id)];
         Tensor& v_write = tensors[ModelTensors::v_write_layer(layer_id)];
+        void* k_rotated_src = static_cast<char*>(qkv_buf) + q_row_bytes;
+        void* v_src = static_cast<char*>(qkv_buf) + q_row_bytes + k_row_bytes;
         if (seq_len == 1) {
-            // Decode: single row, contiguous within each projection. Use simple memcpy.
-            CUDA_CHECK_THROW(cudaMemcpyAsync(k_write.data_ptr(),
-                static_cast<char*>(qkv_buf) + q_row_bytes,
-                k_row_bytes, cudaMemcpyDeviceToDevice, stream), "copy K to k_write");
+            // Decode: keep K in the static QKV buffer while applying M-RoPE, then
+            // memcpy the rotated K into the dynamic KV cache write location.
             CUDA_CHECK_THROW(cudaMemcpyAsync(v_write.data_ptr(),
-                static_cast<char*>(qkv_buf) + q_row_bytes + k_row_bytes,
+                v_src,
                 v_row_bytes, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
         } else {
             // Prefill: multi-row strided copy required
             CUDA_CHECK_THROW(cudaMemcpy2DAsync(q_buf, q_row_bytes, qkv_buf, qkv_row_bytes, q_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy Q from qkv");
             CUDA_CHECK_THROW(cudaMemcpy2DAsync(k_write.data_ptr(), k_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes, qkv_row_bytes, k_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy K to k_write");
-            CUDA_CHECK_THROW(cudaMemcpy2DAsync(v_write.data_ptr(), v_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes + k_row_bytes, qkv_row_bytes, v_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
+            CUDA_CHECK_THROW(cudaMemcpy2DAsync(v_write.data_ptr(), v_row_bytes, v_src, qkv_row_bytes, v_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
+            k_rotated_src = k_write.data_ptr();
         }
 
-        // M-RoPE: rotate Q (in q_buf) and K (in k_write) in-place before attention.
-        // K is already in k_write (contiguous [seq_len, num_kv_heads, head_dim]), so rotating
-        // in-place means the cache will contain rotated K values.
+        // M-RoPE: rotate Q in-place. For decode, rotate K in the static QKV buffer
+        // first, then copy the rotated K into the dynamic cache write location.
         if (use_mrope_ && tensors.count(ModelTensors::POSITION_IDS)) {
             const int32_t* pos_ids = static_cast<const int32_t*>(
                 tensors.at(ModelTensors::POSITION_IDS).data_ptr());
             const int32_t* cumsum = static_cast<const int32_t*>(mrope_section_cumsum_gpu_);
-            AttentionLayer::apply_mrope(q_buf, k_write.data_ptr(),
+            AttentionLayer::apply_mrope(q_buf, k_rotated_src,
                         pos_ids, cumsum,
                         seq_len, num_attention_heads_, num_kv_heads_, head_dim_,
                         rope_theta_, rope_scale_, dtype_, stream);
+        }
+        if (seq_len == 1) {
+            CUDA_CHECK_THROW(cudaMemcpyAsync(k_write.data_ptr(),
+                k_rotated_src,
+                k_row_bytes, cudaMemcpyDeviceToDevice, stream), "copy rotated K to k_write");
         }
 
         std::string attn_key = layer_prefix + ".attn";

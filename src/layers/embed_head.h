@@ -42,7 +42,7 @@ public:
 private:
     uint32_t vocab_size_;           ///< 词汇表大小
     uint32_t hidden_size_;          ///< 隐藏层大小
-    const Tensor* embedding_table_; ///< Embedding 权重表指针（指向全局缓存中的权重）
+    const Tensor* embedding_table_ = nullptr; ///< Embedding 权重表指针（指向全局缓存中的权重）
 };
 
 } // namespace edge_fm

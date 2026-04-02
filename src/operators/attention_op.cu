@@ -17,6 +17,8 @@
 #include <cuda_fp16.h>
 
 #include <cmath>
+#include <memory>
+#include <string>
 using namespace flashinfer;
 
 namespace edge_fm {
@@ -114,7 +116,113 @@ void forward_decode_impl(
     });
 }
 
+class FlashInferAttentionOp final : public AttentionOp {
+public:
+    std::string impl_id() const override { return "flashinfer_attention"; }
+
+    bool supports(const AttentionOpContext& ctx) const override {
+        return (ctx.dtype == DType::Float16 || ctx.dtype == DType::BFloat16) &&
+            ctx.num_qo_heads > 0 && ctx.num_kv_heads > 0 && ctx.head_dim > 0;
+    }
+
+    void forward_prefill(
+        const AttentionOpContext& ctx,
+        const Tensor& q,
+        const Tensor& k,
+        const Tensor& v,
+        Tensor& o,
+        bool causal,
+        cudaStream_t stream) override
+    {
+        if (ctx.dtype == DType::BFloat16) {
+            if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
+                forward_prefill_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kNone>(
+                    ctx, q, k, v, o, causal, stream);
+            } else {
+                forward_prefill_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, causal, stream);
+            }
+            return;
+        }
+
+        if (ctx.dtype == DType::Float16) {
+            if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
+                forward_prefill_impl<half, half, half, PosEncodingMode::kNone>(
+                    ctx, q, k, v, o, causal, stream);
+            } else {
+                forward_prefill_impl<half, half, half, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, causal, stream);
+            }
+            return;
+        }
+
+        throw ConfigurationError("attention operator only supports Float16 / BFloat16");
+    }
+
+    void forward_decode(
+        const AttentionOpContext& ctx,
+        const Tensor& q,
+        const Tensor& k,
+        const Tensor& v,
+        Tensor& o,
+        cudaStream_t stream,
+        uint32_t* d_kv_len,
+        uint32_t max_kv_len) override
+    {
+        if (ctx.dtype == DType::BFloat16) {
+            if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
+                forward_decode_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kNone>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+            } else {
+                forward_decode_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+            }
+            return;
+        }
+
+        if (ctx.dtype == DType::Float16) {
+            if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
+                forward_decode_impl<half, half, half, PosEncodingMode::kNone>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+            } else {
+                forward_decode_impl<half, half, half, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+            }
+            return;
+        }
+
+        throw ConfigurationError("attention operator only supports Float16 / BFloat16");
+    }
+};
+
 } // namespace
+
+AttentionOpRegistry::AttentionOpRegistry() {
+    impls_.emplace_back(std::make_unique<FlashInferAttentionOp>());
+}
+
+AttentionOpRegistry& AttentionOpRegistry::instance() {
+    static AttentionOpRegistry registry;
+    return registry;
+}
+
+AttentionOp* AttentionOpRegistry::find_impl_by_id(const std::string& impl_id) const {
+    for (const auto& impl : impls_) {
+        if (impl->impl_id() == impl_id) {
+            return impl.get();
+        }
+    }
+    return nullptr;
+}
+
+AttentionOp* AttentionOpRegistry::default_impl(const AttentionOpContext& ctx) const {
+    for (const auto& impl : impls_) {
+        if (impl->supports(ctx)) {
+            return impl.get();
+        }
+    }
+    return nullptr;
+}
 
 void attention_forward_prefill(
     const AttentionOpContext& ctx,
@@ -125,29 +233,9 @@ void attention_forward_prefill(
     bool causal,
     cudaStream_t stream)
 {
-    if (ctx.dtype == DType::BFloat16) {
-        if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
-            forward_prefill_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kNone>(
-                ctx, q, k, v, o, causal, stream);
-        } else {
-            forward_prefill_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
-                ctx, q, k, v, o, causal, stream);
-        }
-        return;
-    }
-
-    if (ctx.dtype == DType::Float16) {
-        if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
-            forward_prefill_impl<half, half, half, PosEncodingMode::kNone>(
-                ctx, q, k, v, o, causal, stream);
-        } else {
-            forward_prefill_impl<half, half, half, PosEncodingMode::kRoPELlama>(
-                ctx, q, k, v, o, causal, stream);
-        }
-        return;
-    }
-
-    throw ConfigurationError("attention operator only supports Float16 / BFloat16");
+    AttentionOp* impl = AttentionOpRegistry::instance().default_impl(ctx);
+    check<ConfigurationError>(impl != nullptr, "attention operator only supports Float16 / BFloat16");
+    impl->forward_prefill(ctx, q, k, v, o, causal, stream);
 }
 
 void attention_forward_decode(
@@ -160,29 +248,9 @@ void attention_forward_decode(
     uint32_t* d_kv_len,
     uint32_t max_kv_len)
 {
-    if (ctx.dtype == DType::BFloat16) {
-        if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
-            forward_decode_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kNone>(
-                ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
-        } else {
-            forward_decode_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
-                ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
-        }
-        return;
-    }
-
-    if (ctx.dtype == DType::Float16) {
-        if (ctx.pos_encoding == AttentionPosEncoding::kNone) {
-            forward_decode_impl<half, half, half, PosEncodingMode::kNone>(
-                ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
-        } else {
-            forward_decode_impl<half, half, half, PosEncodingMode::kRoPELlama>(
-                ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
-        }
-        return;
-    }
-
-    throw ConfigurationError("attention operator only supports Float16 / BFloat16");
+    AttentionOp* impl = AttentionOpRegistry::instance().default_impl(ctx);
+    check<ConfigurationError>(impl != nullptr, "attention operator only supports Float16 / BFloat16");
+    impl->forward_decode(ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
 }
 
 } // namespace edge_fm

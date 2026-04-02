@@ -1,6 +1,7 @@
 #include "layers/layernorm.h"
 
 #include "operators/norm_op.h"
+#include "operators/operator_impl_table.h"
 #include "utils/device/nvtx.h"
 
 #include <string>
@@ -36,6 +37,35 @@ void validate_tensor_dtype(const Tensor& tensor, DType dtype, const std::string&
     }
 }
 
+std::string infer_layer_role(NormWeightType weight_type) {
+    switch (weight_type) {
+        case NormWeightType::Input:
+            return "input_norm";
+        case NormWeightType::PostAttention:
+            return "post_attention_norm";
+        case NormWeightType::Final:
+            return "final_norm";
+        default:
+            return "norm";
+    }
+}
+
+size_t stage_slot(ModelStage stage) {
+    return stage == ModelStage::Decode ? 1U : 0U;
+}
+
+std::string stage_key(ModelStage stage) {
+    return stage == ModelStage::Decode ? "decode" : "prefill";
+}
+
+std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
+    try {
+        return engine_config.resolved_model_name();
+    } catch (const ConfigurationError&) {
+        return std::string();
+    }
+}
+
 } // namespace
 
 RMSNormLayer::RMSNormLayer(
@@ -48,7 +78,8 @@ RMSNormLayer::RMSNormLayer(
       weight_type_(weight_type),
       hidden_size_(0),
       eps_(1e-6f),
-      weight_(nullptr)
+      weight_(nullptr),
+      layer_role_(infer_layer_role(weight_type))
 {
     const nlohmann::json model_config = engine_config_.prefill_model_config();
     hidden_size_ = model_config.value("hidden_size", 4096U);
@@ -56,6 +87,62 @@ RMSNormLayer::RMSNormLayer(
 }
 
 RMSNormLayer::~RMSNormLayer() = default;
+
+NormOp* RMSNormLayer::resolve_impl(const RMSNormOpContext& ctx, ModelStage stage) {
+    const size_t slot = stage_slot(stage);
+    if (NormOp* impl = selected_impls_[slot]; impl != nullptr) {
+        return impl;
+    }
+
+    auto& selected_impl_id = selected_impl_ids_[slot];
+    if (!selected_impl_id.empty()) {
+        if (NormOp* impl = NormOpRegistry::instance().find_impl_by_id(selected_impl_id); impl != nullptr) {
+            selected_impls_[slot] = impl;
+            selected_rms_norm_fns_[slot] = impl->rms_norm_forward_fn();
+            selected_fused_add_rms_norm_fns_[slot] = impl->fused_add_rms_norm_forward_fn();
+            return impl;
+        }
+        selected_impl_id.clear();
+    }
+
+    OperatorQuery query;
+    query.op_kind = "norm";
+    query.layer_role = layer_role_;
+    query.op_name = "rms_norm";
+    query.stage = stage_key(stage);
+
+    auto resolved = OperatorImplTable::instance().resolve(
+        model_name_for_operator_resolution(engine_config_),
+        engine_config_.resolved_hw_profile(),
+        engine_config_.operator_impl_table_path(),
+        query);
+
+    if (resolved.has_value()) {
+        if (NormOp* impl = NormOpRegistry::instance().find_impl_by_id(resolved->impl_id); impl != nullptr) {
+            if (!impl->supports(ctx)) {
+                throw ConfigurationError(
+                    "RMSNormLayer: operator_impl_table selected unsupported impl '" + resolved->impl_id + "'");
+            }
+            selected_impl_id = impl->impl_id();
+            selected_impls_[slot] = impl;
+            selected_rms_norm_fns_[slot] = impl->rms_norm_forward_fn();
+            selected_fused_add_rms_norm_fns_[slot] = impl->fused_add_rms_norm_forward_fn();
+            return impl;
+        }
+        throw ConfigurationError(
+            "RMSNormLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
+    }
+
+    if (NormOp* impl = NormOpRegistry::instance().default_impl(ctx); impl != nullptr) {
+        selected_impl_id = impl->impl_id();
+        selected_impls_[slot] = impl;
+        selected_rms_norm_fns_[slot] = impl->rms_norm_forward_fn();
+        selected_fused_add_rms_norm_fns_[slot] = impl->fused_add_rms_norm_forward_fn();
+        return impl;
+    }
+
+    throw ConfigurationError("RMSNormLayer: no supported implementation found");
+}
 
 void RMSNormLayer::load_weights(
     const std::unordered_map<std::string, Tensor>& prefill_weights,
@@ -84,6 +171,10 @@ void RMSNormLayer::load_weights(
                 "], got [" + std::to_string(shape[0]) + "] for weight: " + name);
         }
         weights_loaded_ = true;
+        selected_impl_ids_.fill(std::string());
+        selected_impls_.fill(nullptr);
+        selected_rms_norm_fns_.fill(nullptr);
+        selected_fused_add_rms_norm_fns_.fill(nullptr);
         return;
     }
 
@@ -103,7 +194,7 @@ void RMSNormLayer::forward(
     const std::unordered_map<std::string, Tensor>& inputs,
     std::unordered_map<std::string, Tensor>& outputs,
     cudaStream_t stream,
-    [[maybe_unused]] ModelStage stage)
+    ModelStage stage)
 {
     NVTX::Range r(layer_name_);
     if (!is_initialized()) {
@@ -115,7 +206,7 @@ void RMSNormLayer::forward(
 
     auto residual_it = inputs.find("residual");
     if (residual_it == inputs.end()) {
-        forward_rmsnorm(input, output, stream);
+        forward_rmsnorm_impl(input, output, stream, stage);
         return;
     }
 
@@ -127,13 +218,22 @@ void RMSNormLayer::forward(
     }
 
     Tensor& residual = const_cast<Tensor&>(residual_it->second);
-    forward_fused_add_rmsnorm(output, residual, stream);
+    forward_fused_add_rmsnorm_impl(output, residual, stream, stage);
 }
 
 void RMSNormLayer::forward_rmsnorm(
     const Tensor& input,
     Tensor& output,
     cudaStream_t stream)
+{
+    forward_rmsnorm_impl(input, output, stream, ModelStage::Prefill);
+}
+
+void RMSNormLayer::forward_rmsnorm_impl(
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream,
+    ModelStage stage)
 {
     if (weight_ == nullptr) {
         throw ConfigurationError("RMSNormLayer weight is not loaded");
@@ -163,13 +263,31 @@ void RMSNormLayer::forward_rmsnorm(
     ctx.eps = eps_;
     ctx.dtype = weight_dtype;
 
-    rms_norm_forward(ctx, input, *weight_, output, stream);
+    const size_t slot = stage_slot(stage);
+    if (selected_rms_norm_fns_[slot] == nullptr) {
+        resolve_impl(ctx, stage);
+    }
+
+    RMSNormForwardFn rms_norm_fn = selected_rms_norm_fns_[slot];
+    if (rms_norm_fn == nullptr) {
+        throw ConfigurationError("RMSNormLayer: no bound implementation found");
+    }
+    rms_norm_fn(ctx, input, *weight_, output, stream);
 }
 
 void RMSNormLayer::forward_fused_add_rmsnorm(
     Tensor& inout,
     Tensor& residual,
     cudaStream_t stream)
+{
+    forward_fused_add_rmsnorm_impl(inout, residual, stream, ModelStage::Prefill);
+}
+
+void RMSNormLayer::forward_fused_add_rmsnorm_impl(
+    Tensor& inout,
+    Tensor& residual,
+    cudaStream_t stream,
+    ModelStage stage)
 {
     if (weight_ == nullptr) {
         throw ConfigurationError("RMSNormLayer weight is not loaded");
@@ -200,7 +318,16 @@ void RMSNormLayer::forward_fused_add_rmsnorm(
     ctx.eps = eps_;
     ctx.dtype = weight_dtype;
 
-    fused_add_rms_norm_forward(ctx, inout, residual, *weight_, stream);
+    const size_t slot = stage_slot(stage);
+    if (selected_fused_add_rms_norm_fns_[slot] == nullptr) {
+        resolve_impl(ctx, stage);
+    }
+
+    FusedAddRMSNormForwardFn fused_add_rms_norm_fn = selected_fused_add_rms_norm_fns_[slot];
+    if (fused_add_rms_norm_fn == nullptr) {
+        throw ConfigurationError("RMSNormLayer: no bound implementation found");
+    }
+    fused_add_rms_norm_fn(ctx, inout, residual, *weight_, stream);
 }
 
 } // namespace edge_fm

@@ -1,4 +1,4 @@
-#include "layers/linear.h"
+#include "operators/linear_registry.h"
 
 #include "operators/operator_impl_table.h"
 #include "utils/check.h"
@@ -26,6 +26,14 @@ cudaDataType_t to_cuda_type(DType dtype) {
 
 std::string stage_key(ModelStage stage) {
     return stage == ModelStage::Decode ? "decode" : "prefill";
+}
+
+std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
+    try {
+        return engine_config.resolved_model_name();
+    } catch (const ConfigurationError&) {
+        return std::string();
+    }
 }
 
 } // namespace
@@ -246,20 +254,41 @@ public:
     }
 };
 
-void LinearLayer::register_default_impls() {
+LinearOpRegistry::LinearOpRegistry() {
     impls_.emplace_back(std::make_unique<LinearCublasLtImpl>());
     impls_.emplace_back(std::make_unique<LinearCutlassImpl>());
     impls_.emplace_back(std::make_unique<LinearCutileImpl>());
     impls_.emplace_back(std::make_unique<LinearAgentImpl>());
 }
 
-LinearLayer::LinearImpl* LinearLayer::find_impl_by_id(const std::string& impl_id) const {
+LinearOpRegistry& LinearOpRegistry::instance() {
+    static LinearOpRegistry registry;
+    return registry;
+}
+
+LinearLayer::LinearImpl* LinearOpRegistry::find_impl_by_id(const std::string& impl_id) const {
     for (const auto& impl : impls_) {
         if (impl->impl_id() == impl_id) {
             return impl.get();
         }
     }
     return nullptr;
+}
+
+LinearLayer::LinearImpl* LinearOpRegistry::default_impl(
+    const LinearLayer::LinearOpContext& ctx,
+    const LinearLayer::WeightSet& weight_set) const
+{
+    for (const auto& impl : impls_) {
+        if (impl->supports(ctx, weight_set)) {
+            return impl.get();
+        }
+    }
+    return nullptr;
+}
+
+LinearLayer::LinearImpl* LinearLayer::find_impl_by_id(const std::string& impl_id) const {
+    return LinearOpRegistry::instance().find_impl_by_id(impl_id);
 }
 
 LinearLayer::LinearImpl* LinearLayer::resolve_impl(
@@ -271,6 +300,7 @@ LinearLayer::LinearImpl* LinearLayer::resolve_impl(
         if (LinearImpl* impl = find_impl_by_id(cached.selected_impl_id_); impl != nullptr) {
             return impl;
         }
+        cached.selected_impl_id_.clear();
     }
 
     OperatorQuery query;
@@ -281,13 +311,13 @@ LinearLayer::LinearImpl* LinearLayer::resolve_impl(
     query.shape_sig = ctx.shape.to_string();
 
     auto resolved = OperatorImplTable::instance().resolve(
-        engine_config_.resolved_model_name(),
+        model_name_for_operator_resolution(engine_config_),
         engine_config_.resolved_hw_profile(),
         engine_config_.operator_impl_table_path(),
         query);
 
     if (resolved.has_value()) {
-        if (LinearImpl* impl = find_impl_by_id(resolved->impl_id); impl != nullptr) {
+        if (LinearImpl* impl = LinearOpRegistry::instance().find_impl_by_id(resolved->impl_id); impl != nullptr) {
             if (!impl->supports(ctx, weight_set)) {
                 throw ConfigurationError(
                     "LinearLayer: operator_impl_table selected unsupported impl '" + resolved->impl_id +
@@ -302,12 +332,10 @@ LinearLayer::LinearImpl* LinearLayer::resolve_impl(
             "' for layer '" + layer_prefix_ + "'");
     }
 
-    for (const auto& impl : impls_) {
-        if (impl->supports(ctx, weight_set)) {
-            cached.selected_impl_id_ = impl->impl_id();
-            cached.selected_impl_params_ = nlohmann::json::object();
-            return impl.get();
-        }
+    if (LinearImpl* impl = LinearOpRegistry::instance().default_impl(ctx, weight_set); impl != nullptr) {
+        cached.selected_impl_id_ = impl->impl_id();
+        cached.selected_impl_params_ = nlohmann::json::object();
+        return impl;
     }
 
     throw ConfigurationError(

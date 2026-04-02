@@ -78,8 +78,8 @@ private:
  * Manages captured CUDA graphs.
  *
  * Decode:  single CudaGraphRunner with capture-once / launch-many support.
- *          Dynamic nodes (KV-cache memcpy, rotary-embedding kernels) are
- *          tracked internally and updated each step via integer handles.
+ *          Dynamic KV-cache memcpy nodes are tracked internally and updated
+ *          each step via integer handles.
  * Prefill: one CudaGraphRunner per (request_id, seq_len) bucket.
  */
 class CudaGraphManager : public NonCopyable {
@@ -95,14 +95,10 @@ public:
     /// submits all GPU work (decode_step + sampler) on @p stream.
     /// After capture the manager scans the graph and tracks every D2D
     /// memcpy node whose destination matches a per-layer K/V write pointer.
-    /// If @p rope_k_write_ptrs is non-empty, also tracks kernel nodes whose
-    /// first argument matches those pointers (needed for M-RoPE in-place
-    /// rotation on the K cache write buffer).
     template <typename F>
     void capture_decode(cudaStream_t stream, F&& capture_body,
                         const std::vector<void*>& k_write_ptrs,
-                        const std::vector<void*>& v_write_ptrs,
-                        const std::vector<void*>& rope_k_write_ptrs = {})
+                        const std::vector<void*>& v_write_ptrs)
     {
         decode_.begin_capture(stream);
         capture_body();
@@ -115,15 +111,6 @@ public:
             k_memcpy_[i] = decode_.track_memcpy_node(k_write_ptrs[i]);
             v_memcpy_[i] = decode_.track_memcpy_node(v_write_ptrs[i]);
         }
-
-        rope_k_.clear();
-        if (!rope_k_write_ptrs.empty()) {
-            int32_t rn = static_cast<int32_t>(rope_k_write_ptrs.size());
-            rope_k_.resize(rn);
-            for (int32_t i = 0; i < rn; ++i) {
-                rope_k_[i] = decode_.track_kernel_node(rope_k_write_ptrs[i]);
-            }
-        }
     }
 
     /// Update the decode graph's dynamic nodes so that the next launch
@@ -135,10 +122,6 @@ public:
         for (int32_t i = 0; i < n; ++i) {
             if (k_memcpy_[i] >= 0) decode_.update_memcpy_dst(k_memcpy_[i], next_k[i]);
             if (v_memcpy_[i] >= 0) decode_.update_memcpy_dst(v_memcpy_[i], next_v[i]);
-        }
-        int32_t rn = static_cast<int32_t>(rope_k_.size());
-        for (int32_t i = 0; i < rn; ++i) {
-            if (rope_k_[i] >= 0) decode_.update_kernel_arg0(rope_k_[i], next_k[i]);
         }
     }
 
@@ -157,7 +140,6 @@ public:
         decode_.reset();
         k_memcpy_.clear();
         v_memcpy_.clear();
-        rope_k_.clear();
         prefill_runners_.clear();
     }
 
@@ -173,7 +155,6 @@ private:
     // Per-layer dynamic-node handles for the decode graph.
     std::vector<int> k_memcpy_;
     std::vector<int> v_memcpy_;
-    std::vector<int> rope_k_;
 };
 
 class Engine : public NonCopyable {

@@ -1,6 +1,7 @@
 #include "layers/attention.h"
 
 #include "operators/attention_op.h"
+#include "operators/operator_impl_table.h"
 #include "utils/check.h"
 #include "utils/device/nvtx.h"
 
@@ -138,6 +139,22 @@ AttentionPosEncoding resolve_pos_encoding(RoPEMode rope_mode) {
         : AttentionPosEncoding::kRoPELlama;
 }
 
+size_t stage_slot(ModelStage stage) {
+    return stage == ModelStage::Decode ? 1U : 0U;
+}
+
+std::string stage_key(ModelStage stage) {
+    return stage == ModelStage::Decode ? "decode" : "prefill";
+}
+
+std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
+    try {
+        return engine_config.resolved_model_name();
+    } catch (const ConfigurationError&) {
+        return std::string();
+    }
+}
+
 } // namespace
 
 AttentionLayer::AttentionLayer(const EngineConfig& engine_config, std::string layer_name)
@@ -179,6 +196,65 @@ AttentionLayer::AttentionLayer(const EngineConfig& engine_config, std::string la
 }
 
 AttentionLayer::~AttentionLayer() = default;
+
+AttentionOp* AttentionLayer::resolve_impl(ModelStage stage) const {
+    const size_t slot = stage_slot(stage);
+    if (AttentionOp* impl = selected_impls_[slot]; impl != nullptr) {
+        return impl;
+    }
+
+    auto& selected_impl_id = selected_impl_ids_[slot];
+    if (!selected_impl_id.empty()) {
+        if (AttentionOp* impl = AttentionOpRegistry::instance().find_impl_by_id(selected_impl_id); impl != nullptr) {
+            selected_impls_[slot] = impl;
+            return impl;
+        }
+        selected_impl_id.clear();
+    }
+
+    AttentionOpContext ctx;
+    ctx.num_qo_heads = num_qo_heads_;
+    ctx.num_kv_heads = num_kv_heads_;
+    ctx.head_dim = head_dim_;
+    ctx.rope_scale = rope_scale_;
+    ctx.rope_theta = rope_theta_;
+    ctx.dtype = dtype_;
+    ctx.pos_encoding = resolve_pos_encoding(rope_mode_);
+    ctx.device_id = device_id_;
+
+    OperatorQuery query;
+    query.op_kind = "attention";
+    query.op_name = "attention";
+    query.stage = stage_key(stage);
+
+    auto resolved = OperatorImplTable::instance().resolve(
+        model_name_for_operator_resolution(engine_config_),
+        engine_config_.resolved_hw_profile(),
+        engine_config_.operator_impl_table_path(),
+        query);
+
+    if (resolved.has_value()) {
+        if (AttentionOp* impl = AttentionOpRegistry::instance().find_impl_by_id(resolved->impl_id); impl != nullptr) {
+            if (!impl->supports(ctx)) {
+                throw ConfigurationError(
+                    "AttentionLayer: operator_impl_table selected unsupported impl '" + resolved->impl_id + "'");
+            }
+            selected_impl_id = impl->impl_id();
+            selected_impls_[slot] = impl;
+            return impl;
+        }
+        throw ConfigurationError(
+            "AttentionLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
+    }
+
+    if (AttentionOp* impl = AttentionOpRegistry::instance().default_impl(ctx); impl != nullptr) {
+        selected_impl_id = impl->impl_id();
+        selected_impls_[slot] = impl;
+        return impl;
+    }
+
+    throw ConfigurationError("AttentionLayer: no supported implementation found");
+}
 
 void AttentionLayer::forward(
     const std::unordered_map<std::string, Tensor>& inputs,
@@ -273,7 +349,8 @@ void AttentionLayer::forward_prefill(
     ctx.pos_encoding = resolve_pos_encoding(rope_mode_);
     ctx.device_id = device_id_;
 
-    attention_forward_prefill(ctx, q, k, v, o, causal, stream);
+    AttentionOp* impl = resolve_impl(ModelStage::Prefill);
+    impl->forward_prefill(ctx, q, k, v, o, causal, stream);
 }
 
 void AttentionLayer::forward_decode(
@@ -338,7 +415,8 @@ void AttentionLayer::forward_decode(
     ctx.pos_encoding = resolve_pos_encoding(rope_mode_);
     ctx.device_id = device_id_;
 
-    attention_forward_decode(ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+    AttentionOp* impl = resolve_impl(ModelStage::Decode);
+    impl->forward_decode(ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
 }
 
 void AttentionLayer::apply_mrope(

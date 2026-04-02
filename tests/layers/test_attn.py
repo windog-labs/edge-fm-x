@@ -45,10 +45,13 @@ def create_attention_layer(num_qo_heads, num_kv_heads, hidden_size):
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = os.path.join(engine_config_dir, "engine_config.json")
     engine_config = {
+        "model_name": "Qwen2.5",
         "runtime": {
             "device": "cuda",
-            "device_id": 0
+            "device_id": 0,
+            "hw_profile": "cuda_sm80"
         },
+        "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
         "prefill_model_path": temp_dir
     }
     with open(engine_config_path, "w") as f:

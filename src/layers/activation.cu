@@ -1,6 +1,7 @@
 #include "layers/activation.h"
 
 #include "operators/activation_op.h"
+#include "operators/operator_impl_table.h"
 #include "utils/device/nvtx.h"
 
 #include <functional>
@@ -17,10 +18,27 @@ void validate_tensor_device(const Tensor& tensor, Device device, int32_t device_
     }
 }
 
+size_t stage_slot(ModelStage stage) {
+    return stage == ModelStage::Decode ? 1U : 0U;
+}
+
+std::string stage_key(ModelStage stage) {
+    return stage == ModelStage::Decode ? "decode" : "prefill";
+}
+
+std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
+    try {
+        return engine_config.resolved_model_name();
+    } catch (const ConfigurationError&) {
+        return std::string();
+    }
+}
+
 } // namespace
 
 ActivationLayer::ActivationLayer(const EngineConfig& engine_config, std::string layer_name)
-    : Layer(engine_config, std::move(layer_name))
+    : Layer(engine_config, std::move(layer_name)),
+      layer_role_("mlp_activation")
 {
     const nlohmann::json model_config = engine_config_.prefill_model_config();
     const uint32_t intermediate_size = model_config.value("intermediate_size", 0U);
@@ -29,18 +47,68 @@ ActivationLayer::ActivationLayer(const EngineConfig& engine_config, std::string 
 
     if (activation_type_ != "silu") {
         throw ConfigurationError(
-            "Unsupported activation type: \"" + activation_type_ +
-            "\". Currently only \"silu\" is supported.");
+            "Unsupported activation type: '" + activation_type_ +
+            "'. Currently only 'silu' is supported.");
     }
 }
 
 ActivationLayer::~ActivationLayer() = default;
 
+ActivationOp* ActivationLayer::resolve_impl(const ActivationOpContext& ctx, ModelStage stage) {
+    const size_t slot = stage_slot(stage);
+    if (ActivationOp* impl = selected_impls_[slot]; impl != nullptr) {
+        return impl;
+    }
+
+    auto& selected_impl_id = selected_impl_ids_[slot];
+    if (!selected_impl_id.empty()) {
+        if (ActivationOp* impl = ActivationOpRegistry::instance().find_impl_by_id(selected_impl_id); impl != nullptr) {
+            selected_impls_[slot] = impl;
+            return impl;
+        }
+        selected_impl_id.clear();
+    }
+
+    OperatorQuery query;
+    query.op_kind = "activation";
+    query.layer_role = layer_role_;
+    query.op_name = "silu_and_mul";
+    query.stage = stage_key(stage);
+
+    auto resolved = OperatorImplTable::instance().resolve(
+        model_name_for_operator_resolution(engine_config_),
+        engine_config_.resolved_hw_profile(),
+        engine_config_.operator_impl_table_path(),
+        query);
+
+    if (resolved.has_value()) {
+        if (ActivationOp* impl = ActivationOpRegistry::instance().find_impl_by_id(resolved->impl_id); impl != nullptr) {
+            if (!impl->supports(ctx)) {
+                throw ConfigurationError(
+                    "ActivationLayer: operator_impl_table selected unsupported impl '" + resolved->impl_id + "'");
+            }
+            selected_impl_id = impl->impl_id();
+            selected_impls_[slot] = impl;
+            return impl;
+        }
+        throw ConfigurationError(
+            "ActivationLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
+    }
+
+    if (ActivationOp* impl = ActivationOpRegistry::instance().default_impl(ctx); impl != nullptr) {
+        selected_impl_id = impl->impl_id();
+        selected_impls_[slot] = impl;
+        return impl;
+    }
+
+    throw ConfigurationError("ActivationLayer: no supported implementation found");
+}
+
 void ActivationLayer::forward(
     const std::unordered_map<std::string, Tensor>& inputs,
     std::unordered_map<std::string, Tensor>& outputs,
     cudaStream_t stream,
-    [[maybe_unused]] ModelStage stage)
+    ModelStage stage)
 {
     NVTX::Range r(layer_name_);
     if (!is_initialized()) {
@@ -49,13 +117,22 @@ void ActivationLayer::forward(
 
     const auto& input = inputs.at("input");
     auto& output = outputs.at("output");
-    forward_silu_and_mul(input, output, stream);
+    forward_silu_and_mul_impl(input, output, stream, stage);
 }
 
 void ActivationLayer::forward_silu_and_mul(
     const Tensor& input,
     Tensor& output,
     cudaStream_t stream)
+{
+    forward_silu_and_mul_impl(input, output, stream, ModelStage::Prefill);
+}
+
+void ActivationLayer::forward_silu_and_mul_impl(
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream,
+    ModelStage stage)
 {
     validate_tensor_device(input, device_, device_id_, "Input");
     validate_tensor_device(output, device_, device_id_, "Output");
@@ -117,7 +194,8 @@ void ActivationLayer::forward_silu_and_mul(
     ctx.dtype = input_dtype;
     ctx.kind = ActivationKind::kSilu;
 
-    activation_act_and_mul(ctx, input, output, stream);
+    ActivationOp* impl = resolve_impl(ctx, stage);
+    impl->act_and_mul(ctx, input, output, stream);
 }
 
 } // namespace edge_fm

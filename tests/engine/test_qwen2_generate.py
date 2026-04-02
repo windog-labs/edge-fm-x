@@ -23,7 +23,7 @@ import numpy as np
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
+for _p in [project_root / "build" / "install" / "python", project_root / "build" / "python"]:
     if _p.exists():
         sys.path.insert(0, str(_p))
         break
@@ -200,7 +200,15 @@ def dump_data() -> dict:
 
     model_path = manifest["model_path"]
     if not Path(model_path).exists():
-        pytest.skip(f"Model path in dump manifest not found: {model_path}")
+        fallback_model_path = _find_qwen_model_path()
+        if fallback_model_path is None:
+            pytest.skip(f"Model path in dump manifest not found: {model_path}")
+        print(
+            f"[fixture] Dump manifest model path missing: {model_path}\n"
+            f"          Falling back to local model path: {fallback_model_path}"
+        )
+        model_path = fallback_model_path
+        manifest["model_path"] = model_path
 
     token_ids = np.load(DUMP_DIR / "token_ids.npy")
     decode_tokens = np.load(DUMP_DIR / "decode_tokens.npy")
@@ -230,16 +238,23 @@ def _create_engine_config(
     num_steps: int,
     use_cuda_graph: bool = False,
     prefix_token_ids: list | None = None,
+    generated_tokens_total: int | None = None,
     model_name: str = "Qwen2.5",
 ) -> str:
     config = _load_model_config_for_engine(model_path)
+    torch_dtype = str(config.get("torch_dtype", "float16")).lower()
+    kvcache_dtype = "bf16" if ("bfloat" in torch_dtype or "bf16" in torch_dtype) else "fp16"
     num_heads = config.get("num_attention_heads", 8)
     num_kv_heads = config.get("num_key_value_heads", num_heads)
     attention_type = "gqa" if num_kv_heads < num_heads else "mha"
-    max_tokens = seq_len + num_steps + 2
+    if generated_tokens_total is None:
+        # Alignment fixtures interpret num_steps as decode steps after the
+        # prefill sample, so the engine must allow one extra generated token.
+        generated_tokens_total = num_steps + 1
+    max_tokens = seq_len + generated_tokens_total - 1
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
-    runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda"}
+    runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda_sm80"}
     if use_cuda_graph:
         runtime["use_cuda_graph"] = True
     prefix = prefix_token_ids if prefix_token_ids is not None else []
@@ -250,7 +265,7 @@ def _create_engine_config(
             "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
             "prefill_model_path": str(Path(model_path).resolve()),
             "kvcache": {
-                "dtype": "fp16",
+                "dtype": kvcache_dtype,
                 "attention_type": attention_type,
                 "requests": [{"request_id": 0, "prefix_token_ids": prefix, "max_tokens": max_tokens}],
             },
@@ -277,7 +292,7 @@ def engine_and_dump(dump_data):
 @pytest.fixture(scope="module")
 def engine_and_dump_cuda_graph(dump_data):
     """Create the EdgeFM engine with use_cuda_graph=True for decode graph verification.
-    Uses prefix so warmup runs decode dry-run (warms buffers); capture on second decode step.
+    Uses prefix so engine warmup can eagerly capture the decode graph before request-time decode.
     """
     manifest = dump_data["manifest"]
     model_path = dump_data["model_path"]
@@ -331,7 +346,15 @@ def dump_data_vl() -> dict:
         manifest = json.load(f)
     model_path = manifest["model_path"]
     if not Path(model_path).exists():
-        pytest.skip(f"VL dump 中的模型路径不存在: {model_path}")
+        fallback_model_path = _find_qwen_vl_model_path()
+        if fallback_model_path is None:
+            pytest.skip(f"VL dump 中的模型路径不存在: {model_path}")
+        print(
+            f"[fixture] VL dump manifest model path missing: {model_path}\n"
+            f"          Falling back to local model path: {fallback_model_path}"
+        )
+        model_path = fallback_model_path
+        manifest["model_path"] = model_path
     token_ids = np.load(DUMP_DIR_VL / "token_ids.npy")
     decode_tokens = np.load(DUMP_DIR_VL / "decode_tokens.npy")
     image_embeddings = np.load(DUMP_DIR_VL / "image_embeddings.npy")
@@ -369,6 +392,33 @@ def engine_and_dump_vl(dump_data_vl):
     }
 
 
+@pytest.fixture(scope="module")
+def engine_and_dump_vl_cuda_graph(dump_data_vl):
+    """Create the EdgeFM engine with use_cuda_graph=True for VLM decode alignment.
+
+    Intentionally avoids prefix_token_ids so graph capture happens on the full
+    multimodal request path instead of a text-only warmup prefix.
+    """
+    manifest = dump_data_vl["manifest"]
+    model_path = dump_data_vl["model_path"]
+    num_steps = manifest["num_decode_steps"]
+    seq_len = int(dump_data_vl["token_ids"].size)
+    engine_config_path = _create_engine_config(
+        model_path,
+        seq_len,
+        num_steps,
+        use_cuda_graph=True,
+        model_name="Qwen2.5-VL",
+    )
+    engine = edge_fm.EdgeFM(engine_config_path)
+    return {
+        **dump_data_vl,
+        "engine": engine,
+        "num_steps": num_steps,
+        "seq_len": seq_len,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -385,6 +435,102 @@ def _cos_sim(a: np.ndarray, b: np.ndarray) -> float:
         return 0.0
     return float(np.dot(a, b) / (na * nb))
 
+
+def _make_vl_request_factory(
+    token_ids_list: list[int],
+    image_embeddings: np.ndarray,
+    embed_token_id: int,
+    position_ids: np.ndarray | None,
+    ignore_stop_tokens: bool = True,
+):
+    """Build a request factory for VLM runs while keeping backing tensors alive."""
+    import torch
+
+    emb_tensor = torch.from_numpy(image_embeddings).to(dtype=torch.bfloat16).to(CUDA_DEVICE).contiguous()
+    embedding_tensor = edge_fm.Tensor.from_dlpack(emb_tensor.__dlpack__())
+
+    pos_tensor = None
+    position_ids_tensor = None
+    if position_ids is not None:
+        pos_tensor = torch.from_numpy(position_ids.astype(np.int32)).to(CUDA_DEVICE).contiguous()
+        position_ids_tensor = edge_fm.Tensor.from_dlpack(pos_tensor.__dlpack__())
+
+    keepalive = (emb_tensor, pos_tensor)
+
+    def make_request():
+        _ = keepalive
+        if position_ids_tensor is not None:
+            request = edge_fm.Request(
+                0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor
+            )
+        else:
+            request = edge_fm.Request(0, token_ids_list, embedding_tensor, embed_token_id)
+        request.set_ignore_stop_tokens(ignore_stop_tokens)
+        return request
+
+    return make_request
+
+
+def _assert_vl_alignment(engine_bundle: dict, label: str):
+    """Assert token alignment for a VLM request on the provided engine bundle."""
+    import torch
+
+    engine = engine_bundle["engine"]
+    token_ids = engine_bundle["token_ids"]
+    decode_tokens = engine_bundle["decode_tokens"]
+    num_steps = engine_bundle["num_steps"]
+    image_embeddings = engine_bundle["image_embeddings"]
+    embed_token_id = engine_bundle["embed_token_id"]
+    position_ids = engine_bundle["position_ids"]
+
+    token_ids_list = token_ids.flatten().tolist()
+    ref_tokens = decode_tokens[1: num_steps + 1].tolist()
+    make_request = _make_vl_request_factory(
+        token_ids_list,
+        image_embeddings,
+        embed_token_id,
+        position_ids,
+        ignore_stop_tokens=True,
+    )
+
+    response = engine.generate(make_request())
+    all_tokens = response.token_ids()
+    got_tokens = all_tokens[1: 1 + num_steps]
+
+    torch.cuda.synchronize()
+
+    assert len(got_tokens) >= num_steps, (
+        f"EdgeFM only generated {len(got_tokens)} tokens, expected {num_steps}"
+    )
+
+    mismatches = []
+    for step in range(num_steps):
+        efm_tok = got_tokens[step] if step < len(got_tokens) else -1
+        ref_tok = int(ref_tokens[step]) if step < len(ref_tokens) else -1
+        if efm_tok != ref_tok:
+            mismatches.append((step, efm_tok, ref_tok))
+
+    aligned = num_steps - len(mismatches)
+    alignment_ratio = aligned / num_steps
+
+    detail_lines = []
+    for step in range(num_steps):
+        efm_tok = got_tokens[step] if step < len(got_tokens) else -1
+        ref_tok = int(ref_tokens[step]) if step < len(ref_tokens) else -1
+        marker = "✓" if efm_tok == ref_tok else "✗"
+        detail_lines.append(f"  step {step}: edge_fm={efm_tok}, ref={ref_tok} {marker}")
+    detail = "\n".join(detail_lines)
+
+    print(f"\n[{label}] {aligned}/{num_steps} steps aligned ({alignment_ratio:.0%})")
+    print(detail)
+
+    if mismatches:
+        mismatch_detail = "\n".join(
+            f"  step {s}: edge_fm={e}, ref={r}" for s, e, r in mismatches
+        )
+        pytest.fail(
+            f"{label} token mismatch: {len(mismatches)}/{num_steps} steps mismatch\n{mismatch_detail}"
+        )
 
 # ---------------------------------------------------------------------------
 # Tests
@@ -561,77 +707,14 @@ def test_generate_token_alignment_cuda_graph(engine_and_dump_cuda_graph):
 # ---------------------------------------------------------------------------
 
 def test_generate_vl_token_alignment(engine_and_dump_vl):
-    """含图请求：Edge-FM generate() 在 VLM 上应与 Transformers dump 完全对齐。
+    """含图请求：Edge-FM generate() 在 VLM 上应与 Transformers dump 完全对齐。"""
+    _assert_vl_alignment(engine_and_dump_vl, "VL alignment")
 
-    通过 M-RoPE position_ids 传入 3D 位置编码，使 EdgeFM 的旋转位置编码
-    与 Transformers 完全一致，从而实现逐 token 对齐。
-    """
-    import torch
 
-    engine = engine_and_dump_vl["engine"]
-    token_ids = engine_and_dump_vl["token_ids"]
-    decode_tokens = engine_and_dump_vl["decode_tokens"]
-    num_steps = engine_and_dump_vl["num_steps"]
-    image_embeddings = engine_and_dump_vl["image_embeddings"]
-    embed_token_id = engine_and_dump_vl["embed_token_id"]
-    position_ids = engine_and_dump_vl["position_ids"]
 
-    token_ids_list = token_ids.flatten().tolist()
-    ref_tokens = decode_tokens[1: num_steps + 1].tolist()
-
-    emb_tensor = torch.from_numpy(image_embeddings).to(dtype=torch.bfloat16).to(CUDA_DEVICE).contiguous()
-    capsule = emb_tensor.__dlpack__()
-    embedding_tensor = edge_fm.Tensor.from_dlpack(capsule)
-
-    if position_ids is not None:
-        pos_tensor = torch.from_numpy(position_ids.astype(np.int32)).to(CUDA_DEVICE).contiguous()
-        pos_capsule = pos_tensor.__dlpack__()
-        position_ids_tensor = edge_fm.Tensor.from_dlpack(pos_capsule)
-        request = edge_fm.Request(
-            0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor
-        )
-    else:
-        request = edge_fm.Request(0, token_ids_list, embedding_tensor, embed_token_id)
-
-    request.set_ignore_stop_tokens(True)  # 对齐测试：忽略 EOS，生成满 num_steps 以便逐 token 比对
-    response = engine.generate(request)
-    all_tokens = response.token_ids()
-    got_tokens = all_tokens[1: 1 + num_steps]
-
-    torch.cuda.synchronize()
-
-    assert len(got_tokens) >= num_steps, (
-        f"EdgeFM 只生成了 {len(got_tokens)} 个 token，预期 {num_steps}"
-    )
-
-    mismatches = []
-    for step in range(num_steps):
-        efm_tok = got_tokens[step] if step < len(got_tokens) else -1
-        ref_tok = int(ref_tokens[step]) if step < len(ref_tokens) else -1
-        if efm_tok != ref_tok:
-            mismatches.append((step, efm_tok, ref_tok))
-
-    aligned = num_steps - len(mismatches)
-    alignment_ratio = aligned / num_steps
-
-    detail_lines = []
-    for step in range(num_steps):
-        efm_tok = got_tokens[step] if step < len(got_tokens) else -1
-        ref_tok = int(ref_tokens[step]) if step < len(ref_tokens) else -1
-        marker = "✓" if efm_tok == ref_tok else "✗"
-        detail_lines.append(f"  step {step}: edge_fm={efm_tok}, ref={ref_tok} {marker}")
-    detail = "\n".join(detail_lines)
-
-    print(f"\n[VL alignment] {aligned}/{num_steps} 步对齐 ({alignment_ratio:.0%})")
-    print(detail)
-
-    if mismatches:
-        mismatch_detail = "\n".join(
-            f"  step {s}: edge_fm={e}, ref={r}" for s, e, r in mismatches
-        )
-        pytest.fail(
-            f"VL Token 不对齐：{len(mismatches)}/{num_steps} 步不一致\n{mismatch_detail}"
-        )
+def test_generate_vl_token_alignment_cuda_graph(engine_and_dump_vl_cuda_graph):
+    """含图请求：启用 CUDA graph decode 时，VLM token 输出也应与 dump 完全对齐。"""
+    _assert_vl_alignment(engine_and_dump_vl_cuda_graph, "VL alignment cuda graph")
 
 
 # ---------------------------------------------------------------------------
@@ -830,31 +913,55 @@ def _bench_transformers_vlm(model_path: str, token_ids_list: list[int],
 
 def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
                   warmup: int, runs: int) -> dict:
-    """Benchmark EdgeFM engine.generate()."""
+    """Benchmark EdgeFM engine.generate().
+
+    The benchmark is only valid when each run produces the expected number of
+    generated tokens. If CUDA graph or stop-token handling causes early exit,
+    fail fast instead of reporting inflated throughput.
+    """
     import torch
     import time
 
+    warmup_counts = []
     for _ in range(warmup):
-        engine.generate(request_fn())
+        response = engine.generate(request_fn())
+        warmup_counts.append(len(response.token_ids()))
     torch.cuda.synchronize()
 
+    if any(count != num_steps for count in warmup_counts):
+        raise AssertionError(
+            f"EdgeFM warmup generated unexpected token counts: {warmup_counts}, "
+            f"expected every run to generate {num_steps} tokens"
+        )
+
     times = []
+    generated_counts = []
     for _ in range(runs):
         torch.cuda.synchronize()
         t0 = time.perf_counter()
-        engine.generate(request_fn())
+        response = engine.generate(request_fn())
         torch.cuda.synchronize()
         times.append(time.perf_counter() - t0)
+        generated_counts.append(len(response.token_ids()))
+
+    if any(count != num_steps for count in generated_counts):
+        raise AssertionError(
+            f"EdgeFM timed runs generated unexpected token counts: {generated_counts}, "
+            f"expected every run to generate {num_steps} tokens"
+        )
 
     avg = sum(times) / len(times)
+    actual_decode_tokens = generated_counts[0] if generated_counts else num_steps
+    total_tokens = prefill_len + actual_decode_tokens
     return {
         "avg_ms": avg * 1000,
         "prefill_tokens": prefill_len,
-        "decode_tokens": num_steps,
-        "total_tokens": prefill_len + num_steps,
-        "tokens_per_sec": (prefill_len + num_steps) / avg,
-        "decode_tokens_per_sec": num_steps / avg,
+        "decode_tokens": actual_decode_tokens,
+        "total_tokens": total_tokens,
+        "tokens_per_sec": total_tokens / avg,
+        "decode_tokens_per_sec": actual_decode_tokens / avg,
         "times_ms": [t * 1000 for t in times],
+        "generated_counts": generated_counts,
     }
 
 
@@ -1114,17 +1221,19 @@ def test_benchmark_llm(dump_data):
     token_ids_list = token_ids.flatten().tolist()
     num_steps = BENCH_NUM_STEPS
     prefill_len = len(token_ids_list)
-    prefix = token_ids_list[: min(4, len(token_ids_list))]
 
     tf_result = _bench_transformers_llm(
         model_path, token_ids_list, num_steps,
         warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
 
-    engine_config_path = _create_engine_config(model_path, prefill_len, num_steps)
+    engine_config_path = _create_engine_config(
+        model_path, prefill_len, num_steps, generated_tokens_total=num_steps)
     engine = edge_fm.EdgeFM(engine_config_path)
 
     def make_request():
-        return edge_fm.Request(0, token_ids_list)
+        req = edge_fm.Request(0, token_ids_list)
+        req.set_ignore_stop_tokens(True)
+        return req
 
     efm_result = _bench_edgefm(
         engine, make_request, num_steps, prefill_len,
@@ -1132,9 +1241,10 @@ def test_benchmark_llm(dump_data):
 
     _print_bench_comparison("LLM (pure text)", tf_result, efm_result)
 
-    # EdgeFM with CUDA graph
+    # Fair decode-graph benchmark: do not use prefix_token_ids so graph capture
+    # happens on the same request path as the no-graph baseline.
     cfg_graph = _create_engine_config(
-        model_path, prefill_len, num_steps, use_cuda_graph=True, prefix_token_ids=prefix
+        model_path, prefill_len, num_steps, use_cuda_graph=True, generated_tokens_total=num_steps
     )
     engine_graph = edge_fm.EdgeFM(cfg_graph)
     efm_graph_result = _bench_edgefm(
@@ -1146,7 +1256,6 @@ def test_benchmark_llm(dump_data):
         prefill_len, num_steps,
     )
 
-    # Transformers (baseline) vs EdgeFM (cuda graph)
     _print_bench_comparison("LLM: Transformers vs EdgeFM (cuda graph)", tf_result, efm_graph_result)
 
 
@@ -1206,7 +1315,8 @@ def test_benchmark_trt_edgellm(dump_data):
 
         torch.cuda.empty_cache()
 
-        engine_config_path = _create_engine_config(model_path, prefill_len, num_steps)
+        engine_config_path = _create_engine_config(
+            model_path, prefill_len, num_steps, generated_tokens_total=num_steps)
         engine = edge_fm.EdgeFM(engine_config_path)
 
         def make_request():
@@ -1238,30 +1348,22 @@ def test_benchmark_vlm(dump_data_vl):
     token_ids_list = token_ids.flatten().tolist()
     num_steps = BENCH_NUM_STEPS
     prefill_len = len(token_ids_list)
-    prefix = token_ids_list[: min(4, len(token_ids_list))]
 
     image_path = str(project_root / "tests" / "data" / "candy.JPG")
     tf_result = _bench_transformers_vlm(
         model_path, token_ids_list, image_path, num_steps,
         warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
 
-    engine_config_path = _create_engine_config(model_path, prefill_len, num_steps)
+    engine_config_path = _create_engine_config(
+        model_path, prefill_len, num_steps, generated_tokens_total=num_steps)
     engine = edge_fm.EdgeFM(engine_config_path)
-
-    emb_tensor = torch.from_numpy(image_embeddings).to(dtype=torch.bfloat16).to(CUDA_DEVICE).contiguous()
-    capsule = emb_tensor.__dlpack__()
-    embedding_efm = edge_fm.Tensor.from_dlpack(capsule)
-
-    pos_efm = None
-    if position_ids is not None:
-        pos_tensor = torch.from_numpy(position_ids.astype(np.int32)).to(CUDA_DEVICE).contiguous()
-        pos_capsule = pos_tensor.__dlpack__()
-        pos_efm = edge_fm.Tensor.from_dlpack(pos_capsule)
-
-    def make_request():
-        if pos_efm is not None:
-            return edge_fm.Request(0, token_ids_list, embedding_efm, embed_token_id, pos_efm)
-        return edge_fm.Request(0, token_ids_list, embedding_efm, embed_token_id)
+    make_request = _make_vl_request_factory(
+        token_ids_list,
+        image_embeddings,
+        embed_token_id,
+        position_ids,
+        ignore_stop_tokens=True,
+    )
 
     efm_result = _bench_edgefm(
         engine, make_request, num_steps, prefill_len,
@@ -1269,9 +1371,11 @@ def test_benchmark_vlm(dump_data_vl):
 
     _print_bench_comparison("VLM (image + text)", tf_result, efm_result)
 
-    # EdgeFM with CUDA graph
+    # Fair decode-graph benchmark: avoid prefix_token_ids so capture happens on
+    # the full multimodal request instead of a text-only prefix warmup.
     cfg_graph = _create_engine_config(
-        model_path, prefill_len, num_steps, use_cuda_graph=True, prefix_token_ids=prefix
+        model_path, prefill_len, num_steps, use_cuda_graph=True,
+        generated_tokens_total=num_steps, model_name="Qwen2.5-VL"
     )
     engine_graph = edge_fm.EdgeFM(cfg_graph)
     efm_graph_result = _bench_edgefm(
@@ -1283,7 +1387,6 @@ def test_benchmark_vlm(dump_data_vl):
         prefill_len, num_steps,
     )
 
-    # Transformers (baseline) vs EdgeFM (cuda graph)
     _print_bench_comparison("VLM: Transformers vs EdgeFM (cuda graph)", tf_result, efm_graph_result)
 
 

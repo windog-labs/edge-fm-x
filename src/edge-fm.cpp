@@ -690,10 +690,13 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
 
     if (is_vlm) {
         auto vlm_filter = [](const std::string& name) {
-            return name.size() > 12 && name.compare(0, 12, "model.model.") == 0;
+            return name.rfind("model.", 0) == 0;
         };
         auto vlm_key_mapper = [](const std::string& name) {
-            return name.substr(7);  // "model.model.xxx" -> "model.xxx"
+            if (name.rfind("model.model.", 0) == 0) {
+                return name.substr(6);  // "model.model.xxx" -> "model.xxx"
+            }
+            return name;
         };
         for (const auto& f : prefill_files) {
             loader.load_weights_from_file(ModelStage::Prefill, f, Device::GPU, device_id, true, vlm_filter, vlm_key_mapper);

@@ -94,7 +94,7 @@ public:
     ) = 0;
 
 protected:
-    const EngineConfig& engine_config_;
+    EngineConfig engine_config_;
     Device device_;     ///< 设备类型
     int32_t device_id_; ///< 设备 ID
     bool weights_loaded_ = false; ///< 权重是否已加载

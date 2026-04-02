@@ -52,21 +52,26 @@ std::string stage_key_from_json(const nlohmann::json& json) {
 }
 
 std::vector<OperatorImplRecord> builtin_records() {
-    OperatorImplRecord text;
-    text.model_name = "qwen2_5";
-    text.hw_profile = "cuda";
-    text.op_kind = "linear";
-    text.impl_id = "cublasLt";
-    text.impl_params = nlohmann::json::object();
+    std::vector<OperatorImplRecord> records;
 
-    OperatorImplRecord vl;
-    vl.model_name = "qwen2_5_vl";
-    vl.hw_profile = "cuda";
-    vl.op_kind = "linear";
-    vl.impl_id = "cublasLt";
-    vl.impl_params = nlohmann::json::object();
+    auto add_record = [&](const std::string& model_name, const std::string& op_kind, const std::string& impl_id) {
+        OperatorImplRecord record;
+        record.model_name = model_name;
+        record.hw_profile = "cuda";
+        record.op_kind = op_kind;
+        record.impl_id = impl_id;
+        record.impl_params = nlohmann::json::object();
+        records.push_back(std::move(record));
+    };
 
-    return {text, vl};
+    for (const std::string& model_name : {std::string("qwen2_5"), std::string("qwen2_5_vl")}) {
+        add_record(model_name, "linear", "cublasLt");
+        add_record(model_name, "attention", "flashinfer_attention");
+        add_record(model_name, "norm", "flashinfer_norm");
+        add_record(model_name, "activation", "flashinfer_silu_and_mul");
+    }
+
+    return records;
 }
 
 int match_exact_or_wildcard(

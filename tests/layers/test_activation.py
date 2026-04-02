@@ -37,10 +37,13 @@ def activation_layer():
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
     engine_config = {
+        "model_name": "Qwen2.5",
         "runtime": {
             "device": "cuda",
-            "device_id": 0
+            "device_id": 0,
+            "hw_profile": "cuda_sm80"
         },
+        "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
         "prefill_model_path": str(model_path)
     }
     with open(engine_config_path, "w") as f:
