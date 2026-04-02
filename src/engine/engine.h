@@ -41,16 +41,20 @@ public:
     std::string decode_model_path() const;
     nlohmann::json prefill_model_config() const;
     nlohmann::json decode_model_config() const;
+    std::string resolved_model_name() const;
     
     nlohmann::json runtime() const;
     nlohmann::json speculative() const;
     nlohmann::json kvcache() const;
     nlohmann::json sampling() const;
     nlohmann::json metrics() const;
+    std::string operator_impl_table_path() const;
 
     // 安全访问器：当值为 null 或缺失时返回默认值，避免 type_error.306
     std::string runtime_device() const;
     int32_t runtime_device_id() const;
+    std::string runtime_hw_profile() const;
+    std::string resolved_hw_profile() const;
     bool use_cuda_graph() const;
     std::string kvcache_dtype() const;
     std::string kvcache_attention_type() const;
@@ -58,10 +62,15 @@ public:
     uint64_t sampling_seed() const;
     std::vector<int32_t> eos_token_ids() const;
     std::vector<int32_t> stop_token_ids() const;
+    std::string backend_target() const;
+    bool has_backend_artifact() const;
+    nlohmann::json backend_artifact() const;
+    std::string backend_cache_key() const;
     
     const nlohmann::json& raw() const noexcept { return config_; }
 
 private:
+    std::filesystem::path config_dir_;
     nlohmann::json config_;
 };
 
@@ -69,8 +78,8 @@ private:
  * Manages captured CUDA graphs.
  *
  * Decode:  single CudaGraphRunner with capture-once / launch-many support.
- *          Dynamic nodes (KV-cache memcpy, rotary-embedding kernels) are
- *          tracked internally and updated each step via integer handles.
+ *          Dynamic KV-cache memcpy nodes are tracked internally and updated
+ *          each step via integer handles.
  * Prefill: one CudaGraphRunner per (request_id, seq_len) bucket.
  */
 class CudaGraphManager : public NonCopyable {
@@ -86,14 +95,10 @@ public:
     /// submits all GPU work (decode_step + sampler) on @p stream.
     /// After capture the manager scans the graph and tracks every D2D
     /// memcpy node whose destination matches a per-layer K/V write pointer.
-    /// If @p rope_k_write_ptrs is non-empty, also tracks kernel nodes whose
-    /// first argument matches those pointers (needed for M-RoPE in-place
-    /// rotation on the K cache write buffer).
     template <typename F>
     void capture_decode(cudaStream_t stream, F&& capture_body,
                         const std::vector<void*>& k_write_ptrs,
-                        const std::vector<void*>& v_write_ptrs,
-                        const std::vector<void*>& rope_k_write_ptrs = {})
+                        const std::vector<void*>& v_write_ptrs)
     {
         decode_.begin_capture(stream);
         capture_body();
@@ -106,15 +111,6 @@ public:
             k_memcpy_[i] = decode_.track_memcpy_node(k_write_ptrs[i]);
             v_memcpy_[i] = decode_.track_memcpy_node(v_write_ptrs[i]);
         }
-
-        rope_k_.clear();
-        if (!rope_k_write_ptrs.empty()) {
-            int32_t rn = static_cast<int32_t>(rope_k_write_ptrs.size());
-            rope_k_.resize(rn);
-            for (int32_t i = 0; i < rn; ++i) {
-                rope_k_[i] = decode_.track_kernel_node(rope_k_write_ptrs[i]);
-            }
-        }
     }
 
     /// Update the decode graph's dynamic nodes so that the next launch
@@ -126,10 +122,6 @@ public:
         for (int32_t i = 0; i < n; ++i) {
             if (k_memcpy_[i] >= 0) decode_.update_memcpy_dst(k_memcpy_[i], next_k[i]);
             if (v_memcpy_[i] >= 0) decode_.update_memcpy_dst(v_memcpy_[i], next_v[i]);
-        }
-        int32_t rn = static_cast<int32_t>(rope_k_.size());
-        for (int32_t i = 0; i < rn; ++i) {
-            if (rope_k_[i] >= 0) decode_.update_kernel_arg0(rope_k_[i], next_k[i]);
         }
     }
 
@@ -148,7 +140,6 @@ public:
         decode_.reset();
         k_memcpy_.clear();
         v_memcpy_.clear();
-        rope_k_.clear();
         prefill_runners_.clear();
     }
 
@@ -164,7 +155,6 @@ private:
     // Per-layer dynamic-node handles for the decode graph.
     std::vector<int> k_memcpy_;
     std::vector<int> v_memcpy_;
-    std::vector<int> rope_k_;
 };
 
 class Engine : public NonCopyable {
@@ -174,12 +164,20 @@ public:
     virtual ~Engine() = 0;
 
     virtual void warmup() = 0;
+    virtual void tune() = 0;
     virtual Response generate(const Request& request) = 0;
     virtual void prepare_tensors(ModelStage stage, Context& context) = 0;
 
-    KVManagerStatus get_kv_status() const { return kv_manager_->get_status(); }
+    KVManagerStatus get_kv_status() const {
+        if (kv_manager_ == nullptr) {
+            throw InternalError("KVManager is not initialized for the active backend");
+        }
+        return kv_manager_->get_status();
+    }
 
 protected:
+    void initialize_standard_runtime();
+
     Device device_;
     int32_t device_id_;
     EngineConfig config_;

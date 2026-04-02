@@ -1,45 +1,114 @@
 #include "layers/activation.h"
-#include "utils/device/nvtx.h"
-#include <cuda_fp16.h>
-#include <cuda_bf16.h>
-#include <tuple>
-#include <algorithm>
-#include <numeric>
-#include <flashinfer/activation.cuh>
-#include "utils/device/cuda_utils.h"
 
-using namespace flashinfer;
+#include "operators/activation_op.h"
+#include "operators/operator_impl_table.h"
+#include "utils/device/nvtx.h"
+
+#include <functional>
+#include <numeric>
+#include <string>
 
 namespace edge_fm {
+namespace {
 
-// SiLU activation function
-// Note: __device__ functions can be used as template parameters (only type info is needed)
-__device__ __forceinline__ float silu(const float& val) {
-    return val / (1.0f + __expf(-val));
+void validate_tensor_device(const Tensor& tensor, Device device, int32_t device_id, const std::string& tensor_name) {
+    auto [tensor_device, tensor_device_id] = tensor.device();
+    if (tensor_device != device || tensor_device_id != device_id) {
+        throw DeviceError(tensor_name + " tensor must be on the same device as the layer.");
+    }
 }
 
+size_t stage_slot(ModelStage stage) {
+    return stage == ModelStage::Decode ? 1U : 0U;
+}
+
+std::string stage_key(ModelStage stage) {
+    return stage == ModelStage::Decode ? "decode" : "prefill";
+}
+
+std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
+    try {
+        return engine_config.resolved_model_name();
+    } catch (const ConfigurationError&) {
+        return std::string();
+    }
+}
+
+} // namespace
+
 ActivationLayer::ActivationLayer(const EngineConfig& engine_config, std::string layer_name)
-    : Layer(engine_config, std::move(layer_name))
+    : Layer(engine_config, std::move(layer_name)),
+      layer_role_("mlp_activation")
 {
-    nlohmann::json model_config = engine_config_.prefill_model_config();
-    // MLP 中 SwiGLU 的输入为 gate+up 拼接，维度 2*intermediate_size；输出为 intermediate_size
-    uint32_t intermediate_size = model_config.value("intermediate_size", 0U);
+    const nlohmann::json model_config = engine_config_.prefill_model_config();
+    const uint32_t intermediate_size = model_config.value("intermediate_size", 0U);
     hidden_size_ = intermediate_size != 0U ? intermediate_size : model_config.value("hidden_size", 4096U);
     activation_type_ = model_config.value("hidden_act", std::string("silu"));
-    
-    // Validate that the activation type is supported
+
     if (activation_type_ != "silu") {
         throw ConfigurationError(
-            "Unsupported activation type: \"" + activation_type_ + 
-            "\". Currently only \"silu\" is supported.");
+            "Unsupported activation type: '" + activation_type_ +
+            "'. Currently only 'silu' is supported.");
     }
+}
+
+ActivationLayer::~ActivationLayer() = default;
+
+ActivationOp* ActivationLayer::resolve_impl(const ActivationOpContext& ctx, ModelStage stage) {
+    const size_t slot = stage_slot(stage);
+    if (ActivationOp* impl = selected_impls_[slot]; impl != nullptr) {
+        return impl;
+    }
+
+    auto& selected_impl_id = selected_impl_ids_[slot];
+    if (!selected_impl_id.empty()) {
+        if (ActivationOp* impl = ActivationOpRegistry::instance().find_impl_by_id(selected_impl_id); impl != nullptr) {
+            selected_impls_[slot] = impl;
+            return impl;
+        }
+        selected_impl_id.clear();
+    }
+
+    OperatorQuery query;
+    query.op_kind = "activation";
+    query.layer_role = layer_role_;
+    query.op_name = "silu_and_mul";
+    query.stage = stage_key(stage);
+
+    auto resolved = OperatorImplTable::instance().resolve(
+        model_name_for_operator_resolution(engine_config_),
+        engine_config_.resolved_hw_profile(),
+        engine_config_.operator_impl_table_path(),
+        query);
+
+    if (resolved.has_value()) {
+        if (ActivationOp* impl = ActivationOpRegistry::instance().find_impl_by_id(resolved->impl_id); impl != nullptr) {
+            if (!impl->supports(ctx)) {
+                throw ConfigurationError(
+                    "ActivationLayer: operator_impl_table selected unsupported impl '" + resolved->impl_id + "'");
+            }
+            selected_impl_id = impl->impl_id();
+            selected_impls_[slot] = impl;
+            return impl;
+        }
+        throw ConfigurationError(
+            "ActivationLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
+    }
+
+    if (ActivationOp* impl = ActivationOpRegistry::instance().default_impl(ctx); impl != nullptr) {
+        selected_impl_id = impl->impl_id();
+        selected_impls_[slot] = impl;
+        return impl;
+    }
+
+    throw ConfigurationError("ActivationLayer: no supported implementation found");
 }
 
 void ActivationLayer::forward(
     const std::unordered_map<std::string, Tensor>& inputs,
     std::unordered_map<std::string, Tensor>& outputs,
     cudaStream_t stream,
-    [[maybe_unused]] ModelStage stage)
+    ModelStage stage)
 {
     NVTX::Range r(layer_name_);
     if (!is_initialized()) {
@@ -48,8 +117,7 @@ void ActivationLayer::forward(
 
     const auto& input = inputs.at("input");
     auto& output = outputs.at("output");
-    
-    forward_silu_and_mul(input, output, stream);
+    forward_silu_and_mul_impl(input, output, stream, stage);
 }
 
 void ActivationLayer::forward_silu_and_mul(
@@ -57,140 +125,77 @@ void ActivationLayer::forward_silu_and_mul(
     Tensor& output,
     cudaStream_t stream)
 {
-    auto input_device = input.device();
-    auto output_device = output.device();
-    
-    if (std::get<0>(input_device) != device_ || std::get<1>(input_device) != device_id_) {
-        throw DeviceError("Input tensor must be on the same device as the layer.");
-    }
-    if (std::get<0>(output_device) != device_ || std::get<1>(output_device) != device_id_) {
-        throw DeviceError("Output tensor must be on the same device as the layer.");
-    }
-    
+    forward_silu_and_mul_impl(input, output, stream, ModelStage::Prefill);
+}
+
+void ActivationLayer::forward_silu_and_mul_impl(
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream,
+    ModelStage stage)
+{
+    validate_tensor_device(input, device_, device_id_, "Input");
+    validate_tensor_device(output, device_, device_id_, "Output");
+
     const auto& input_shape = input.shape();
     if (input_shape.size() < 2) {
         throw InvalidRequestError("Input tensor must have at least 2 dimensions");
     }
-    
-    // Get the last dimension (hidden_size * 2)
-    int64_t input_last_dim = input_shape.back();
+
+    const int64_t input_last_dim = input_shape.back();
     if (input_last_dim % 2 != 0) {
         throw InvalidRequestError(
-            "Input tensor last dimension must be even (2 * hidden_size). Got: " + 
+            "Input tensor last dimension must be even (2 * hidden_size). Got: " +
             std::to_string(input_last_dim));
     }
-    
-    // Verify that the input last dimension matches the configured hidden_size * 2
-    int64_t expected_input_last_dim = static_cast<int64_t>(hidden_size_) * 2;
+
+    const int64_t expected_input_last_dim = static_cast<int64_t>(hidden_size_) * 2;
     if (input_last_dim != expected_input_last_dim) {
         throw InvalidRequestError(
-            "Input tensor last dimension mismatch. Expected " + 
-            std::to_string(expected_input_last_dim) + " (2 * hidden_size from config: " + 
-            std::to_string(hidden_size_) + "), got " + std::to_string(input_last_dim));
+            "Input tensor last dimension mismatch. Expected " + std::to_string(expected_input_last_dim) +
+            " (2 * hidden_size from config: " + std::to_string(hidden_size_) + "), got " +
+            std::to_string(input_last_dim));
     }
-    
-    // Calculate batch size (product of all dimensions except the last)
-    int64_t batch_size = std::accumulate(
-        input_shape.begin(), 
-        input_shape.end() - 1, 
-        int64_t(1), 
-        std::multiplies<int64_t>()
-    );
-    
+
     const auto& output_shape = output.shape();
     if (output_shape.size() != input_shape.size()) {
         throw InvalidRequestError(
-            "Output tensor must have the same number of dimensions as input. "
-            "Input: " + std::to_string(input_shape.size()) + 
-            ", Output: " + std::to_string(output_shape.size()));
+            "Output tensor must have the same number of dimensions as input. Input: " +
+            std::to_string(input_shape.size()) + ", Output: " + std::to_string(output_shape.size()));
     }
-    
-    // Check all dimensions except the last
-    for (size_t i = 0; i < output_shape.size() - 1; ++i) {
+
+    for (size_t i = 0; i + 1 < output_shape.size(); ++i) {
         if (output_shape[i] != input_shape[i]) {
             throw InvalidRequestError(
-                "Output tensor shape mismatch at dimension " + std::to_string(i) + 
-                ". Expected " + std::to_string(input_shape[i]) + 
-                ", got " + std::to_string(output_shape[i]));
+                "Output tensor shape mismatch at dimension " + std::to_string(i) + ". Expected " +
+                std::to_string(input_shape[i]) + ", got " + std::to_string(output_shape[i]));
         }
     }
-    
-    // Check last dimension - should match configured hidden_size
     if (static_cast<uint32_t>(output_shape.back()) != hidden_size_) {
         throw InvalidRequestError(
-            "Output tensor last dimension mismatch. Expected " + std::to_string(hidden_size_) + 
+            "Output tensor last dimension mismatch. Expected " + std::to_string(hidden_size_) +
             " (from config), got " + std::to_string(output_shape.back()));
     }
-    
-    // Check dtype
-    DType input_dtype = input.dtype();
-    if (input.dtype() != output.dtype()) {
+
+    const DType input_dtype = input.dtype();
+    if (input_dtype != output.dtype()) {
         throw InvalidRequestError(
-            "Input and output tensors must have the same dtype. "
-            "Input: " + std::to_string(static_cast<int>(input.dtype())) +
-            ", Output: " + std::to_string(static_cast<int>(output.dtype())));
+            "Input and output tensors must have the same dtype. Input: " +
+            std::to_string(static_cast<int>(input_dtype)) + ", Output: " +
+            std::to_string(static_cast<int>(output.dtype())));
     }
-    
-    // Launch kernel based on dtype, using configured hidden_size_
-    if (input_dtype == DType::Float16) {
-        launch_activation<half, silu>(
-            output.data_ptr(), input.data_ptr(), batch_size, static_cast<int64_t>(hidden_size_), stream
-        );
-    } else if (input_dtype == DType::BFloat16) {
-        launch_activation<__nv_bfloat16, silu>(
-            output.data_ptr(), input.data_ptr(), batch_size, static_cast<int64_t>(hidden_size_), stream
-        );
-    } else {
-        throw InvalidRequestError(
-            "Unsupported dtype for ActivationLayer. Only Float16 and BFloat16 are supported. "
-            "Got dtype: " + std::to_string(static_cast<int>(input_dtype)));
-    }
+
+    const int64_t batch_size = std::accumulate(
+        input_shape.begin(), input_shape.end() - 1, int64_t(1), std::multiplies<int64_t>());
+
+    ActivationOpContext ctx;
+    ctx.batch_size = batch_size;
+    ctx.hidden_size = static_cast<int64_t>(hidden_size_);
+    ctx.dtype = input_dtype;
+    ctx.kind = ActivationKind::kSilu;
+
+    ActivationOp* impl = resolve_impl(ctx, stage);
+    impl->act_and_mul(ctx, input, output, stream);
 }
-
-template <typename T, float (*Activation)(const float&)>
-void ActivationLayer::launch_activation(
-    void* output,
-    const void* input,
-    int64_t batch_size,
-    int64_t hidden_size,
-    cudaStream_t stream)
-{
-    const T* input_data = static_cast<const T*>(input);
-    T* output_data = static_cast<T*>(output);
-    
-    constexpr uint32_t vec_size = 16 / sizeof(T);
-    
-    uint32_t block_size = std::min(static_cast<uint32_t>(hidden_size) / vec_size, 1024U);
-    if (block_size == 0) block_size = 1;
-    
-    dim3 grid(static_cast<uint32_t>(batch_size));
-    dim3 block(block_size);
-    
-    activation::act_and_mul_kernel<T, Activation><<<grid, block, 0, stream>>>(
-        output_data,
-        input_data,
-        static_cast<int>(hidden_size)
-    );
-    
-    CUDA_CHECK_THROW(cudaGetLastError(), "act_and_mul_kernel launch failed");
-}
-
-// Explicit template instantiations
-template void ActivationLayer::launch_activation<half, silu>(
-    void* output,
-    const void* input,
-    int64_t batch_size,
-    int64_t hidden_size,
-    cudaStream_t stream
-);
-
-template void ActivationLayer::launch_activation<__nv_bfloat16, silu>(
-    void* output,
-    const void* input,
-    int64_t batch_size,
-    int64_t hidden_size,
-    cudaStream_t stream
-);
 
 } // namespace edge_fm
-

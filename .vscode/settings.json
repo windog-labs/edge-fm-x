@@ -9,5 +9,7 @@
         "--query-driver=/usr/bin/g++",
         "--query-driver=/usr/bin/x86_64-linux-gnu-g++-11"
     ],
-    "clangd.path": "clangd"
+    "clangd.path": "clangd",
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda"
 }

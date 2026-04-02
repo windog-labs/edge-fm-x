@@ -1,4 +1,5 @@
 *.DS_Store
+build*
 build/*
 *.pyc
 
@@ -7,6 +8,7 @@ examples/*/*/
 
 .cache/
 .cursor/*.log
+.codex/*
 **.pytest_cache/
 tags*
 tests/data/*

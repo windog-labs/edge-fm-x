@@ -2,11 +2,13 @@
 
 #include "layer.h"
 #include <edge-fm/core.h>
-#include <memory>
+#include <array>
 #include <string>
 #include <unordered_map>
 
 namespace edge_fm {
+
+class AttentionOp;
 
 /// Position encoding mode for the attention layer.
 enum class RoPEMode {
@@ -18,7 +20,7 @@ enum class RoPEMode {
 class AttentionLayer : public Layer {
 public:
     explicit AttentionLayer(const EngineConfig& engine_config, std::string layer_name = "");
-    ~AttentionLayer() override = default;
+    ~AttentionLayer() override;
 
     void forward(
         const std::unordered_map<std::string, Tensor>& inputs,
@@ -76,6 +78,8 @@ public:
         cudaStream_t stream);
 
 private:
+    AttentionOp* resolve_impl(ModelStage stage) const;
+
     uint32_t num_qo_heads_;
     uint32_t num_kv_heads_;
     uint32_t hidden_size_;
@@ -84,6 +88,8 @@ private:
     float rope_theta_;
     DType dtype_;
     RoPEMode rope_mode_;
+    mutable std::array<std::string, 2> selected_impl_ids_ = {};
+    mutable std::array<AttentionOp*, 2> selected_impls_ = {nullptr, nullptr};
 };
 
 } // namespace edge_fm

@@ -3,8 +3,6 @@
 #include "engine/scheduler.h"
 #include "utils/check.h"
 #include <edge-fm/core.h>
-#include <algorithm>
-#include <cctype>
 #include <nlohmann/json.hpp>
 
 #include "models/qwen2_5/qwen2_5.h"
@@ -45,24 +43,14 @@ Model::Model(const EngineConfig& config)
 }
 
 std::unique_ptr<Model> Model::create(const EngineConfig& config) {
-    const std::string& model_name = config.model_name();
-    if (model_name.empty()) {
-        throw ConfigurationError("model_name is required in configuration");
-    }
-    
-    std::string model_name_lower = model_name;
-    std::transform(model_name_lower.begin(), model_name_lower.end(), 
-                   model_name_lower.begin(), [](unsigned char c) { return std::tolower(c); });
-    
-    if (model_name_lower == "qwen2.5" || 
-        model_name_lower == "qwen2_5" || 
-        model_name_lower == "qwen2-5") 
-    {
+    const std::string resolved_name = config.resolved_model_name();
+    if (resolved_name == "qwen2_5" || resolved_name == "qwen2_5_vl") {
         return std::make_unique<Qwen2_5>(config);
-    } else {
-        throw ConfigurationError("Unsupported model_name: " + model_name + ". Supported models: qwen2.5");
     }
+
+    throw ConfigurationError(
+        "Unsupported model_name: " + resolved_name +
+        ". This build currently supports: qwen2_5, qwen2_5_vl");
 }
 
 } // namespace edge_fm
-

@@ -45,6 +45,17 @@ def temp_dir():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+@pytest.fixture(autouse=True)
+def clear_weight_loader_cache():
+    """清理全局 WeightLoader 缓存，避免不同测试/模型之间互相污染"""
+    loader = edge_fm.WeightLoader.instance()
+    loader.clear_stage(edge_fm.ModelStage.Prefill)
+    loader.clear_stage(edge_fm.ModelStage.Decode)
+    yield
+    loader.clear_stage(edge_fm.ModelStage.Prefill)
+    loader.clear_stage(edge_fm.ModelStage.Decode)
+
+
 @pytest.fixture
 def test_weights(temp_dir):
     """创建测试权重张量"""

@@ -3,14 +3,20 @@
 #include "layer.h"
 #include <edge-fm/core.h>
 #include "engine/engine.h"
+#include <nlohmann/json.hpp>
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <cublasLt.h>
 
 namespace edge_fm {
+
+class LinearOpRegistry;
+class LinearCublasLtImpl;
+class LinearCutlassImpl;
+class LinearCutileImpl;
+class LinearAgentImpl;
 
 class LinearLayer : public Layer {
 public:
@@ -49,6 +55,12 @@ public:
     );
 
 protected:
+    friend class LinearOpRegistry;
+    friend class LinearCublasLtImpl;
+    friend class LinearCutlassImpl;
+    friend class LinearCutileImpl;
+    friend class LinearAgentImpl;
+
     // Quantization type enumeration (protected for subclass access)
     enum class QuantType {
         FP16_BF16,      ///< FP16 or BFloat16 (standard)
@@ -65,16 +77,60 @@ protected:
         uint32_t group_size_ = 128;              ///< Group size for group-wise quantization (e.g., 128 for INT4)
     };
 
+    struct LinearShapeSignature {
+        int32_t m = -1;
+        DType input_dtype = DType::Float16;
+        DType weight_dtype = DType::Float16;
+        DType output_dtype = DType::Float16;
+        uint32_t in_features = 0;
+        uint32_t out_features = 0;
+
+        std::string to_string() const;
+    };
+
+    struct LinearOpContext {
+        std::string layer_prefix;
+        std::string layer_role;
+        ModelStage stage = ModelStage::Prefill;
+        LinearShapeSignature shape;
+        bool has_bias = false;
+    };
+
+    struct CachedDescriptors;
+
+    class LinearImpl {
+    public:
+        virtual ~LinearImpl() = default;
+
+        virtual std::string impl_id() const = 0;
+        virtual bool supports(const LinearOpContext& ctx, const WeightSet& weight_set) const = 0;
+        virtual void prepare(
+            LinearLayer& owner,
+            const LinearOpContext& ctx,
+            const WeightSet& weight_set,
+            const Tensor& input,
+            Tensor& output,
+            cudaStream_t stream,
+            CachedDescriptors& cached) = 0;
+        virtual void forward(
+            LinearLayer& owner,
+            const LinearOpContext& ctx,
+            const WeightSet& weight_set,
+            const Tensor& input,
+            Tensor& output,
+            cudaStream_t stream,
+            CachedDescriptors& cached) = 0;
+    };
+
     // Helper function to load a single WeightSet
     void load_weight_set(
         const std::unordered_map<std::string, Tensor>& weights,
         const std::string& weight_name_base,
         WeightSet& weight_set);
     
-    // cuBLASLt algo tuning dimensions:
+    // cuBLASLt descriptor cache dimensions:
     // - Layer type: LinearLayer, FusedQKVLinearLayer, FusedGateUpLinearLayer, LMHeadLinearLayer
-    //   (each has distinct layer_prefix_ and n/k dimensions)
-    // - Stage: Prefill vs Decode (different m patterns)
+    // - Stage: Prefill vs Decode
     // - Prefill: multiple m (slot sizes) -> map m -> CachedDescriptors
     // - Decode: m=1 always -> single CachedDescriptors
     struct CachedDescriptors {
@@ -90,9 +146,10 @@ protected:
         cudaDataType_t cached_weight_type_ = CUDA_R_16F;
         cudaDataType_t cached_output_type_ = CUDA_R_16F;
         bool has_bias_ = false;
-        // Algo auto-tune: top-K heuristic candidates, benchmark selects best per (m, stage)
         std::vector<cublasLtMatmulHeuristicResult_t> heuristic_candidates_;
-        int best_algo_index_ = -1;  // -1: not benchmarked yet; >=0: use heuristic_candidates_[best_algo_index_]
+        int best_algo_index_ = -1;
+        std::string selected_impl_id_;
+        nlohmann::json selected_impl_params_ = nlohmann::json::object();
     };
     
     // Helper function to get or create descriptors
@@ -113,25 +170,17 @@ protected:
     // Helper function to cleanup cached descriptors
     void cleanup_cached_descriptors(CachedDescriptors& cached);
 
-    // Benchmark top-K heuristic candidates and select the fastest for given (m, stage).
-    // Called on first forward for a given config; result cached in CachedDescriptors.
-    void select_best_algo_benchmark(
-        const void* input_ptr,
-        const void* weight_ptr,
-        void* output_ptr,
-        const void* bias_ptr,
-        cublasLtMatmulDesc_t matmul_desc,
-        cublasLtMatrixLayout_t Adesc,
-        cublasLtMatrixLayout_t Bdesc,
-        cublasLtMatrixLayout_t Cdesc,
-        cublasLtMatrixLayout_t Ddesc,
-        cudaStream_t stream,
-        CachedDescriptors& cached);
+    LinearImpl* find_impl_by_id(const std::string& impl_id) const;
+    LinearImpl* resolve_impl(
+        const LinearOpContext& ctx,
+        const WeightSet& weight_set,
+        CachedDescriptors& cached) const;
     
     // layer information
     uint32_t in_features_;
     uint32_t out_features_;
     std::string layer_prefix_;  ///< 层名称前缀（例如："model.layers.0.mlp.gate_proj"）
+    std::string layer_role_;
 
     // Weight sets for prefill and decode stages
     WeightSet prefill_weights_;

@@ -1,12 +1,14 @@
 #include "engine/stardard_engine.h"
 #include "layers/sampler.h"
 #include "models/model.h"
+#include "operators/operator_impl_table.h"
 #include "utils/device/memory.h"
 #include "engine/kv_manager.h"
 #include "utils/device/cuda_utils.h"
 #include <edge-fm/core.h>
 #include <cuda_runtime.h>
 #include <cstdint>
+#include <cstdlib>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
@@ -15,9 +17,116 @@
 
 namespace edge_fm {
 
+
+namespace {
+
+size_t tensor_nbytes(const Tensor& tensor) {
+    size_t elements = 1;
+    for (int64_t dim : tensor.shape()) {
+        elements *= static_cast<size_t>(dim);
+    }
+    return elements * get_dtype_size(tensor.dtype());
+}
+
+Tensor make_tensor_view(const Tensor& tensor) {
+    auto [device, device_id] = tensor.device();
+    return Tensor::view(tensor.data_ptr(), tensor.shape(), tensor.dtype(), device, device_id);
+}
+
+Tensor last_token_logits_view(const Tensor& logits) {
+    const auto& shape = logits.shape();
+    int64_t row_width = 1;
+    for (size_t i = 1; i < shape.size(); ++i) {
+        row_width *= shape[i];
+    }
+
+    void* last_row_ptr = static_cast<char*>(logits.data_ptr())
+        + (shape.front() - 1) * row_width * static_cast<int64_t>(get_dtype_size(logits.dtype()));
+    auto [device, device_id] = logits.device();
+    return Tensor::view(last_row_ptr, {1, row_width}, logits.dtype(), device, device_id);
+}
+
+struct DecodeWritePtrs {
+    std::vector<void*> k;
+    std::vector<void*> v;
+};
+
+DecodeWritePtrs collect_decode_write_ptrs(Context& context, int32_t num_layers) {
+    auto& tensors = context.tensors();
+    DecodeWritePtrs write_ptrs;
+    write_ptrs.k.resize(num_layers);
+    write_ptrs.v.resize(num_layers);
+    for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+        write_ptrs.k[layer_id] = tensors.at(ModelTensors::k_write_layer(layer_id)).data_ptr();
+        write_ptrs.v[layer_id] = tensors.at(ModelTensors::v_write_layer(layer_id)).data_ptr();
+    }
+    return write_ptrs;
+}
+
+class ScopedKVWriteRedirect {
+public:
+    ScopedKVWriteRedirect(Context& context,
+                          int32_t num_layers,
+                          int32_t device_id,
+                          const std::string& cache_key_prefix)
+        : tensors_(context.tensors())
+    {
+
+        for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+            redirect(
+                ModelTensors::k_write_layer(layer_id),
+                cache_key_prefix + "_k_L" + std::to_string(layer_id),
+                device_id);
+            redirect(
+                ModelTensors::v_write_layer(layer_id),
+                cache_key_prefix + "_v_L" + std::to_string(layer_id),
+                device_id);
+        }
+    }
+
+    ~ScopedKVWriteRedirect() {
+        restore();
+    }
+
+    void restore() {
+        if (restored_) {
+            return;
+        }
+        for (auto& saved : saved_) {
+            tensors_[saved.name] = std::move(saved.tensor);
+        }
+        restored_ = true;
+    }
+
+private:
+    struct SavedTensor {
+        std::string name;
+        Tensor tensor;
+    };
+
+    void redirect(const std::string& tensor_name,
+                  const std::string& cache_key,
+                  int32_t device_id)
+    {
+        const Tensor& original = tensors_.at(tensor_name);
+        saved_.push_back(SavedTensor{tensor_name, make_tensor_view(original)});
+
+        void* tmp_ptr = StaticBufferManager::get_cache_buf(cache_key, tensor_nbytes(original), device_id);
+        auto [device, original_device_id] = original.device();
+        tensors_[tensor_name] = Tensor::view(
+            tmp_ptr, original.shape(), original.dtype(), device, original_device_id);
+    }
+
+    std::unordered_map<std::string, Tensor>& tensors_;
+    std::vector<SavedTensor> saved_;
+    bool restored_ = false;
+};
+
+} // namespace
+
 void StandardEngine::warmup() {
     KVManagerStatus kv_status = kv_manager_->get_status();
-    bool decode_dry_run_done = false;
+    bool need_decode_graph_capture = config_.use_cuda_graph() && !cuda_graph_manager_.is_decode_captured();
 
     for (const auto& slot : kv_status.slots) {
         if (slot.prefix_token_ids.empty() || slot.prefix_size == 0) {
@@ -38,110 +147,100 @@ void StandardEngine::warmup() {
             CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "Failed to synchronize stream during warmup");
         }
 
-        // Decode dry-run on first slot: warm up cuBLASLt m=1 descriptors without corrupting KV cache.
-        // When CUDA graph is enabled, this also captures the decode graph for later replay.
-        if (!decode_dry_run_done) {
-            int32_t vocab_size = model_->vocab_size();
-            auto& tensors = context.tensors();
-            const Tensor& logits_prefill = tensors.at(ModelTensors::LOGITS);
-            int32_t seq_len = static_cast<int32_t>(logits_prefill.shape()[0]);
-            void* last_row_ptr = static_cast<char*>(logits_prefill.data_ptr())
-                + (seq_len - 1) * static_cast<int64_t>(vocab_size) * static_cast<int64_t>(sizeof(float));
-            Tensor last_logits = Tensor::view(last_row_ptr, {1, vocab_size}, DType::Float32, device_, device_id_);
-            Tensor& token_out_tensor = tensors.at(ModelTensors::SAMPLER_TOKEN_OUT);
-            std::unordered_map<std::string, Tensor> in, out;
-            in.emplace("logits", std::move(last_logits));
-            out.emplace("token_ids", std::move(token_out_tensor));
-            sampler_->forward(in, out, stream, ModelStage::Prefill);
-
-            context.advance_after_prefill(seq_len);
-
-            prepare_tensors(ModelStage::Decode, context);
-
-            // Redirect KV write to temp buffers to avoid corrupting real cache
-            {
-                int32_t num_layers = model_->num_layers();
-                auto model_config = config_.prefill_model_config();
-                int32_t num_attention_heads = model_config.value("num_attention_heads", 32);
-                int32_t num_kv_heads = model_config.value("num_key_value_heads", num_attention_heads);
-                int32_t head_dim = model_->hidden_size() / num_attention_heads;
-                auto kv_dtype = dtype_from_string(config_.kvcache_dtype());
-                size_t kv_dtype_size = get_dtype_size(kv_dtype);
-                size_t token_stride = kv_manager_->get_token_stride();
-                AttentionType attention_type = kv_manager_->get_attention_type();
-
-                if (attention_type == AttentionType::MLA) {
-                    size_t ctx_write_bytes = token_stride;
-                    for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
-                        std::string key = "decode_warmup_ctx_L" + std::to_string(layer_id);
-                        void* tmp_ptr = StaticBufferManager::get_cache_buf(key, ctx_write_bytes, device_id_);
-                        tensors[ModelTensors::context_write_layer(layer_id)] = Tensor::view(
-                            tmp_ptr, {1, static_cast<int64_t>(token_stride / kv_dtype_size)},
-                            kv_dtype, device_, device_id_);
-                    }
-                } else {
-                    size_t kv_write_bytes = static_cast<size_t>(num_kv_heads) * head_dim * kv_dtype_size;
-                    for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
-                        std::string k_key = "decode_warmup_k_L" + std::to_string(layer_id);
-                        std::string v_key = "decode_warmup_v_L" + std::to_string(layer_id);
-                        void* k_tmp = StaticBufferManager::get_cache_buf(k_key, kv_write_bytes, device_id_);
-                        void* v_tmp = StaticBufferManager::get_cache_buf(v_key, kv_write_bytes, device_id_);
-                        tensors[ModelTensors::k_write_layer(layer_id)] = Tensor::view(
-                            k_tmp, {1, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
-                        tensors[ModelTensors::v_write_layer(layer_id)] = Tensor::view(
-                            v_tmp, {1, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
-                    }
-                }
-            }
-
-            model_->decode_step(context);
-            if (stream != nullptr) {
-                CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "Failed to sync stream during decode warmup");
-            }
-
-            if (config_.use_cuda_graph()) {
-                // cuBLAS may leave a sticky error from algorithm probing during
-                // the dry-run. Clear it so graph capture starts from a clean state.
-                (void)cudaGetLastError();
-                int32_t nl = model_->num_layers();
-                std::vector<void*> k_ptrs(nl), v_ptrs(nl);
-                for (int32_t i = 0; i < nl; ++i) {
-                    k_ptrs[i] = tensors.at(ModelTensors::k_write_layer(i)).data_ptr();
-                    v_ptrs[i] = tensors.at(ModelTensors::v_write_layer(i)).data_ptr();
-                }
-                cuda_graph_manager_.capture_decode(stream, [&]() {
-                    model_->decode_step(context);
-                    Tensor logits_view = Tensor::view(
-                        tensors.at(ModelTensors::LOGITS).data_ptr(),
-                        tensors.at(ModelTensors::LOGITS).shape(),
-                        tensors.at(ModelTensors::LOGITS).dtype(), device_, device_id_);
-                    Tensor token_out_view = Tensor::view(
-                        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT).data_ptr(),
-                        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT).shape(),
-                        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT).dtype(), device_, device_id_);
-                    std::unordered_map<std::string, Tensor> s_in, s_out;
-                    s_in.emplace("logits", std::move(logits_view));
-                    s_out.emplace("token_ids", std::move(token_out_view));
-                    sampler_->forward(s_in, s_out, stream, ModelStage::Decode);
-                }, k_ptrs, v_ptrs);
-                if (stream != nullptr) {
-                    CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
-                                     "Failed to sync stream after CUDA graph capture in warmup");
-                }
-            }
-
-            decode_dry_run_done = true;
+        if (!need_decode_graph_capture) {
+            continue;
         }
+
+        const Tensor& logits_prefill = context.tensors().at(ModelTensors::LOGITS);
+        int32_t seq_len = static_cast<int32_t>(logits_prefill.shape().front());
+        run_sampler(
+            last_token_logits_view(logits_prefill),
+            context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT),
+            stream,
+            ModelStage::Prefill);
+        context.advance_after_prefill(seq_len);
+        prepare_tensors(ModelStage::Decode, context);
+        ensure_decode_graph_captured(context);
+        need_decode_graph_capture = false;
     }
 
     CUDA_CHECK_THROW(cudaDeviceSynchronize(), "Failed to synchronize device after warmup");
 }
 
+void StandardEngine::run_sampler(const Tensor& logits,
+                                 const Tensor& token_out,
+                                 cudaStream_t stream,
+                                 ModelStage stage)
+{
+    auto [logits_device, logits_device_id] = logits.device();
+    auto [token_device, token_device_id] = token_out.device();
+    std::unordered_map<std::string, Tensor> in, out;
+    in.emplace("logits", Tensor::view(
+        logits.data_ptr(), logits.shape(), logits.dtype(), logits_device, logits_device_id));
+    out.emplace("token_ids", Tensor::view(
+        token_out.data_ptr(), token_out.shape(), token_out.dtype(), token_device, token_device_id));
+    sampler_->forward(in, out, stream, stage);
+}
+
+void StandardEngine::ensure_decode_graph_captured(Context& context) {
+    if (!config_.use_cuda_graph() || cuda_graph_manager_.is_decode_captured()) {
+        return;
+    }
+
+    if (kv_manager_->get_attention_type() == AttentionType::MLA) {
+        throw InternalError("StandardEngine CUDA graph decode capture does not yet support MLA attention");
+    }
+
+    auto& tensors = context.tensors();
+    cudaStream_t stream = context.stream();
+
+    // Run one uncaptured decode into temporary KV buffers so lazy allocations
+    // happen before capture and the real cache stays untouched.
+    {
+        ScopedKVWriteRedirect redirect_writes(
+            context,
+            model_->num_layers(),
+            device_id_,
+            "decode_capture_warmup");
+        model_->decode_step(context);
+        run_sampler(
+            tensors.at(ModelTensors::LOGITS),
+            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+            stream,
+            ModelStage::Decode);
+        if (stream != nullptr) {
+            CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
+                             "Failed to sync stream before CUDA graph capture");
+        }
+    }
+
+    (void)cudaGetLastError();
+
+    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs(context, model_->num_layers());
+    cuda_graph_manager_.capture_decode(stream, [&]() {
+        model_->decode_step(context);
+        run_sampler(
+            tensors.at(ModelTensors::LOGITS),
+            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+            stream,
+            ModelStage::Decode);
+    }, write_ptrs.k, write_ptrs.v);
+}
+
+void StandardEngine::tune() {
+
+    (void)OperatorImplTable::instance().records_for_model(
+        config_.resolved_model_name(),
+        config_.resolved_hw_profile(),
+        config_.operator_impl_table_path(),
+        "linear");
+}
+
+
 Response StandardEngine::generate(const Request& request) {
     Response response;
     Context context = scheduler_->create_context(request, &response);
     cudaStream_t stream = context.stream();
-    int32_t vocab_size = model_->vocab_size();
     auto& tensors = context.tensors();
 
     // Build stop token set: model eos_token_ids + config stop_token_ids + request stop_token_ids
@@ -157,14 +256,6 @@ Response StandardEngine::generate(const Request& request) {
     if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
         return response;
     }
-    Tensor& token_out_tensor = tensors.at(ModelTensors::SAMPLER_TOKEN_OUT);
-
-    auto run_sampler = [this](Tensor& logits, Tensor& token_out, cudaStream_t s, ModelStage stage) {
-        std::unordered_map<std::string, Tensor> in, out;
-        in.emplace("logits", std::move(logits));
-        out.emplace("token_ids", std::move(token_out));
-        sampler_->forward(in, out, s, stage);
-    };
 
     // Check the last sampled token against stop tokens.
     // Returns true if the token is a stop token.
@@ -181,12 +272,13 @@ Response StandardEngine::generate(const Request& request) {
     model_->prefill(context);
 
     const Tensor& logits_prefill = tensors.at(ModelTensors::LOGITS);
-    int32_t seq_len = static_cast<int32_t>(logits_prefill.shape()[0]);
-    void* last_row_ptr = static_cast<char*>(logits_prefill.data_ptr())
-        + (seq_len - 1) * static_cast<int64_t>(vocab_size) * static_cast<int64_t>(sizeof(float));
-    Tensor last_logits = Tensor::view(last_row_ptr, {1, vocab_size}, DType::Float32, device_, device_id_);
+    int32_t seq_len = static_cast<int32_t>(logits_prefill.shape().front());
     void* prefill_write_ptr = context.get_response_token_write_ptr();
-    run_sampler(last_logits, token_out_tensor, stream, ModelStage::Prefill);
+    run_sampler(
+        last_token_logits_view(logits_prefill),
+        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+        stream,
+        ModelStage::Prefill);
 
     if (check_stop(prefill_write_ptr)) {
         context.finish();
@@ -194,33 +286,21 @@ Response StandardEngine::generate(const Request& request) {
 
     context.advance_after_prefill(seq_len);
 
-    bool use_cuda_graph = config_.use_cuda_graph();
-
     while (!context.is_finished()) {
         prepare_tensors(ModelStage::Decode, context);
         void* decode_write_ptr = context.get_response_token_write_ptr();
 
-        if (use_cuda_graph) {
-            if (!cuda_graph_manager_.is_decode_captured()) {
-                // Fallback: capture now if warmup didn't run (no prefix slots).
-                int32_t nl = model_->num_layers();
-                std::vector<void*> k_ptrs(nl), v_ptrs(nl);
-                for (int32_t i = 0; i < nl; ++i) {
-                    k_ptrs[i] = tensors.at(ModelTensors::k_write_layer(i)).data_ptr();
-                    v_ptrs[i] = tensors.at(ModelTensors::v_write_layer(i)).data_ptr();
-                }
-                cuda_graph_manager_.capture_decode(stream, [&]() {
-                    model_->decode_step(context);
-                    Tensor& tok = tensors.at(ModelTensors::SAMPLER_TOKEN_OUT);
-                    run_sampler(tensors.at(ModelTensors::LOGITS), tok, stream, ModelStage::Decode);
-                }, k_ptrs, v_ptrs);
-            }
+        if (config_.use_cuda_graph()) {
+            ensure_decode_graph_captured(context);
             sync_decode_graph(context);
             cuda_graph_manager_.decode().launch(stream);
         } else {
             model_->decode_step(context);
-            Tensor& token_out = tensors.at(ModelTensors::SAMPLER_TOKEN_OUT);
-            run_sampler(tensors.at(ModelTensors::LOGITS), token_out, stream, ModelStage::Decode);
+            run_sampler(
+                tensors.at(ModelTensors::LOGITS),
+                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Decode);
         }
 
         flush_sampled_token(decode_write_ptr, stream);
@@ -245,6 +325,7 @@ Response StandardEngine::generate(const Request& request) {
 }
 
 void StandardEngine::prepare_tensors(ModelStage stage, Context& context) {
+
     if (stage == ModelStage::Prefill) {
         prepare_prefill_tensors(context);
     } else {
@@ -519,12 +600,12 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     );
     // K/V 直接写入 k_write/v_write，无需 K_PROJ_OUTPUT、V_PROJ_OUTPUT
     
-    // 3. Attention output: [seq_len, hidden_size]
+    // 3. Attention output: [seq_len, num_attention_heads, head_dim]
     size_t attn_output_size = seq_len * hidden_size * model_dtype_size;
     void* attn_output_ptr = MemoryPool::instance().allocate(attn_output_size, stream, device_id_);
     tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::adopt(
         attn_output_ptr,
-        {seq_len, hidden_size},
+        {seq_len, num_attention_heads, head_dim},
         model_dtype,
         device_,
         device_id_,
@@ -726,19 +807,12 @@ void StandardEngine::flush_sampled_token(void* write_ptr, cudaStream_t stream) {
         "copy sampled token from staging to response buffer");
 }
 
+
 void StandardEngine::sync_decode_graph(Context& context) {
     if (!cuda_graph_manager_.has_decode_dynamic_nodes()) return;
 
-    // Read K/V write pointers directly from the tensors that
-    // prepare_kvcache_tensors already computed for the current step.
-    auto& tensors = context.tensors();
-    int32_t nl = model_->num_layers();
-    std::vector<void*> k(nl), v(nl);
-    for (int32_t i = 0; i < nl; ++i) {
-        k[i] = tensors.at(ModelTensors::k_write_layer(i)).data_ptr();
-        v[i] = tensors.at(ModelTensors::v_write_layer(i)).data_ptr();
-    }
-    cuda_graph_manager_.update_decode_nodes(k, v);
+    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs(context, model_->num_layers());
+    cuda_graph_manager_.update_decode_nodes(write_ptrs.k, write_ptrs.v);
 }
 
 } // namespace edge_fm

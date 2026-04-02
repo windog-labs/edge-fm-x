@@ -47,6 +47,7 @@ target_include_directories(attention PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(attention PUBLIC layer)
+target_link_libraries(attention PUBLIC edge_fm_operators)
 
 # layernorm
 add_library(layernorm STATIC layernorm.cu)
@@ -58,11 +59,7 @@ target_include_directories(layernorm PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
-target_compile_definitions(layernorm PRIVATE
-    ENABLE_BF16
-    ENABLE_FP8
-)
-target_link_libraries(layernorm PUBLIC layer)
+target_link_libraries(layernorm PUBLIC layer edge_fm_operators)
 
 # activation
 add_library(activation STATIC activation.cu)
@@ -74,7 +71,7 @@ target_include_directories(activation PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(activation PUBLIC layer)
+target_link_libraries(activation PUBLIC layer edge_fm_operators)
 
 # sampler
 add_library(sampler STATIC sampler.cu)
@@ -108,14 +105,10 @@ target_link_libraries(linear PUBLIC
     CUDA::cudart
     CUDA::cublas
     CUDA::cublasLt
+    edge_fm_operators
     edge_fm_utils
 )
 target_include_directories(linear PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
-# Add int4GroupwiseGemmKernels source files
-target_sources(linear PRIVATE
-    int4GroupwiseGemmKernels/int4WoqGemmCuda.cu
-    int4GroupwiseGemmKernels/int4WoQGemvCuda.cu
-)
 
 add_library(edge_fm_layers INTERFACE)
 target_include_directories(edge_fm_layers INTERFACE
@@ -131,6 +124,7 @@ target_link_libraries(edge_fm_layers INTERFACE
     activation
     sampler
     linear
+    edge_fm_operators
     edge_fm_utils
 )
 

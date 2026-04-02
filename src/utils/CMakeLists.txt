@@ -38,4 +38,3 @@ install(TARGETS edge_fm_utils
     EXPORT edge_fm_targets
     ARCHIVE DESTINATION lib
 )
-

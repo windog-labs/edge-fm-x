@@ -6,15 +6,26 @@ namespace edge_fm {
 
 class StandardEngine : public Engine {
 public:
-    explicit StandardEngine(const EngineConfig& config): Engine(config) {}
+    explicit StandardEngine(const EngineConfig& config)
+        : Engine(config)
+    {
+        initialize_standard_runtime();
+    }
     ~StandardEngine() override = default;
 
     void warmup() override;
+    void tune() override;
     Response generate(const Request& request) override;
     void prepare_tensors(ModelStage stage, Context& context) override;
 
 private:
     int32_t embed_token_id_buf_ = -1;
+
+    void run_sampler(const Tensor& logits,
+                     const Tensor& token_out,
+                     cudaStream_t stream,
+                     ModelStage stage);
+    void ensure_decode_graph_captured(Context& context);
 
     void prepare_kvcache_tensors(
         Context& context,

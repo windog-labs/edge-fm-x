@@ -15,8 +15,7 @@ CudaGraphRunner::CudaGraphRunner(CudaGraphRunner&& other) noexcept
       graph_(std::exchange(other.graph_, nullptr)),
       all_nodes_(std::move(other.all_nodes_)),
       nodes_scanned_(other.nodes_scanned_),
-      tracked_memcpy_(std::move(other.tracked_memcpy_)),
-      tracked_kernels_(std::move(other.tracked_kernels_))
+      tracked_memcpy_(std::move(other.tracked_memcpy_))
 {
     other.nodes_scanned_ = false;
 }
@@ -29,7 +28,6 @@ CudaGraphRunner& CudaGraphRunner::operator=(CudaGraphRunner&& other) noexcept {
         all_nodes_       = std::move(other.all_nodes_);
         nodes_scanned_   = other.nodes_scanned_;
         tracked_memcpy_  = std::move(other.tracked_memcpy_);
-        tracked_kernels_ = std::move(other.tracked_kernels_);
         other.nodes_scanned_ = false;
     }
     return *this;
@@ -57,7 +55,6 @@ void CudaGraphRunner::end_capture(cudaStream_t stream) {
     nodes_scanned_ = false;
     all_nodes_.clear();
     tracked_memcpy_.clear();
-    tracked_kernels_.clear();
 
     if (exec_ != nullptr) {
         CUDA_CHECK_THROW(cudaGraphExecDestroy(exec_), "CudaGraphRunner::end_capture cudaGraphExecDestroy");
@@ -85,7 +82,6 @@ bool CudaGraphRunner::launch(cudaStream_t stream) {
 
 void CudaGraphRunner::reset() {
     tracked_memcpy_.clear();
-    tracked_kernels_.clear();
     all_nodes_.clear();
     nodes_scanned_ = false;
     if (exec_ != nullptr) {
@@ -134,58 +130,6 @@ int CudaGraphRunner::track_memcpy_node(void* dst_ptr) {
     return -1;
 }
 
-// ---------- track kernel -------------------------------------------------
-
-int CudaGraphRunner::track_kernel_node(void* arg0_ptr) {
-    ensure_nodes_scanned();
-    for (auto& nd : all_nodes_) {
-        cudaGraphNodeType type;
-        CUDA_CHECK_THROW(cudaGraphNodeGetType(nd, &type),
-                         "CudaGraphRunner::track_kernel_node cudaGraphNodeGetType");
-        if (type != cudaGraphNodeTypeKernel) continue;
-
-        cudaKernelNodeParams kp = {};
-        cudaError_t err = cudaGraphKernelNodeGetParams(nd, &kp);
-        if (err == cudaErrorInvalidDeviceFunction) {
-            // cuBLAS (and other libraries) launch kernels via the CUDA Driver
-            // API from dynamically loaded cubins. The Runtime API cannot
-            // resolve these function pointers, so GetParams returns
-            // cudaErrorInvalidDeviceFunction. This is expected — clear the
-            // sticky error and skip.
-            (void)cudaGetLastError();
-            continue;
-        }
-        if (err != cudaSuccess) {
-            CUDA_CHECK_THROW(err,
-                "CudaGraphRunner::track_kernel_node cudaGraphKernelNodeGetParams");
-        }
-        if (kp.kernelParams == nullptr) continue;
-
-        void* val = *static_cast<void**>(kp.kernelParams[0]);
-        if (val != arg0_ptr) continue;
-
-        TrackedKernel tk;
-        tk.node = nd;
-        tk.params = kp;
-        tk.arg0_value = val;
-
-        // Build our own kernelParams[] array: arg-0 points to our mutable
-        // copy; remaining entries re-use the graph-internal pointers (they
-        // are stable while graph_ is alive and the args are unchanging).
-        constexpr int kMaxArgs = 16;
-        tk.arg_ptrs.resize(kMaxArgs, nullptr);
-        tk.arg_ptrs[0] = &tk.arg0_value;
-        for (int a = 1; a < kMaxArgs; ++a)
-            tk.arg_ptrs[a] = kp.kernelParams[a];
-        tk.params.kernelParams = tk.arg_ptrs.data();
-
-        int handle = static_cast<int>(tracked_kernels_.size());
-        tracked_kernels_.push_back(std::move(tk));
-        return handle;
-    }
-    return -1;
-}
-
 // ---------- update memcpy ------------------------------------------------
 
 void CudaGraphRunner::update_memcpy_dst(int handle, void* new_dst) {
@@ -194,17 +138,6 @@ void CudaGraphRunner::update_memcpy_dst(int handle, void* new_dst) {
     CUDA_CHECK_THROW(
         cudaGraphExecMemcpyNodeSetParams(exec_, tm.node, &tm.params),
         "CudaGraphRunner::update_memcpy_dst");
-}
-
-// ---------- update kernel ------------------------------------------------
-
-void CudaGraphRunner::update_kernel_arg0(int handle, void* new_arg0) {
-    auto& tk = tracked_kernels_.at(handle);
-    tk.arg0_value = new_arg0;
-    // tk.arg_ptrs[0] still points to &tk.arg0_value, so params is up-to-date.
-    CUDA_CHECK_THROW(
-        cudaGraphExecKernelNodeSetParams(exec_, tk.node, &tk.params),
-        "CudaGraphRunner::update_kernel_arg0");
 }
 
 } // namespace edge_fm

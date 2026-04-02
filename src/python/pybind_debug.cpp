@@ -17,13 +17,15 @@
 #include "layers/linear.h"
 #include "engine/engine.h"
 #include "models/model.h"
-#include "models/qwen2_5/qwen2_5.h"
 #include "engine/kv_manager.h"
 #include "utils/device/weight_loader.h"
 #include <nlohmann/json.hpp>
 #include <cuda_runtime.h>
+#include <fstream>
 #include <exception>
 #include <filesystem>
+#include <sstream>
+#include <unistd.h>
 
 namespace py = pybind11;
 using namespace edge_fm;
@@ -436,30 +438,40 @@ PYBIND11_MODULE(edge_fm, m) {
                                   const Tensor& k,
                                   const Tensor& v,
                                   Tensor& o,
-                                  uintptr_t stream_ptr = 0) {
+                                  uintptr_t stream_ptr = 0,
+                                  uint32_t max_kv_len = 0) {
                 cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
-                self.forward_decode(q, k, v, o, stream);
+                self.forward_decode(q, k, v, o, stream, nullptr, max_kv_len);
             },
             py::arg("q"),
             py::arg("k"),
             py::arg("v"),
             py::arg("o"),
             py::arg("stream") = 0,
-            "执行 Decode 模式的前向传播\n\n"
-            "参数:\n"
-            "    q: 查询张量，形状 [1, num_qo_heads, head_dim]\n"
-            "    k: 键张量（来自 KV cache），形状 [kv_len, num_kv_heads, head_dim]\n"
-            "    v: 值张量（来自 KV cache），形状 [kv_len, num_kv_heads, head_dim]\n"
-            "    o: 输出张量，形状 [1, num_qo_heads, head_dim]（用于存储输出）\n"
-            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n\n"
-            "注意:\n"
-            "    - 函数本身是异步的，kernel 启动后立即返回\n"
-            "    - 如果需要在函数返回后立即使用结果，需要手动调用 stream.synchronize() 或 cudaDeviceSynchronize()\n\n"
-            "示例:\n"
-            "    # 使用默认 stream\n"
-            "    layer.forward_decode(q, k, v, o)\n\n"
-            "    # 使用自定义 stream\n"
-            "    layer.forward_decode(q, k, v, o, stream)");
+            py::arg("max_kv_len") = 0,
+            R"doc(执行 Decode 模式的前向传播
+
+参数:
+    q: 查询张量，形状 [1, num_qo_heads, head_dim]
+    k: 键张量（来自 KV cache），形状 [kv_len 或 max_kv_len, num_kv_heads, head_dim]
+    v: 值张量（来自 KV cache），形状 [kv_len 或 max_kv_len, num_kv_heads, head_dim]
+    o: 输出张量，形状 [1, num_qo_heads, head_dim]（用于存储输出）
+    stream: CUDA stream 指针地址（整数），0 表示默认 stream
+    max_kv_len: 可选的最大 KV 长度，用于 decode/cuda graph 场景（默认: 0）
+
+注意:
+    - 函数本身是异步的，kernel 启动后立即返回
+    - 如果需要在函数返回后立即使用结果，需要手动调用 stream.synchronize() 或 cudaDeviceSynchronize()
+
+示例:
+    # 使用默认 stream
+    layer.forward_decode(q, k, v, o)
+
+    # 使用自定义 stream
+    layer.forward_decode(q, k, v, o, stream)
+
+    # 使用 decode/cuda graph 的 max_kv_len
+    layer.forward_decode(q, k, v, o, stream, max_kv_len))doc");
 
     // ============================================================================
     // RMSNormLayer 类绑定
@@ -1106,75 +1118,6 @@ PYBIND11_MODULE(edge_fm, m) {
             "    layer.forward_for_embeddings(token_ids, embeddings, output, embed_token_id=32000, stream=torch.cuda.current_stream().cuda_stream)");
 
     // ============================================================================
-    // Qwen2_5 模型类绑定（调试用）
-    // ============================================================================
-    py::class_<Qwen2_5, std::unique_ptr<Qwen2_5>>(m, "Qwen2_5", "Qwen2.5 模型（调试接口）")
-        .def(py::init([](const std::string& config_path) {
-                 EngineConfig config(config_path);
-                 WeightLoader& loader = WeightLoader::instance();
-                 const std::string safetensors_path =
-                     config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(ModelStage::Prefill, safetensors_path, Device::GPU, 0, true);
-                 std::string decode_model_path = config.decode_model_path();
-                 if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
-                     try {
-                         loader.load_weights_from_file(ModelStage::Decode,
-                             decode_model_path + "/model.safetensors", Device::GPU, 0, true);
-                     } catch (...) {
-                         loader.load_weights_from_file(ModelStage::Decode, safetensors_path, Device::GPU, 0, true);
-                     }
-                 } else {
-                     loader.load_weights_from_file(ModelStage::Decode, safetensors_path, Device::GPU, 0, true);
-                 }
-                 auto model = std::make_unique<Qwen2_5>(config);
-                 return model;
-             }),
-             py::arg("config_path"),
-             "创建 Qwen2.5 模型\n\n"
-             "参数:\n"
-             "    config_path: 引擎配置文件路径（JSON），需包含 model_name 和 prefill_model_path\n\n"
-             "示例:\n"
-             "    model = edge_fm.Qwen2_5(\"/path/to/engine_config.json\")")
-        .def("num_layers", &Qwen2_5::num_layers, "获取模型层数")
-        .def("hidden_size", &Qwen2_5::hidden_size, "获取 hidden_size")
-        .def("vocab_size", &Qwen2_5::vocab_size, "获取 vocab_size")
-        .def("forward_prefill",
-             [](Qwen2_5& self,
-                int32_t seq_len,
-                py::dict py_inputs,
-                py::dict py_outputs,
-                uintptr_t stream_ptr = 0) -> py::dict {
-                 cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
-
-                 auto dict_to_tensor_map = [](py::dict d) {
-                     std::unordered_map<std::string, Tensor> result;
-                     for (auto item : d) {
-                         std::string key = py::cast<std::string>(item.first);
-                         result.emplace(key, tensor_from_pytorch(py::reinterpret_borrow<py::object>(item.second)));
-                     }
-                     return result;
-                 };
-
-                 std::unordered_map<std::string, Tensor> inputs = dict_to_tensor_map(py_inputs);
-                 std::unordered_map<std::string, Tensor> outputs = dict_to_tensor_map(py_outputs);
-                 self.forward_prefill(seq_len, inputs, outputs, stream);
-                 return py_outputs;
-             },
-             py::arg("seq_len"),
-             py::arg("inputs"),
-             py::arg("outputs"),
-             py::arg("stream") = 0,
-             "完整 prefill 接口（大规模对齐测试用）\n\n"
-             "参数:\n"
-             "    seq_len: 序列长度\n"
-             "    inputs: dict, 键 \"token_ids\" [1, seq_len] int32\n"
-             "    outputs: dict, 需 \"embedding\" [1, seq_len, hidden_size], \"last_decoder_output\" [seq_len, hidden_size],\n"
-             "             \"final_norm_output\" [seq_len, hidden_size], \"lm_head_output\" [seq_len, vocab_size]\n"
-             "    stream: CUDA stream 指针，0 表示默认\n\n"
-             "返回:\n"
-             "    与 outputs 相同的 dict")
-        ;
-    // ============================================================================
     // ModelTensors 常量（调试用）
     // ============================================================================
     py::dict model_tensors;
@@ -1219,6 +1162,14 @@ PYBIND11_MODULE(edge_fm, m) {
             "示例:\n"
             "    loader = edge_fm.WeightLoader.instance()\n"
             "    weights = loader.get(edge_fm.ModelStage.Prefill)")
+        .def("clear_stage", &WeightLoader::clear_stage,
+            py::arg("cache_key"),
+            "清空指定 stage 的权重缓存\n\n"
+            "参数:\n"
+            "    cache_key: 缓存键（ModelStage 类型）\n\n"
+            "示例:\n"
+            "    loader = edge_fm.WeightLoader.instance()\n"
+            "    loader.clear_stage(edge_fm.ModelStage.Prefill)")
         .def("load_weights_from_file", &WeightLoader::load_weights_from_file,
             py::arg("cache_key"),
             py::arg("safetensors_file"),
@@ -1423,6 +1374,18 @@ PYBIND11_MODULE(edge_fm, m) {
         .def(py::init<const std::string&>(),
              py::arg("config_path"),
              "构造 EdgeFM 推理引擎")
+        .def_static("from_model",
+             [](py::object /*model*/, const std::string& engine_json) {
+                 (void)engine_json;
+                 throw ConfigurationError(
+                     "EdgeFM.from_model(...) has been deprecated. "
+                     "Use EdgeFM(config_path) and set model_name explicitly in engine.json.");
+             },
+             py::arg("model"),
+             py::arg("engine_json"),
+             "已废弃。请改用 EdgeFM(config_path)，并在 engine.json 中显式设置 model_name。")
+        .def("tune", &EdgeFM::tune,
+             "对当前 backend 生成或调优执行产物，并将结果持久化缓存。")
         .def("generate", &EdgeFM::generate,
              py::arg("request"),
              "从给定请求生成响应 token");
@@ -1451,4 +1414,3 @@ PYBIND11_MODULE(edge_fm, m) {
     py::arg("head_dim"), py::arg("rope_theta"), py::arg("rope_scale"),
     py::arg("dtype"));
 }
-

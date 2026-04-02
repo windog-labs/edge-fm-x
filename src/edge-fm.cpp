@@ -2,6 +2,7 @@
 #include <edge-fm/edge-fm.h>
 #include <dlpack/dlpack.h>
 #include "engine/engine.h"
+#include "engine/horizon_engine.h"
 #include "engine/stardard_engine.h"
 #include "utils/device/weight_loader.h"
 #include <cuda_runtime.h>
@@ -661,6 +662,16 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
     if (speculative_enabled) {
         throw std::runtime_error("Speculative decoding (EagleEngine) not yet supported in EdgeFM facade");
     }
+    const std::string backend_target = config.backend_target();
+    if (backend_target == "horizon") {
+        impl_->engine = std::make_unique<HorizonEngine>(config);
+        impl_->engine->warmup();
+        return;
+    }
+    if (backend_target != "cuda") {
+        throw ConfigurationError("Unsupported backend_target: " + backend_target);
+    }
+
     WeightLoader& loader = WeightLoader::instance();
     // Clear cache before loading: FusedQKVLinearLayer modifies cache in-place (erases q/k/v_proj),
     // so a previously created engine leaves the cache in an invalid state for a new engine.
@@ -669,20 +680,8 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
     std::string prefill_path = config.prefill_model_path();
     int32_t device_id = config.runtime_device_id();
 
-    // 检测是否为 VLM（Qwen2.5-VL 等）：config.json 含 text_config 且权重为 model.model.*
-    bool is_vlm = false;
-    std::filesystem::path model_config_path = std::filesystem::path(prefill_path) / "config.json";
-    if (std::filesystem::exists(model_config_path)) {
-        std::ifstream f(model_config_path);
-        if (f) {
-            try {
-                nlohmann::json raw_config = nlohmann::json::parse(f);
-                if (raw_config.contains("text_config") && raw_config["text_config"].is_object()) {
-                    is_vlm = true;
-                }
-            } catch (...) { /* 忽略解析错误 */ }
-        }
-    }
+    // 模型族由 engine.json 中显式的 model_name 决定；装权重时不再从模型文件推断 text / vl。
+    const bool is_vlm = (config.resolved_model_name() == "qwen2_5_vl");
 
     std::vector<std::string> prefill_files = collect_safetensors_files(prefill_path);
     if (prefill_files.empty()) {
@@ -691,10 +690,13 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
 
     if (is_vlm) {
         auto vlm_filter = [](const std::string& name) {
-            return name.size() > 12 && name.compare(0, 12, "model.model.") == 0;
+            return name.rfind("model.", 0) == 0;
         };
         auto vlm_key_mapper = [](const std::string& name) {
-            return name.substr(7);  // "model.model.xxx" -> "model.xxx"
+            if (name.rfind("model.model.", 0) == 0) {
+                return name.substr(6);  // "model.model.xxx" -> "model.xxx"
+            }
+            return name;
         };
         for (const auto& f : prefill_files) {
             loader.load_weights_from_file(ModelStage::Prefill, f, Device::GPU, device_id, true, vlm_filter, vlm_key_mapper);
@@ -732,6 +734,10 @@ EdgeFM::~EdgeFM() noexcept = default;
 
 Response EdgeFM::generate(const Request& request) const {
     return impl_->engine->generate(request);
+}
+
+void EdgeFM::tune() {
+    impl_->engine->tune();
 }
 
 } // namespace edge_fm

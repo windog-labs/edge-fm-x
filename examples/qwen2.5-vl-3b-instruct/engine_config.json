@@ -4,8 +4,10 @@
     "num_threads": 0,
     "use_cuda_graph": true,
     "device": "cuda",
-    "device_id": 0
+    "device_id": 0,
+    "hw_profile": "cuda_sm80"
   },
+  "operator_impl_table_path": "../config/operator_impl_table.json",
   "prefill_model_path": "qwen2.5-vl-3b-instruct",
   "decode_model_path": null,
   "speculative": {
@@ -15,7 +17,11 @@
     "dtype": "fp16",
     "attention_type": "gqa",
     "requests": [
-      { "request_id": 0, "prefix_token_ids": [], "max_tokens": 4096 }
+      {
+        "request_id": 0,
+        "prefix_token_ids": [],
+        "max_tokens": 4096
+      }
     ]
   },
   "sampling": {
