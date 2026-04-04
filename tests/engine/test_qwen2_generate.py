@@ -999,43 +999,28 @@ def _print_bench_comparison(label: str, tf_result: dict, efm_result: dict):
 
 def _bench_trt_edgellm(
     engine_dir: Path,
-    inference_bin: Path,
+    plugin_path: Path,
     token_ids_list: list[int],
     num_steps: int,
     prefill_len: int,
     warmup: int,
     runs: int,
     ignore_stop_tokens: bool = False,
-    prompt: str | None = None,
 ) -> dict:
-    """Benchmark TRT-Edge-LLM.
-
-    Fairness note:
-    - In-process mode (edge_fm_trt): apples-to-apples with token_ids / fixed decode steps.
-    - Subprocess mode (llm_inference): uses prompt JSON path and may not match token_ids prefill exactly.
-      For strict comparisons, disable subprocess fallback.
-    """
-    # In-process: use edge_fm_trt with token_ids for same prefill as Edge-FM
-    if edge_fm_trt is not None:
-        return _bench_trt_edgellm_inprocess(
-            engine_dir, inference_bin, token_ids_list, num_steps, prefill_len, warmup, runs, ignore_stop_tokens
-        )
-
-    allow_subprocess = os.environ.get("EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS", "0") == "1"
-    if not allow_subprocess:
+    """Benchmark TRT-Edge-LLM via edge_fm_trt (in-process only)."""
+    if edge_fm_trt is None:
         raise RuntimeError(
-            "edge_fm_trt not available and subprocess TRT benchmark is disabled "
-            "(set EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS=1 to override, non-strict comparison)."
+            "edge_fm_trt not available. Build with BUILD_TRT_EDGELLM_PYBIND=ON "
+            "and add its module path to PYTHONPATH."
         )
-
-    # Fallback: subprocess (不支持 ignore_stop_tokens，可能因 EOS 提前停止；使用 prompt)
-    _prompt = prompt or "Hello, how are you today?"
-    return _bench_trt_edgellm_subprocess(engine_dir, inference_bin, _prompt, num_steps, prefill_len, warmup, runs)
+    return _bench_trt_edgellm_inprocess(
+        engine_dir, plugin_path, token_ids_list, num_steps, prefill_len, warmup, runs, ignore_stop_tokens
+    )
 
 
 def _bench_trt_edgellm_inprocess(
     engine_dir: Path,
-    inference_bin: Path,
+    plugin_path: Path,
     token_ids_list: list[int],
     num_steps: int,
     prefill_len: int,
@@ -1046,113 +1031,58 @@ def _bench_trt_edgellm_inprocess(
     """Benchmark TRT-Edge-LLM via edge_fm_trt (in-process). Uses token_ids for same prefill as Edge-FM."""
     import time
 
-    # Set EDGELLM_PLUGIN_PATH so loadEdgellmPluginLib() finds the plugin
-    plugin_path = inference_bin.resolve().parent.parent.parent / "libNvInfer_edgellm_plugin.so"
-    if plugin_path.exists():
-        os.environ["EDGELLM_PLUGIN_PATH"] = str(plugin_path)
+    if not plugin_path.exists():
+        raise FileNotFoundError(f"TRT-Edge-LLM plugin not found at {plugin_path}")
+    os.environ["EDGELLM_PLUGIN_PATH"] = str(plugin_path)
 
     runtime = edge_fm_trt.TrtEdgeLlmRuntime(
         str(engine_dir), "", DEVICE_ID
     )
 
     # Warmup
+    warmup_counts = []
     for _ in range(warmup):
-        runtime.generate_from_token_ids(
+        output_ids, _ = runtime.generate_from_token_ids(
             token_ids_list, num_steps, temperature=0.0, top_p=1.0, top_k=1, ignore_stop_tokens=ignore_stop_tokens
+        )
+        warmup_counts.append(len(output_ids[0]) if output_ids else 0)
+
+    if any(count != num_steps for count in warmup_counts):
+        raise AssertionError(
+            f"TRT-Edge-LLM warmup generated unexpected token counts: {warmup_counts}, "
+            f"expected every run to generate {num_steps} tokens"
         )
 
     # Timed runs
     times = []
+    generated_counts = []
     for _ in range(runs):
         t0 = time.perf_counter()
-        runtime.generate_from_token_ids(
+        output_ids, _ = runtime.generate_from_token_ids(
             token_ids_list, num_steps, temperature=0.0, top_p=1.0, top_k=1, ignore_stop_tokens=ignore_stop_tokens
         )
         times.append((time.perf_counter() - t0) * 1000)
+        generated_counts.append(len(output_ids[0]) if output_ids else 0)
+
+    if any(count != num_steps for count in generated_counts):
+        raise AssertionError(
+            f"TRT-Edge-LLM timed runs generated unexpected token counts: {generated_counts}, "
+            f"expected every run to generate {num_steps} tokens"
+        )
 
     avg_ms = sum(times) / len(times)
     avg_s = avg_ms / 1000.0
-    total_tokens = prefill_len + num_steps
+    actual_decode_tokens = generated_counts[0] if generated_counts else num_steps
+    total_tokens = prefill_len + actual_decode_tokens
     return {
         "avg_ms": avg_ms,
         "prefill_tokens": prefill_len,
-        "decode_tokens": num_steps,
+        "decode_tokens": actual_decode_tokens,
         "total_tokens": total_tokens,
         "tokens_per_sec": total_tokens / avg_s,
-        "decode_tokens_per_sec": num_steps / avg_s,
+        "decode_tokens_per_sec": actual_decode_tokens / avg_s,
         "times_ms": times,
-    }
-
-
-def _bench_trt_edgellm_subprocess(
-    engine_dir: Path,
-    inference_bin: Path,
-    prompt: str,
-    num_steps: int,
-    prefill_len: int,
-    warmup: int,
-    runs: int,
-) -> dict:
-    """Benchmark TRT-Edge-LLM via subprocess. T1=warmup, T2=warmup+runs → pure inference = (T2-T1)/runs."""
-    import subprocess
-    import time
-    import tempfile
-
-    trt_edgellm_root = inference_bin.resolve().parent.parent.parent
-    plugin_path = trt_edgellm_root / "libNvInfer_edgellm_plugin.so"
-    trt_pkg = os.environ.get("TRT_PACKAGE_DIR", "/usr/local/TensorRT-10.15.1.29")
-    trt_lib = str(Path(trt_pkg) / "lib")
-    bench_env = {
-        **os.environ,
-        "CUDA_VISIBLE_DEVICES": str(DEVICE_ID),
-        "EDGELLM_PLUGIN_PATH": str(plugin_path),
-        "LD_LIBRARY_PATH": f"{trt_lib}:{os.environ.get('LD_LIBRARY_PATH', '')}",
-    }
-
-    req = {"messages": [{"role": "user", "content": prompt}]}
-
-    def run_n_requests(n: int) -> float:
-        inp = {
-            "batch_size": 1,
-            "temperature": 0.0,
-            "top_p": 1.0,
-            "top_k": 1,
-            "max_generate_length": num_steps,
-            "requests": [req] * n,
-        }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            input_path = f.name
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            output_path = f.name
-        try:
-            with open(input_path, "w", encoding="utf-8") as f:
-                json.dump(inp, f, indent=2)
-            t0 = time.perf_counter()
-            subprocess.run(
-                [str(inference_bin), "--engineDir", str(engine_dir), "--inputFile", input_path, "--outputFile", output_path],
-                check=True,
-                capture_output=True,
-                env=bench_env,
-            )
-            return time.perf_counter() - t0
-        finally:
-            for p in (input_path, output_path):
-                if os.path.exists(p):
-                    os.unlink(p)
-
-    t1 = run_n_requests(warmup)
-    t2 = run_n_requests(warmup + runs)
-    pure_inference_s = (t2 - t1) / runs
-    avg_ms = pure_inference_s * 1000
-    total_tokens = prefill_len + num_steps
-    return {
-        "avg_ms": avg_ms,
-        "prefill_tokens": prefill_len,
-        "decode_tokens": num_steps,
-        "total_tokens": total_tokens,
-        "tokens_per_sec": total_tokens / pure_inference_s,
-        "decode_tokens_per_sec": num_steps / pure_inference_s,
-        "times_ms": [avg_ms] * runs,
+        "generated_counts": generated_counts,
     }
 
 
@@ -1260,7 +1190,7 @@ def test_benchmark_llm(dump_data):
 
 
 def test_benchmark_trt_edgellm(dump_data):
-    """LLM 性能基准：Transformers vs EdgeFM vs TRT-Edge-LLM（batch=1，同步计时）。"""
+    """LLM 性能基准：Transformers vs EdgeFM(cuda graph) vs TRT-Edge-LLM（batch=1，同步计时）。"""
     import torch
 
     model_path = dump_data["model_path"]
@@ -1269,29 +1199,34 @@ def test_benchmark_trt_edgellm(dump_data):
     default_prefill_len = len(base_token_ids)
     default_decode_steps = BENCH_NUM_STEPS
     bench_cases = _resolve_bench_cases(default_prefill_len, default_decode_steps)
-    prompt = dump_data["manifest"].get("prompt", DEFAULT_PROMPT)
 
-    engine_dir = Path(os.environ.get("TRT_EDGELLM_ENGINE_DIR", "")) or (
-        (project_root / "tests" / "data" / "trt_edgellm_workspace" / "qwen2.5-1.5b" / "engines").resolve()
+    _engine_dir = os.environ.get("TRT_EDGELLM_ENGINE_DIR", "").strip()
+    engine_dir = (
+        Path(_engine_dir).resolve()
+        if _engine_dir
+        else (project_root / "tests" / "data" / "trt_edgellm_workspace" / "qwen2.5-1.5b" / "engines").resolve()
     )
-    _inf = os.environ.get("TRT_EDGELLM_INFERENCE_BIN", "").strip()
-    inference_bin = (Path(_inf) if _inf else project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "examples" / "llm" / "llm_inference").resolve()
+    _plugin = os.environ.get("TRT_EDGELLM_PLUGIN_PATH", "").strip()
+    plugin_path = (
+        Path(_plugin).resolve()
+        if _plugin
+        else (project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "libNvInfer_edgellm_plugin.so").resolve()
+    )
 
     if not engine_dir.exists() or not (engine_dir / "llm.engine").exists():
         pytest.skip(
             f"TRT-Edge-LLM engine not found at {engine_dir}. "
             "Run: bash tests/scripts/setup_trt_edgellm_benchmark.sh"
         )
-    if not inference_bin.exists():
+    if not plugin_path.exists():
         pytest.skip(
-            f"llm_inference not found at {inference_bin}. "
-            "Run: bash tests/scripts/setup_trt_edgellm_benchmark.sh"
+            f"TRT-Edge-LLM plugin not found at {plugin_path}. "
+            "Build TensorRT-Edge-LLM first so libNvInfer_edgellm_plugin.so is available."
         )
-    if edge_fm_trt is None and os.environ.get("EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS", "0") != "1":
+    if edge_fm_trt is None:
         pytest.skip(
             "edge_fm_trt (in-process TRT runtime) not found. "
-            "For strict/fair benchmark, build with BUILD_TRT_EDGELLM_PYBIND=ON. "
-            "If you still want subprocess fallback, set EDGE_FM_BENCH_ALLOW_TRT_SUBPROCESS=1."
+            "Build with BUILD_TRT_EDGELLM_PYBIND=ON and add its module path to PYTHONPATH."
         )
 
     print("\n[benchmark] test_benchmark_trt_edgellm cases:")
@@ -1301,38 +1236,51 @@ def test_benchmark_trt_edgellm(dump_data):
     for prefill_len, num_steps in bench_cases:
         token_ids_list = _build_prefill_token_ids(base_token_ids, prefill_len)
 
+        def make_request():
+            req = edge_fm.Request(0, token_ids_list)
+            req.set_ignore_stop_tokens(True)  # 公平对比：固定生成 num_steps 个 token，不因 EOS 提前停止
+            return req
+
         tf_result = _bench_transformers_llm(
             model_path, token_ids_list, num_steps,
             warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
 
         # Run TRT before EdgeFM to reduce peak memory overlap with EdgeFM runtime allocations.
         trt_result = _bench_trt_edgellm(
-            engine_dir, inference_bin, token_ids_list, num_steps, prefill_len,
+            engine_dir, plugin_path, token_ids_list, num_steps, prefill_len,
             warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS,
             ignore_stop_tokens=True,  # 公平对比：固定生成 num_steps 个 token
-            prompt=prompt,  # subprocess fallback 使用
         )
 
         torch.cuda.empty_cache()
 
-        engine_config_path = _create_engine_config(
+        cfg_no_graph = _create_engine_config(
             model_path, prefill_len, num_steps, generated_tokens_total=num_steps)
-        engine = edge_fm.EdgeFM(engine_config_path)
-
-        def make_request():
-            req = edge_fm.Request(0, token_ids_list)
-            req.set_ignore_stop_tokens(True)  # 公平对比：固定生成 num_steps 个 token，不因 EOS 提前停止
-            return req
-
-        efm_result = _bench_edgefm(
+        engine = edge_fm.EdgeFM(cfg_no_graph)
+        efm_no_graph_result = _bench_edgefm(
             engine, make_request, num_steps, prefill_len,
             warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
         del engine
         torch.cuda.empty_cache()
 
+        cfg_graph = _create_engine_config(
+            model_path, prefill_len, num_steps, use_cuda_graph=True, generated_tokens_total=num_steps
+        )
+        engine_graph = edge_fm.EdgeFM(cfg_graph)
+        efm_graph_result = _bench_edgefm(
+            engine_graph, make_request, num_steps, prefill_len,
+            warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+        del engine_graph
+        torch.cuda.empty_cache()
+
+        _print_bench_comparison_2way(
+            "EdgeFM (no graph)", efm_no_graph_result, "EdgeFM (cuda graph)", efm_graph_result,
+            prefill_len, num_steps,
+        )
+
         _print_bench_comparison_3way(
-            f"LLM: Transformers vs EdgeFM vs TRT-Edge-LLM (prefill={prefill_len}, decode={num_steps})",
-            tf_result, efm_result, trt_result,
+            f"LLM: Transformers vs EdgeFM (cuda graph) vs TRT-Edge-LLM (prefill={prefill_len}, decode={num_steps})",
+            tf_result, efm_graph_result, trt_result,
         )
 
 
