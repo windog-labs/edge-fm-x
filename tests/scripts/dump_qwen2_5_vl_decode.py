@@ -12,6 +12,7 @@ prefill/decode 中间结果。使用 KV-cached 逐步 greedy decode 作为参考
 """
 
 import argparse
+import inspect
 import json
 import os
 import sys
@@ -132,15 +133,27 @@ def main():
         raise RuntimeError(f"无法确定图像 token 位置, embed_token_id={embed_token_id}")
     image_embeddings = embed_output[0, positions, :].float().cpu().numpy()
 
-    # Compute M-RoPE 3D position_ids and rope_deltas
+    # Compute M-RoPE 3D position_ids and rope_deltas.
+    # Transformers changed Qwen2.5-VL get_rope_index() across versions:
+    # older builds accepted mm_token_type_ids, newer ones derive multimodal
+    # metadata from attention_mask / grid args only.
     if mm_token_type_ids is None:
         mm_token_type_ids = torch.zeros_like(input_ids, dtype=torch.int32, device=input_ids.device)
         mm_token_type_ids[input_ids == embed_token_id] = 1
-    position_ids_3d, rope_deltas_from_rope = model.model.get_rope_index(
-        input_ids=input_ids,
-        mm_token_type_ids=mm_token_type_ids,
-        image_grid_thw=image_grid_thw,
-    )
+    rope_sig = inspect.signature(model.model.get_rope_index)
+    rope_kwargs = {
+        "input_ids": input_ids,
+        "image_grid_thw": image_grid_thw,
+    }
+    if "mm_token_type_ids" in rope_sig.parameters:
+        rope_kwargs["mm_token_type_ids"] = mm_token_type_ids
+    if "video_grid_thw" in rope_sig.parameters and inputs.get("video_grid_thw") is not None:
+        rope_kwargs["video_grid_thw"] = inputs.get("video_grid_thw")
+    if "second_per_grid_ts" in rope_sig.parameters and inputs.get("second_per_grid_ts") is not None:
+        rope_kwargs["second_per_grid_ts"] = inputs.get("second_per_grid_ts")
+    if "attention_mask" in rope_sig.parameters and inputs.get("attention_mask") is not None:
+        rope_kwargs["attention_mask"] = inputs.get("attention_mask")
+    position_ids_3d, rope_deltas_from_rope = model.model.get_rope_index(**rope_kwargs)
     position_ids_np = position_ids_3d[:, 0, :].cpu().numpy().astype(np.int32)
 
     # Prepare token_ids with incremented image token IDs
