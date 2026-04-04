@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import importlib.util
+import inspect
 import json
 import os
 import statistics as stats
@@ -15,7 +16,12 @@ DEFAULT_TRT_PACKAGE = "/xs-train-nas/zzm/packages/TensorRT-10.16.0.72"
 
 def load_test_module(repo_root: Path, device_id: int):
     os.environ["EDGE_FM_DEVICE_ID"] = str(device_id)
-    sys.path.insert(0, str(repo_root / "build" / "install" / "python"))
+    for python_dir in [
+        repo_root / "build" / "install" / "python",
+        repo_root / "build" / "python",
+    ]:
+        if python_dir.exists():
+            sys.path.insert(0, str(python_dir))
     module_path = repo_root / "tests" / "engine" / "test_qwen2_generate.py"
     spec = importlib.util.spec_from_file_location("edgefm_bench_test", module_path)
     module = importlib.util.module_from_spec(spec)
@@ -110,18 +116,36 @@ def run_edgefm(t, edge_fm_mod, model_path, token_ids_list, prefill_len, num_step
     return result
 
 
-def run_trt(t, token_ids_list, prefill_len, num_steps, prompt, engine_dir, inference_bin):
-    result = t._bench_trt_edgellm(
-        engine_dir,
-        inference_bin,
-        token_ids_list,
-        num_steps,
-        prefill_len,
-        warmup=t.BENCH_WARMUP_RUNS,
-        runs=t.BENCH_TIMED_RUNS,
-        ignore_stop_tokens=True,
-        prompt=prompt,
-    )
+def run_trt(t, token_ids_list, prefill_len, num_steps, prompt, engine_dir, plugin_path, inference_bin):
+    bench_trt = t._bench_trt_edgellm
+    params = inspect.signature(bench_trt).parameters
+
+    # Keep the skill script compatible with both the current in-process helper
+    # (engine_dir + plugin_path) and the older external-runtime helper
+    # (engine_dir + inference_bin + prompt).
+    if "prompt" in params:
+        result = bench_trt(
+            engine_dir,
+            inference_bin,
+            token_ids_list,
+            num_steps,
+            prefill_len,
+            warmup=t.BENCH_WARMUP_RUNS,
+            runs=t.BENCH_TIMED_RUNS,
+            ignore_stop_tokens=True,
+            prompt=prompt,
+        )
+    else:
+        result = bench_trt(
+            engine_dir,
+            plugin_path,
+            token_ids_list,
+            num_steps,
+            prefill_len,
+            warmup=t.BENCH_WARMUP_RUNS,
+            runs=t.BENCH_TIMED_RUNS,
+            ignore_stop_tokens=True,
+        )
     torch.cuda.empty_cache()
     return result
 
@@ -208,10 +232,11 @@ def main():
     prompt = manifest.get("prompt", t.DEFAULT_PROMPT)
     token_ids_list = t._build_prefill_token_ids(base_token_ids, prefill_len)
     engine_dir = (t.project_root / "tests" / "data" / "trt_edgellm_workspace" / "qwen2.5-1.5b" / "engines").resolve()
+    plugin_path = (t.project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "libNvInfer_edgellm_plugin.so").resolve()
     inference_bin = (t.project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "examples" / "llm" / "llm_inference").resolve()
 
     tf_result = run_transformers(t, model_path, token_ids_list, num_steps)
-    trt_result = run_trt(t, token_ids_list, prefill_len, num_steps, prompt, engine_dir, inference_bin)
+    trt_result = run_trt(t, token_ids_list, prefill_len, num_steps, prompt, engine_dir, plugin_path, inference_bin)
     edge_cg_result = run_edgefm(t, edge_fm_mod, model_path, token_ids_list, prefill_len, num_steps, use_cuda_graph=True)
     edge_ng_result = None
     if args.also_edgefm_no_graph:
@@ -226,6 +251,7 @@ def main():
             "warmup_runs": t.BENCH_WARMUP_RUNS,
             "timed_runs": t.BENCH_TIMED_RUNS,
             "engine_dir": str(engine_dir),
+            "plugin_path": str(plugin_path),
             "inference_bin": str(inference_bin),
         },
         tf_result,
