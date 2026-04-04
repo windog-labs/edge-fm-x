@@ -1,0 +1,4 @@
+interface:
+  display_name: "Add Edge-FM Operator"
+  short_description: "Add or extend Edge-FM operators safely"
+  default_prompt: "Use $edge-fm-add-operator to add or extend an operator in edge-fm following the current layer, operator, and operator_impl_table design."
