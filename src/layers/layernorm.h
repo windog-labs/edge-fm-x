@@ -36,14 +36,16 @@ public:
     void forward_rmsnorm(
         const Tensor& input,
         Tensor& output,
-        cudaStream_t stream = nullptr
+        cudaStream_t stream = nullptr,
+        ModelStage stage = ModelStage::Prefill
     );
 
     // Fused Add + RMSNorm 接口
     void forward_fused_add_rmsnorm(
         Tensor& inout,
         Tensor& residual,
-        cudaStream_t stream = nullptr
+        cudaStream_t stream = nullptr,
+        ModelStage stage = ModelStage::Prefill
     );
 
 private:

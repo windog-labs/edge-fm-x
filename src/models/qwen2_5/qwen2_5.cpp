@@ -416,10 +416,8 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         // Input LayerNorm
         std::string input_norm_key = layer_prefix + ".input_layernorm";
         if (layer_id == 0) {
-            // Layer 0: simple RMSNorm (no residual), then save embedding as initial residual
-            auto norm_inputs = context.make_layer_inputs({{"input", ModelTensors::HIDDEN_STATES_RESHAPE}});
-            auto norm_outputs = context.make_layer_outputs({{"output", ModelTensors::NORM_OUTPUT}});
-            layernorms_[input_norm_key]->forward(norm_inputs, norm_outputs, stream, stage);
+            // Layer 0: simple RMSNorm (no residual), then save embedding as initial residual.
+            layernorms_[input_norm_key]->forward_rmsnorm(hidden_2d, norm_output, stream, stage);
             CUDA_CHECK_THROW(cudaMemcpyAsync(post_norm_output.data_ptr(), hidden_states_tensor.data_ptr(),
                                              seq_len * hidden_size_ * dtype_size,
                                              cudaMemcpyDeviceToDevice, stream),
@@ -427,12 +425,8 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         } else {
             // Layer 1+: NORM_OUTPUT already contains previous layer's MLP output (down_proj wrote there).
             // FusedAddRMSNorm(inout=NORM_OUTPUT, residual=POST_NORM_OUTPUT) — no copy needed.
-            auto norm_inputs = context.make_layer_inputs({
-                {"input", ModelTensors::NORM_OUTPUT},
-                {"residual", ModelTensors::POST_NORM_OUTPUT}
-            });
-            auto norm_outputs = context.make_layer_outputs({{"output", ModelTensors::NORM_OUTPUT}});
-            layernorms_[input_norm_key]->forward(norm_inputs, norm_outputs, stream, stage);
+            layernorms_[input_norm_key]->forward_fused_add_rmsnorm(
+                norm_output, post_norm_output, stream, stage);
         }
         
         // QKV projection: FusedQKVLinear，输出到 context 提供的 QKV_PROJ_OUTPUT
@@ -532,23 +526,23 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
 
         std::string attn_key = layer_prefix + ".attn";
         Tensor q_attn = Tensor::view(q_buf, {seq_len, num_attention_heads_, head_dim_}, dtype_, Device::GPU, device_id);
-        std::unordered_map<std::string, Tensor> attn_inputs;
-        attn_inputs.emplace("q", std::move(q_attn));
-        attn_inputs.emplace("k", Tensor::view(k_cache.data_ptr(), k_cache.shape(), k_cache.dtype(),
-            std::get<0>(k_cache.device()), std::get<1>(k_cache.device())));
-        attn_inputs.emplace("v", Tensor::view(v_cache.data_ptr(), v_cache.shape(), v_cache.dtype(),
-            std::get<0>(v_cache.device()), std::get<1>(v_cache.device())));
-        if (tensors.count(ModelTensors::D_KV_LEN)) {
-            const Tensor& dkv = tensors.at(ModelTensors::D_KV_LEN);
-            attn_inputs.emplace("d_kv_len", Tensor::view(dkv.data_ptr(), dkv.shape(), dkv.dtype(),
-                std::get<0>(dkv.device()), std::get<1>(dkv.device())));
+        Tensor& attn_output = tensors[ModelTensors::ATTENTION_OUTPUT];
+        if (stage == ModelStage::Prefill) {
+            attentions_[attn_key]->forward_prefill(q_attn, k_cache, v_cache, attn_output, true, stream);
+        } else {
+            uint32_t* decode_kv_len = nullptr;
+            uint32_t max_kv_len = 0;
+            auto dkv_it = tensors.find(ModelTensors::D_KV_LEN);
+            if (dkv_it != tensors.end()) {
+                decode_kv_len = static_cast<uint32_t*>(dkv_it->second.data_ptr());
+                max_kv_len = static_cast<uint32_t>(k_cache.shape()[0]);
+            }
+            attentions_[attn_key]->forward_decode(
+                q_attn, k_cache, v_cache, attn_output, stream, decode_kv_len, max_kv_len);
         }
-        auto attn_outputs = context.make_layer_outputs({{"o", ModelTensors::ATTENTION_OUTPUT}});
-        attentions_[attn_key]->forward(attn_inputs, attn_outputs, stream, stage);
         
         // Output projection: read from ATTENTION_OUTPUT, write to HIDDEN_STATES (avoids D2D copy)
         std::string o_key = layer_prefix + ".attn.o_proj";
-        Tensor& attn_output = tensors[ModelTensors::ATTENTION_OUTPUT];
         Tensor o_proj_input = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         Tensor o_proj_output = Tensor::view(hidden_states_tensor.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         linear_[o_key]->forward_fp16_bf16(o_proj_input, o_proj_output, stream, stage);
@@ -556,12 +550,8 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         // Post-attention LayerNorm with fused add+rmsnorm (HIDDEN_STATES already has o_proj output)
         tensors[ModelTensors::HIDDEN_STATES_RESHAPE] = Tensor::view(hidden_states_tensor.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         std::string post_norm_key = layer_prefix + ".post_attention_layernorm";
-        auto post_norm_inputs = context.make_layer_inputs({
-            {"input", ModelTensors::HIDDEN_STATES_RESHAPE},
-            {"residual", ModelTensors::POST_NORM_OUTPUT}
-        });
-        auto post_norm_outputs = context.make_layer_outputs({{"output", ModelTensors::HIDDEN_STATES_RESHAPE}});
-        layernorms_[post_norm_key]->forward(post_norm_inputs, post_norm_outputs, stream, stage);
+        layernorms_[post_norm_key]->forward_fused_add_rmsnorm(
+            hidden_2d, post_norm_output, stream, stage);
         
         // MLP 1: Fused gate+up projection
         std::string gate_up_key = layer_prefix + ".mlp.gate_up_fused";
@@ -569,12 +559,10 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         Tensor& mlp_activation_input = tensors[ModelTensors::MLP_ACTIVATION_INPUT];
         Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
         linear_[gate_up_key]->forward_fp16_bf16(hidden_2d, gate_up_flat, stream, stage);
-        // MLP 2: Apply SiLU activation
-        auto activation_inputs = context.make_layer_inputs({{"input", ModelTensors::MLP_ACTIVATION_INPUT}});
-        auto activation_outputs = context.make_layer_outputs({{"output", ModelTensors::MLP_INTERMEDIATE}});
-        activation_layer_->forward(activation_inputs, activation_outputs, stream, stage);
-        // MLP 3: Down projection — write to NORM_OUTPUT (for next layer) or HIDDEN_STATES (last layer, for final_norm)
         Tensor& mlp_intermediate = tensors[ModelTensors::MLP_INTERMEDIATE];
+        activation_layer_->forward_silu_and_mul(
+            mlp_activation_input, mlp_intermediate, stream, stage);
+        // MLP 3: Down projection — write to NORM_OUTPUT (for next layer) or HIDDEN_STATES (last layer, for final_norm)
         if (layer_id < num_layers_ - 1) {
             Tensor norm_output_2d = Tensor::view(norm_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
             linear_[down_key]->forward_fp16_bf16(mlp_intermediate, norm_output_2d, stream, stage);
@@ -586,12 +574,10 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
     // 3. Final norm: hidden_states, _ = self.norm(hidden_states, residual)
     Tensor& hidden_states_final_ref = tensors[ModelTensors::HIDDEN_STATES];
     tensors[ModelTensors::HIDDEN_STATES_RESHAPE] = Tensor::view(hidden_states_final_ref.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-    auto final_norm_inputs = context.make_layer_inputs({
-        {"input", ModelTensors::HIDDEN_STATES_RESHAPE},
-        {"residual", ModelTensors::POST_NORM_OUTPUT}
-    });
-    auto final_norm_outputs = context.make_layer_outputs({{"output", ModelTensors::HIDDEN_STATES_RESHAPE}});
-    layernorms_["final_norm"]->forward(final_norm_inputs, final_norm_outputs, stream, stage);
+    Tensor& hidden_states_final_2d = tensors[ModelTensors::HIDDEN_STATES_RESHAPE];
+    Tensor& final_residual = tensors[ModelTensors::POST_NORM_OUTPUT];
+    layernorms_["final_norm"]->forward_fused_add_rmsnorm(
+        hidden_states_final_2d, final_residual, stream, stage);
     
     // 4. LM head: decode uses the single-step hidden state, while prefill only
     // needs the final token's logits for sampling the first generated token.

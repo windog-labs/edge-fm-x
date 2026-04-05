@@ -33,6 +33,7 @@ MODEL_CONFIG = {
 
 ATTENTION_OUTPUT_DECODE_SHAPE_SIG = "m=1|input=2|weight=2|output=2|in_features=1536|out_features=1536"
 MLP_DOWN_DECODE_SHAPE_SIG = "m=1|input=2|weight=2|output=2|in_features=8960|out_features=1536"
+FUSED_QKV_DECODE_SHAPE_SIG = "m=1|input=2|weight=2|output=2|in_features=1536|out_features=2048"
 LM_HEAD_DECODE_SHAPE_SIG = "m=1|input=2|weight=2|output=2|in_features=1536|out_features=151936"
 
 DECODE_CASES = [
@@ -255,6 +256,19 @@ def _is_tuned_attention_output_record(record: dict) -> bool:
     )
 
 
+def _is_tuned_fused_qkv_record(record: dict) -> bool:
+    return (
+        record.get("model_name") == "qwen2_5"
+        and record.get("hw_profile") == "cuda_sm80"
+        and record.get("op_kind") == "linear"
+        and record.get("layer_role") == "fused_qkv"
+        and record.get("stage") == "decode"
+        and record.get("shape_sig") == FUSED_QKV_DECODE_SHAPE_SIG
+        and record.get("impl_id") == "cublasLt"
+        and record.get("impl_params", {}).get("algo_index") == 0
+    )
+
+
 def _is_tuned_lm_head_record(record: dict) -> bool:
     return (
         record.get("model_name") == "qwen2_5"
@@ -269,6 +283,18 @@ def _is_tuned_lm_head_record(record: dict) -> bool:
 
 
 TUNED_DECODE_LINEAR_CASES = [
+    {
+        "name": "fused_qkv",
+        "kind": "fused_qkv",
+        "layer_prefix": "model.layers.0.self_attn",
+        "in_features": MODEL_CONFIG["hidden_size"],
+        "out_features": (
+            MODEL_CONFIG["q_out_features"]
+            + MODEL_CONFIG["k_out_features"]
+            + MODEL_CONFIG["v_out_features"]
+        ),
+        "matcher": _is_tuned_fused_qkv_record,
+    },
     {
         "name": "attention_output",
         "kind": "linear",

@@ -224,9 +224,10 @@ void RMSNormLayer::forward(
 void RMSNormLayer::forward_rmsnorm(
     const Tensor& input,
     Tensor& output,
-    cudaStream_t stream)
+    cudaStream_t stream,
+    ModelStage stage)
 {
-    forward_rmsnorm_impl(input, output, stream, ModelStage::Prefill);
+    forward_rmsnorm_impl(input, output, stream, stage);
 }
 
 void RMSNormLayer::forward_rmsnorm_impl(
@@ -278,9 +279,10 @@ void RMSNormLayer::forward_rmsnorm_impl(
 void RMSNormLayer::forward_fused_add_rmsnorm(
     Tensor& inout,
     Tensor& residual,
-    cudaStream_t stream)
+    cudaStream_t stream,
+    ModelStage stage)
 {
-    forward_fused_add_rmsnorm_impl(inout, residual, stream, ModelStage::Prefill);
+    forward_fused_add_rmsnorm_impl(inout, residual, stream, stage);
 }
 
 void RMSNormLayer::forward_fused_add_rmsnorm_impl(

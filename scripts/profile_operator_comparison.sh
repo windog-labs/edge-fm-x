@@ -1,6 +1,10 @@
 #!/bin/bash
-# Edge-FM vs TRT-Edge-LLM 算子耗时对比
-# 使用 nsys 采集 GPU kernel 耗时，对比两个框架的算子分布
+# Edge-FM(cuda graph) vs TRT-Edge-LLM 算子耗时对比
+# 使用 nsys 采集 GPU kernel 耗时，对比两个框架的算子分布。
+# 默认 workload:
+#   prefill=2048
+#   decode=64
+# 可通过 EDGE_FM_PROFILE_PREFILL_LEN / EDGE_FM_PROFILE_DECODE_LEN 覆盖。
 #
 # 用法（在项目根目录）:
 #   bash scripts/profile_operator_comparison.sh
@@ -21,7 +25,9 @@ export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${TRT_PKG}/lib:${PROJECT_ROOT}/build/
 export PYTHONPATH="${PROJECT_ROOT}/build/python:${PROJECT_ROOT}/build/install/python:${PYTHONPATH:-}"
 export EDGELLM_PLUGIN_PATH="${PROJECT_ROOT}/third_party/TensorRT-Edge-LLM/build/libNvInfer_edgellm_plugin.so"
 export TRT_EDGELLM_ENGINE_DIR="${PROJECT_ROOT}/tests/data/trt_edgellm_workspace/qwen2.5-1.5b/engines"
-export EDGE_FM_DEVICE_ID="${EDGE_FM_DEVICE_ID:-0}"
+export EDGE_FM_DEVICE_ID="${EDGE_FM_DEVICE_ID:-1}"
+export EDGE_FM_PROFILE_PREFILL_LEN="${EDGE_FM_PROFILE_PREFILL_LEN:-2048}"
+export EDGE_FM_PROFILE_DECODE_LEN="${EDGE_FM_PROFILE_DECODE_LEN:-64}"
 
 echo "[1/4] Profiling Edge-FM..."
 "$NSYS" profile -o "${REPORT_DIR}/edgefm_profile" --stats=true --force-overwrite=true \
