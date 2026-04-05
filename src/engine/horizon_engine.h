@@ -12,6 +12,7 @@ public:
     void warmup() override;
     void tune() override;
     Response generate(const Request& request) override;
+    std::unordered_map<std::string, double> get_last_generate_metrics() const override;
     void prepare_tensors(ModelStage stage, Context& context) override;
 };
 

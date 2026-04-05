@@ -15,6 +15,10 @@ void Model::prepare_decode_position_ids(Context& /*context*/, Device /*device*/,
     // Default: no-op. Models with position-dependent decode (e.g. M-RoPE) override.
 }
 
+void Model::advance_decode_runtime_tensors(Context& /*context*/, cudaStream_t /*stream*/) {
+    // Default: no-op. Models with decode-time runtime state can override.
+}
+
 Model::Model(const EngineConfig& config)
     : engine_config_(config)
     , num_layers_(0)

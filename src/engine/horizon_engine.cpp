@@ -164,6 +164,10 @@ Response HorizonEngine::generate(const Request& /*request*/) {
     throw InternalError("Horizon runtime execution is not implemented in this build");
 }
 
+std::unordered_map<std::string, double> HorizonEngine::get_last_generate_metrics() const {
+    return {};
+}
+
 void HorizonEngine::prepare_tensors(ModelStage /*stage*/, Context& /*context*/) {
     throw InternalError("HorizonEngine does not use the CUDA tensor preparation path");
 }

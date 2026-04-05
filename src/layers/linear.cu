@@ -46,6 +46,48 @@ std::string infer_layer_role(const std::string& layer_prefix) {
     return "linear";
 }
 
+template <typename T>
+__global__ void transpose_matrix_kernel(
+    const T* __restrict__ src,
+    T* __restrict__ dst,
+    int rows,
+    int cols)
+{
+    __shared__ T tile[32][33];
+
+    int x = blockIdx.x * 32 + threadIdx.x;
+    int y = blockIdx.y * 32 + threadIdx.y;
+
+    for (int j = 0; j < 32; j += 8) {
+        if (x < cols && (y + j) < rows) {
+            tile[threadIdx.y + j][threadIdx.x] = src[(y + j) * cols + x];
+        }
+    }
+    __syncthreads();
+
+    x = blockIdx.y * 32 + threadIdx.x;
+    y = blockIdx.x * 32 + threadIdx.y;
+    for (int j = 0; j < 32; j += 8) {
+        if (x < rows && (y + j) < cols) {
+            dst[(y + j) * rows + x] = tile[threadIdx.x][threadIdx.y + j];
+        }
+    }
+}
+
+bool should_prepare_decode_m1_packed_weight(
+    const std::string& layer_role,
+    uint32_t in_features,
+    uint32_t out_features)
+{
+    if (layer_role != "attention_output" &&
+        layer_role != "fused_qkv" &&
+        layer_role != "mlp_down")
+    {
+        return false;
+    }
+    return in_features <= 8960 && out_features <= 2048;
+}
+
 } // namespace
 
 LinearLayer::LinearLayer(const std::string& layer_prefix,
@@ -243,15 +285,72 @@ void LinearLayer::load_weights(
     
     // Use layer_prefix_ directly as weight_name_base (it's already the base name without suffix)
     load_weight_set(prefill_weights, layer_prefix_, prefill_weights_);
+    maybe_prepare_decode_m1_packed_weight(prefill_weights_, "prefill");
     
     if (!decode_weights.empty()) {
         find_weight_name_by_prefix(layer_prefix_, decode_weights);
         load_weight_set(decode_weights, layer_prefix_, decode_weights_);
+        maybe_prepare_decode_m1_packed_weight(decode_weights_, "decode");
     } else {
         decode_weights_ = prefill_weights_;
     }
     
     weights_loaded_ = true;
+}
+
+void LinearLayer::maybe_prepare_decode_m1_packed_weight(
+    WeightSet& weight_set,
+    const std::string& stage_tag)
+{
+    if (weight_set.quant_type_ != QuantType::FP16_BF16 || weight_set.weight_ == nullptr) {
+        return;
+    }
+    if (!should_prepare_decode_m1_packed_weight(layer_role_, in_features_, out_features_)) {
+        return;
+    }
+
+    const DType weight_dtype = weight_set.weight_->dtype();
+    if (weight_dtype != DType::Float16 && weight_dtype != DType::BFloat16) {
+        return;
+    }
+
+    const size_t dtype_size = (weight_dtype == DType::Float16) ? sizeof(half) : sizeof(__nv_bfloat16);
+    const size_t packed_bytes = static_cast<size_t>(in_features_) * out_features_ * dtype_size;
+    const std::string buffer_name =
+        layer_prefix_ + "." + stage_tag + ".decode_m1_weight_t";
+    void* packed_ptr = StaticBufferManager::get_cache_buf(buffer_name, packed_bytes, device_id_);
+
+    Tensor packed_view = Tensor::view(
+        packed_ptr,
+        {static_cast<int64_t>(in_features_), static_cast<int64_t>(out_features_)},
+        weight_dtype,
+        Device::GPU,
+        device_id_);
+
+    dim3 block(32, 8);
+    dim3 grid(
+        (static_cast<unsigned>(in_features_) + 31U) / 32U,
+        (static_cast<unsigned>(out_features_) + 31U) / 32U);
+
+    if (weight_dtype == DType::Float16) {
+        transpose_matrix_kernel<half><<<grid, block>>>(
+            static_cast<const half*>(weight_set.weight_->data_ptr()),
+            static_cast<half*>(packed_ptr),
+            static_cast<int>(out_features_),
+            static_cast<int>(in_features_));
+    } else {
+        transpose_matrix_kernel<__nv_bfloat16><<<grid, block>>>(
+            static_cast<const __nv_bfloat16*>(weight_set.weight_->data_ptr()),
+            static_cast<__nv_bfloat16*>(packed_ptr),
+            static_cast<int>(out_features_),
+            static_cast<int>(in_features_));
+    }
+    CUDA_CHECK_THROW(
+        cudaGetLastError(),
+        "LinearLayer: failed to transpose decode m=1 packed weight for layer '" + layer_prefix_ + "'");
+
+    weight_set.packed_weight_storage_ = std::make_shared<Tensor>(std::move(packed_view));
+    weight_set.packed_weight_ = weight_set.packed_weight_storage_.get();
 }
 
 void LinearLayer::cleanup_cached_descriptors(CachedDescriptors& cached)

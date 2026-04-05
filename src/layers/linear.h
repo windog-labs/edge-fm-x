@@ -14,6 +14,7 @@ namespace edge_fm {
 
 class LinearOpRegistry;
 class LinearCublasLtImpl;
+class LinearDecodeM1TiledImpl;
 class LinearCutlassImpl;
 class LinearCutileImpl;
 class LinearAgentImpl;
@@ -57,6 +58,7 @@ public:
 protected:
     friend class LinearOpRegistry;
     friend class LinearCublasLtImpl;
+    friend class LinearDecodeM1TiledImpl;
     friend class LinearCutlassImpl;
     friend class LinearCutileImpl;
     friend class LinearAgentImpl;
@@ -73,6 +75,8 @@ protected:
         QuantType quant_type_ = QuantType::FP16_BF16;
         const Tensor* weight_ = nullptr;         ///< Unified weight tensor (type determined by quant_type_)
         const Tensor* bias_ = nullptr;           ///< Optional bias tensor [out_features] (for FP16/BF16)
+        const Tensor* packed_weight_ = nullptr;  ///< Optional packed decode-only weight tensor
+        std::shared_ptr<Tensor> packed_weight_storage_;  ///< Owns packed_weight_ when present
         const Tensor* scaling_factors_ = nullptr; ///< Scaling factors (for INT4 group-wise: [in_features/group_size, out_features])
         uint32_t group_size_ = 128;              ///< Group size for group-wise quantization (e.g., 128 for INT4)
     };
@@ -127,6 +131,10 @@ protected:
         const std::unordered_map<std::string, Tensor>& weights,
         const std::string& weight_name_base,
         WeightSet& weight_set);
+
+    void maybe_prepare_decode_m1_packed_weight(
+        WeightSet& weight_set,
+        const std::string& stage_tag);
     
     // cuBLASLt descriptor cache dimensions:
     // - Layer type: LinearLayer, FusedQKVLinearLayer, FusedGateUpLinearLayer, LMHeadLinearLayer

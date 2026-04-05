@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <cuda_runtime.h>
 
 namespace edge_fm {
 
@@ -74,6 +75,10 @@ public:
     /// 模型特定的 decode 阶段 position_ids 准备（如 M-RoPE）。默认空实现。
     virtual void prepare_decode_position_ids(Context& context, Device device, int32_t device_id);
 
+    /// 模型特定的 decode 运行时状态推进。用于在每次 decode step 结束后
+    /// 就地推进稳定地址缓冲（例如 M-RoPE position_ids）。
+    virtual void advance_decode_runtime_tensors(Context& context, cudaStream_t stream);
+
     int32_t num_layers() const { return num_layers_; }
     int32_t hidden_size() const { return hidden_size_; }
     int32_t vocab_size() const { return vocab_size_; }
@@ -93,4 +98,3 @@ protected:
 };
 
 } // namespace edge_fm
-

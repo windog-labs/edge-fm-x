@@ -93,6 +93,110 @@
       "model_name": "qwen2_5",
       "hw_profile": "cuda_sm80",
       "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=1536|out_features=1536",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 1
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "mlp_down",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=8960|out_features=1536",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_gate_up",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=1536|out_features=17920",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "lm_head",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=1536|out_features=151936",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=1536|out_features=2048",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 3
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "mlp_down",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=8960|out_features=1536",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_gate_up",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=1536|out_features=17920",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_gate_up",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=1536|out_features=17920",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
       "layer_role": "fused_qkv",
       "op_name": "",
       "stage": "",
@@ -142,6 +246,17 @@
       "stage": "",
       "shape_sig": "",
       "impl_id": "cublasLt",
+      "impl_params": {}
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "attention",
+      "layer_role": "",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "",
+      "impl_id": "flashinfer_attention_decode_sm80_tuned",
       "impl_params": {}
     },
     {

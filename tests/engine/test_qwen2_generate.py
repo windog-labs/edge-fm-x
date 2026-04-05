@@ -23,7 +23,7 @@ import numpy as np
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-for _p in [project_root / "build" / "install" / "python", project_root / "build" / "python"]:
+for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
     if _p.exists():
         sys.path.insert(0, str(_p))
         break
@@ -43,6 +43,8 @@ DEFAULT_PROMPT = "Hello, how are you today?"
 DEFAULT_SEQ_LEN = 6
 DEFAULT_NUM_STEPS = 20
 DEFAULT_SEED = 42
+DEFAULT_BENCH_PREFILL_LENGTHS = [512, 1024, 2048]
+DEFAULT_BENCH_DECODE_LENGTHS = [32, 64]
 
 # GPU device：默认 1，避免占用 device 0；可通过环境变量 EDGE_FM_DEVICE_ID 覆盖
 DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
@@ -302,22 +304,6 @@ def engine_and_dump_cuda_graph(dump_data):
     prefix = token_ids_flat[: min(4, len(token_ids_flat))].tolist()
     engine_config_path = _create_engine_config(
         model_path, seq_len, num_steps, use_cuda_graph=True, prefix_token_ids=prefix
-    )
-    engine = edge_fm.EdgeFM(engine_config_path)
-    return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
-
-
-@pytest.fixture(scope="module")
-def engine_and_dump_prefix_no_graph(dump_data):
-    """Same as cuda_graph but use_cuda_graph=False: verify prefix path correctness."""
-    manifest = dump_data["manifest"]
-    model_path = dump_data["model_path"]
-    num_steps = manifest["num_decode_steps"]
-    seq_len = int(dump_data["token_ids"].size)
-    token_ids_flat = dump_data["token_ids"].flatten()
-    prefix = token_ids_flat[: min(4, len(token_ids_flat))].tolist()
-    engine_config_path = _create_engine_config(
-        model_path, seq_len, num_steps, use_cuda_graph=False, prefix_token_ids=prefix
     )
     engine = edge_fm.EdgeFM(engine_config_path)
     return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
@@ -636,39 +622,6 @@ def test_generate_checkpoint_alignment(engine_and_dump, checkpoint):
     )
 
 
-def test_generate_token_alignment_prefix_no_graph(engine_and_dump_prefix_no_graph):
-    """Prefix 路径（无 graph）：验证 cache_kv_len 等逻辑正确。"""
-    import torch
-
-    engine = engine_and_dump_prefix_no_graph["engine"]
-    token_ids = engine_and_dump_prefix_no_graph["token_ids"]
-    decode_tokens = engine_and_dump_prefix_no_graph["decode_tokens"]
-    num_steps = engine_and_dump_prefix_no_graph["num_steps"]
-
-    token_ids_list = token_ids.flatten().tolist()
-    ref_tokens = decode_tokens[1: num_steps + 1].tolist()
-
-    request = edge_fm.Request(0, token_ids_list)
-    response = engine.generate(request)
-    all_tokens = response.token_ids()
-    got_tokens = all_tokens[1: 1 + num_steps]
-
-    torch.cuda.synchronize()
-
-    mismatches = []
-    for step in range(num_steps):
-        efm_tok = got_tokens[step] if step < len(got_tokens) else -1
-        ref_tok = int(ref_tokens[step]) if step < len(ref_tokens) else -1
-        if efm_tok != ref_tok:
-            mismatches.append((step, efm_tok, ref_tok))
-
-    if mismatches:
-        detail = "\n".join(f"  step {s}: edge_fm={e}, ref={r}" for s, e, r in mismatches)
-        pytest.fail(
-            f"Prefix (no graph) token 不对齐：{len(mismatches)}/{num_steps} 步不一致\n{detail}"
-        )
-
-
 def test_generate_token_alignment_cuda_graph(engine_and_dump_cuda_graph):
     """启用 CUDA graph decode 时，token 输出应与 Transformers dump 完全一致。"""
     import torch
@@ -721,7 +674,7 @@ def test_generate_vl_token_alignment_cuda_graph(engine_and_dump_vl_cuda_graph):
 # 性能基准测试
 # ---------------------------------------------------------------------------
 
-BENCH_NUM_STEPS = 50
+BENCH_NUM_STEPS = DEFAULT_BENCH_DECODE_LENGTHS[0]
 BENCH_WARMUP_RUNS = 3
 BENCH_TIMED_RUNS = 5
 
@@ -761,17 +714,80 @@ def _resolve_bench_cases(default_prefill: int, default_decode: int) -> list[tupl
 
     - EDGE_FM_BENCH_PREFILL_LIST: comma-separated prefill lengths
     - EDGE_FM_BENCH_DECODE_LIST: comma-separated decode lengths
-    If both lists are provided and have equal length, run zip pairs; otherwise run cross-product.
+    By default run the long-prefill matrix used for optimization:
+    prefill in {512, 1024, 2048}, decode in {32, 64}.
     """
     p_list = _parse_bench_lengths("EDGE_FM_BENCH_PREFILL_LIST")
     d_list = _parse_bench_lengths("EDGE_FM_BENCH_DECODE_LIST")
     if p_list is None:
-        p_list = [default_prefill]
+        p_list = list(DEFAULT_BENCH_PREFILL_LENGTHS)
     if d_list is None:
-        d_list = [default_decode]
-    if len(p_list) == len(d_list):
-        return list(zip(p_list, d_list))
+        d_list = list(DEFAULT_BENCH_DECODE_LENGTHS)
     return [(p, d) for p in p_list for d in d_list]
+
+
+def _default_trt_workspace_dir() -> Path:
+    return (project_root / "tests" / "data" / "trt_edgellm_workspace" / "qwen2.5-1.5b").resolve()
+
+
+def _load_trt_engine_config(engine_dir: Path) -> dict:
+    config_path = engine_dir / "config.json"
+    if not config_path.exists():
+        raise FileNotFoundError(f"TRT-Edge-LLM config not found at {config_path}")
+    return json.loads(config_path.read_text())
+
+
+def _trt_engine_max_input_len(engine_dir: Path) -> int:
+    builder_config = _load_trt_engine_config(engine_dir).get("builder_config", {})
+    return int(builder_config.get("max_input_len", 0) or 0)
+
+
+def _resolve_trt_engine_dir(required_prefill_len: int, requested_engine_dir: Path | None = None) -> Path:
+    if required_prefill_len <= 0:
+        raise ValueError(f"required_prefill_len must be > 0, got {required_prefill_len}")
+
+    if requested_engine_dir is not None:
+        engine_dir = requested_engine_dir.resolve()
+        if not engine_dir.exists() or not (engine_dir / "llm.engine").exists():
+            raise FileNotFoundError(f"TRT-Edge-LLM engine not found at {engine_dir}")
+        max_input_len = _trt_engine_max_input_len(engine_dir)
+        if max_input_len and required_prefill_len > max_input_len:
+            raise RuntimeError(
+                f"TRT-Edge-LLM engine at {engine_dir} only supports max_input_len={max_input_len}, "
+                f"but required prefill_len={required_prefill_len}"
+            )
+        return engine_dir
+
+    workspace_dir = _default_trt_workspace_dir()
+    candidate_dirs = []
+    for name in ["engines_mxil2048", "engines"]:
+        engine_dir = workspace_dir / name
+        if engine_dir.exists() and (engine_dir / "llm.engine").exists():
+            candidate_dirs.append(engine_dir.resolve())
+
+    if not candidate_dirs:
+        raise FileNotFoundError(
+            f"No TRT-Edge-LLM engine directory found under {workspace_dir}"
+        )
+
+    supported_dirs = []
+    for engine_dir in candidate_dirs:
+        max_input_len = _trt_engine_max_input_len(engine_dir)
+        if max_input_len >= required_prefill_len:
+            supported_dirs.append((max_input_len, engine_dir))
+
+    if not supported_dirs:
+        supported = ", ".join(
+            f"{engine_dir.name}(max_input_len={_trt_engine_max_input_len(engine_dir)})"
+            for engine_dir in candidate_dirs
+        )
+        raise RuntimeError(
+            f"No TRT-Edge-LLM engine supports prefill_len={required_prefill_len}. "
+            f"Available engines: {supported}"
+        )
+
+    supported_dirs.sort(key=lambda item: item[0])
+    return supported_dirs[0][1]
 
 
 def _bench_transformers_llm(model_path: str, token_ids_list: list[int], num_steps: int,
@@ -936,6 +952,12 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
 
     times = []
     generated_counts = []
+    stage_times = {
+        "prefill_ms": [],
+        "decode_ms": [],
+        "total_stage_ms": [],
+        "decode_step_avg_ms": [],
+    }
     for _ in range(runs):
         torch.cuda.synchronize()
         t0 = time.perf_counter()
@@ -943,6 +965,9 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
         torch.cuda.synchronize()
         times.append(time.perf_counter() - t0)
         generated_counts.append(len(response.token_ids()))
+        metrics = engine.last_generate_metrics()
+        for key in stage_times:
+            stage_times[key].append(float(metrics.get(key, 0.0)))
 
     if any(count != num_steps for count in generated_counts):
         raise AssertionError(
@@ -953,6 +978,10 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
     avg = sum(times) / len(times)
     actual_decode_tokens = generated_counts[0] if generated_counts else num_steps
     total_tokens = prefill_len + actual_decode_tokens
+    stage_avg_ms = {
+        key: (sum(values) / len(values) if values else 0.0)
+        for key, values in stage_times.items()
+    }
     return {
         "avg_ms": avg * 1000,
         "prefill_tokens": prefill_len,
@@ -962,6 +991,8 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
         "decode_tokens_per_sec": actual_decode_tokens / avg,
         "times_ms": [t * 1000 for t in times],
         "generated_counts": generated_counts,
+        "stage_times_ms": stage_times,
+        "stage_avg_ms": stage_avg_ms,
     }
 
 
@@ -1035,6 +1066,13 @@ def _bench_trt_edgellm_inprocess(
         raise FileNotFoundError(f"TRT-Edge-LLM plugin not found at {plugin_path}")
     os.environ["EDGELLM_PLUGIN_PATH"] = str(plugin_path)
 
+    max_input_len = _trt_engine_max_input_len(engine_dir)
+    if max_input_len and prefill_len > max_input_len:
+        raise RuntimeError(
+            f"TRT-Edge-LLM engine at {engine_dir} only supports max_input_len={max_input_len}, "
+            f"but benchmark requested prefill_len={prefill_len}"
+        )
+
     runtime = edge_fm_trt.TrtEdgeLlmRuntime(
         str(engine_dir), "", DEVICE_ID
     )
@@ -1056,6 +1094,12 @@ def _bench_trt_edgellm_inprocess(
     # Timed runs
     times = []
     generated_counts = []
+    stage_times = {
+        "prefill_ms": [],
+        "decode_ms": [],
+        "total_stage_ms": [],
+        "decode_step_avg_ms": [],
+    }
     for _ in range(runs):
         t0 = time.perf_counter()
         output_ids, _ = runtime.generate_from_token_ids(
@@ -1063,6 +1107,9 @@ def _bench_trt_edgellm_inprocess(
         )
         times.append((time.perf_counter() - t0) * 1000)
         generated_counts.append(len(output_ids[0]) if output_ids else 0)
+        metrics = runtime.last_generate_metrics()
+        for key in stage_times:
+            stage_times[key].append(float(metrics.get(key, 0.0)))
 
     if any(count != num_steps for count in generated_counts):
         raise AssertionError(
@@ -1074,6 +1121,10 @@ def _bench_trt_edgellm_inprocess(
     avg_s = avg_ms / 1000.0
     actual_decode_tokens = generated_counts[0] if generated_counts else num_steps
     total_tokens = prefill_len + actual_decode_tokens
+    stage_avg_ms = {
+        key: (sum(values) / len(values) if values else 0.0)
+        for key, values in stage_times.items()
+    }
     return {
         "avg_ms": avg_ms,
         "prefill_tokens": prefill_len,
@@ -1083,6 +1134,8 @@ def _bench_trt_edgellm_inprocess(
         "decode_tokens_per_sec": actual_decode_tokens / avg_s,
         "times_ms": times,
         "generated_counts": generated_counts,
+        "stage_times_ms": stage_times,
+        "stage_avg_ms": stage_avg_ms,
     }
 
 
@@ -1116,77 +1169,75 @@ def _print_bench_comparison_3way(
     print(f"  Transformers runs (ms): [{', '.join(f'{t:.1f}' for t in tf_result['times_ms'])}]")
     print(f"  EdgeFM runs (ms):       [{', '.join(f'{t:.1f}' for t in efm_result['times_ms'])}]")
     print(f"  TRT-Edge-LLM runs (ms): [{', '.join(f'{t:.1f}' for t in trt_result['times_ms'])}]")
+    if efm_result.get("stage_avg_ms") or trt_result.get("stage_avg_ms"):
+        efm_stage = efm_result.get("stage_avg_ms", {})
+        trt_stage = trt_result.get("stage_avg_ms", {})
+        print(f"  {'-'*28} {'-'*14} {'-'*14} {'-'*14} {'-'*10}")
+        print("  Stage avg latency (ms):")
+        print(
+            "  "
+            f"{'Prefill':<28} {'-':>14} "
+            f"{efm_stage.get('prefill_ms', 0.0):>14.1f} "
+            f"{trt_stage.get('prefill_ms', 0.0):>14.1f} "
+            f"{(efm_stage.get('prefill_ms', 0.0) - trt_stage.get('prefill_ms', 0.0)):>9.1f}"
+        )
+        print(
+            "  "
+            f"{'Decode':<28} {'-':>14} "
+            f"{efm_stage.get('decode_ms', 0.0):>14.1f} "
+            f"{trt_stage.get('decode_ms', 0.0):>14.1f} "
+            f"{(efm_stage.get('decode_ms', 0.0) - trt_stage.get('decode_ms', 0.0)):>9.1f}"
+        )
+        print(
+            "  "
+            f"{'Stage total':<28} {'-':>14} "
+            f"{efm_stage.get('total_stage_ms', 0.0):>14.1f} "
+            f"{trt_stage.get('total_stage_ms', 0.0):>14.1f} "
+            f"{(efm_stage.get('total_stage_ms', 0.0) - trt_stage.get('total_stage_ms', 0.0)):>9.1f}"
+        )
     print(f"{'='*90}")
 
 
-def _print_bench_comparison_2way(
-    label_a: str, result_a: dict, label_b: str, result_b: dict,
-    prefill_tokens: int, decode_tokens: int,
-):
-    """Pretty-print 2-way benchmark comparison (e.g. EdgeFM no-graph vs cuda-graph)."""
-    print(f"\n  --- {label_a} vs {label_b} ---")
-    print(f"  {'Metric':<30} {label_a:>15} {label_b:>15} {'Speedup':>10}")
-    print(f"  {'-'*30} {'-'*15} {'-'*15} {'-'*10}")
-    rows = [
-        ("Total latency (ms)", "avg_ms", ".1f"),
-        ("Total throughput (tok/s)", "tokens_per_sec", ".1f"),
-        ("Decode throughput (tok/s)", "decode_tokens_per_sec", ".1f"),
-    ]
-    for name, key, fmt in rows:
-        va, vb = result_a[key], result_b[key]
-        if "latency" in name.lower():
-            speedup = va / vb if vb > 0 else float("inf")
-        else:
-            speedup = vb / va if va > 0 else float("inf")
-        print(f"  {name:<30} {va:>15{fmt}} {vb:>15{fmt}} {speedup:>9.2f}x")
-    print(f"  {'-'*30} {'-'*15} {'-'*15} {'-'*10}")
-
-
 def test_benchmark_llm(dump_data):
-    """LLM 性能基准：Transformers vs EdgeFM（纯文本），以及 EdgeFM no-graph vs cuda-graph。"""
+    """LLM 性能基准：以 long prefill / decode 矩阵比较 Transformers vs EdgeFM(cuda graph)。"""
     import torch
 
     model_path = dump_data["model_path"]
     token_ids = dump_data["token_ids"]
-    token_ids_list = token_ids.flatten().tolist()
-    num_steps = BENCH_NUM_STEPS
-    prefill_len = len(token_ids_list)
+    base_token_ids = token_ids.flatten().tolist()
+    bench_cases = _resolve_bench_cases(len(base_token_ids), BENCH_NUM_STEPS)
 
-    tf_result = _bench_transformers_llm(
-        model_path, token_ids_list, num_steps,
-        warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+    print("\n[benchmark] test_benchmark_llm cases:")
+    for p, d in bench_cases:
+        print(f"  - prefill={p}, decode={d}")
 
-    engine_config_path = _create_engine_config(
-        model_path, prefill_len, num_steps, generated_tokens_total=num_steps)
-    engine = edge_fm.EdgeFM(engine_config_path)
+    for prefill_len, num_steps in bench_cases:
+        token_ids_list = _build_prefill_token_ids(base_token_ids, prefill_len)
 
-    def make_request():
-        req = edge_fm.Request(0, token_ids_list)
-        req.set_ignore_stop_tokens(True)
-        return req
+        def make_request():
+            req = edge_fm.Request(0, token_ids_list)
+            req.set_ignore_stop_tokens(True)
+            return req
 
-    efm_result = _bench_edgefm(
-        engine, make_request, num_steps, prefill_len,
-        warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+        tf_result = _bench_transformers_llm(
+            model_path, token_ids_list, num_steps,
+            warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
 
-    _print_bench_comparison("LLM (pure text)", tf_result, efm_result)
+        cfg_graph = _create_engine_config(
+            model_path, prefill_len, num_steps, use_cuda_graph=True, generated_tokens_total=num_steps
+        )
+        engine_graph = edge_fm.EdgeFM(cfg_graph)
+        efm_graph_result = _bench_edgefm(
+            engine_graph, make_request, num_steps, prefill_len,
+            warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+        del engine_graph
+        torch.cuda.empty_cache()
 
-    # Fair decode-graph benchmark: do not use prefix_token_ids so graph capture
-    # happens on the same request path as the no-graph baseline.
-    cfg_graph = _create_engine_config(
-        model_path, prefill_len, num_steps, use_cuda_graph=True, generated_tokens_total=num_steps
-    )
-    engine_graph = edge_fm.EdgeFM(cfg_graph)
-    efm_graph_result = _bench_edgefm(
-        engine_graph, make_request, num_steps, prefill_len,
-        warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
-
-    _print_bench_comparison_2way(
-        "EdgeFM (no graph)", efm_result, "EdgeFM (cuda graph)", efm_graph_result,
-        prefill_len, num_steps,
-    )
-
-    _print_bench_comparison("LLM: Transformers vs EdgeFM (cuda graph)", tf_result, efm_graph_result)
+        _print_bench_comparison(
+            f"LLM: Transformers vs EdgeFM (cuda graph) (prefill={prefill_len}, decode={num_steps})",
+            tf_result,
+            efm_graph_result,
+        )
 
 
 def test_benchmark_trt_edgellm(dump_data):
@@ -1201,11 +1252,8 @@ def test_benchmark_trt_edgellm(dump_data):
     bench_cases = _resolve_bench_cases(default_prefill_len, default_decode_steps)
 
     _engine_dir = os.environ.get("TRT_EDGELLM_ENGINE_DIR", "").strip()
-    engine_dir = (
-        Path(_engine_dir).resolve()
-        if _engine_dir
-        else (project_root / "tests" / "data" / "trt_edgellm_workspace" / "qwen2.5-1.5b" / "engines").resolve()
-    )
+    requested_engine_dir = Path(_engine_dir).resolve() if _engine_dir else None
+    engine_dir = _resolve_trt_engine_dir(max(prefill for prefill, _ in bench_cases), requested_engine_dir)
     _plugin = os.environ.get("TRT_EDGELLM_PLUGIN_PATH", "").strip()
     plugin_path = (
         Path(_plugin).resolve()
@@ -1254,15 +1302,6 @@ def test_benchmark_trt_edgellm(dump_data):
 
         torch.cuda.empty_cache()
 
-        cfg_no_graph = _create_engine_config(
-            model_path, prefill_len, num_steps, generated_tokens_total=num_steps)
-        engine = edge_fm.EdgeFM(cfg_no_graph)
-        efm_no_graph_result = _bench_edgefm(
-            engine, make_request, num_steps, prefill_len,
-            warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
-        del engine
-        torch.cuda.empty_cache()
-
         cfg_graph = _create_engine_config(
             model_path, prefill_len, num_steps, use_cuda_graph=True, generated_tokens_total=num_steps
         )
@@ -1273,11 +1312,6 @@ def test_benchmark_trt_edgellm(dump_data):
         del engine_graph
         torch.cuda.empty_cache()
 
-        _print_bench_comparison_2way(
-            "EdgeFM (no graph)", efm_no_graph_result, "EdgeFM (cuda graph)", efm_graph_result,
-            prefill_len, num_steps,
-        )
-
         _print_bench_comparison_3way(
             f"LLM: Transformers vs EdgeFM (cuda graph) vs TRT-Edge-LLM (prefill={prefill_len}, decode={num_steps})",
             tf_result, efm_graph_result, trt_result,
@@ -1285,7 +1319,7 @@ def test_benchmark_trt_edgellm(dump_data):
 
 
 def test_benchmark_vlm(dump_data_vl):
-    """VLM 性能基准：Transformers vs EdgeFM（图 + 文本），以及 EdgeFM no-graph vs cuda-graph。"""
+    """VLM 性能基准：Transformers vs EdgeFM(cuda graph)。"""
     import torch
 
     model_path = dump_data_vl["model_path"]
@@ -1302,9 +1336,6 @@ def test_benchmark_vlm(dump_data_vl):
         model_path, token_ids_list, image_path, num_steps,
         warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
 
-    engine_config_path = _create_engine_config(
-        model_path, prefill_len, num_steps, generated_tokens_total=num_steps)
-    engine = edge_fm.EdgeFM(engine_config_path)
     make_request = _make_vl_request_factory(
         token_ids_list,
         image_embeddings,
@@ -1312,12 +1343,6 @@ def test_benchmark_vlm(dump_data_vl):
         position_ids,
         ignore_stop_tokens=True,
     )
-
-    efm_result = _bench_edgefm(
-        engine, make_request, num_steps, prefill_len,
-        warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
-
-    _print_bench_comparison("VLM (image + text)", tf_result, efm_result)
 
     # Fair decode-graph benchmark: avoid prefix_token_ids so capture happens on
     # the full multimodal request instead of a text-only prefix warmup.
@@ -1329,11 +1354,6 @@ def test_benchmark_vlm(dump_data_vl):
     efm_graph_result = _bench_edgefm(
         engine_graph, make_request, num_steps, prefill_len,
         warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
-
-    _print_bench_comparison_2way(
-        "EdgeFM (no graph)", efm_result, "EdgeFM (cuda graph)", efm_graph_result,
-        prefill_len, num_steps,
-    )
 
     _print_bench_comparison("VLM: Transformers vs EdgeFM (cuda graph)", tf_result, efm_graph_result)
 

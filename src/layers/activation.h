@@ -35,7 +35,8 @@ public:
     void forward_silu_and_mul(
         const Tensor& input,
         Tensor& output,
-        cudaStream_t stream = nullptr
+        cudaStream_t stream = nullptr,
+        ModelStage stage = ModelStage::Prefill
     );
 
 private:

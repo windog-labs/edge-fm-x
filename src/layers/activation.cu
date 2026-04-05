@@ -123,9 +123,10 @@ void ActivationLayer::forward(
 void ActivationLayer::forward_silu_and_mul(
     const Tensor& input,
     Tensor& output,
-    cudaStream_t stream)
+    cudaStream_t stream,
+    ModelStage stage)
 {
-    forward_silu_and_mul_impl(input, output, stream, ModelStage::Prefill);
+    forward_silu_and_mul_impl(input, output, stream, stage);
 }
 
 void ActivationLayer::forward_silu_and_mul_impl(

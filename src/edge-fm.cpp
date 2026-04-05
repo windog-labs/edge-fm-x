@@ -736,6 +736,10 @@ Response EdgeFM::generate(const Request& request) const {
     return impl_->engine->generate(request);
 }
 
+std::unordered_map<std::string, double> EdgeFM::last_generate_metrics() const {
+    return impl_->engine->get_last_generate_metrics();
+}
+
 void EdgeFM::tune() {
     impl_->engine->tune();
 }

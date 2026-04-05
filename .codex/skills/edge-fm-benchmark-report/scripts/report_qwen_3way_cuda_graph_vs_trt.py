@@ -17,8 +17,8 @@ DEFAULT_TRT_PACKAGE = "/xs-train-nas/zzm/packages/TensorRT-10.16.0.72"
 def load_test_module(repo_root: Path, device_id: int):
     os.environ["EDGE_FM_DEVICE_ID"] = str(device_id)
     for python_dir in [
-        repo_root / "build" / "install" / "python",
         repo_root / "build" / "python",
+        repo_root / "build" / "install" / "python",
     ]:
         if python_dir.exists():
             sys.path.insert(0, str(python_dir))
@@ -74,6 +74,25 @@ def compare(baseline_result, target_result):
         "baseline_latency_summary": baseline_sum,
         "target_latency_summary": target_sum,
     }
+
+
+def compare_stage(edge_result, trt_result):
+    edge_stage = edge_result.get("stage_avg_ms", {})
+    trt_stage = trt_result.get("stage_avg_ms", {})
+    if not edge_stage or not trt_stage:
+        return {}
+
+    result = {}
+    for key in ["prefill_ms", "decode_ms", "total_stage_ms", "decode_step_avg_ms"]:
+        edge_val = float(edge_stage.get(key, 0.0))
+        trt_val = float(trt_stage.get(key, 0.0))
+        result[key] = {
+            "edgefm_cuda_graph_ms": edge_val,
+            "trt_edgellm_ms": trt_val,
+            "gap_ms": edge_val - trt_val,
+            "gap_pct_vs_trt": ((edge_val - trt_val) / trt_val * 100.0) if trt_val > 0 else 0.0,
+        }
+    return result
 
 
 def run_transformers(t, model_path, token_ids_list, num_steps):
@@ -150,8 +169,8 @@ def run_trt(t, token_ids_list, prefill_len, num_steps, prompt, engine_dir, plugi
     return result
 
 
-def build_report(config, tf_result, edge_cg_result, trt_result, edge_ng_result=None):
-    report = {
+def build_report(config, tf_result, edge_cg_result, trt_result):
+    return {
         "config": config,
         "transformers": tf_result,
         "edgefm_cuda_graph": edge_cg_result,
@@ -159,12 +178,48 @@ def build_report(config, tf_result, edge_cg_result, trt_result, edge_ng_result=N
         "edgefm_cuda_graph_vs_transformers": compare(tf_result, edge_cg_result),
         "trt_vs_transformers": compare(tf_result, trt_result),
         "trt_vs_edgefm_cuda_graph": compare(edge_cg_result, trt_result),
+        "trt_vs_edgefm_cuda_graph_stage": compare_stage(edge_cg_result, trt_result),
     }
-    if edge_ng_result is not None:
-        report["edgefm_no_graph"] = edge_ng_result
-        report["edgefm_no_graph_vs_transformers"] = compare(tf_result, edge_ng_result)
-        report["trt_vs_edgefm_no_graph"] = compare(edge_ng_result, trt_result)
-    return report
+
+
+def build_case_report(
+    t,
+    edge_fm_mod,
+    model_path,
+    base_token_ids,
+    prompt,
+    engine_dir,
+    plugin_path,
+    inference_bin,
+    device_id,
+    prefill_len,
+    num_steps,
+):
+    token_ids_list = t._build_prefill_token_ids(base_token_ids, prefill_len)
+    tf_result = run_transformers(t, model_path, token_ids_list, num_steps)
+    trt_result = run_trt(
+        t, token_ids_list, prefill_len, num_steps, prompt, engine_dir, plugin_path, inference_bin
+    )
+    edge_cg_result = run_edgefm(
+        t, edge_fm_mod, model_path, token_ids_list, prefill_len, num_steps, use_cuda_graph=True
+    )
+
+    return build_report(
+        {
+            "model_path": str(model_path),
+            "device_id": device_id,
+            "prefill_tokens": prefill_len,
+            "decode_tokens": num_steps,
+            "warmup_runs": t.BENCH_WARMUP_RUNS,
+            "timed_runs": t.BENCH_TIMED_RUNS,
+            "engine_dir": str(engine_dir),
+            "plugin_path": str(plugin_path),
+            "inference_bin": str(inference_bin),
+        },
+        tf_result,
+        edge_cg_result,
+        trt_result,
+    )
 
 
 def print_text_report(report):
@@ -173,6 +228,7 @@ def print_text_report(report):
     edge = report["edgefm_cuda_graph"]
     trt = report["trt_edgellm"]
     trt_vs_edge = report["trt_vs_edgefm_cuda_graph"]
+    stage_cmp = report.get("trt_vs_edgefm_cuda_graph_stage", {})
 
     print("=== Transformers vs EdgeFM(cuda-graph) vs TRT-Edge-LLM ===")
     print(json.dumps(cfg, indent=2))
@@ -204,6 +260,28 @@ def print_text_report(report):
     print("  Transformers:        %s" % tf["times_ms"])
     print("  EdgeFM(cuda-graph):  %s" % edge["times_ms"])
     print("  TRT-Edge-LLM:        %s" % trt["times_ms"])
+    if stage_cmp:
+        print()
+        print("Stage average latency (ms):")
+        for key, label in [
+            ("prefill_ms", "Prefill"),
+            ("decode_ms", "Decode"),
+            ("total_stage_ms", "Stage total"),
+            ("decode_step_avg_ms", "Decode step avg"),
+        ]:
+            item = stage_cmp.get(key)
+            if not item:
+                continue
+            print(
+                "  %s: EdgeFM %.3f | TRT %.3f | gap %.3f ms (%.2f%%)"
+                % (
+                    label,
+                    item["edgefm_cuda_graph_ms"],
+                    item["trt_edgellm_ms"],
+                    item["gap_ms"],
+                    item["gap_pct_vs_trt"],
+                )
+            )
     print()
     print("EdgeFM(cuda-graph) latency summary:")
     print(json.dumps(trt_vs_edge["baseline_latency_summary"], indent=2))
@@ -215,7 +293,8 @@ def main():
     parser = argparse.ArgumentParser(description="Benchmark Transformers vs EdgeFM(cuda-graph) vs TRT-Edge-LLM using test_qwen2_generate helpers.")
     parser.add_argument("--repo-root", default="/xs-train-nas/zzm/repos/edge-fm-x")
     parser.add_argument("--device-id", type=int, default=int(os.environ.get("EDGE_FM_DEVICE_ID", "1")))
-    parser.add_argument("--also-edgefm-no-graph", action="store_true")
+    parser.add_argument("--prefill-list", default="")
+    parser.add_argument("--decode-list", default="")
     parser.add_argument("--json-only", action="store_true")
     args = parser.parse_args()
 
@@ -226,45 +305,51 @@ def main():
     import edge_fm  # noqa: F401
     edge_fm_mod = sys.modules["edge_fm"]
 
+    if args.prefill_list:
+        os.environ["EDGE_FM_BENCH_PREFILL_LIST"] = args.prefill_list
+    if args.decode_list:
+        os.environ["EDGE_FM_BENCH_DECODE_LIST"] = args.decode_list
+
     manifest, model_path, base_token_ids = load_dump_data(t)
-    prefill_len = len(base_token_ids)
-    num_steps = t.BENCH_NUM_STEPS
     prompt = manifest.get("prompt", t.DEFAULT_PROMPT)
-    token_ids_list = t._build_prefill_token_ids(base_token_ids, prefill_len)
-    engine_dir = (t.project_root / "tests" / "data" / "trt_edgellm_workspace" / "qwen2.5-1.5b" / "engines").resolve()
-    plugin_path = (t.project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "libNvInfer_edgellm_plugin.so").resolve()
+    raw_engine_dir = os.environ.get("TRT_EDGELLM_ENGINE_DIR", "").strip()
+    requested_engine_dir = Path(raw_engine_dir).resolve() if raw_engine_dir else None
+    raw_plugin_path = os.environ.get("TRT_EDGELLM_PLUGIN_PATH", "").strip()
+    plugin_path = (
+        Path(raw_plugin_path).resolve()
+        if raw_plugin_path
+        else (t.project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "libNvInfer_edgellm_plugin.so").resolve()
+    )
     inference_bin = (t.project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "examples" / "llm" / "llm_inference").resolve()
 
-    tf_result = run_transformers(t, model_path, token_ids_list, num_steps)
-    trt_result = run_trt(t, token_ids_list, prefill_len, num_steps, prompt, engine_dir, plugin_path, inference_bin)
-    edge_cg_result = run_edgefm(t, edge_fm_mod, model_path, token_ids_list, prefill_len, num_steps, use_cuda_graph=True)
-    edge_ng_result = None
-    if args.also_edgefm_no_graph:
-        edge_ng_result = run_edgefm(t, edge_fm_mod, model_path, token_ids_list, prefill_len, num_steps, use_cuda_graph=False)
+    bench_cases = t._resolve_bench_cases(len(base_token_ids), t.BENCH_NUM_STEPS)
+    engine_dir = t._resolve_trt_engine_dir(max(prefill for prefill, _ in bench_cases), requested_engine_dir)
+    reports = []
+    for prefill_len, num_steps in bench_cases:
+        reports.append(
+            build_case_report(
+                t,
+                edge_fm_mod,
+                model_path,
+                base_token_ids,
+                prompt,
+                engine_dir,
+                plugin_path,
+                inference_bin,
+                args.device_id,
+                prefill_len,
+                num_steps,
+            )
+        )
 
-    report = build_report(
-        {
-            "model_path": str(model_path),
-            "device_id": args.device_id,
-            "prefill_tokens": prefill_len,
-            "decode_tokens": num_steps,
-            "warmup_runs": t.BENCH_WARMUP_RUNS,
-            "timed_runs": t.BENCH_TIMED_RUNS,
-            "engine_dir": str(engine_dir),
-            "plugin_path": str(plugin_path),
-            "inference_bin": str(inference_bin),
-        },
-        tf_result,
-        edge_cg_result,
-        trt_result,
-        edge_ng_result=edge_ng_result,
-    )
-
+    payload = {"cases": reports}
     if args.json_only:
-        print(json.dumps(report, indent=2))
+        print(json.dumps(payload, indent=2))
         return
 
-    print_text_report(report)
+    for report in reports:
+        print_text_report(report)
+        print()
 
 
 if __name__ == "__main__":

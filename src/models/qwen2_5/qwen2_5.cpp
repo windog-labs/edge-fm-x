@@ -1,6 +1,7 @@
 #include "models/qwen2_5/qwen2_5.h"
 #include "layers/attention.h"
 #include "engine/scheduler.h"
+#include "utils/device/decode_runtime_kernels.h"
 #include "utils/device/cuda_utils.h"
 #include "utils/device/memory.h"
 #include "utils/device/weight_loader.h"
@@ -454,14 +455,43 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_out, stream, stage);
         Tensor& k_write = tensors[ModelTensors::k_write_layer(layer_id)];
         Tensor& v_write = tensors[ModelTensors::v_write_layer(layer_id)];
+        Tensor& k_cache = tensors[ModelTensors::k_cache_layer(layer_id)];
+        Tensor& v_cache = tensors[ModelTensors::v_cache_layer(layer_id)];
         void* k_rotated_src = static_cast<char*>(qkv_buf) + q_row_bytes;
         void* v_src = static_cast<char*>(qkv_buf) + q_row_bytes + k_row_bytes;
+        const uint32_t* d_kv_len = nullptr;
+        if (seq_len == 1 && tensors.count(ModelTensors::D_KV_LEN)) {
+            d_kv_len = static_cast<const uint32_t*>(tensors.at(ModelTensors::D_KV_LEN).data_ptr());
+        }
+        const bool use_combined_decode_kv_copy =
+            (seq_len == 1) && (d_kv_len != nullptr) && !use_mrope_;
         if (seq_len == 1) {
-            // Decode: keep K in the static QKV buffer while applying M-RoPE, then
-            // memcpy the rotated K into the dynamic KV cache write location.
-            CUDA_CHECK_THROW(cudaMemcpyAsync(v_write.data_ptr(),
-                v_src,
-                v_row_bytes, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
+            if (use_combined_decode_kv_copy) {
+                launch_copy_decode_kv_cache_slots(
+                    k_rotated_src,
+                    v_src,
+                    k_cache.data_ptr(),
+                    v_cache.data_ptr(),
+                    static_cast<int>(k_dim),
+                    static_cast<int>(v_dim),
+                    dtype_,
+                    d_kv_len,
+                    stream);
+                CUDA_CHECK_THROW(cudaGetLastError(), "copy K/V to decode cache slots");
+            } else if (d_kv_len != nullptr) {
+                launch_copy_decode_cache_slot(
+                    v_src,
+                    v_cache.data_ptr(),
+                    static_cast<int>(v_dim),
+                    dtype_,
+                    d_kv_len,
+                    stream);
+                CUDA_CHECK_THROW(cudaGetLastError(), "copy V to decode cache slot");
+            } else {
+                CUDA_CHECK_THROW(cudaMemcpyAsync(v_write.data_ptr(),
+                    v_src,
+                    v_row_bytes, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
+            }
         } else {
             // Prefill: multi-row strided copy required
             CUDA_CHECK_THROW(cudaMemcpy2DAsync(q_buf, q_row_bytes, qkv_buf, qkv_row_bytes, q_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy Q from qkv");
@@ -482,15 +512,26 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
                         rope_theta_, rope_scale_, dtype_, stream);
         }
         if (seq_len == 1) {
-            CUDA_CHECK_THROW(cudaMemcpyAsync(k_write.data_ptr(),
-                k_rotated_src,
-                k_row_bytes, cudaMemcpyDeviceToDevice, stream), "copy rotated K to k_write");
+            if (use_combined_decode_kv_copy) {
+                // K/V were already copied together directly from the fused QKV buffer.
+            } else if (d_kv_len != nullptr) {
+                launch_copy_decode_cache_slot(
+                    k_rotated_src,
+                    k_cache.data_ptr(),
+                    static_cast<int>(k_dim),
+                    dtype_,
+                    d_kv_len,
+                    stream);
+                CUDA_CHECK_THROW(cudaGetLastError(), "copy rotated K to decode cache slot");
+            } else {
+                CUDA_CHECK_THROW(cudaMemcpyAsync(k_write.data_ptr(),
+                    k_rotated_src,
+                    k_row_bytes, cudaMemcpyDeviceToDevice, stream), "copy rotated K to k_write");
+            }
         }
 
         std::string attn_key = layer_prefix + ".attn";
         Tensor q_attn = Tensor::view(q_buf, {seq_len, num_attention_heads_, head_dim_}, dtype_, Device::GPU, device_id);
-        Tensor& k_cache = tensors[ModelTensors::k_cache_layer(layer_id)];
-        Tensor& v_cache = tensors[ModelTensors::v_cache_layer(layer_id)];
         std::unordered_map<std::string, Tensor> attn_inputs;
         attn_inputs.emplace("q", std::move(q_attn));
         attn_inputs.emplace("k", Tensor::view(k_cache.data_ptr(), k_cache.shape(), k_cache.dtype(),
@@ -552,11 +593,21 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
     auto final_norm_outputs = context.make_layer_outputs({{"output", ModelTensors::HIDDEN_STATES_RESHAPE}});
     layernorms_["final_norm"]->forward(final_norm_inputs, final_norm_outputs, stream, stage);
     
-    // 4. LM head: logits = self.lm_head(hidden_states)（LOGITS 为 Float32 供 sampler）
+    // 4. LM head: decode uses the single-step hidden state, while prefill only
+    // needs the final token's logits for sampling the first generated token.
     Tensor& hidden_states_final = tensors[ModelTensors::HIDDEN_STATES];
     Tensor& logits = tensors[ModelTensors::LOGITS];
-    Tensor hidden_states_2d = Tensor::view(hidden_states_final.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-    Tensor logits_2d = Tensor::view(logits.data_ptr(), {seq_len, vocab_size_}, logits.dtype(), Device::GPU, device_id);
+    void* lm_head_input_ptr = hidden_states_final.data_ptr();
+    int32_t lm_head_rows = seq_len;
+    if (stage == ModelStage::Prefill) {
+        lm_head_rows = 1;
+        lm_head_input_ptr = static_cast<char*>(hidden_states_final.data_ptr()) +
+            static_cast<size_t>(seq_len - 1) * static_cast<size_t>(hidden_size_) * dtype_size;
+    }
+    Tensor hidden_states_2d = Tensor::view(
+        lm_head_input_ptr, {lm_head_rows, hidden_size_}, dtype_, Device::GPU, device_id);
+    Tensor logits_2d = Tensor::view(
+        logits.data_ptr(), {lm_head_rows, vocab_size_}, logits.dtype(), Device::GPU, device_id);
     lm_head_->forward_fp16_bf16(hidden_states_2d, logits_2d, stream, stage);
 }
 
@@ -571,11 +622,30 @@ void Qwen2_5::prepare_decode_position_ids(Context& context, Device device, int32
         decode_pos[d] = (*last_pos)[d] + gen;
     }
     cudaStream_t stream = context.stream();
-    void* pos_ptr = StaticBufferManager::get_cache_buf("decode_position_ids", 3 * sizeof(int32_t), device_id);
+    auto& tensors = context.tensors();
+    void* pos_ptr = nullptr;
+    auto pos_it = tensors.find(ModelTensors::POSITION_IDS);
+    if (pos_it != tensors.end()) {
+        pos_ptr = pos_it->second.data_ptr();
+    } else {
+        pos_ptr = StaticBufferManager::get_cache_buf("decode_position_ids", 3 * sizeof(int32_t), device_id);
+        tensors[ModelTensors::POSITION_IDS] = Tensor::view(pos_ptr, {3, 1}, DType::Int32, device, device_id);
+    }
     CUDA_CHECK_THROW(cudaMemcpyAsync(pos_ptr, decode_pos, 3 * sizeof(int32_t),
                                      cudaMemcpyHostToDevice, stream),
                      "Failed to copy decode position_ids to GPU");
-    context.tensors()[ModelTensors::POSITION_IDS] = Tensor::view(pos_ptr, {3, 1}, DType::Int32, device, device_id);
+}
+
+void Qwen2_5::advance_decode_runtime_tensors(Context& context, cudaStream_t stream) {
+    if (!use_mrope_) return;
+
+    auto& tensors = context.tensors();
+    auto it = tensors.find(ModelTensors::POSITION_IDS);
+    if (it == tensors.end()) return;
+
+    launch_increment_int32_triplet(
+        static_cast<int32_t*>(it->second.data_ptr()), stream);
+    CUDA_CHECK_THROW(cudaGetLastError(), "Failed to advance decode position_ids");
 }
 
 } // namespace edge_fm

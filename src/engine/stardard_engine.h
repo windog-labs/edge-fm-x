@@ -16,6 +16,7 @@ public:
     void warmup() override;
     void tune() override;
     Response generate(const Request& request) override;
+    std::unordered_map<std::string, double> get_last_generate_metrics() const override;
     void prepare_tensors(ModelStage stage, Context& context) override;
 
 private:
@@ -39,12 +40,18 @@ private:
     void prepare_prefill_tensors(Context& context);
     void prepare_decode_tensors(Context& context);
 
-    /// Copy sampled token from staging buffer to the response array.
-    void flush_sampled_token(void* write_ptr, cudaStream_t stream);
+    /// Copy the latest sampled token from the decode runtime buffer to the response array.
+    void flush_sampled_token(const Context& context, void* write_ptr, cudaStream_t stream);
+
+    /// Advance decode runtime buffers that stay at stable device addresses
+    /// across graph replays (e.g. kv_len / position_ids).
+    void advance_decode_runtime_state(Context& context, cudaStream_t stream);
 
     /// Read per-layer K/V write pointers from the current step's tensors
     /// and push them into the decode graph's dynamic nodes.
     void sync_decode_graph(Context& context);
+
+    std::unordered_map<std::string, double> last_generate_metrics_{};
 };
 
 } // namespace edge_fm

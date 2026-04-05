@@ -439,9 +439,14 @@ PYBIND11_MODULE(edge_fm, m) {
                                   const Tensor& v,
                                   Tensor& o,
                                   uintptr_t stream_ptr = 0,
-                                  uint32_t max_kv_len = 0) {
+                                  uint32_t max_kv_len = 0,
+                                  const Tensor* d_kv_len_tensor = nullptr) {
                 cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
-                self.forward_decode(q, k, v, o, stream, nullptr, max_kv_len);
+                uint32_t* d_kv_len_ptr = nullptr;
+                if (d_kv_len_tensor != nullptr) {
+                    d_kv_len_ptr = static_cast<uint32_t*>(d_kv_len_tensor->data_ptr());
+                }
+                self.forward_decode(q, k, v, o, stream, d_kv_len_ptr, max_kv_len);
             },
             py::arg("q"),
             py::arg("k"),
@@ -449,6 +454,7 @@ PYBIND11_MODULE(edge_fm, m) {
             py::arg("o"),
             py::arg("stream") = 0,
             py::arg("max_kv_len") = 0,
+            py::arg("d_kv_len") = static_cast<const Tensor*>(nullptr),
             R"doc(执行 Decode 模式的前向传播
 
 参数:
@@ -458,6 +464,8 @@ PYBIND11_MODULE(edge_fm, m) {
     o: 输出张量，形状 [1, num_qo_heads, head_dim]（用于存储输出）
     stream: CUDA stream 指针地址（整数），0 表示默认 stream
     max_kv_len: 可选的最大 KV 长度，用于 decode/cuda graph 场景（默认: 0）
+    d_kv_len: 可选的 device-side KV 长度张量（shape=[1]，int32/uint32），
+              与 max_kv_len 搭配用于 graph-stable decode（默认: None）
 
 注意:
     - 函数本身是异步的，kernel 启动后立即返回
@@ -471,7 +479,10 @@ PYBIND11_MODULE(edge_fm, m) {
     layer.forward_decode(q, k, v, o, stream)
 
     # 使用 decode/cuda graph 的 max_kv_len
-    layer.forward_decode(q, k, v, o, stream, max_kv_len))doc");
+    layer.forward_decode(q, k, v, o, stream, max_kv_len)
+
+    # 使用 device-side d_kv_len + max_kv_len
+    layer.forward_decode(q, k_full, v_full, o, stream, max_kv_len, d_kv_len))doc");
 
     // ============================================================================
     // RMSNormLayer 类绑定
@@ -479,12 +490,14 @@ PYBIND11_MODULE(edge_fm, m) {
     py::class_<RMSNormLayer>(m, "RMSNormLayer", "RMSNorm 层，实现 FlashInfer RMSNorm 计算")
         .def(py::init([](uint32_t layer_id, const std::string& config_path, const std::string& weight_type) {
                  EngineConfig config(config_path);
+                 const int32_t runtime_device_id = config.runtime_device_id();
                  
                  // 加载权重
                  WeightLoader& loader = WeightLoader::instance();
                  const std::string safetensors_path = 
                     config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(ModelStage::Prefill, safetensors_path, Device::GPU, 0);
+                 loader.load_weights_from_file(
+                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id);
                  const auto& prefill_weights = loader.get(ModelStage::Prefill);
                  
                  // 尝试加载 decode 权重（如果存在）
@@ -493,7 +506,11 @@ PYBIND11_MODULE(edge_fm, m) {
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
                          const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(ModelStage::Decode, decode_safetensors_path, Device::GPU, 0);
+                             loader.load_weights_from_file(
+                                 ModelStage::Decode,
+                                 decode_safetensors_path,
+                                 Device::GPU,
+                                 runtime_device_id);
                              return loader.get(ModelStage::Decode);
                          } catch (...) {
                              return prefill_weights;
@@ -594,13 +611,16 @@ PYBIND11_MODULE(edge_fm, m) {
         .def("forward_silu_and_mul", [](ActivationLayer& self,
                                         const Tensor& input,
                                         Tensor& output,
-                                        uintptr_t stream_ptr = 0) {
+                                        uintptr_t stream_ptr = 0,
+                                        const std::string& stage_str = "Prefill") {
                 cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
-                self.forward_silu_and_mul(input, output, stream);
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                self.forward_silu_and_mul(input, output, stream, stage);
             },
             py::arg("input"),
             py::arg("output"),
             py::arg("stream") = 0,
+            py::arg("stage") = "Prefill",
             "执行 SiLU and Mul 前向传播\n\n"
             "功能:\n"
             "    计算: output = silu(input[..., :hidden_size]) * input[..., hidden_size:]\n"
@@ -609,7 +629,8 @@ PYBIND11_MODULE(edge_fm, m) {
             "    input: 输入张量，形状 (..., 2 * hidden_size)\n"
             "           最后一维必须是 2 * hidden_size（前半部分是 gate，后半部分是 up）\n"
             "    output: 输出张量，形状 (..., hidden_size)（用于存储输出）\n"
-            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n\n"
+            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n"
+            "    stage: 算子阶段，\"Prefill\" 或 \"Decode\"，默认 \"Prefill\"\n\n"
             "注意:\n"
             "    - 函数本身是异步的，kernel 启动后立即返回\n"
             "    - 如果需要在函数返回后立即使用结果，需要手动调用 torch.cuda.synchronize()\n"
@@ -619,7 +640,8 @@ PYBIND11_MODULE(edge_fm, m) {
             "    # 使用默认 stream\n"
             "    # input shape: [batch_size, 2 * hidden_size]\n"
             "    # output shape: [batch_size, hidden_size]\n"
-            "    layer.forward_silu_and_mul(input, output)\n\n"
+            "    layer.forward_silu_and_mul(input, output)\n"
+            "    layer.forward_silu_and_mul(input, output, stage=\"Decode\")\n\n"
             "    # 使用自定义 stream\n"
             "    layer.forward_silu_and_mul(input, output, torch.cuda.current_stream().cuda_stream)");
 
@@ -680,12 +702,14 @@ PYBIND11_MODULE(edge_fm, m) {
         .def(py::init([](const std::string& layer_prefix, const std::string& config_path, 
                          uint32_t in_features, uint32_t out_features) {
                  EngineConfig config(config_path);
+                 const int32_t runtime_device_id = config.runtime_device_id();
                  
                  // 加载权重
                  WeightLoader& loader = WeightLoader::instance();
                  const std::string safetensors_path =
                     config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(ModelStage::Prefill, safetensors_path, Device::GPU, 0, true);
+                 loader.load_weights_from_file(
+                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
                  const auto& prefill_weights = loader.get(ModelStage::Prefill);
                  
                  // 尝试加载 decode 权重（如果存在）
@@ -694,7 +718,12 @@ PYBIND11_MODULE(edge_fm, m) {
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
                          const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(ModelStage::Decode, decode_safetensors_path, Device::GPU, 0, true);
+                             loader.load_weights_from_file(
+                                 ModelStage::Decode,
+                                 decode_safetensors_path,
+                                 Device::GPU,
+                                 runtime_device_id,
+                                 true);
                              return loader.get(ModelStage::Decode);
                          } catch (...) {
                              return prefill_weights;
@@ -786,12 +815,14 @@ PYBIND11_MODULE(edge_fm, m) {
                          uint32_t in_features, uint32_t q_out_features, 
                          uint32_t k_out_features, uint32_t v_out_features) {
                  EngineConfig config(config_path);
+                 const int32_t runtime_device_id = config.runtime_device_id();
                  
                  // 加载权重
                  WeightLoader& loader = WeightLoader::instance();
                  const std::string safetensors_path =
                     config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(ModelStage::Prefill, safetensors_path, Device::GPU, 0, true);
+                 loader.load_weights_from_file(
+                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
                  const auto& prefill_weights = loader.get(ModelStage::Prefill);
                  
                  // 尝试加载 decode 权重（如果存在）
@@ -800,7 +831,12 @@ PYBIND11_MODULE(edge_fm, m) {
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
                          const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(ModelStage::Decode, decode_safetensors_path, Device::GPU, 0, true);
+                             loader.load_weights_from_file(
+                                 ModelStage::Decode,
+                                 decode_safetensors_path,
+                                 Device::GPU,
+                                 runtime_device_id,
+                                 true);
                              return loader.get(ModelStage::Decode);
                          } catch (...) {
                              return prefill_weights;
@@ -870,11 +906,13 @@ PYBIND11_MODULE(edge_fm, m) {
                          uint32_t in_features, uint32_t gate_out_features,
                          uint32_t up_out_features) {
                  EngineConfig config(config_path);
+                 const int32_t runtime_device_id = config.runtime_device_id();
 
                  WeightLoader& loader = WeightLoader::instance();
                  const std::string safetensors_path =
                     config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(ModelStage::Prefill, safetensors_path, Device::GPU, 0, true);
+                 loader.load_weights_from_file(
+                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
                  const auto& prefill_weights = loader.get(ModelStage::Prefill);
 
                  const auto& decode_weights = [&]() -> const std::unordered_map<std::string, Tensor>& {
@@ -882,7 +920,12 @@ PYBIND11_MODULE(edge_fm, m) {
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
                          const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(ModelStage::Decode, decode_safetensors_path, Device::GPU, 0, true);
+                             loader.load_weights_from_file(
+                                 ModelStage::Decode,
+                                 decode_safetensors_path,
+                                 Device::GPU,
+                                 runtime_device_id,
+                                 true);
                              return loader.get(ModelStage::Decode);
                          } catch (...) {
                              return prefill_weights;
@@ -946,11 +989,13 @@ PYBIND11_MODULE(edge_fm, m) {
                          uint32_t out_features,
                          const std::string& layer_prefix) {
                  EngineConfig config(config_path);
+                 const int32_t runtime_device_id = config.runtime_device_id();
 
                  WeightLoader& loader = WeightLoader::instance();
                  const std::string safetensors_path =
                     config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(ModelStage::Prefill, safetensors_path, Device::GPU, 0, true);
+                 loader.load_weights_from_file(
+                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
                  const auto& prefill_weights = loader.get(ModelStage::Prefill);
 
                  const auto& decode_weights = [&]() -> const std::unordered_map<std::string, Tensor>& {
@@ -958,7 +1003,12 @@ PYBIND11_MODULE(edge_fm, m) {
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
                          const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(ModelStage::Decode, decode_safetensors_path, Device::GPU, 0, true);
+                             loader.load_weights_from_file(
+                                 ModelStage::Decode,
+                                 decode_safetensors_path,
+                                 Device::GPU,
+                                 runtime_device_id,
+                                 true);
                              return loader.get(ModelStage::Decode);
                          } catch (...) {
                              return prefill_weights;
@@ -1014,12 +1064,14 @@ PYBIND11_MODULE(edge_fm, m) {
     py::class_<EmbedHeadLayer>(m, "EmbedHeadLayer", "Embedding 层，实现 token embedding 查找")
         .def(py::init([](const std::string& config_path) {
                  EngineConfig config(config_path);
+                 const int32_t runtime_device_id = config.runtime_device_id();
                  
                  // 加载权重
                  WeightLoader& loader = WeightLoader::instance();
                  const std::string safetensors_path =
                     config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(ModelStage::Prefill, safetensors_path, Device::GPU, 0, true);
+                 loader.load_weights_from_file(
+                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
                  const auto& prefill_weights = loader.get(ModelStage::Prefill);
                  
                  // 尝试加载 decode 权重（如果存在）
@@ -1028,7 +1080,12 @@ PYBIND11_MODULE(edge_fm, m) {
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
                          const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(ModelStage::Decode, decode_safetensors_path, Device::GPU, 0, true);
+                             loader.load_weights_from_file(
+                                 ModelStage::Decode,
+                                 decode_safetensors_path,
+                                 Device::GPU,
+                                 runtime_device_id,
+                                 true);
                              return loader.get(ModelStage::Decode);
                          } catch (...) {
                              return prefill_weights;
@@ -1388,7 +1445,9 @@ PYBIND11_MODULE(edge_fm, m) {
              "对当前 backend 生成或调优执行产物，并将结果持久化缓存。")
         .def("generate", &EdgeFM::generate,
              py::arg("request"),
-             "从给定请求生成响应 token");
+             "从给定请求生成响应 token")
+        .def("last_generate_metrics", &EdgeFM::last_generate_metrics,
+             "返回最近一次 generate() 的 stage timing 指标。");
 
     // ============================================================================
     // M-RoPE standalone function

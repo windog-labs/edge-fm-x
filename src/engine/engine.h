@@ -107,9 +107,15 @@ public:
         int32_t n = static_cast<int32_t>(k_write_ptrs.size());
         k_memcpy_.resize(n);
         v_memcpy_.resize(n);
+        bool has_dynamic_memcpy = false;
         for (int32_t i = 0; i < n; ++i) {
             k_memcpy_[i] = decode_.track_memcpy_node(k_write_ptrs[i]);
             v_memcpy_[i] = decode_.track_memcpy_node(v_write_ptrs[i]);
+            has_dynamic_memcpy = has_dynamic_memcpy || k_memcpy_[i] >= 0 || v_memcpy_[i] >= 0;
+        }
+        if (!has_dynamic_memcpy) {
+            k_memcpy_.clear();
+            v_memcpy_.clear();
         }
     }
 
@@ -166,6 +172,7 @@ public:
     virtual void warmup() = 0;
     virtual void tune() = 0;
     virtual Response generate(const Request& request) = 0;
+    virtual std::unordered_map<std::string, double> get_last_generate_metrics() const = 0;
     virtual void prepare_tensors(ModelStage stage, Context& context) = 0;
 
     KVManagerStatus get_kv_status() const {

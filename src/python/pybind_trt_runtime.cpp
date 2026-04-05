@@ -7,11 +7,14 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <cuda_runtime.h>
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_map>
 
 #include "common/trtUtils.h"
+#include "profiling/metrics.h"
+#include "profiling/timer.h"
 #include "runtime/llmInferenceRuntime.h"
 #include "runtime/llmRuntimeUtils.h"
 
@@ -82,6 +85,11 @@ public:
         return generate_impl("", std::move(token_ids), max_generate_length, temperature, top_p, top_k, ignore_stop_tokens);
     }
 
+    std::unordered_map<std::string, double> last_generate_metrics() const
+    {
+        return m_last_metrics;
+    }
+
 private:
     std::pair<std::vector<std::vector<int32_t>>, std::vector<std::string>> generate_impl(
         const std::string& prompt,
@@ -92,6 +100,11 @@ private:
         int64_t top_k,
         bool ignore_stop_tokens)
     {
+        m_last_metrics.clear();
+        trt::gTimer.reset();
+        bool const prev_profiling_enabled = trt::getProfilingEnabled();
+        trt::setProfilingEnabled(true);
+
         rt::LLMGenerationRequest request;
         request.maxGenerateLength = max_generate_length;
         request.temperature = temperature;
@@ -119,10 +132,40 @@ private:
         }
 
         rt::LLMGenerationResponse response;
-        bool ok = m_runtime->handleRequest(request, response, m_stream);
+        bool ok = false;
+        try
+        {
+            ok = m_runtime->handleRequest(request, response, m_stream);
+        }
+        catch (...)
+        {
+            trt::setProfilingEnabled(prev_profiling_enabled);
+            throw;
+        }
+        trt::setProfilingEnabled(prev_profiling_enabled);
         if (!ok) {
             throw std::runtime_error("TRT handleRequest failed");
         }
+
+        auto prefill_timing = trt::gTimer.getTimingData(trt::metrics::StageNames::kLLM_PREFILL);
+        auto generation_timing = trt::gTimer.getTimingData(trt::metrics::StageNames::kLLM_GENERATION);
+        double const prefill_ms = prefill_timing ? static_cast<double>(prefill_timing->getTotalGpuTimeMs()) : 0.0;
+        double const decode_ms = generation_timing ? static_cast<double>(generation_timing->getTotalGpuTimeMs()) : 0.0;
+
+        int32_t generated_tokens_total = 0;
+        for (auto const& ids : response.outputIds)
+        {
+            generated_tokens_total += static_cast<int32_t>(ids.size());
+        }
+        int32_t const decode_steps = std::max(0, generated_tokens_total - static_cast<int32_t>(response.outputIds.size()));
+        m_last_metrics = {
+            {"prefill_ms", prefill_ms},
+            {"decode_ms", decode_ms},
+            {"total_stage_ms", prefill_ms + decode_ms},
+            {"decode_step_avg_ms", decode_steps > 0 ? decode_ms / static_cast<double>(decode_steps) : 0.0},
+            {"generated_tokens_total", static_cast<double>(generated_tokens_total)},
+            {"decode_steps", static_cast<double>(decode_steps)},
+        };
 
         return {response.outputIds, response.outputTexts};
     }
@@ -131,6 +174,7 @@ private:
     std::unique_ptr<void, trt::DlDeleter> m_plugin_handle;
     cudaStream_t m_stream = nullptr;
     std::unique_ptr<rt::LLMInferenceRuntime> m_runtime;
+    std::unordered_map<std::string, double> m_last_metrics;
 };
 
 PYBIND11_MODULE(edge_fm_trt, m)
@@ -184,5 +228,18 @@ Args:
 
 Returns:
     Tuple of (output_ids, output_texts) for each request in the batch.
+)doc")
+        .def("last_generate_metrics",
+             &TrtEdgeLlmRuntime::last_generate_metrics,
+             R"doc(
+Return stage timing from the most recent generation run.
+
+Keys include:
+    prefill_ms
+    decode_ms
+    total_stage_ms
+    decode_step_avg_ms
+    generated_tokens_total
+    decode_steps
 )doc");
 }

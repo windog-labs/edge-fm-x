@@ -17,8 +17,7 @@ description: Generate detailed benchmark reports inside this edge-fm repo, with 
 ## 默认口径
 
 - 默认主报告必须是三框架：`Transformers vs EdgeFM(cuda-graph) vs TRT-Edge-LLM`
-- `EdgeFM` 默认使用 `cuda-graph`，不能默认退回 no-graph
-- 如果需要 no-graph，只作为附加项，不作为主对比口径
+- `EdgeFM` 固定使用 `cuda-graph` 作为唯一主对比口径，不再分析 no-graph 中间态
 
 ## 工作流
 
@@ -54,7 +53,6 @@ description: Generate detailed benchmark reports inside this edge-fm repo, with 
 
 - 主脚本：`scripts/report_qwen_3way_cuda_graph_vs_trt.py`
 - 默认行为：直接输出 `Transformers vs EdgeFM(cuda-graph) vs TRT-Edge-LLM`
-- 可选：加 `--also-edgefm-no-graph` 把 `EdgeFM(no-graph)` 也一起带上
 - 可选：加 `--json-only` 输出结构化结果
 
 ## 注意事项
