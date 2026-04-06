@@ -514,9 +514,8 @@ void StandardEngine::prepare_kvcache_tensors(
     size_t prefix_size)      // slot 的 prefix 长度，仅用于 cache 读长度（decode 时） 
 {
     auto& tensors = context.tensors();
-    
-    std::vector<void*> kv_read_ptrs = context.get_kv_read_ptrs();
-    std::vector<void*> kv_write_ptrs = context.get_kv_write_ptrs();
+    const auto& kv_read_ptrs = context.kv_read_ptrs_ref();
+    const auto& kv_write_ptrs = context.kv_write_ptrs_ref();
     size_t token_stride = kv_manager_->get_token_stride();
     
     auto kv_dtype = dtype_from_string(config_.kvcache_dtype());
@@ -555,18 +554,12 @@ void StandardEngine::prepare_kvcache_tensors(
         }
     } else {
         size_t k_size_per_token = token_stride / 2;
-        int32_t max_tokens = 0;
-        {
-            KVManagerStatus kv_status = kv_manager_->get_status();
-            int32_t req_id = context.request()->request_id();
-            for (const auto& slot : kv_status.slots) {
-                if (slot.request_id == req_id) { max_tokens = slot.max_tokens; break; }
-            }
-        }
+        int32_t max_tokens = context.slot_max_tokens();
         bool is_decode = (seq_len == 1 && generated_tokens > 0);
         int32_t cache_shape_len = is_decode ? max_tokens : cache_kv_len;
+        bool init_decode_static = is_decode && !context.decode_tensors_initialized();
 
-        if (is_decode) {
+        if (init_decode_static) {
             void* decode_state_ptr = DecodeRuntimeStateLayout::base_ptr(device_id_);
             void* d_kv_len_ptr = DecodeRuntimeStateLayout::kv_len_ptr(decode_state_ptr);
             if (generated_tokens <= 1) {
@@ -591,12 +584,14 @@ void StandardEngine::prepare_kvcache_tensors(
             tensors[ModelTensors::v_write_layer(layer_id)] = Tensor::view(
                 v_write_ptr, {seq_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
 
-            void* k_cache_ptr = read_ptr;
-            void* v_cache_ptr = static_cast<uint8_t*>(read_ptr) + static_cast<size_t>(max_tokens) * k_size_per_token;
-            tensors[ModelTensors::k_cache_layer(layer_id)] = Tensor::view(
-                k_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
-            tensors[ModelTensors::v_cache_layer(layer_id)] = Tensor::view(
-                v_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
+            if (!is_decode || init_decode_static) {
+                void* k_cache_ptr = read_ptr;
+                void* v_cache_ptr = static_cast<uint8_t*>(read_ptr) + static_cast<size_t>(max_tokens) * k_size_per_token;
+                tensors[ModelTensors::k_cache_layer(layer_id)] = Tensor::view(
+                    k_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
+                tensors[ModelTensors::v_cache_layer(layer_id)] = Tensor::view(
+                    v_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
+            }
         }
     }
 }
@@ -614,17 +609,8 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     const Request* request = context.request();
     const std::vector<int32_t>& token_ids_vec = request->token_ids();
     
-    KVManagerStatus kv_status = kv_manager_->get_status();
-    size_t prefix_size = 0;
-    int32_t max_generated_tokens = 0;
-    int32_t request_id = request->request_id();
-    for (const auto& slot : kv_status.slots) {
-        if (slot.request_id == request_id) {
-            prefix_size = slot.prefix_size;
-            max_generated_tokens = slot.max_tokens - static_cast<int32_t>(prefix_size);
-            break;
-        }
-    }
+    size_t prefix_size = context.prefix_size();
+    int32_t max_generated_tokens = context.slot_max_tokens() - static_cast<int32_t>(prefix_size);
     
     // seq_len = 实际写入 KV 的 token 数（prompt 部分，不含 prefix）
     int32_t seq_len = static_cast<int32_t>(token_ids_vec.size());
@@ -870,6 +856,7 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
 void StandardEngine::prepare_decode_tensors(Context& context) {
     auto& tensors = context.tensors();
     cudaStream_t stream = context.stream();
+    const bool init_static = !context.decode_tensors_initialized();
 
     // 获取模型参数
     int32_t num_layers = model_->num_layers();
@@ -880,27 +867,8 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     int32_t seq_len = 1;
 
     void* decode_state_ptr = DecodeRuntimeStateLayout::base_ptr(device_id_);
-
-    // TOKEN_IDS / SAMPLER_TOKEN_OUT share one stable device buffer. Seed it once
-    // from the prefill sample, then let decode update it in place step by step.
     void* token_ids_ptr = DecodeRuntimeStateLayout::token_ids_ptr(decode_state_ptr);
-    if (context.get_generated_tokens() >= 1) {
-        if (context.get_generated_tokens() == 1) {
-            void* last_token_src = context.get_response_token_read_ptr();
-            CUDA_CHECK_THROW(cudaMemcpyAsync(
-                token_ids_ptr, last_token_src, sizeof(int32_t),
-                cudaMemcpyDeviceToDevice, stream),
-                "Failed to seed decode token_ids from response buffer");
-        }
-        tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
-            token_ids_ptr,
-            {1, seq_len},
-            DType::Int32,
-            device_,
-            device_id_
-        );
-    }
-    
+
     // 获取模型配置以计算 attention 参数
     auto model_config = config_.prefill_model_config();
     int32_t num_attention_heads = model_config.value("num_attention_heads", 32);
@@ -908,31 +876,8 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     int32_t head_dim = hidden_size / num_attention_heads;
     
     // prepare kvcache tensors(write buffers and read buffers)
-    KVManagerStatus kv_status = kv_manager_->get_status();
-    size_t prefix_size = 0;
-    const Request* request = context.request();
-    int32_t request_id = request->request_id();
-    for (const auto& slot : kv_status.slots) {
-        if (slot.request_id == request_id) {
-            prefix_size = slot.prefix_size;
-            break;
-        }
-    }
-    prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, prefix_size);
+    prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, context.prefix_size());
 
-    if (context.get_model_state("mrope_last_pos") != nullptr) {
-        tensors[ModelTensors::POSITION_IDS] = Tensor::view(
-            DecodeRuntimeStateLayout::position_ids_ptr(decode_state_ptr),
-            {3, 1},
-            DType::Int32,
-            device_,
-            device_id_);
-    }
-
-    if (context.get_generated_tokens() <= 1) {
-        model_->prepare_decode_position_ids(context, device_, device_id_);
-    }
-    
     DType model_dtype = model_->dtype();
     size_t model_dtype_size = get_dtype_size(model_dtype);
     size_t fp32_size = get_dtype_size(DType::Float32);
@@ -957,16 +902,50 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     void* logits_ptr        = StaticBufferManager::get_cache_buf("decode_logits",          vocab_size * fp32_size, device_id_);
     void* sampler_out_ptr   = token_ids_ptr;
 
-    tensors[ModelTensors::HIDDEN_STATES] = Tensor::view(hidden_states_ptr, {1, seq_len, hidden_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, qkv_total_dim}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, num_attention_heads, q_head_dim}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::view(attn_output_ptr, {seq_len, num_attention_heads, head_dim}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::NORM_OUTPUT] = Tensor::view(norm_output_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::view(post_norm_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::view(mlp_inter_ptr, {seq_len, intermediate_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::view(mlp_act_ptr, {seq_len, 2 * intermediate_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::LOGITS] = Tensor::view(logits_ptr, {seq_len, vocab_size}, DType::Float32, device_, device_id_);
-    tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(sampler_out_ptr, {1}, DType::Int32, device_, device_id_);
+    if (init_static) {
+        // TOKEN_IDS / SAMPLER_TOKEN_OUT share one stable device buffer. Seed it
+        // once from the prefill sample, then keep updating it in-place.
+        if (context.get_generated_tokens() >= 1) {
+            if (context.get_generated_tokens() == 1) {
+                void* last_token_src = context.get_response_token_read_ptr();
+                CUDA_CHECK_THROW(cudaMemcpyAsync(
+                    token_ids_ptr, last_token_src, sizeof(int32_t),
+                    cudaMemcpyDeviceToDevice, stream),
+                    "Failed to seed decode token_ids from response buffer");
+            }
+            tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
+                token_ids_ptr,
+                {1, seq_len},
+                DType::Int32,
+                device_,
+                device_id_);
+        }
+
+        if (context.get_model_state("mrope_last_pos") != nullptr) {
+            tensors[ModelTensors::POSITION_IDS] = Tensor::view(
+                DecodeRuntimeStateLayout::position_ids_ptr(decode_state_ptr),
+                {3, 1},
+                DType::Int32,
+                device_,
+                device_id_);
+        }
+
+        if (context.get_generated_tokens() <= 1) {
+            model_->prepare_decode_position_ids(context, device_, device_id_);
+        }
+
+        tensors[ModelTensors::HIDDEN_STATES] = Tensor::view(hidden_states_ptr, {1, seq_len, hidden_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, qkv_total_dim}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, num_attention_heads, q_head_dim}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::view(attn_output_ptr, {seq_len, num_attention_heads, head_dim}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::NORM_OUTPUT] = Tensor::view(norm_output_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::view(post_norm_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::view(mlp_inter_ptr, {seq_len, intermediate_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::view(mlp_act_ptr, {seq_len, 2 * intermediate_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::LOGITS] = Tensor::view(logits_ptr, {seq_len, vocab_size}, DType::Float32, device_, device_id_);
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(sampler_out_ptr, {1}, DType::Int32, device_, device_id_);
+        context.mark_decode_tensors_initialized();
+    }
 }
 
 void StandardEngine::flush_sampled_token(const Context& context, void* write_ptr, cudaStream_t stream) {

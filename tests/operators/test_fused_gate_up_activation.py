@@ -28,6 +28,15 @@ INTERMEDIATE_SIZE = 8960
 FUSED_GATE_UP_DECODE_SHAPE_SIG = (
     "m=1|input=2|weight=2|output=2|in_features=1536|out_features=17920"
 )
+FUSED_GATE_UP_PREFILL_512_SHAPE_SIG = (
+    "m=512|input=2|weight=2|output=2|in_features=1536|out_features=17920"
+)
+FUSED_GATE_UP_PREFILL_1024_SHAPE_SIG = (
+    "m=1024|input=2|weight=2|output=2|in_features=1536|out_features=17920"
+)
+FUSED_GATE_UP_PREFILL_2048_SHAPE_SIG = (
+    "m=2048|input=2|weight=2|output=2|in_features=1536|out_features=17920"
+)
 
 
 def _load_tensor(name: str, *, device: str) -> torch.Tensor:
@@ -55,14 +64,14 @@ def _make_layers():
     return fused_linear, activation
 
 
-def _is_tuned_fused_gate_up_record(record: dict) -> bool:
+def _is_tuned_fused_gate_up_record(record: dict, *, stage: str, shape_sig: str) -> bool:
     return (
         record.get("model_name") == "qwen2_5"
         and record.get("hw_profile") == "cuda_sm80"
         and record.get("op_kind") == "linear"
         and record.get("layer_role") == "fused_gate_up"
-        and record.get("stage") == "decode"
-        and record.get("shape_sig") == FUSED_GATE_UP_DECODE_SHAPE_SIG
+        and record.get("stage") == stage
+        and record.get("shape_sig") == shape_sig
         and record.get("impl_id") == "cublasLt"
         and record.get("impl_params", {}).get("algo_index") == 2
     )
@@ -161,19 +170,38 @@ def test_fused_gate_up_and_activation_performance_smoke(
     )
 
 
-def test_fused_gate_up_decode_tuned_record_matches_baseline_output():
+@pytest.mark.parametrize(
+    ("seq_len", "stage", "shape_sig"),
+    [
+        (1, "Decode", FUSED_GATE_UP_DECODE_SHAPE_SIG),
+        (512, "Prefill", FUSED_GATE_UP_PREFILL_512_SHAPE_SIG),
+        (1024, "Prefill", FUSED_GATE_UP_PREFILL_1024_SHAPE_SIG),
+        (2048, "Prefill", FUSED_GATE_UP_PREFILL_2048_SHAPE_SIG),
+    ],
+    ids=["decode_1", "prefill_512", "prefill_1024", "prefill_2048"],
+)
+def test_fused_gate_up_tuned_record_matches_baseline_output(seq_len, stage, shape_sig):
     ensure_cuda()
     device = torch_device()
 
     base_table = load_operator_impl_table()
     current_records = base_table["records"]
-    assert any(_is_tuned_fused_gate_up_record(record) for record in current_records)
+    assert any(
+        _is_tuned_fused_gate_up_record(
+            record, stage=stage.lower(), shape_sig=shape_sig
+        )
+        for record in current_records
+    )
     baseline_records = [
-        record for record in current_records if not _is_tuned_fused_gate_up_record(record)
+        record
+        for record in current_records
+        if not _is_tuned_fused_gate_up_record(
+            record, stage=stage.lower(), shape_sig=shape_sig
+        )
     ]
     baseline_table_path = write_operator_impl_table(baseline_records)
 
-    x = torch.randn(1, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
+    x = torch.randn(seq_len, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
 
     reset_weight_loader()
     baseline_layer = edge_fm.FusedGateUpLinearLayer(
@@ -190,12 +218,12 @@ def test_fused_gate_up_decode_tuned_record_matches_baseline_output():
         INTERMEDIATE_SIZE,
     )
     y_baseline = torch.empty(
-        1, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16
+        seq_len, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16
     )
     x_baseline = tensor_to_edge_fm_tensor(x)
     y_baseline_efm = tensor_to_edge_fm_tensor(y_baseline)
     baseline_ms = median_cuda_ms(
-        lambda: baseline_layer.forward_fp16_bf16(x_baseline, y_baseline_efm, 0, "Decode"),
+        lambda: baseline_layer.forward_fp16_bf16(x_baseline, y_baseline_efm, 0, stage),
         warmup=40,
         iters=250,
     )
@@ -214,11 +242,11 @@ def test_fused_gate_up_decode_tuned_record_matches_baseline_output():
         INTERMEDIATE_SIZE,
         INTERMEDIATE_SIZE,
     )
-    y_tuned = torch.empty(1, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    y_tuned = torch.empty(seq_len, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
     x_tuned = tensor_to_edge_fm_tensor(x)
     y_tuned_efm = tensor_to_edge_fm_tensor(y_tuned)
     tuned_ms = median_cuda_ms(
-        lambda: tuned_layer.forward_fp16_bf16(x_tuned, y_tuned_efm, 0, "Decode"),
+        lambda: tuned_layer.forward_fp16_bf16(x_tuned, y_tuned_efm, 0, stage),
         warmup=40,
         iters=250,
     )

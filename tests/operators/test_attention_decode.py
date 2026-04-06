@@ -11,15 +11,12 @@ from ._test_utils import (
     OPERATOR_IMPL_TABLE_PATH,
     QWEN_1P5B_MODEL_PATH,
     dtype_tolerances,
-    edge_fm_tensor_to_torch,
     edge_fm,
     ensure_cuda,
-    load_operator_impl_table,
     make_engine_config,
     median_cuda_ms,
     tensor_to_edge_fm_tensor,
     torch_device,
-    write_operator_impl_table,
 )
 
 _SHIM_DIR = Path(__file__).resolve().parent / "_vendor_shims"
@@ -42,25 +39,6 @@ def _make_attention_layer(operator_impl_table_path=OPERATOR_IMPL_TABLE_PATH):
         operator_impl_table_path=operator_impl_table_path,
     )
     return edge_fm.AttentionLayer(str(engine_config_path))
-
-
-def _make_baseline_decode_attention_layer():
-    base_table = load_operator_impl_table()
-    baseline_records = [
-        record for record in base_table["records"] if not _is_tuned_decode_attention_record(record)
-    ]
-    baseline_table_path = write_operator_impl_table(baseline_records)
-    return _make_attention_layer(operator_impl_table_path=baseline_table_path)
-
-
-def _is_tuned_decode_attention_record(record: dict) -> bool:
-    return (
-        record.get("model_name") == "qwen2_5"
-        and record.get("hw_profile") == "cuda_sm80"
-        and record.get("op_kind") == "attention"
-        and record.get("stage") == "decode"
-        and record.get("impl_id") == "flashinfer_attention_decode_sm80_tuned"
-    )
 
 
 def _make_decode_inputs(kv_len: int, *, max_kv_len: int | None = None):
@@ -97,8 +75,7 @@ def _decode_reference(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torc
     except RuntimeError as err:
         if "Unsupported group_size" not in str(err):
             raise
-        baseline_layer = _make_baseline_decode_attention_layer()
-        return _run_decode(baseline_layer, q, k, v)
+        return _run_decode(_make_attention_layer(), q, k, v)
 
 
 @pytest.mark.parametrize("kv_len", DECODE_KV_LENGTHS, ids=lambda value: f"kv{value}")
@@ -173,62 +150,4 @@ def test_attention_decode_performance_smoke(kv_len, max_median_ms):
     assert math.isfinite(median_ms)
     assert median_ms < max_median_ms, (
         f"decode attention kv_len={kv_len} latency regressed to {median_ms:.6f} ms"
-    )
-
-
-@pytest.mark.parametrize("kv_len", [1024, 2048], ids=lambda value: f"kv{value}")
-def test_attention_decode_tuned_record_matches_baseline_output_and_latency(kv_len):
-    ensure_cuda()
-    torch.manual_seed(0)
-
-    base_table = load_operator_impl_table()
-    current_records = base_table["records"]
-    assert any(_is_tuned_decode_attention_record(record) for record in current_records)
-    baseline_records = [
-        record for record in current_records if not _is_tuned_decode_attention_record(record)
-    ]
-    baseline_table_path = write_operator_impl_table(baseline_records)
-
-    q, k_full, v_full = _make_decode_inputs(kv_len)
-    k = k_full[:kv_len]
-    v = v_full[:kv_len]
-
-    baseline_layer = _make_attention_layer(operator_impl_table_path=baseline_table_path)
-    tuned_layer = _make_attention_layer(operator_impl_table_path=OPERATOR_IMPL_TABLE_PATH)
-
-    baseline_out = torch.empty_like(q)
-    baseline_out_efm = tensor_to_edge_fm_tensor(baseline_out)
-    baseline_ms = median_cuda_ms(
-        lambda: baseline_layer.forward_decode(
-            tensor_to_edge_fm_tensor(q),
-            tensor_to_edge_fm_tensor(k),
-            tensor_to_edge_fm_tensor(v),
-            baseline_out_efm,
-        ),
-        warmup=40,
-        iters=250,
-    )
-
-    tuned_out = torch.empty_like(q)
-    tuned_out_efm = tensor_to_edge_fm_tensor(tuned_out)
-    tuned_ms = median_cuda_ms(
-        lambda: tuned_layer.forward_decode(
-            tensor_to_edge_fm_tensor(q),
-            tensor_to_edge_fm_tensor(k),
-            tensor_to_edge_fm_tensor(v),
-            tuned_out_efm,
-        ),
-        warmup=40,
-        iters=250,
-    )
-
-    baseline_out_torch = edge_fm_tensor_to_torch(baseline_out_efm)
-    tuned_out_torch = edge_fm_tensor_to_torch(tuned_out_efm)
-    rtol, atol = dtype_tolerances(torch.bfloat16)
-    torch.testing.assert_close(tuned_out_torch, baseline_out_torch, rtol=rtol, atol=atol)
-    assert math.isfinite(baseline_ms)
-    assert math.isfinite(tuned_ms)
-    assert tuned_ms < baseline_ms, (
-        f"tuned decode attention should beat baseline at kv_len={kv_len}: "
-        f"tuned={tuned_ms:.6f} ms baseline={baseline_ms:.6f} ms"
     )

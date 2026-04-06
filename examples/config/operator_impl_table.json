@@ -161,6 +161,32 @@
       "layer_role": "fused_qkv",
       "op_name": "",
       "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=1536|out_features=2048",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 0
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=1536|out_features=2048",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 4
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
       "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=1536|out_features=2048",
       "impl_id": "cublasLt",
       "impl_params": {
@@ -175,6 +201,19 @@
       "op_name": "",
       "stage": "prefill",
       "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=8960|out_features=1536",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_gate_up",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=1536|out_features=17920",
       "impl_id": "cublasLt",
       "impl_params": {
         "algo_index": 2
