@@ -14,9 +14,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPORT_DIR="${PROJECT_ROOT}/ncu_reports"
 PYTHON="${HORIZON_PYTHON:-$(which python)}"
-NSYS="${NSYS:-/usr/local/cuda-12.8/bin/nsys}"
+if [ -z "${NSYS:-}" ]; then
+    if command -v nsys >/dev/null 2>&1; then
+        NSYS="$(command -v nsys)"
+    else
+        NSYS="$(ls -1d /opt/nvidia/nsight-systems/*/bin/nsys 2>/dev/null | sort -V | tail -1)"
+    fi
+fi
 CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.8}"
 TRT_PKG="${TRT_PACKAGE_DIR:-/usr/local/TensorRT-10.15.1.29}"
+
+if [ -z "${NSYS:-}" ] || [ ! -x "${NSYS}" ]; then
+    echo "ERROR: nsys not found. Set NSYS=/path/to/nsys and retry." >&2
+    exit 1
+fi
 
 cd "$PROJECT_ROOT"
 mkdir -p "$REPORT_DIR"
@@ -31,17 +42,21 @@ export EDGE_FM_PROFILE_DECODE_LEN="${EDGE_FM_PROFILE_DECODE_LEN:-64}"
 
 echo "[1/4] Profiling Edge-FM..."
 "$NSYS" profile -o "${REPORT_DIR}/edgefm_profile" --stats=true --force-overwrite=true \
+    --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
     "$PYTHON" scripts/profile_operator_comparison.py edgefm 2>&1 | tail -5
 
 echo ""
 echo "[2/4] Profiling TRT-Edge-LLM..."
 "$NSYS" profile -o "${REPORT_DIR}/trt_profile" --stats=true --force-overwrite=true \
+    --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
     "$PYTHON" scripts/profile_operator_comparison.py trt 2>&1 | tail -5
 
 echo ""
 echo "[3/4] Extracting kernel summaries..."
-"$NSYS" stats "${REPORT_DIR}/edgefm_profile.nsys-rep" --report gpukernsum -f csv -o "${REPORT_DIR}/edgefm_kernels" 2>/dev/null || true
-"$NSYS" stats "${REPORT_DIR}/trt_profile.nsys-rep" --report gpukernsum -f csv -o "${REPORT_DIR}/trt_kernels" 2>/dev/null || true
+"$NSYS" stats --force-export=true --report cuda_gpu_kern_sum --format csv \
+    --output "${REPORT_DIR}/edgefm_kernels" "${REPORT_DIR}/edgefm_profile.nsys-rep" 2>/dev/null || true
+"$NSYS" stats --force-export=true --report cuda_gpu_kern_sum --format csv \
+    --output "${REPORT_DIR}/trt_kernels" "${REPORT_DIR}/trt_profile.nsys-rep" 2>/dev/null || true
 
 echo ""
 echo "[4/4] Generating comparison report..."
@@ -51,6 +66,6 @@ echo ""
 echo "Done. Reports:"
 echo "  Edge-FM:    ${REPORT_DIR}/edgefm_profile.nsys-rep"
 echo "  TRT-Edge:   ${REPORT_DIR}/trt_profile.nsys-rep"
-echo "  Kernels:    ${REPORT_DIR}/edgefm_kernels.csv, ${REPORT_DIR}/trt_kernels.csv"
+echo "  Kernels:    ${REPORT_DIR}/edgefm_kernels_cuda_gpu_kern_sum.csv, ${REPORT_DIR}/trt_kernels_cuda_gpu_kern_sum.csv"
 echo ""
 echo "View in Nsight Systems: nsys-ui ${REPORT_DIR}/edgefm_profile.nsys-rep"

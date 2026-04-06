@@ -647,19 +647,18 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
         token_ids_src = token_ids_vec.data() + prefix_size;
     }
     size_t token_ids_size = static_cast<size_t>(seq_len) * sizeof(int32_t);
-    void* token_ids_ptr = MemoryPool::instance().allocate(token_ids_size, stream, device_id_);
+    void* token_ids_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_token_ids", token_ids_size, device_id_);
     CUDA_CHECK_THROW(cudaMemcpyAsync(token_ids_ptr, token_ids_src, token_ids_size, 
                                      cudaMemcpyHostToDevice, stream), 
                      "Failed to copy token_ids to GPU");
     
-    tensors[ModelTensors::TOKEN_IDS] = Tensor::adopt(
+    tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
         token_ids_ptr,
         {1, seq_len},
         DType::Int32,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 1'. 可选的自定义 embedding: [num_custom_embeddings, hidden_size] 与 embed_token_id
@@ -728,15 +727,14 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     // ==================== 构建临时激活值 tensors ====================
     // 1. Hidden states: [batch_size=1, seq_len, hidden_size]（embed 层要求 3D，dtype 与 embedding 一致）
     size_t hidden_states_size = seq_len * hidden_size * model_dtype_size;
-    void* hidden_states_ptr = MemoryPool::instance().allocate(hidden_states_size, stream, device_id_);
-    tensors[ModelTensors::HIDDEN_STATES] = Tensor::adopt(
+    void* hidden_states_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_hidden_states", hidden_states_size, device_id_);
+    tensors[ModelTensors::HIDDEN_STATES] = Tensor::view(
         hidden_states_ptr,
         {1, seq_len, hidden_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 2. Fused QKV projection output: [seq_len, qkv_total_dim]（临时 buffer，MemoryPool）
@@ -750,121 +748,113 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     int32_t v_dim = num_kv_heads * head_dim;
     int32_t qkv_total_dim = q_dim + k_dim + v_dim;
     size_t qkv_proj_size = seq_len * qkv_total_dim * model_dtype_size;
-    void* qkv_proj_ptr = MemoryPool::instance().allocate(qkv_proj_size, stream, device_id_);
-    tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::adopt(
+    void* qkv_proj_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_qkv_proj", qkv_proj_size, device_id_);
+    tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::view(
         qkv_proj_ptr,
         {seq_len, qkv_total_dim},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     // 2.1. Q projection output: 单独分配 [seq_len, num_attention_heads, q_head_dim]，attention 需要连续 stride
     size_t q_size = seq_len * num_attention_heads * q_head_dim * model_dtype_size;
-    void* q_ptr = MemoryPool::instance().allocate(q_size, stream, device_id_);
-    tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::adopt(
+    void* q_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_q_proj", q_size, device_id_);
+    tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::view(
         q_ptr,
         {seq_len, num_attention_heads, q_head_dim},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     // K/V 直接写入 k_write/v_write，无需 K_PROJ_OUTPUT、V_PROJ_OUTPUT
     
     // 3. Attention output: [seq_len, num_attention_heads, head_dim]
     size_t attn_output_size = seq_len * hidden_size * model_dtype_size;
-    void* attn_output_ptr = MemoryPool::instance().allocate(attn_output_size, stream, device_id_);
-    tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::adopt(
+    void* attn_output_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_attn_output", attn_output_size, device_id_);
+    tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::view(
         attn_output_ptr,
         {seq_len, num_attention_heads, head_dim},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 4. MLP intermediate: [seq_len, intermediate_size]
     int32_t intermediate_size = model_config.value("intermediate_size", hidden_size * 4);
     size_t mlp_intermediate_size = seq_len * intermediate_size * model_dtype_size;
-    void* mlp_intermediate_ptr = MemoryPool::instance().allocate(mlp_intermediate_size, stream, device_id_);
-    tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::adopt(
+    void* mlp_intermediate_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_mlp_intermediate", mlp_intermediate_size, device_id_);
+    tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::view(
         mlp_intermediate_ptr,
         {seq_len, intermediate_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 5. Norm output: [seq_len, hidden_size] (for LayerNorm outputs)
     size_t norm_output_size = seq_len * hidden_size * model_dtype_size;
-    void* norm_output_ptr = MemoryPool::instance().allocate(norm_output_size, stream, device_id_);
-    tensors[ModelTensors::NORM_OUTPUT] = Tensor::adopt(
+    void* norm_output_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_norm_output", norm_output_size, device_id_);
+    tensors[ModelTensors::NORM_OUTPUT] = Tensor::view(
         norm_output_ptr,
         {seq_len, hidden_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 6. Post-attention LayerNorm output: [seq_len, hidden_size]
     size_t post_norm_size = seq_len * hidden_size * model_dtype_size;
-    void* post_norm_ptr = MemoryPool::instance().allocate(post_norm_size, stream, device_id_);
-    tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::adopt(
+    void* post_norm_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_post_norm", post_norm_size, device_id_);
+    tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::view(
         post_norm_ptr,
         {seq_len, hidden_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 7. MLP activation input: [seq_len, 2 * intermediate_size] (gate + up concatenated)
     size_t mlp_activation_input_size = seq_len * 2 * intermediate_size * model_dtype_size;
-    void* mlp_activation_input_ptr = MemoryPool::instance().allocate(mlp_activation_input_size, stream, device_id_);
-    tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::adopt(
+    void* mlp_activation_input_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_mlp_activation_input", mlp_activation_input_size, device_id_);
+    tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::view(
         mlp_activation_input_ptr,
         {seq_len, 2 * intermediate_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 8. Prefill only samples the last token, so one logits row is enough.
     size_t logits_size = static_cast<size_t>(vocab_size) * fp32_size;
-    void* logits_ptr = MemoryPool::instance().allocate(logits_size, stream, device_id_);
-    tensors[ModelTensors::LOGITS] = Tensor::adopt(
+    void* logits_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_logits", logits_size, device_id_);
+    tensors[ModelTensors::LOGITS] = Tensor::view(
         logits_ptr,
         {1, vocab_size},
         DType::Float32,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
 
     // 9. Sampler output 与 10. Response tokens：sampler 直接写入 response 缓冲当前写位置，无需单独缓冲与 D2D copy
     if (max_generated_tokens > 0) {
-        void* response_tokens_ptr = MemoryPool::instance().allocate(
-            static_cast<size_t>(max_generated_tokens) * sizeof(int32_t), stream, device_id_);
-        tensors[ModelTensors::RESPONSE_TOKENS_DEVICE] = Tensor::adopt(
+        void* response_tokens_ptr = StaticBufferManager::get_cache_buf(
+            "prefill_response_tokens",
+            static_cast<size_t>(max_generated_tokens) * sizeof(int32_t),
+            device_id_);
+        tensors[ModelTensors::RESPONSE_TOKENS_DEVICE] = Tensor::view(
             response_tokens_ptr,
             {max_generated_tokens},
             DType::Int32,
             device_,
-            device_id_,
-            MemoryOwnership::OwnCudaPool,
-            stream
+            device_id_
         );
         context.set_response_tokens_base_ptr(response_tokens_ptr);
         tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(

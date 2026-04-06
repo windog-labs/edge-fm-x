@@ -15,12 +15,16 @@ Edge-FM(cuda graph) vs TRT-Edge-LLM 算子耗时对比
   bash scripts/profile_operator_comparison.sh
 
   # 2. 或手动采集
-  nsys profile -o ncu_reports/edgefm_profile --stats=true python scripts/profile_operator_comparison.py edgefm
-  nsys profile -o ncu_reports/trt_profile --stats=true python scripts/profile_operator_comparison.py trt
+  nsys profile -o ncu_reports/edgefm_profile --stats=true \
+      --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
+      python scripts/profile_operator_comparison.py edgefm
+  nsys profile -o ncu_reports/trt_profile --stats=true \
+      --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
+      python scripts/profile_operator_comparison.py trt
 
   # 3. 提取 kernel 汇总
-  nsys stats ncu_reports/edgefm_profile.nsys-rep --report gpukernsum -o ncu_reports/edgefm_kernels
-  nsys stats ncu_reports/trt_profile.nsys-rep --report gpukernsum -o ncu_reports/trt_kernels
+  nsys stats --report cuda_gpu_kern_sum --format csv --output ncu_reports/edgefm_kernels ncu_reports/edgefm_profile.nsys-rep
+  nsys stats --report cuda_gpu_kern_sum --format csv --output ncu_reports/trt_kernels ncu_reports/trt_profile.nsys-rep
 """
 
 import json
@@ -244,19 +248,21 @@ def _normalize_kernel_name(name: str) -> str:
 def analyze():
     """解析 nsys gpukernsum 输出，生成 Edge-FM vs TRT 对比报告。"""
     report_dir = project_root / "ncu_reports"
-    efm_csv = report_dir / "edgefm_kernels.csv"
-    trt_csv = report_dir / "trt_kernels.csv"
-    # nsys stats -o X -f csv 会生成 X_gpukernsum.csv
-    for p in [report_dir / "edgefm_kernels_gpukernsum.csv", efm_csv]:
-        if p.exists():
-            efm_csv = p
-            break
-    for p in [report_dir / "trt_kernels_gpukernsum.csv", trt_csv]:
-        if p.exists():
-            trt_csv = p
-            break
+    def find_kernel_csv(prefix: str) -> Path | None:
+        candidates = [
+            report_dir / f"{prefix}_cuda_gpu_kern_sum.csv",
+            report_dir / f"{prefix}_gpukernsum.csv",
+            report_dir / f"{prefix}.csv",
+        ]
+        for path in candidates:
+            if path.exists():
+                return path
+        return None
 
-    if not efm_csv.exists() or not trt_csv.exists():
+    efm_csv = find_kernel_csv("edgefm_kernels")
+    trt_csv = find_kernel_csv("trt_kernels")
+
+    if efm_csv is None or trt_csv is None:
         print("Run profile first: bash scripts/profile_operator_comparison.sh")
         return
 
@@ -298,7 +304,8 @@ def analyze():
                     return k
         return "Name"
 
-    name_col = get_name_col(efm_rows)
+    efm_name_col = get_name_col(efm_rows)
+    trt_name_col = get_name_col(trt_rows)
     efm_total_ns = get_total_time(efm_rows)
     trt_total_ns = get_total_time(trt_rows)
 
@@ -309,7 +316,7 @@ def analyze():
                 return parse_time(v)
         return 0.0
 
-    def aggregate(rows):
+    def aggregate(rows, name_col):
         agg = {}
         for r in rows:
             name = r.get(name_col, r.get("Name", ""))
@@ -318,15 +325,18 @@ def analyze():
             agg[cat] = agg.get(cat, 0) + t
         return agg
 
-    efm_agg = aggregate(efm_rows)
-    trt_agg = aggregate(trt_rows)
+    efm_agg = aggregate(efm_rows, efm_name_col)
+    trt_agg = aggregate(trt_rows, trt_name_col)
 
     # 输出报告
     out = report_dir / "operator_comparison.md"
     with open(out, "w", encoding="utf-8") as f:
         f.write("# Edge-FM vs TRT-Edge-LLM 算子耗时对比\n\n")
         f.write("## ⚠️ 重要说明\n\n")
-        f.write("**nsys 对 TRT-Edge-LLM 的 CUDA Graph 回放可能无法完整记录 kernel 时间**，导致 TRT 的 GPU 总时间被低估。\n\n")
+        f.write(
+            "**nsys 对 CUDA Graph replay 的 kernel 统计可能不完整，"
+            "因此图模式下的 raw kernel sum 更适合看热点排序，不适合直接当端到端时延。**\n\n"
+        )
         f.write(
             f"本次 profile 默认 workload: prefill={PROFILE_PREFILL_LEN}, decode={PROFILE_DECODE_LEN}, "
             f"device=cuda:{DEVICE_ID}。\n\n"
@@ -359,7 +369,7 @@ def analyze():
         for r in sorted_efm[:10]:
             t = get_row_time(r)
             pct = 100 * t / efm_total_ns if efm_total_ns > 0 else 0
-            nm = r.get(name_col, r.get("Name", ""))[:70]
+            nm = r.get(efm_name_col, r.get("Name", ""))[:70]
             f.write(f"| {nm} | {t/1e6:.2f} | {pct:.1f}% |\n")
 
         f.write("\n## TRT-Edge-LLM Top 10 最耗时 Kernel\n\n")
@@ -369,7 +379,7 @@ def analyze():
         for r in sorted_trt[:10]:
             t = get_row_time(r)
             pct = 100 * t / trt_total_ns if trt_total_ns > 0 else 0
-            nm = r.get(name_col, r.get("Name", ""))[:70]
+            nm = r.get(trt_name_col, r.get("Name", ""))[:70]
             f.write(f"| {nm} | {t/1e6:.2f} | {pct:.1f}% |\n")
 
         f.write("\n## 结论与优化建议（基于 Edge-FM 算子占比）\n\n")
