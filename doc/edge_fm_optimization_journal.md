@@ -1,152 +1,148 @@
-# EdgeFM Optimization Journal
+# EdgeFM 优化日志
 
-Last updated: 2026-04-06
+最近更新：2026-04-07
 
-This file is the persistent source of truth for ongoing EdgeFM performance work.
-Before starting a new optimization branch, read this file first.
-After every meaningful experiment, update this file with:
+这份文档是 EdgeFM 性能优化工作的长期事实来源。
+每次开始新一轮优化前，先读这份文档，避免重复走已经验证过且没有收益的分支。
 
-- the experiment goal
-- the exact A/B setup
-- the code change
-- the measured result
-- the keep/revert decision
+每次有意义的实验结束后，必须补充以下信息：
 
-## Core Goal
+- 实验目标
+- 严格 A/B 条件
+- 代码改动
+- 实测结果
+- 保留还是回退
 
-- Primary goal: continuously optimize `EdgeFM(cuda-graph)` until it matches and then surpasses `TRT-Edge-LLM`.
-- Main benchmark target: `Qwen2.5-1.5B BF16, batch=1`.
-- Main benchmark matrix:
+## 1. 核心目标
+
+- 主目标：持续优化 `EdgeFM(cuda-graph)`，直到打平并尽量超越 `TRT-Edge-LLM`
+- 主 benchmark 模型：`Qwen2.5-1.5B BF16, batch=1`
+- 主 benchmark 矩阵：
   - `prefill=512, decode=32`
   - `prefill=512, decode=64`
   - `prefill=1024, decode=32`
   - `prefill=1024, decode=64`
   - `prefill=2048, decode=32`
   - `prefill=2048, decode=64`
-- Main comparison contract:
-  - compare `EdgeFM(cuda-graph)` against `TRT-Edge-LLM`
-  - keep `Transformers` only as a slow reference baseline
-  - do not spend analysis time on `EdgeFM(no-graph)` unless debugging graph correctness
+- 主比较口径：
+  - 只重点比较 `EdgeFM(cuda-graph)` 和 `TRT-Edge-LLM`
+  - `Transformers` 只作为慢基线保留
+  - 不再花时间分析 `EdgeFM(no-graph)`，除非是在排查 graph 正确性
 
-## Available Tools And Resources
+## 2. 可用工具与资源
 
-Use the project skills as the default optimization toolbox instead of ad-hoc trial and error.
+默认优先使用项目内 skill，不要凭印象拍脑袋试。
 
 - `cuda-skill`
-  - CUDA runtime / driver / PTX / best-practice reference
-  - `nsys`, `ncu`, compute-sanitizer workflows
-  - use for kernel analysis, CUDA Graph reasoning, memory movement analysis, runtime design
+  - 用于 CUDA Runtime / Driver / PTX / best practices 查询
+  - 用于 `nsys` / `ncu` / compute-sanitizer 工作流
+  - 用于 CUDA Graph、kernel、内存搬运、runtime 设计分析
 - `ncu-cuda-profiling`
-  - NCU profiling workflow and metric interpretation
-  - use when the environment supports `ncu`
+  - 用于 NCU 采集和指标解释
+  - 当前容器里 `ncu` 不可用，但换机器后可继续使用
 - `edge-fm-benchmark-report`
-  - standard 3-way benchmark workflow: `Transformers` vs `EdgeFM(cuda-graph)` vs `TRT-Edge-LLM`
-  - use for final benchmark reports and fair case alignment
+  - 用于标准三方 benchmark：`Transformers` vs `EdgeFM(cuda-graph)` vs `TRT-Edge-LLM`
 - `edge-fm-add-operator`
-  - use when adding a new `impl_id`, wiring operator registry, or updating `operator_impl_table.json`
+  - 新增 `impl_id`、更新 operator registry、更新 `operator_impl_table.json` 时使用
 - `cutlass-skill`
-  - use for production-grade CUDA/CUTLASS kernels after prototype validation
+  - 生产级 CUDA/CUTLASS kernel 的首选参考
 - `triton-skill`
-  - use for quick kernel prototypes and shape-specific experiments
+  - 用于快速原型验证和 shape-specific 实验
 - `cutile-python-skill`
-  - use for quick cuTile prototype kernels and autotune-style validation
-- `cc-connect-feishu-codex`
-  - auxiliary integration skill, not part of the main performance path
-- `imagegen`
-  - irrelevant to current optimization work
-- `openai-docs`
-  - auxiliary documentation lookup, not part of the main performance path
-- `plugin-creator`
-  - irrelevant to current optimization work
-- `skill-creator`
-  - auxiliary, only if we decide to create a repo-specific optimization skill
+  - 用于快速 cuTile 原型和 autotune 验证
 
-## Non-Negotiable Principles
+## 3. 不可违反的原则
 
-- Correctness first.
-  - Any optimization must preserve both LLM and VLM correctness.
-  - Operator-level wins are not enough. Final acceptance requires end-to-end correctness.
-- Keep the codebase clean.
-  - If a direction does not show reliable benefit, revert it.
-  - Do not leave dead code, unused `impl_id`, one-off debug hooks, or temporary benchmark-only runtime paths in `src/`.
-- Do not break engine architecture invariants.
-  - Existing engine logic is not a free-for-all scratchpad. Optimize within the design unless there is strong evidence that a design change is required.
-- Use data, not instinct, to conclude.
-  - Theory matters, but any final decision must be backed by fair A/B measurement and code-path analysis.
-- Prefer stable production paths over clever but fragile experiments.
-  - Prototype with Triton/cuTile when needed.
-  - Promote to CUTLASS/CUDA only after the prototype demonstrates clear upside.
+- 正确性优先
+  - 任何优化都必须同时保证 LLM 和 VLM 正确性
+  - 算子级别正确不代表可接受，最终必须过端到端 gate
+- 保持代码干净
+  - 没有收益的方向必须及时回退
+  - 不要把 dead code、临时 `impl_id`、一次性 debug hook 留在 `src/` 里
+- 不破坏既有 engine 架构约束
+  - 优化必须在现有设计下进行，除非有足够证据证明架构必须改
+- 用数据下结论
+  - 理论直觉重要，但最终结论必须来自公平 A/B 和 profiling
+- 原型和生产实现要区分
+  - Triton / cuTile 只负责证明“有没有上限空间”
+  - 只有当原型证明收益明确后，才进入 CUTLASS / CUDA 生产实现
 
-## Engine Architecture Invariants
+## 4. Engine 架构约束
 
-These constraints are real and enforced in the current code. Do not violate them during optimization.
+这些约束在当前代码里是真实存在的，优化时不能破坏。
 
-- Request-to-slot matching is fixed.
-  - `Scheduler::create_context()` looks up the request by `request_id` and requires a matching slot.
-- Slot prefix matching is fixed.
-  - If a slot carries `prefix_token_ids`, the request tokens must match that prefix exactly.
-- Slot ownership is fixed.
-  - Each slot has a fixed `prefix_size` and `max_tokens`.
-  - The request must fit the matched slot instead of mutating slot semantics on the fly.
-- `Context` is per-request runtime state layered on top of the matched slot.
-  - `Context` tracks per-request dynamic state such as `generated_tokens`, `decode_cache_kv_len`, response token pointers, tensor views, and model-specific state.
-  - `Context` must not invade or rewrite the slot definition itself.
-- Decode runtime state should prefer stable device-side buffers when possible.
-  - Current code already uses a stable decode runtime buffer for `TOKEN_IDS`, `D_KV_LEN`, and optional decode `POSITION_IDS`.
-  - This is compatible with CUDA Graph replay and should remain the default direction.
+- request 和 slot 的匹配关系是固定的
+  - `Scheduler::create_context()` 会按 `request_id` 找到匹配 slot
+- slot 的 prefix 匹配是固定的
+  - 如果 slot 带 `prefix_token_ids`，请求 token 必须严格匹配该 prefix
+- slot 的资源边界是固定的
+  - 每个 slot 都有固定 `prefix_size` 和 `max_tokens`
+  - 请求必须适配 slot，不能反向篡改 slot 语义
+- `Context` 是叠加在 slot 上的每请求运行时状态
+  - `Context` 维护 `generated_tokens`、`decode_cache_kv_len`、响应 token 指针、tensor 视图和模型相关状态
+  - `Context` 不能侵入或重写 slot 定义本身
+- decode 的动态状态优先收敛到固定 device-side buffer
+  - 当前已经有稳定的 decode 设备端状态：
+    - `TOKEN_IDS`
+    - `D_KV_LEN`
+    - 可选的 `POSITION_IDS`
+  - 这条方向和 CUDA Graph replay 是兼容的，应继续保持
 
-Relevant code references:
+相关代码：
 
-- [src/engine/scheduler.cpp](/xs-train-nas/zzm/repos/edge-fm-x/src/engine/scheduler.cpp)
-- [src/engine/scheduler.h](/xs-train-nas/zzm/repos/edge-fm-x/src/engine/scheduler.h)
-- [src/engine/stardard_engine.cpp](/xs-train-nas/zzm/repos/edge-fm-x/src/engine/stardard_engine.cpp)
+- [scheduler.cpp](/xs-train-nas/zzm/repos/edge-fm-x/src/engine/scheduler.cpp)
+- [scheduler.h](/xs-train-nas/zzm/repos/edge-fm-x/src/engine/scheduler.h)
+- [stardard_engine.cpp](/xs-train-nas/zzm/repos/edge-fm-x/src/engine/stardard_engine.cpp)
 
-## Experiment Rules
+## 5. 实验规则
 
-- Always write the hypothesis first.
-  - Example: "prefill gap at `2048/64` is likely dominated by GEMM selection rather than D2D copy time."
-- Keep the A/B comparison fair.
-  - Same model
-  - Same tokens
-  - Same `prefill_len`
-  - Same `decode_len`
-  - Same stop-token behavior
-  - Same dtype
-  - Same device
-- Compare the right thing.
-  - If evaluating fusion, compare fused vs unfused implementations under the same kernel family and same shape.
-  - Do not use a slow Triton prototype to conclude that production fusion is useless.
-- Separate operator conclusions from end-to-end conclusions.
-  - Operator microbench decides whether a path deserves integration.
-  - End-to-end benchmark decides whether the integration actually matters.
-- Use profiling before deep rewrites.
-  - `nsys` is the primary in-container profiler right now.
-  - `ncu` is blocked in this container and is not a current blocker.
-- Do not parallelize GPU benchmark/profile runs.
-  - Earlier runs showed this can produce invalid or misleading measurements.
-- Roll back no-gain changes quickly.
-  - Temporary branches that lose, regress correctness, or create instability should not stay in tree.
+- 先写假设，再开始改代码
+  - 例如：“`2048/64` 的 prefill gap 主要来自 GEMM 选择，而不是 D2D copy”
+- A/B 必须公平
+  - 同模型
+  - 同 token
+  - 同 `prefill_len`
+  - 同 `decode_len`
+  - 同 stop-token 行为
+  - 同 dtype
+  - 同 device
+- 对比对象要对
+  - 比 fusion，就要用同一类 kernel 家族下的 fused vs unfused 做比较
+  - 不能因为一个很慢的 Triton 原型表现差，就直接得出“生产 fusion 没价值”
+- 算子结论和端到端结论要分开
+  - microbench 负责决定“值不值得集成”
+  - end-to-end benchmark 负责决定“集成后是否真的重要”
+- 重写前先 profiling
+  - 当前容器内统一用 `nsys`
+  - `ncu` 不可用，不作为 blocker
+- GPU benchmark / profiling 不要并行跑
+  - 之前已经验证过，并行跑容易出无效数据
+- 没收益的分支尽快回退
+  - 不要让临时代码在树里长期存活
 
-## Current Environment Facts
+## 6. 当前环境事实
 
-- Platform target: `A800-SXM4-80GB / sm80 / device=1`
-- Build type: `Release`
-  - verified from `build/CMakeCache.txt`
-  - so the current performance gap is not explained by a Debug-vs-Release mismatch
-- `nsys`: usable in this container
-  - practical workaround: some runs emit `.qdstrm`; import with `QdstrmImporter` before `stats`
-- `ncu`: not usable in this container right now
-  - do not block optimization on it
+- 目标平台：`A800-SXM4-80GB / sm80 / device=1`
+- 当前构建类型：`Release`
+  - 已从 `build/CMakeCache.txt` 验证
+  - 因此当前性能差距不是 `Debug vs Release` 导致的
+- `nsys`：当前容器可用
+  - 有时输出 `.qdstrm`
+  - 需要用 `QdstrmImporter` 转成 `.nsys-rep` 再做 `nsys stats`
+- `ncu`：当前容器不可用
+  - 不阻塞当前优化
+- Python / pytest 运行时需要：
+  - `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6`
 
-Relevant artifacts:
+相关产物：
 
-- benchmark helper:
-  - [.codex/skills/edge-fm-benchmark-report/scripts/report_qwen_3way_cuda_graph_vs_trt.py](/xs-train-nas/zzm/repos/edge-fm-x/.codex/skills/edge-fm-benchmark-report/scripts/report_qwen_3way_cuda_graph_vs_trt.py)
-- latest benchmark snapshots:
+- benchmark helper：
+  - [.codex benchmark script](/xs-train-nas/zzm/repos/edge-fm-x/.codex/skills/edge-fm-benchmark-report/scripts/report_qwen_3way_cuda_graph_vs_trt.py)
+- 最近 benchmark 快照：
   - `/tmp/edgefm_bench_512_64_after_fused512.json`
   - `/tmp/edgefm_bench_2048_64_latest.json`
   - `/tmp/edgefm_bench_fresh_512_1024_2048_x64.json`
-- latest `nsys` artifacts:
+- 最近 `nsys` 产物：
   - `/tmp/edgefm_profile_2048_64.nsys-rep`
   - `/tmp/edgefm_profile_2048_64.sqlite`
   - `/tmp/edgefm_profile_2048_64_stats_cuda_gpu_kern_sum.csv`
@@ -156,213 +152,11 @@ Relevant artifacts:
   - `/tmp/edgefm_profile_current_2048_64_stats_cuda_gpu_kern_sum.csv`
   - `/tmp/edgefm_profile_current_2048_64_stats_cuda_api_sum.csv`
 
-## Benchmark Snapshots
+## 7. 当前可信 benchmark 基线
 
-Keep both the historical anchor and the current working-tree snapshot.
-They are both useful:
+### 7.1 恢复 tuned attention 后的可信矩阵
 
-- the historical snapshot shows what was achieved earlier
-- the current working-tree snapshot tells us whether a regression has appeared
-
-### Historical Anchor Snapshot
-
-These numbers were the last previously trusted anchor points before the current round of cleanup and revalidation.
-
-| Case | EdgeFM total | TRT total | Gap | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `prefill=512, decode=64` | `221.566 ms` | `213.730 ms` | `+7.835 ms` / `+3.67%` | `12.100 ms` | `9.105 ms` | `+2.995 ms` | `209.225 ms` | `204.492 ms` | `+4.734 ms` |
-| `prefill=2048, decode=64` | `250.450 ms` | `256.620 ms` | `-6.170 ms` / `-2.40%` | `33.503 ms` | `29.308 ms` | `+4.195 ms` | `216.708 ms` | `227.164 ms` | `-10.455 ms` |
-
-Interpretation:
-
-- `2048/64` had already beaten TRT overall in this earlier snapshot.
-- `512/64` was still slower than TRT, and both prefill and decode were behind.
-- At that point the main job was to close short-context gaps without regressing the long-context case.
-
-### Fresh Working-Tree Snapshot (2026-04-06)
-
-This snapshot was re-run after the current cleanup and correctness gates, using:
-
-- `edge-fm-benchmark-report`
-- `prefill={512,1024,2048}`
-- `decode=64`
-- `EdgeFM(cuda-graph)` only
-
-| Case | EdgeFM total | TRT total | Gap | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `prefill=512, decode=64` | `288.765 ms` | `215.394 ms` | `+73.371 ms` / `+34.06%` | `12.225 ms` | `12.834 ms` | `-0.609 ms` | `276.302 ms` | `202.433 ms` | `+73.869 ms` |
-| `prefill=1024, decode=64` | `295.542 ms` | `227.027 ms` | `+68.515 ms` / `+30.18%` | `18.836 ms` | `16.752 ms` | `+2.083 ms` | `276.377 ms` | `210.107 ms` | `+66.270 ms` |
-| `prefill=2048, decode=64` | `311.235 ms` | `256.112 ms` | `+55.123 ms` / `+21.52%` | `33.576 ms` | `29.450 ms` | `+4.126 ms` | `277.241 ms` | `226.482 ms` | `+50.759 ms` |
-
-Interpretation:
-
-- The current working tree is materially slower than the historical anchor.
-- The dominant regression is in decode, not prefill.
-- Decode time is now almost flat across `512/64`, `1024/64`, and `2048/64`, which strongly suggests a runtime-side regression or a decode path change that is largely insensitive to prompt length.
-- New kernel work should not start until this regression is explained.
-
-### Profiling Snapshot: Historical EdgeFM `prefill=2048, decode=64`
-
-From `nsys stats --report cuda_gpu_kern_sum,cuda_api_sum`:
-
-- `12.125 ms` `ampere_bf16_s16816gemm_bf16_128x128_ldg8_f2f_stages_32x5_tn`
-- `7.349 ms` `ampere_bf16_s16816gemm_bf16_128x256_ldg8_f2f_stages_64x3_tn`
-- `5.420 ms` `SinglePrefillWithKVCacheKernel`
-- `1.864 ms` `ampere_bf16_*relu*`
-- `1.826 ms` `act_and_mul_kernel`
-- `0.748 ms` `FusedAddRMSNormKernel`
-
-Memcpy conclusion from the SQLite activity tables:
-
-- total D2D GPU memcpy time: `0.696571 ms`
-- count: `149`
-- bytes: `230 MB`
-
-Historical conclusion:
-
-- D2D GPU copy exists, but it is not the dominant bottleneck for the current `2048/64` case.
-- The main prefill cost at this point is still in GEMM selection plus the prefill attention kernel, not raw D2D copy time.
-
-### Profiling Snapshot: Current Working Tree `prefill=2048, decode=64`
-
-Fresh `nsys` run on 2026-04-06 confirms:
-
-- `cudaGraphLaunch_v10000`: `63` calls
-- no observed `cudaGraphExecKernelNodeSetParams`
-- no observed `cudaGraphExecMemcpyNodeSetParams1D`
-
-Meaning:
-
-- CUDA Graph replay is still active
-- the current decode slowdown is not explained by "graph path stopped working"
-- the current decode slowdown is not explained by per-step graph node patching on the profiled path
-
-Important runtime detail:
-
-- the top `cudaMemcpyAsync_v3020` API call took `115.523 ms`
-- correlating by `correlationId` shows it corresponds to a single `256-byte` `copyKind=2` memcpy activity with only `0.002368 ms` GPU time
-
-Interpretation:
-
-- that API time is host-side waiting around a tiny copy, not a real bulk memcpy bottleneck
-- it should not be misread as "copy bandwidth is the main problem"
-
-## Verified Wins Kept In Tree
-
-- Decode linear tuned `cublasLt` records are kept for:
-  - `fused_qkv`, `attention_output`, `mlp_down`, `fused_gate_up`, `lm_head` at `m=1`
-- Prefill `fused_qkv` tuned `cublasLt` records are kept for:
-  - `m=512 -> algo_index=0`
-  - `m=1024 -> algo_index=4`
-  - `m=2048 -> algo_index=3`
-- Current measured operator-level `fused_qkv` improvements:
-  - `m=512`: `0.044880 ms -> 0.038720 ms`
-  - `m=1024`: `0.062272 ms -> 0.059216 ms`
-  - `m=2048`: `0.114112 ms -> 0.084736 ms`
-- Decode runtime state consolidation is already present in the engine:
-  - stable decode device state for `TOKEN_IDS`
-  - stable decode device state for `D_KV_LEN`
-  - optional stable decode device state for `POSITION_IDS`
-
-## Reverted Or Explicitly Rejected Directions
-
-- Reverted: custom decode attention path `flashinfer_attention_decode_sm80_tuned`
-  - reason:
-    - unstable benefit
-    - slower at representative `kv_len=2048`
-    - graph-like repeated bench hit invalid-handle / illegal-memory-access issues during experimentation
-  - action:
-    - removed from [src/operators/attention_op.cu](/xs-train-nas/zzm/repos/edge-fm-x/src/operators/attention_op.cu)
-    - removed from [examples/config/operator_impl_table.json](/xs-train-nas/zzm/repos/edge-fm-x/examples/config/operator_impl_table.json)
-- Reverted: prefill `mlp_down m=2048 -> algo_index=0`
-  - reason: operator test showed it was slower than baseline
-- Rejected as a final conclusion: "`gate_up + act_and_mul` fusion has no value"
-  - reason: previous Triton experiment only proved that one Triton prototype was not worth integrating
-  - it did not prove that true production fusion is useless
-
-## Open Questions And Known Risks
-
-- Existing `mlp_down prefill m=1024 -> algo_index=2` needs more careful validation.
-  - A strict baseline-vs-tuned BF16 operator check showed small drift beyond the current microbench tolerance.
-  - Do not treat that one record as universally "proven good" until it is validated against torch reference and end-to-end correctness.
-- The current working tree shows a decode-heavy regression relative to the historical anchor.
-  - This was root-caused on 2026-04-06: the local working tree had removed the decode-specific
-    `flashinfer_attention_decode_sm80_tuned` path and its `operator_impl_table` routing record.
-  - Restoring that path brought the benchmark back near the historical anchor and removed the
-    large decode regression.
-- Benchmark output files may contain log prefixes before the final JSON block.
-  - Always parse the trailing JSON payload instead of assuming the whole file is pure JSON.
-
-## Current Next Steps
-
-1. Keep this journal updated after every meaningful experiment.
-2. Treat `flashinfer_attention_decode_sm80_tuned` as the current accepted decode-attention production path for Qwen2.5 BF16 on `sm80`.
-3. Use the recovered benchmark matrix to drive the next branch from the remaining small gaps:
-   - short-context decode gap at `512/64`
-   - short-context decode/prefill mix at `1024/32` and `1024/64`
-4. Before deeper kernel work, re-profile the recovered build and attribute the remaining `<= 8 ms` gaps.
-5. Prioritize the next optimization branch as:
-   - decode linear fixed-cost path
-   - residual/norm/activation fixed-cost path
-   - prefill short-context GEMM selection only if it reappears as a measurable top contributor
-6. Keep the current correctness gates in place:
-   - `tests/operators/test_attention_decode.py`
-   - `test_generate_token_alignment_cuda_graph`
-   - `test_generate_vl_token_alignment_cuda_graph`
-
-Current default branch priority:
-
-1. preserve the recovered decode-attention path
-2. profile the remaining short-context gaps
-3. only then resume decode linear / runtime fixed-cost optimization
-4. avoid reopening speculative attention branches unless new profiling data says attention is again the top gap
-
-## Journal Entries
-
-### 2026-04-06
-
-State consolidated to stop repeated attention-loop experimentation.
-
-What was confirmed:
-
-- The previous decode-attention custom tuned path did not have stable evidence and was removed.
-- The current strongest kept evidence is on `fused_qkv` prefill algorithm selection.
-- `2048/64` already beats TRT overall, but `512/64` still loses.
-- Current dominant prefill bottleneck at `2048/64` is not D2D GPU memcpy time.
-- Build type is already `Release`, so that is not the primary explanation for the remaining gap.
-- `tests/operators` now pass after removing stale `mlp_down` prefill tuned cases from the active gate.
-- LLM CUDA-graph token alignment passes.
-- VLM CUDA-graph token alignment passes.
-
-Additional 2026-04-06 correction:
-
-- a fresh benchmark on the current working tree showed a large decode regression relative to the historical anchor
-- current `nsys` confirms CUDA Graph replay is still active and no decode dynamic-node patching was observed on the profiled path
-- therefore the next optimization branch is to isolate the decode regression, not to restart another speculative attention branch
-
-Additional 2026-04-06 recovery entry:
-
-- Root cause found:
-  - the local working tree had removed the decode-specific tuned attention path in
-    [src/operators/attention_op.cu](/xs-train-nas/zzm/repos/edge-fm-x/src/operators/attention_op.cu)
-  - the matching decode-stage `impl_id` route in
-    [examples/config/operator_impl_table.json](/xs-train-nas/zzm/repos/edge-fm-x/examples/config/operator_impl_table.json)
-    was also absent from the active working tree
-- Controlled fix:
-  - restored `flashinfer_attention_decode_sm80_tuned`
-  - rebuilt `Release`
-  - re-ran operator correctness/perf, LLM/VLM correctness, and graph-only benchmarks
-- Operator-level evidence after restore:
-  - decode attention median latency:
-    - `kv=512`: `0.024032 ms`
-    - `kv=1024`: `0.024736 ms`
-    - `kv=2048`: `0.028768 ms`
-  - previous current-build reference before restore at `kv=2048`: about `0.0682 ms`
-- End-to-end correctness after restore:
-  - `tests/operators/test_attention_decode.py`: pass
-  - `test_generate_token_alignment_cuda_graph`: pass
-  - `test_generate_vl_token_alignment_cuda_graph`: pass
-- Recovered benchmark matrix after restore:
+这是恢复 decode tuned attention 路径后的可信六组数据，用于指导后续优化优先级。
 
 | Case | EdgeFM total | TRT total | Gap | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -373,17 +167,262 @@ Additional 2026-04-06 recovery entry:
 | `prefill=1024, decode=64` | `230.557 ms` | `226.185 ms` | `+4.232 ms` / `+1.87%` | `18.712 ms` | `15.823 ms` | `+2.889 ms` | `211.541 ms` | `210.199 ms` | `+1.343 ms` |
 | `prefill=2048, decode=64` | `263.140 ms` | `264.530 ms` | `-1.525 ms` / `-0.58%` | `37.932 ms` | `37.737 ms` | `+0.195 ms` | `224.899 ms` | `226.619 ms` | `-1.720 ms` |
 
-- Single-case confirmation on `prefill=2048, decode=64`:
-  - `EdgeFM(cuda-graph)`: `250.508 ms`
-  - `TRT-Edge-LLM`: `256.779 ms`
-  - decode stage gap: `-10.678 ms` in favor of EdgeFM
-- Keep/revert decision:
-  - keep the restored decode tuned attention path
-  - do not remove it again unless a fair A/B with correctness and end-to-end benchmark shows a stable regression
-  - next work should focus on the remaining small short-context gaps, not on re-litigating this recovered path
+### 7.2 当前最可信重跑快照
 
-Process correction recorded for future work:
+后续又对两组代表性 case 做了重跑确认，结果表明此前出现的“全局大回归”并不稳定复现。
 
-- do not claim a fusion is useless unless fused vs unfused was compared fairly under the same kernel family
-- do not leave temporary tuned paths in the runtime after they fail to show reliable value
-- do not start another attention branch without first checking this journal
+| Case | EdgeFM total | TRT total | Gap | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `prefill=512, decode=64` | `221.646 ms` | `212.752 ms` | `+8.894 ms` / `+4.18%` | `12.168 ms` | `10.893 ms` | `+1.275 ms` | `209.208 ms` | `201.749 ms` | `+7.459 ms` |
+| `prefill=2048, decode=64` | `251.009 ms` | `256.591 ms` | `-5.582 ms` / `-2.18%` | `33.544 ms` | `29.472 ms` | `+4.072 ms` | `217.123 ms` | `226.946 ms` | `-9.823 ms` |
+
+### 7.3 基线解释
+
+- 长 context case 已经基本打平甚至领先 TRT
+- 真正剩下的主要问题是短 context decode，尤其是 `512/64`
+- 当前没有证据表明存在“整条 runtime 路径已经坏掉”的大回归
+- 剩余空间仍然存在，但已经不是那种显而易见的大 easy win
+
+## 8. 已保留的有效优化
+
+- decode attention 的 tuned 路径已经恢复并保留
+  - `impl_id`: `flashinfer_attention_decode_sm80_tuned`
+  - 代码位置：
+    - [attention_op.cu](/xs-train-nas/zzm/repos/edge-fm-x/src/operators/attention_op.cu)
+    - [operator_impl_table.json](/xs-train-nas/zzm/repos/edge-fm-x/examples/config/operator_impl_table.json)
+- decode linear 的 tuned `cublasLt` 记录已经保留：
+  - `fused_qkv`
+  - `attention_output`
+  - `mlp_down`
+  - `fused_gate_up`
+  - `lm_head`
+- prefill `fused_qkv` 的 tuned `cublasLt` 记录已经保留：
+  - `m=512 -> algo_index=0`
+  - `m=1024 -> algo_index=4`
+  - `m=2048 -> algo_index=3`
+- 已确认的 `fused_qkv` 算子级收益：
+  - `m=512`: `0.044880 ms -> 0.038720 ms`
+  - `m=1024`: `0.062272 ms -> 0.059216 ms`
+  - `m=2048`: `0.114112 ms -> 0.084736 ms`
+- decode runtime state 已经完成收敛：
+  - 稳定 device-side `TOKEN_IDS`
+  - 稳定 device-side `D_KV_LEN`
+  - 可选稳定 device-side `POSITION_IDS`
+
+## 9. 已回退或已明确否决的方向
+
+- 不再重新开启“新的 speculative decode attention 分支”
+  - 原因：
+    - 当前 tuned FlashInfer decode path 就是现阶段的生产路径
+    - 之前移除它会导致真实端到端回归
+    - 当前剩余 gap 更像短 context decode 的固定成本，而不是 attention 大幅落后
+  - 只有当新的 `nsys --cuda-graph-trace=node` 证明 attention 重新成为最大热点时，才允许重新打开 attention 主线
+- 已回退：prefill `mlp_down m=2048 -> algo_index=0`
+  - 原因：operator test 明确更慢
+- 已明确否决“activation-only retune 是主要方向”
+  - 原因：真实组合路径收益几乎为零
+- 已明确否决“naive CUDA gate_up + act 融合可以直接进生产”
+  - 原因：数值正确，但比现有生产路径慢约 `8.31x`
+- 已明确否决“一个慢的 Triton 原型就能证明 fusion 没价值”
+  - 原因：Triton 只能证明原型本身不适合集成，不能否定生产级 fusion 的理论和实测 headroom
+
+## 10. 当前未决问题与风险
+
+- `mlp_down prefill m=1024 -> algo_index=2` 还需要更严格验证
+  - 之前严格 BF16 对比出现过轻微 drift
+  - 在没有补齐 torch reference + end-to-end correctness 前，不要把它视为最终稳定收益
+- benchmark 输出文件可能在 JSON 前面带日志前缀
+  - 解析时必须抓取末尾 JSON payload
+- `/tmp` 磁盘空间偏紧
+  - 做 `nsys` 时要控制输出规模，并及时清理老产物
+
+## 11. 当前下一步优先级
+
+1. 保持当前 tuned decode attention 路径，不再反复重开 attention 分支
+2. 用 `nsys --cuda-graph-trace=node` 对 `prefill=512, decode=64` 做更精确的剩余热点归因
+3. 在数据支持下继续推进以下分支：
+   - 生产级 `fused_gate_up + silu_and_mul` fusion
+   - decode `m=1` linear fixed-cost 优化
+   - residual / norm / runtime fixed-cost 优化
+4. 只有当新的 profiling 再次证明 prefill attention 或其他路径重新上升为主热点时，才切换主线
+
+当前默认优先级：
+
+1. 保住已恢复的 decode tuned attention 路径
+2. 对短 context gap 做 node-level profiling
+3. 先做短 context decode 固定成本优化
+4. 不再机械性地回到 attention 大改
+
+## 12. 当前正确性 gate
+
+每次进入新一轮正式优化前，至少保证这些 gate 是通过的：
+
+- `tests/operators/test_attention_decode.py`
+- `tests/engine/test_qwen2_generate.py -k test_generate_token_alignment_cuda_graph`
+- `tests/engine/test_qwen2_generate.py -k test_generate_vl_token_alignment_cuda_graph`
+
+最近一次重跑结果：
+
+- 命令：
+  - `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6 pytest -q tests/engine/test_qwen2_generate.py -k 'test_generate_token_alignment_cuda_graph or test_generate_vl_token_alignment_cuda_graph'`
+- 结果：
+  - `2 passed, 10 deselected`
+
+## 13. 实验记录
+
+### 2026-04-06：恢复 decode tuned attention 路径
+
+- 现象：
+  - 某一轮工作树里出现了明显 decode 回归
+- 根因：
+  - 工作树里把 decode 专用 tuned attention 路径删掉了
+  - `operator_impl_table.json` 中对应的 decode `impl_id` 路由也丢了
+- 处理：
+  - 恢复 `flashinfer_attention_decode_sm80_tuned`
+  - 重新编译 `Release`
+  - 重跑 operator correctness / perf、LLM correctness、VLM correctness、graph benchmark
+- 恢复后的算子级证据：
+  - decode attention median latency：
+    - `kv=512`: `0.024032 ms`
+    - `kv=1024`: `0.024736 ms`
+    - `kv=2048`: `0.028768 ms`
+  - 恢复前 `kv=2048` 的当前构建参考值约为：`0.0682 ms`
+- 结论：
+  - 这个 tuned attention 路径必须保留
+  - 除非将来有严格 A/B 证明它长期回归，否则不要再次移除
+
+### 2026-04-06：Triton 验证 `gate_up + silu_and_mul` 的 fusion headroom
+
+- 假设：
+  - 短 context decode 剩余 gap 里，`fused_gate_up + silu_and_mul` 可能还有真实 fusion 空间
+- A/B 条件：
+  - 目标 shape：Qwen2.5-1.5B decode `m=1`, `hidden=1536`, `intermediate=8960`, `bf16`
+  - 使用真实 layer-0 权重
+  - Triton unfused 路径：
+    - 一个自定义 gate/up decode GEMV-style kernel 输出 packed `[2, 8960]`
+    - 一个 Triton `silu_mul` kernel 消费 packed 输出
+  - Triton fused 路径：
+    - 一个 decode GEMV-style kernel，内部直接完成 `silu(gate) * up`
+  - 生产参考路径：
+    - EdgeFM `FusedGateUpLinearLayer` + `ActivationLayer`
+- 原型脚本：
+  - [bench_triton_gate_up_decode.py](/xs-train-nas/zzm/repos/edge-fm-x/scripts/bench_triton_gate_up_decode.py)
+- 实测结果：
+  - 最好 Triton fused：`0.144208 ms`
+  - 最好成对 Triton unfused：`0.149024 ms`
+  - 同家族 fusion 收益：约 `0.004816 ms` / call，约 `+3.23%`
+  - 另一组接近结果：
+    - `0.156768 ms -> 0.151536 ms`
+  - 当前 EdgeFM 生产路径：
+    - `fused_gate_up + silu_and_mul` 组合：`0.054848 ms`
+    - `fused_gate_up` 单独：`0.047520 ms`
+    - `silu_and_mul` 单独：`0.014592 ms`
+    - 同路径下的理论上限：
+      - `0.054848 - 0.047520 = 0.007328 ms` / call
+- 结论：
+  - 这条线不是零价值，存在真实 fusion headroom
+  - 但 Triton 原型本身仍比当前生产路径慢约 `2.6x`
+  - 因此：
+    - 不集成 Triton runtime 路径
+    - 如果继续做，必须走生产级 CUDA / CUTLASS 路线
+  - 按 `28 * 64 = 1792` 次调用估算：
+    - 现实可争取收益约 `~9 ms`
+    - 理论上限约 `~13 ms`
+
+### 2026-04-06：activation-only tuned kernel 验证
+
+- 假设：
+  - 当前 decode `silu_and_mul` 可能因为 `batch=1` 只起一个 CTA 而留下明显性能
+- A/B 条件：
+  - 在 `src/operators/activation_op.cu` 中加 decode-only `cuda_silu_and_mul_decode_sm80_tuned`
+  - 只对 `qwen2_5 + sm80 + stage=decode + batch=1 + hidden=8960 + bf16` 生效
+  - 使用独立子进程 benchmark driver 做基线对比
+- 脚本：
+  - [bench_activation_ab.py](/xs-train-nas/zzm/repos/edge-fm-x/scripts/bench_activation_ab.py)
+- 实测结果：
+  - baseline activation：`0.014192 ms`
+  - tuned activation：`0.013920 ms`
+  - activation-only 收益：`0.000272 ms`
+  - baseline 组合路径：`0.052880 ms`
+  - tuned 组合路径：`0.052864 ms`
+  - 组合收益仅：`0.000016 ms`
+- 结论：
+  - activation-only 不是当前 decode 的主要瓶颈
+  - 这条生产分支已经被证伪
+- 处理：
+  - 回退 runtime 改动
+  - 保留脚本和记录，避免后续重复试同一路径
+
+### 2026-04-06：benchmark 再确认
+
+- 目标：
+  - 确认此前看到的 `+30%` 级别大回归是否真实存在
+- 条件：
+  - 走和 `tests/engine/test_qwen2_generate.py` 一致的 graph-only benchmark 口径
+  - 同 token、同 `ignore_stop_tokens=True`
+  - 比较 `EdgeFM(cuda-graph)` 与 `TRT-Edge-LLM`
+  - 代表 case：
+    - `prefill=512, decode=64`
+    - `prefill=2048, decode=64`
+- 实测结果：
+  - `512/64`
+    - EdgeFM total：`221.646 ms`
+    - TRT total：`212.752 ms`
+    - gap：`+8.894 ms` / `+4.18%`
+    - EdgeFM prefill/decode：`12.168 / 209.208 ms`
+    - TRT prefill/decode：`10.893 / 201.749 ms`
+  - `2048/64`
+    - EdgeFM total：`251.009 ms`
+    - TRT total：`256.591 ms`
+    - gap：`-5.582 ms` / `-2.18%`
+    - EdgeFM prefill/decode：`33.544 / 217.123 ms`
+    - TRT prefill/decode：`29.472 / 226.946 ms`
+- 结论：
+  - 之前看到的大回归并不稳定复现
+  - 当前代码仍然处在“长 context 已打平甚至领先，短 context decode 还有小 gap”的状态
+
+### 2026-04-06：naive CUDA 版 `gate_up + silu_and_mul` 融合尝试
+
+- 假设：
+  - 既然 Triton 证明有 fusion headroom，生产级 CUDA 直接融合也许能吃到收益
+- A/B 条件：
+  - 在 `FusedGateUpLinearLayer` 上加 decode-only CUDA fused path
+  - 对比对象为当前生产路径：
+    - `FusedGateUpLinearLayer::forward_fp16_bf16(..., Decode)`
+    - 加上 `ActivationLayer::forward_silu_and_mul(..., Decode)`
+  - 测试 shape：
+    - `m=1`, `hidden=1536`, `intermediate=8960`, `bf16`
+- 实测结果：
+  - 数值：对齐 baseline
+  - 性能：
+    - baseline 两段式：`0.053472 ms`
+    - naive fused CUDA kernel：`0.444336 ms`
+    - 约慢 `8.31x`
+- 结论：
+  - 这个 naive CUDA 融合实现完全不具备生产价值
+  - 如果后续重开这条线，必须直接走更强实现：
+    - CUTLASS / CUDA tensor-core 级实现
+    - 或者先由 profiling 证明还有更急迫的短 context 热点
+- 处理：
+  - 已完整回退该 runtime 分支
+  - 不保留任何临时 hook 或绑定
+
+### 2026-04-07：当前状态收敛
+
+- 目标：
+  - 把“当前还剩什么 gap、应该继续做什么、不该再重复什么”落成中文结论
+- 额外核验：
+  - 已确认 `flashinfer_attention_decode_sm80_tuned` 仍在 active runtime 和 operator table 中
+  - 已重跑端到端 LLM/VLM CUDA Graph correctness gate
+- 当前结论：
+  - 当前没有证据表明存在大的全局回归
+  - 长 context 已经达到与 TRT 持平甚至略优
+  - 主要剩余问题是短 context decode，特别是 `512/64`
+  - 还有优化空间，但已经没有非常明显的大 easy win
+- 当前最值得做的三条线：
+  - 生产级 `fused_gate_up + silu_and_mul` fusion
+  - decode `m=1` linear fixed-cost 优化
+  - `512/64` 的 node-level `nsys` 精确归因
+- 当前明确不该重复的方向：
+  - 不要在没有新证据前再次重开 attention 大改
+  - 不要再次尝试 activation-only retune

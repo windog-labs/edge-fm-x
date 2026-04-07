@@ -5,18 +5,17 @@ import sys
 import tempfile
 from pathlib import Path
 
-import torch
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BUILD_PYTHON_CANDIDATES = [
-    PROJECT_ROOT / "build" / "python",
     PROJECT_ROOT / "build" / "install" / "python",
+    PROJECT_ROOT / "build" / "python",
 ]
 for build_python in reversed(BUILD_PYTHON_CANDIDATES):
     if build_python.exists() and str(build_python) not in sys.path:
         sys.path.insert(0, str(build_python))
 
 import edge_fm
+import torch
 
 QWEN_1P5B_MODEL_PATH = (
     PROJECT_ROOT / "examples" / "qwen2.5-1.5b-instruct" / "qwen2.5-1.5b-instruct"
