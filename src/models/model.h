@@ -79,6 +79,10 @@ public:
     /// 就地推进稳定地址缓冲（例如 M-RoPE position_ids）。
     virtual void advance_decode_runtime_tensors(Context& context, cudaStream_t stream);
 
+    /// 当 decode graph steady-state 完全依赖稳定设备端 buffer 且不需要每步
+    /// 重新构建 tensor 视图时返回 true，Engine 可跳过重复 prepare_decode_tensors。
+    virtual bool has_static_decode_runtime_tensors() const;
+
     int32_t num_layers() const { return num_layers_; }
     int32_t hidden_size() const { return hidden_size_; }
     int32_t vocab_size() const { return vocab_size_; }

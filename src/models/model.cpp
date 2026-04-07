@@ -19,6 +19,10 @@ void Model::advance_decode_runtime_tensors(Context& /*context*/, cudaStream_t /*
     // Default: no-op. Models with decode-time runtime state can override.
 }
 
+bool Model::has_static_decode_runtime_tensors() const {
+    return false;
+}
+
 Model::Model(const EngineConfig& config)
     : engine_config_(config)
     , num_layers_(0)

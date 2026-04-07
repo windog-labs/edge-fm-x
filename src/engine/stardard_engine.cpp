@@ -87,7 +87,7 @@ struct DecodeWritePtrs {
     std::vector<void*> v;
 };
 
-DecodeWritePtrs collect_decode_write_ptrs(Context& context, int32_t num_layers) {
+DecodeWritePtrs collect_decode_write_ptrs_from_tensors(Context& context, int32_t num_layers) {
     auto& tensors = context.tensors();
     DecodeWritePtrs write_ptrs;
     write_ptrs.k.resize(num_layers);
@@ -95,6 +95,41 @@ DecodeWritePtrs collect_decode_write_ptrs(Context& context, int32_t num_layers) 
     for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
         write_ptrs.k[layer_id] = tensors.at(ModelTensors::k_write_layer(layer_id)).data_ptr();
         write_ptrs.v[layer_id] = tensors.at(ModelTensors::v_write_layer(layer_id)).data_ptr();
+    }
+    return write_ptrs;
+}
+
+DecodeWritePtrs collect_decode_write_ptrs_from_context(
+    const Context& context,
+    const KVManager& kv_manager,
+    int32_t num_layers)
+{
+    DecodeWritePtrs write_ptrs;
+    write_ptrs.k.resize(num_layers);
+    write_ptrs.v.resize(num_layers);
+
+    if (kv_manager.get_attention_type() == AttentionType::MLA) {
+        for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+            write_ptrs.k[layer_id] = context.kv_write_ptrs_ref()[layer_id];
+            write_ptrs.v[layer_id] = context.kv_write_ptrs_ref()[layer_id];
+        }
+        return write_ptrs;
+    }
+
+    const auto& kv_read_ptrs = context.kv_read_ptrs_ref();
+    const auto& kv_write_ptrs = context.kv_write_ptrs_ref();
+    const size_t token_stride = kv_manager.get_token_stride();
+    const size_t k_size_per_token = token_stride / 2;
+    const int32_t max_tokens = context.slot_max_tokens();
+
+    for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+        void* read_ptr = kv_read_ptrs[layer_id];
+        void* write_ptr = kv_write_ptrs[layer_id];
+        size_t offset_bytes = static_cast<uint8_t*>(write_ptr) - static_cast<uint8_t*>(read_ptr);
+        write_ptrs.k[layer_id] = write_ptr;
+        write_ptrs.v[layer_id] = static_cast<uint8_t*>(read_ptr)
+            + static_cast<size_t>(max_tokens) * k_size_per_token
+            + offset_bytes;
     }
     return write_ptrs;
 }
@@ -293,7 +328,7 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
 
     (void)cudaGetLastError();
 
-    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs(context, model_->num_layers());
+    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs_from_tensors(context, model_->num_layers());
     cuda_graph_manager_.capture_decode(stream, [&]() {
         model_->decode_step(context);
         run_sampler(
@@ -430,7 +465,14 @@ Response StandardEngine::generate(const Request& request) {
                 decode_started = true;
             }
 
-            prepare_tensors(ModelStage::Decode, context);
+            const bool skip_decode_prepare =
+                config_.use_cuda_graph() &&
+                cuda_graph_manager_.is_decode_captured() &&
+                context.decode_tensors_initialized() &&
+                model_->has_static_decode_runtime_tensors();
+            if (!skip_decode_prepare) {
+                prepare_tensors(ModelStage::Decode, context);
+            }
             void* decode_write_ptr = context.get_response_token_write_ptr();
 
             if (config_.use_cuda_graph()) {
@@ -971,7 +1013,8 @@ void StandardEngine::advance_decode_runtime_state(Context& context, cudaStream_t
 void StandardEngine::sync_decode_graph(Context& context) {
     if (!cuda_graph_manager_.has_decode_dynamic_nodes()) return;
 
-    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs(context, model_->num_layers());
+    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs_from_context(
+        context, *kv_manager_, model_->num_layers());
     cuda_graph_manager_.update_decode_nodes(write_ptrs.k, write_ptrs.v);
 }
 

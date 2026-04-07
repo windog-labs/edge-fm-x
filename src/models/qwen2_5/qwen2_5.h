@@ -19,6 +19,7 @@ public:
     void decode_step(const Context& context) override;
     void prepare_decode_position_ids(Context& context, Device device, int32_t device_id) override;
     void advance_decode_runtime_tensors(Context& context, cudaStream_t stream) override;
+    bool has_static_decode_runtime_tensors() const override { return true; }
 
     /**
      * @brief 完整 prefill 接口（大规模对齐测试用）

@@ -426,3 +426,50 @@
 - 当前明确不该重复的方向：
   - 不要在没有新证据前再次重开 attention 大改
   - 不要再次尝试 activation-only retune
+
+### 2026-04-07：恢复 decode graph steady-state 的 host fast path
+
+- 假设：
+  - 当前 `512/64` 比之前可信基线更差，不是 decode kernel 本身突然退化，而是 decode graph steady-state 仍在重复执行 host 侧 `prepare_decode_tensors()/prepare_kvcache_tensors()`，把短 context case 的固定成本重新拉高了
+- A/B 条件：
+  - 同一份当前源码重建后做公平对比
+  - 同模型、同 token、同 `ignore_stop_tokens=True`
+  - 同 benchmark 入口：`tests/engine/test_qwen2_generate.py` 内 helper
+  - 重点 case 先看 `prefill=512, decode=64`
+  - 然后补跑完整 6 组 `EdgeFM(cuda-graph) vs TRT-Edge-LLM`
+- 代码改动：
+  - 在 `Model` 上增加 `has_static_decode_runtime_tensors()` 能力位
+  - `Qwen2.5` 显式声明 decode graph steady-state 只依赖稳定设备端 buffer：
+    - `TOKEN_IDS`
+    - `D_KV_LEN`
+    - 可选 `POSITION_IDS`
+  - `StandardEngine` 在 decode graph 已捕获后，跳过重复的 decode tensor/kvcache host-side 准备
+  - `sync_decode_graph()` 改为直接从 `Context` 当前 K/V 写指针计算 graph 动态节点的下一目的地址，而不是依赖每步重建 tensor map
+  - 保留 capture 阶段的临时 K/V redirect 逻辑，不改变 graph capture 语义
+- 额外核验：
+  - `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6 EDGE_FM_DEVICE_ID=1 pytest -q tests/engine/test_qwen2_generate.py -k 'test_generate_token_alignment_cuda_graph or test_generate_vl_token_alignment_cuda_graph'`
+  - 结果：`2 passed, 10 deselected`
+- 实测结果：
+  - 单 case `512/64`：
+    - EdgeFM total：`222.005 ms`
+    - TRT total：`213.273 ms`
+    - gap：`+8.732 ms` / `+4.09%`
+    - EdgeFM prefill/decode：`13.077 / 208.567 ms`
+    - TRT prefill/decode：`11.048 / 202.073 ms`
+  - 这组结果已经回到此前可信 `512/64` 水平（之前可信快照约 `221.6 ~ 221.8 ms`）
+  - 完整六组当前源码矩阵：
+    - `512/32`：EdgeFM `115.540 ms`，TRT `113.706 ms`，gap `+1.61%`
+    - `512/64`：EdgeFM `222.005 ms`，TRT `213.273 ms`，gap `+4.09%`
+    - `1024/32`：EdgeFM `123.162 ms`，TRT `121.053 ms`，gap `+1.74%`
+    - `1024/64`：EdgeFM `230.585 ms`，TRT `226.686 ms`，gap `+1.72%`
+    - `2048/32`：EdgeFM `140.866 ms`，TRT `141.290 ms`，gap `-0.30%`
+    - `2048/64`：EdgeFM `251.391 ms`，TRT `274.494 ms`，gap `-8.42%`
+  - 说明：
+    - `2048/64` 本轮 TRT timed runs 有明显 outlier（`313.568 ms`），因此长 context 结论应优先结合 stage time 与 median 看，不要只看单次均值
+- 结论：
+  - 这个 host fast path 是真实有效优化，不应再被当成“没有收益的噪声改动”回退
+  - 它已经把当前源码重新拉回到此前可信指标附近，尤其是最关键的 `512/64`
+  - 目前剩余 gap 重新收敛为“短 context decode 仍略落后 TRT”，而不是“当前 runtime 存在新的大回归”
+- 处理：
+  - 保留该 runtime 改动
+  - 后续继续围绕短 context decode 固定成本推进，但不要再把重复 decode prepare 路径当成已无关因素
