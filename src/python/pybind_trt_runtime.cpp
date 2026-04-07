@@ -5,7 +5,9 @@
  * Requires: BUILD_TRT_EDGELLM_PYBIND=ON, TRT_PACKAGE_DIR, TensorRT-Edge-LLM built.
  */
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
 #include <pybind11/stl.h>
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <memory>
@@ -83,6 +85,64 @@ public:
         bool ignore_stop_tokens = false)
     {
         return generate_impl("", std::move(token_ids), max_generate_length, temperature, top_p, top_k, ignore_stop_tokens);
+    }
+
+    void prepare_multimodal_from_token_ids(std::vector<int32_t> token_ids,
+        py::array_t<float, py::array::c_style | py::array::forcecast> image_embeddings,
+        std::vector<std::vector<int64_t>> image_grid_thw)
+    {
+        if (image_grid_thw.empty()) {
+            throw std::runtime_error("image_grid_thw must not be empty for multimodal preparation");
+        }
+
+        py::buffer_info info = image_embeddings.request();
+        if (info.ndim != 2) {
+            throw std::runtime_error("image_embeddings must be a 2D array [num_image_tokens, hidden_size]");
+        }
+
+        int64_t const num_image_tokens = static_cast<int64_t>(info.shape[0]);
+        int64_t const hidden_size = static_cast<int64_t>(info.shape[1]);
+        float const* src = static_cast<float const*>(info.ptr);
+        std::vector<half> host_half(static_cast<size_t>(num_image_tokens * hidden_size));
+        std::transform(src, src + host_half.size(), host_half.begin(), [](float x) { return __float2half_rn(x); });
+
+        m_prepared_multimodal_embeddings = rt::Tensor(
+            {num_image_tokens, hidden_size}, rt::DeviceType::kGPU, nvinfer1::DataType::kHALF,
+            "TrtEdgeLlmRuntime::prepared_multimodal_embeddings");
+        cudaError_t err = cudaMemcpyAsync(m_prepared_multimodal_embeddings.rawPointer(), host_half.data(),
+            host_half.size() * sizeof(half), cudaMemcpyHostToDevice, m_stream);
+        if (err != cudaSuccess) {
+            throw std::runtime_error(
+                std::string("cudaMemcpyAsync for image_embeddings failed: ") + cudaGetErrorString(err));
+        }
+        err = cudaStreamSynchronize(m_stream);
+        if (err != cudaSuccess) {
+            throw std::runtime_error(
+                std::string("cudaStreamSynchronize after image_embeddings copy failed: ") + cudaGetErrorString(err));
+        }
+
+        std::vector<std::vector<int32_t>> batched_input_ids{token_ids};
+        if (!m_runtime->prepareExternalMultimodalInputs(
+                batched_input_ids, m_prepared_multimodal_embeddings, image_grid_thw, m_stream)) {
+            throw std::runtime_error("TRT prepareExternalMultimodalInputs failed");
+        }
+
+        m_prepared_multimodal_token_ids = std::move(token_ids);
+        m_has_prepared_multimodal = true;
+    }
+
+    std::pair<std::vector<std::vector<int32_t>>, std::vector<std::string>> generate_from_prepared_multimodal(
+        int64_t max_generate_length,
+        float temperature = 0.0f,
+        float top_p = 1.0f,
+        int64_t top_k = 1,
+        bool ignore_stop_tokens = false)
+    {
+        if (!m_has_prepared_multimodal) {
+            throw std::runtime_error("No prepared multimodal inputs. Call prepare_multimodal_from_token_ids() first.");
+        }
+        return generate_impl(
+            "", m_prepared_multimodal_token_ids, max_generate_length, temperature, top_p, top_k, ignore_stop_tokens);
     }
 
     std::unordered_map<std::string, double> last_generate_metrics() const
@@ -174,6 +234,9 @@ private:
     std::unique_ptr<void, trt::DlDeleter> m_plugin_handle;
     cudaStream_t m_stream = nullptr;
     std::unique_ptr<rt::LLMInferenceRuntime> m_runtime;
+    rt::Tensor m_prepared_multimodal_embeddings;
+    std::vector<int32_t> m_prepared_multimodal_token_ids;
+    bool m_has_prepared_multimodal = false;
     std::unordered_map<std::string, double> m_last_metrics;
 };
 
@@ -228,6 +291,27 @@ Args:
 
 Returns:
     Tuple of (output_ids, output_texts) for each request in the batch.
+)doc")
+        .def("prepare_multimodal_from_token_ids",
+             &TrtEdgeLlmRuntime::prepare_multimodal_from_token_ids,
+             py::arg("token_ids"),
+             py::arg("image_embeddings"),
+             py::arg("image_grid_thw"),
+             R"doc(
+Prepare a multimodal request from precomputed image embeddings and token IDs.
+
+This path is intended for fair VLM runtime benchmarking where image embeddings
+and prompt token IDs are already prepared outside the timed region.
+)doc")
+        .def("generate_from_prepared_multimodal",
+             &TrtEdgeLlmRuntime::generate_from_prepared_multimodal,
+             py::arg("max_generate_length"),
+             py::arg("temperature") = 0.0f,
+             py::arg("top_p") = 1.0f,
+             py::arg("top_k") = 1,
+             py::arg("ignore_stop_tokens") = false,
+             R"doc(
+Generate tokens using the most recently prepared multimodal inputs.
 )doc")
         .def("last_generate_metrics",
              &TrtEdgeLlmRuntime::last_generate_metrics,

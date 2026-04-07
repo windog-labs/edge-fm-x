@@ -6,8 +6,6 @@
 #include "utils/device/memory.h"
 
 #include <cublasLt.h>
-#include <cuda_bf16.h>
-#include <cuda_fp16.h>
 
 namespace edge_fm {
 
@@ -36,83 +34,6 @@ std::string model_name_for_operator_resolution(const EngineConfig& engine_config
     } catch (const ConfigurationError&) {
         return std::string();
     }
-}
-
-template <typename T>
-__device__ __forceinline__ float scalar_to_float(T value);
-
-template <>
-__device__ __forceinline__ float scalar_to_float<half>(half value) {
-    return __half2float(value);
-}
-
-template <>
-__device__ __forceinline__ float scalar_to_float<__nv_bfloat16>(__nv_bfloat16 value) {
-    return __bfloat162float(value);
-}
-
-template <typename T>
-__device__ __forceinline__ T float_to_scalar(float value);
-
-template <>
-__device__ __forceinline__ half float_to_scalar<half>(float value) {
-    return __float2half_rn(value);
-}
-
-template <>
-__device__ __forceinline__ __nv_bfloat16 float_to_scalar<__nv_bfloat16>(float value) {
-    return __float2bfloat16(value);
-}
-
-template <typename T, int BLOCK_N>
-__global__ void decode_m1_linear_tiled_kernel(
-    const T* __restrict__ input,
-    const T* __restrict__ weight_t,
-    const T* __restrict__ bias,
-    T* __restrict__ output,
-    int k,
-    int n)
-{
-    extern __shared__ unsigned char smem_raw[];
-    T* smem_input = reinterpret_cast<T*>(smem_raw);
-
-    for (int idx = threadIdx.x; idx < k; idx += blockDim.x) {
-        smem_input[idx] = input[idx];
-    }
-    __syncthreads();
-
-    const int out_idx = blockIdx.x * BLOCK_N + threadIdx.x;
-    if (threadIdx.x >= BLOCK_N || out_idx >= n) {
-        return;
-    }
-
-    float acc = 0.0f;
-#pragma unroll 4
-    for (int kk = 0; kk < k; ++kk) {
-        acc += scalar_to_float(smem_input[kk]) * scalar_to_float(weight_t[kk * n + out_idx]);
-    }
-    if (bias != nullptr) {
-        acc += scalar_to_float(bias[out_idx]);
-    }
-    output[out_idx] = float_to_scalar<T>(acc);
-}
-
-template <typename T>
-void launch_decode_m1_linear_tiled(
-    const T* input,
-    const T* weight_t,
-    const T* bias,
-    T* output,
-    int k,
-    int n,
-    cudaStream_t stream)
-{
-    constexpr int kBlockN = 256;
-    const dim3 block(kBlockN);
-    const dim3 grid((n + kBlockN - 1) / kBlockN);
-    const size_t shared_bytes = static_cast<size_t>(k) * sizeof(T);
-    decode_m1_linear_tiled_kernel<T, kBlockN><<<grid, block, shared_bytes, stream>>>(
-        input, weight_t, bias, output, k, n);
 }
 
 } // namespace
@@ -256,74 +177,6 @@ public:
     }
 };
 
-class LinearDecodeM1TiledImpl final : public LinearLayer::LinearImpl {
-public:
-    std::string impl_id() const override { return "decode_m1_tiled"; }
-
-    bool supports(const LinearLayer::LinearOpContext& ctx, const LinearLayer::WeightSet& weight_set) const override {
-        if (weight_set.quant_type_ != LinearLayer::QuantType::FP16_BF16) {
-            return false;
-        }
-        if (ctx.stage != ModelStage::Decode || ctx.shape.m != 1) {
-            return false;
-        }
-        if (weight_set.packed_weight_ == nullptr) {
-            return false;
-        }
-        if (ctx.shape.input_dtype != ctx.shape.weight_dtype || ctx.shape.input_dtype != ctx.shape.output_dtype) {
-            return false;
-        }
-        return ctx.shape.input_dtype == DType::Float16 || ctx.shape.input_dtype == DType::BFloat16;
-    }
-
-    void prepare(
-        LinearLayer& owner,
-        const LinearLayer::LinearOpContext&,
-        const LinearLayer::WeightSet&,
-        const Tensor&,
-        Tensor&,
-        cudaStream_t,
-        LinearLayer::CachedDescriptors& cached) override
-    {
-        cached.selected_impl_id_ = impl_id();
-        cached.selected_impl_params_ = nlohmann::json::object();
-    }
-
-    void forward(
-        LinearLayer& owner,
-        const LinearLayer::LinearOpContext& ctx,
-        const LinearLayer::WeightSet& weight_set,
-        const Tensor& input,
-        Tensor& output,
-        cudaStream_t stream,
-        LinearLayer::CachedDescriptors& cached) override
-    {
-        prepare(owner, ctx, weight_set, input, output, stream, cached);
-
-        const void* bias_ptr = weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr;
-        if (ctx.shape.input_dtype == DType::Float16) {
-            launch_decode_m1_linear_tiled<half>(
-                static_cast<const half*>(input.data_ptr()),
-                static_cast<const half*>(weight_set.packed_weight_->data_ptr()),
-                static_cast<const half*>(bias_ptr),
-                static_cast<half*>(output.data_ptr()),
-                static_cast<int>(ctx.shape.in_features),
-                static_cast<int>(ctx.shape.out_features),
-                stream);
-        } else {
-            launch_decode_m1_linear_tiled<__nv_bfloat16>(
-                static_cast<const __nv_bfloat16*>(input.data_ptr()),
-                static_cast<const __nv_bfloat16*>(weight_set.packed_weight_->data_ptr()),
-                static_cast<const __nv_bfloat16*>(bias_ptr),
-                static_cast<__nv_bfloat16*>(output.data_ptr()),
-                static_cast<int>(ctx.shape.in_features),
-                static_cast<int>(ctx.shape.out_features),
-                stream);
-        }
-        CUDA_CHECK_THROW(cudaGetLastError(), "LinearLayer: decode_m1_tiled kernel launch failed");
-    }
-};
-
 class LinearCutlassImpl final : public LinearLayer::LinearImpl {
 public:
     std::string impl_id() const override { return "cutlass"; }
@@ -403,7 +256,6 @@ public:
 
 LinearOpRegistry::LinearOpRegistry() {
     impls_.emplace_back(std::make_unique<LinearCublasLtImpl>());
-    impls_.emplace_back(std::make_unique<LinearDecodeM1TiledImpl>());
     impls_.emplace_back(std::make_unique<LinearCutlassImpl>());
     impls_.emplace_back(std::make_unique<LinearCutileImpl>());
     impls_.emplace_back(std::make_unique<LinearAgentImpl>());

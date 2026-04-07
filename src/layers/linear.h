@@ -14,7 +14,6 @@ namespace edge_fm {
 
 class LinearOpRegistry;
 class LinearCublasLtImpl;
-class LinearDecodeM1TiledImpl;
 class LinearCutlassImpl;
 class LinearCutileImpl;
 class LinearAgentImpl;
@@ -58,7 +57,6 @@ public:
 protected:
     friend class LinearOpRegistry;
     friend class LinearCublasLtImpl;
-    friend class LinearDecodeM1TiledImpl;
     friend class LinearCutlassImpl;
     friend class LinearCutileImpl;
     friend class LinearAgentImpl;
@@ -75,8 +73,6 @@ protected:
         QuantType quant_type_ = QuantType::FP16_BF16;
         const Tensor* weight_ = nullptr;         ///< Unified weight tensor (type determined by quant_type_)
         const Tensor* bias_ = nullptr;           ///< Optional bias tensor [out_features] (for FP16/BF16)
-        const Tensor* packed_weight_ = nullptr;  ///< Optional packed decode-only weight tensor
-        std::shared_ptr<Tensor> packed_weight_storage_;  ///< Owns packed_weight_ when present
         const Tensor* scaling_factors_ = nullptr; ///< Scaling factors (for INT4 group-wise: [in_features/group_size, out_features])
         uint32_t group_size_ = 128;              ///< Group size for group-wise quantization (e.g., 128 for INT4)
     };
@@ -131,10 +127,6 @@ protected:
         const std::unordered_map<std::string, Tensor>& weights,
         const std::string& weight_name_base,
         WeightSet& weight_set);
-
-    void maybe_prepare_decode_m1_packed_weight(
-        WeightSet& weight_set,
-        const std::string& stage_tag);
     
     // cuBLASLt descriptor cache dimensions:
     // - Layer type: LinearLayer, FusedQKVLinearLayer, FusedGateUpLinearLayer, LMHeadLinearLayer
@@ -266,10 +258,14 @@ private:
  * @brief Fused Gate+Up Linear Layer for MLP
  * 
  * Merges gate_proj and up_proj into a single linear layer for better performance.
- * Output layout: [gate: gate_out_features, up: up_out_features, in_features]
+ * Internal output layout: [up: up_out_features, gate: gate_out_features, in_features]
  */
 class FusedGateUpLinearLayer : public LinearLayer {
 public:
+    struct DecodeSwigluFusionState;
+
+    ~FusedGateUpLinearLayer() override;
+
     /**
      * @brief Constructor for FusedGateUpLinearLayer
      * @param layer_prefix_base Base prefix for the layer (e.g., "model.layers.0.mlp")
@@ -284,16 +280,7 @@ public:
         uint32_t in_features,
         uint32_t gate_out_features,
         uint32_t up_out_features,
-        std::string layer_name = "")
-        : LinearLayer(layer_prefix_base + ".gate_up_fused", engine_config, in_features, 
-                      gate_out_features + up_out_features, std::move(layer_name)),
-          in_features_(in_features),
-          gate_out_features_(gate_out_features),
-          up_out_features_(up_out_features),
-          layer_prefix_base_(layer_prefix_base)
-    {
-        // Base class (LinearLayer) handles initialization
-    }
+        std::string layer_name = "");
 
     /**
      * @brief Load and merge gate, up weights into a single fused weight tensor
@@ -302,6 +289,11 @@ public:
         const std::unordered_map<std::string, Tensor>& prefill_weights,
         const std::unordered_map<std::string, Tensor>& decode_weights
     ) override;
+
+    bool try_forward_decode_swiglu_fused(
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream = nullptr);
 
 private:
     // Input and output dimensions
@@ -318,6 +310,10 @@ private:
         Tensor& fused_weight,
         Tensor& fused_bias,
         cudaStream_t stream);
+
+    void prepare_decode_swiglu_fusion_state();
+
+    std::unique_ptr<DecodeSwigluFusionState> decode_swiglu_fusion_state_;
 };
 
 /**

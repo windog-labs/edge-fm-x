@@ -1,9 +1,11 @@
 #!/bin/bash
 # TensorRT-Edge-LLM benchmark 预置脚本
-# 导出 Qwen2.5-1.5B ONNX，构建 engine。首次运行 benchmark 前执行一次。
+# 导出指定 Qwen2.5 LLM ONNX，构建 engine。首次运行 benchmark 前执行一次。
 #
 # 用法（在项目根目录）:
 #   bash tests/scripts/setup_trt_edgellm_benchmark.sh
+#   EDGE_FM_TRT_MODEL_SIZE=0.5b bash tests/scripts/setup_trt_edgellm_benchmark.sh
+#   EDGE_FM_TRT_MODEL_SIZE=3b EDGE_FM_QWEN_3B_MODEL_PATH=/path/to/model bash tests/scripts/setup_trt_edgellm_benchmark.sh
 #
 # 需先: conda activate horizon_quant, pip install third_party/TensorRT-Edge-LLM
 
@@ -12,8 +14,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TRT_EDGELLM="$PROJECT_ROOT/third_party/TensorRT-Edge-LLM"
 WORKSPACE="$PROJECT_ROOT/tests/data/trt_edgellm_workspace"
-MODEL_NAME="qwen2.5-1.5b"
-MODEL_PATH="${EDGE_FM_QWEN_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-1.5b-instruct/qwen2.5-1.5b-instruct}"
+MODEL_SIZE="${EDGE_FM_TRT_MODEL_SIZE:-1.5b}"
+case "$MODEL_SIZE" in
+    0.5b)
+        MODEL_NAME="qwen2.5-0.5b"
+        MODEL_PATH="${EDGE_FM_QWEN_0_5B_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-0.5b-instruct/qwen2.5-0.5b-instruct}"
+        ;;
+    1.5b)
+        MODEL_NAME="qwen2.5-1.5b"
+        MODEL_PATH="${EDGE_FM_QWEN_1_5B_MODEL_PATH:-${EDGE_FM_QWEN_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-1.5b-instruct/qwen2.5-1.5b-instruct}}"
+        ;;
+    3b)
+        MODEL_NAME="qwen2.5-3b"
+        MODEL_PATH="${EDGE_FM_QWEN_3B_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-3b-instruct/qwen2.5-3b-instruct}"
+        ;;
+    *)
+        echo "ERROR: unsupported EDGE_FM_TRT_MODEL_SIZE=$MODEL_SIZE (supported: 0.5b, 1.5b, 3b)"
+        exit 1
+        ;;
+esac
 ONNX_DIR="$WORKSPACE/$MODEL_NAME/onnx"
 ENGINE_DIR="$WORKSPACE/$MODEL_NAME/engines"
 TRT_PKG="${TRT_PACKAGE_DIR:-/usr/local/TensorRT-10.15.1.29}"
@@ -79,4 +98,4 @@ export LD_LIBRARY_PATH="${TRT_PKG}/lib:${LD_LIBRARY_PATH:-}"
 
 echo ""
 echo "Done. Engine at: $ENGINE_DIR"
-echo "Run benchmark: pytest -s tests/engine/test_qwen2_generate.py -k benchmark_trt_edgellm -v"
+echo "Run benchmark: EDGE_FM_BENCH_LLM_MODELS=$MODEL_SIZE pytest -s tests/engine/test_qwen2_generate.py -k benchmark_trt_edgellm -v"

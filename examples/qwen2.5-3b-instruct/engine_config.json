@@ -1,0 +1,41 @@
+{
+  "model_name": "Qwen2.5",
+  "runtime": {
+    "num_threads": 0,
+    "use_cuda_graph": true,
+    "device": "cuda",
+    "device_id": 0,
+    "hw_profile": "cuda_sm80"
+  },
+  "operator_impl_table_path": "../config/operator_impl_table.json",
+  "prefill_model_path": "qwen2.5-3b-instruct",
+  "decode_model_path": null,
+  "speculative": {
+    "enabled": false,
+    "algorithm": "EAGLE3",
+    "draft_model": {
+      "path": "qwen2.5-3b-instruct-draft"
+    }
+  },
+  "kvcache": {
+    "dtype": "fp16",
+    "attention_type": "gqa",
+    "requests": [
+      {
+        "request_id": 0,
+        "prefix_token_ids": [],
+        "max_tokens": 4096
+      }
+    ]
+  },
+  "sampling": {
+    "temperature": 1,
+    "max_tokens": 64,
+    "ignore_eos": false,
+    "seed": 42
+  },
+  "metrics": {
+    "enabled": true,
+    "log_path": null
+  }
+}

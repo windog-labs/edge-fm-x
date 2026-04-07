@@ -40,7 +40,7 @@ namespace ModelTensors {
     constexpr const char* ATTENTION_OUTPUT = "attention_output";
     constexpr const char* MLP_INTERMEDIATE = "mlp_intermediate";
     constexpr const char* UP_PROJ_OUTPUT = "up_proj_output";
-    constexpr const char* MLP_ACTIVATION_INPUT = "mlp_activation_input";  // [seq_len, 2 * intermediate_size] for gate+up concatenated
+    constexpr const char* MLP_ACTIVATION_INPUT = "mlp_activation_input";  // [seq_len, 2 * intermediate_size] for up+gate concatenated
     constexpr const char* POST_NORM_OUTPUT = "post_norm_output";
 
     // ==================== 输出 tensors ====================

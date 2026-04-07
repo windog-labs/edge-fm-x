@@ -342,14 +342,8 @@ void Qwen2_5::forward_prefill(
 
         Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
         linear_[layer_prefix + ".mlp.gate_up_fused"]->forward_fp16_bf16(post_attn_norm_output, gate_up_flat, stream, ModelStage::Prefill);
-
-        std::unordered_map<std::string, Tensor> act_inputs;
-        act_inputs.emplace("input", Tensor::view(mlp_activation_input.data_ptr(), mlp_activation_input.shape(),
-            mlp_activation_input.dtype(), std::get<0>(mlp_activation_input.device()), std::get<1>(mlp_activation_input.device())));
-        std::unordered_map<std::string, Tensor> act_outputs;
-        act_outputs.emplace("output", Tensor::view(mlp_intermediate.data_ptr(), mlp_intermediate.shape(),
-            mlp_intermediate.dtype(), std::get<0>(mlp_intermediate.device()), std::get<1>(mlp_intermediate.device())));
-        activation_layer_->forward(act_inputs, act_outputs, stream, ModelStage::Prefill);
+        activation_layer_->forward_silu_and_mul_up_gate(
+            mlp_activation_input, mlp_intermediate, stream, ModelStage::Prefill);
 
         linear_[layer_prefix + ".mlp.down_proj"]->forward_fp16_bf16(mlp_intermediate, layer_output, stream, ModelStage::Prefill);
     }
@@ -558,10 +552,20 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         std::string down_key = layer_prefix + ".mlp.down_proj";
         Tensor& mlp_activation_input = tensors[ModelTensors::MLP_ACTIVATION_INPUT];
         Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
-        linear_[gate_up_key]->forward_fp16_bf16(hidden_2d, gate_up_flat, stream, stage);
         Tensor& mlp_intermediate = tensors[ModelTensors::MLP_INTERMEDIATE];
-        activation_layer_->forward_silu_and_mul(
-            mlp_activation_input, mlp_intermediate, stream, stage);
+        bool decode_swiglu_fused = false;
+        if (stage == ModelStage::Decode) {
+            if (auto* fused_gate_up = dynamic_cast<FusedGateUpLinearLayer*>(linear_[gate_up_key].get());
+                fused_gate_up != nullptr) {
+                decode_swiglu_fused = fused_gate_up->try_forward_decode_swiglu_fused(
+                    hidden_2d, mlp_intermediate, stream);
+            }
+        }
+        if (!decode_swiglu_fused) {
+            linear_[gate_up_key]->forward_fp16_bf16(hidden_2d, gate_up_flat, stream, stage);
+            activation_layer_->forward_silu_and_mul_up_gate(
+                mlp_activation_input, mlp_intermediate, stream, stage);
+        }
         // MLP 3: Down projection — write to NORM_OUTPUT (for next layer) or HIDDEN_STATES (last layer, for final_norm)
         if (layer_id < num_layers_ - 1) {
             Tensor norm_output_2d = Tensor::view(norm_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);

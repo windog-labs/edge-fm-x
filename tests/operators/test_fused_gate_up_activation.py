@@ -94,7 +94,7 @@ def _run_correctness_case(seq_len: int, stage: str):
     activation_out_efm = tensor_to_edge_fm_tensor(activation_out)
 
     fused_linear.forward_fp16_bf16(x_efm, fused_out_efm, 0, stage)
-    activation.forward_silu_and_mul(fused_out_efm, activation_out_efm, 0, stage)
+    activation.forward_silu_and_mul_up_gate(fused_out_efm, activation_out_efm, 0, stage)
     torch.cuda.synchronize()
 
     fused_out_torch = edge_fm_tensor_to_torch(fused_out_efm)
@@ -102,10 +102,10 @@ def _run_correctness_case(seq_len: int, stage: str):
 
     gate_weight = _load_tensor("model.layers.0.mlp.gate_proj.weight", device=device)
     up_weight = _load_tensor("model.layers.0.mlp.up_proj.weight", device=device)
-    weight = torch.cat([gate_weight, up_weight], dim=0)
+    weight = torch.cat([up_weight, gate_weight], dim=0)
 
     ref_fused = F.linear(x.float(), weight.float()).to(torch.bfloat16)
-    gate_ref, up_ref = ref_fused.split(INTERMEDIATE_SIZE, dim=-1)
+    up_ref, gate_ref = ref_fused.split(INTERMEDIATE_SIZE, dim=-1)
     ref_activation = (F.silu(gate_ref.float()) * up_ref.float()).to(torch.bfloat16)
 
     rtol, atol = dtype_tolerances(torch.bfloat16)
@@ -155,7 +155,7 @@ def test_fused_gate_up_and_activation_performance_smoke(
         iters=100,
     )
     activation_ms = median_cuda_ms(
-        lambda: activation.forward_silu_and_mul(fused_out_efm, activation_out_efm, 0, stage),
+        lambda: activation.forward_silu_and_mul_up_gate(fused_out_efm, activation_out_efm, 0, stage),
         warmup=20,
         iters=100,
     )
@@ -257,3 +257,35 @@ def test_fused_gate_up_tuned_record_matches_baseline_output(seq_len, stage, shap
     torch.testing.assert_close(y_tuned_torch, y_baseline_torch, rtol=rtol, atol=atol)
     assert math.isfinite(baseline_ms)
     assert math.isfinite(tuned_ms)
+
+
+def test_decode_fused_gate_up_swiglu_matches_two_stage_output():
+    ensure_cuda()
+    reset_weight_loader()
+
+    device = torch_device()
+    fused_linear, activation = _make_layers()
+
+    torch.manual_seed(0)
+    x = torch.randn(1, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
+    fused_out = torch.empty(1, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    two_stage_out = torch.empty(1, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    fused_decode_out = torch.empty(1, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+
+    x_efm = tensor_to_edge_fm_tensor(x)
+    fused_out_efm = tensor_to_edge_fm_tensor(fused_out)
+    two_stage_out_efm = tensor_to_edge_fm_tensor(two_stage_out)
+    fused_decode_out_efm = tensor_to_edge_fm_tensor(fused_decode_out)
+
+    fused_linear.forward_fp16_bf16(x_efm, fused_out_efm, 0, "Decode")
+    activation.forward_silu_and_mul_up_gate(fused_out_efm, two_stage_out_efm, 0, "Decode")
+
+    if not fused_linear.try_forward_decode_swiglu_fused(x_efm, fused_decode_out_efm, 0):
+        pytest.skip("decode fused SwiGLU fast path is unavailable on this device/config")
+
+    torch.cuda.synchronize()
+
+    two_stage_out_torch = edge_fm_tensor_to_torch(two_stage_out_efm)
+    fused_decode_out_torch = edge_fm_tensor_to_torch(fused_decode_out_efm)
+    rtol, atol = dtype_tolerances(torch.bfloat16)
+    torch.testing.assert_close(fused_decode_out_torch, two_stage_out_torch, rtol=rtol, atol=atol)

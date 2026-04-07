@@ -15,8 +15,13 @@
 
 ## 1. 核心目标
 
-- 主目标：持续优化 `EdgeFM(cuda-graph)`，直到打平并尽量超越 `TRT-Edge-LLM`
-- 主 benchmark 模型：`Qwen2.5-1.5B BF16, batch=1`
+- 主目标：持续优化 `EdgeFM(cuda-graph)`，以 VLM 主线为先，直到在主 VLM benchmark 上打平并尽量超越 `TRT-Edge-LLM`
+- 主 benchmark 模型：
+  - `Qwen2.5-VL-3B BF16, batch=1`
+  - `Qwen2.5-VL-7B BF16, batch=1`
+- 次级回归哨兵模型：
+  - `Qwen2.5-1.5B BF16, batch=1`
+  - 作用：防止为了追 VLM 而把已经接近 TRT 的 LLM 路径做坏
 - 主 benchmark 矩阵：
   - `prefill=512, decode=32`
   - `prefill=512, decode=64`
@@ -25,9 +30,14 @@
   - `prefill=2048, decode=32`
   - `prefill=2048, decode=64`
 - 主比较口径：
-  - 只重点比较 `EdgeFM(cuda-graph)` 和 `TRT-Edge-LLM`
-  - `Transformers` 只作为慢基线保留
+  - 主线只重点比较 `EdgeFM(cuda-graph)` 和 `TRT-Edge-LLM`
+  - VLM 主线默认使用 prepared multimodal / prepared image embeddings 口径，不把 ViT 时间算进主比较
+  - `Transformers` 只作为慢基线和口径校验保留
   - 不再花时间分析 `EdgeFM(no-graph)`，除非是在排查 graph 正确性
+- 主分析目标：
+  - 优先解释 VLM 的 `prefill` / `decode` stage gap
+  - 优先定位 `M-RoPE`、decode attention、K/V cache write、prepared multimodal runtime 边界带来的固定成本
+  - 每轮优化都要回答：收益主要来自哪个 stage，能否稳定复现，是否同时适用于 `VL-3B` 和 `VL-7B`
 
 ## 2. 可用工具与资源
 
@@ -41,7 +51,8 @@
   - 用于 NCU 采集和指标解释
   - 当前容器里 `ncu` 不可用，但换机器后可继续使用
 - `edge-fm-benchmark-report`
-  - 用于标准三方 benchmark：`Transformers` vs `EdgeFM(cuda-graph)` vs `TRT-Edge-LLM`
+  - 用于标准 Qwen2.5 LLM / VLM benchmark
+  - VLM 主线默认采用 prepared multimodal 口径，便于公平比较 `EdgeFM(cuda-graph)` vs `TRT-Edge-LLM`
 - `edge-fm-add-operator`
   - 新增 `impl_id`、更新 operator registry、更新 `operator_impl_table.json` 时使用
 - `cutlass-skill`
@@ -106,6 +117,8 @@
   - 同 stop-token 行为
   - 同 dtype
   - 同 device
+  - VLM 必须同图像、同 prompt、同 image token 布局、同 `image_grid_thw`
+  - 除非是专门分析端到端 multimodal latency，否则 VLM 主线比较默认不计 ViT
 - 对比对象要对
   - 比 fusion，就要用同一类 kernel 家族下的 fused vs unfused 做比较
   - 不能因为一个很慢的 Triton 原型表现差，就直接得出“生产 fusion 没价值”
@@ -115,6 +128,8 @@
 - 重写前先 profiling
   - 当前容器内统一用 `nsys`
   - `ncu` 不可用，不作为 blocker
+  - 对 VLM 问题默认先做 stage attribution：`prefill` / `decode` / multimodal prepare 哪一段在丢分
+  - 任何保留的 VLM 优化都应至少附一份可追溯的 `nsys` 证据：`cuda_gpu_kern_sum`、`cuda_api_sum`，必要时加 `--cuda-graph-trace=node`
 - GPU benchmark / profiling 不要并行跑
   - 之前已经验证过，并行跑容易出无效数据
 - 没收益的分支尽快回退
@@ -122,7 +137,8 @@
 
 ## 6. 当前环境事实
 
-- 目标平台：`A800-SXM4-80GB / sm80 / device=1`
+- 目标平台：`A800-SXM4-80GB / sm80`
+  - `device=0/1` 都可用，但每次 benchmark / profiling 必须明确记录实际 device id
 - 当前构建类型：`Release`
   - 已从 `build/CMakeCache.txt` 验证
   - 因此当前性能差距不是 `Debug vs Release` 导致的
@@ -137,11 +153,14 @@
 相关产物：
 
 - benchmark helper：
-  - [.codex benchmark script](/xs-train-nas/zzm/repos/edge-fm-x/.codex/skills/edge-fm-benchmark-report/scripts/report_qwen_3way_cuda_graph_vs_trt.py)
+  - [.codex benchmark suite script](/xs-train-nas/zzm/repos/edge-fm-x/.codex/skills/edge-fm-benchmark-report/scripts/report_qwen_benchmark_suite.py)
 - 最近 benchmark 快照：
+  - `doc/benchmark_reports/qwen_3way_cuda_graph_vs_trt_20260407.md`
+  - `doc/benchmark_reports/qwen_vlm_suite_20260407.md`
   - `/tmp/edgefm_bench_512_64_after_fused512.json`
   - `/tmp/edgefm_bench_2048_64_latest.json`
   - `/tmp/edgefm_bench_fresh_512_1024_2048_x64.json`
+  - `/tmp/qwen2_5_vl_3b_3way_no_vit_20260407.clean.json`
 - 最近 `nsys` 产物：
   - `/tmp/edgefm_profile_2048_64.nsys-rep`
   - `/tmp/edgefm_profile_2048_64.sqlite`
@@ -154,7 +173,32 @@
 
 ## 7. 当前可信 benchmark 基线
 
-### 7.1 恢复 tuned attention 后的可信矩阵
+### 7.1 当前主线 VLM 基线（`Qwen2.5-VL-3B`，prepared multimodal，不计 ViT）
+
+这组结果是 2026-04-07 的最新主线起点。
+从现在开始，后续优化优先以这组 VLM 数据决定方向。
+
+| Case | EdgeFM total | TRT total | Gap | EdgeFM prefill | TRT prefill | EdgeFM decode | TRT decode |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `prefill=512, decode=32` | `234.785 ms` | `216.677 ms` | `+8.24%` | `21.871 ms` | `32.267 ms` | `212.349 ms` | `184.130 ms` |
+| `prefill=512, decode=64` | `461.857 ms` | `416.569 ms` | `+8.87%` | `24.044 ms` | `18.695 ms` | `429.258 ms` | `397.676 ms` |
+| `prefill=1024, decode=32` | `249.669 ms` | `245.899 ms` | `+1.14%` | `42.781 ms` | `44.983 ms` | `204.798 ms` | `199.799 ms` |
+| `prefill=1024, decode=64` | `468.449 ms` | `419.023 ms` | `+11.68%` | `40.219 ms` | `36.995 ms` | `427.259 ms` | `381.580 ms` |
+| `prefill=2048, decode=32` | `280.294 ms` | `275.661 ms` | `+1.90%` | `76.004 ms` | `60.398 ms` | `203.753 ms` | `214.138 ms` |
+| `prefill=2048, decode=64` | `499.066 ms` | `492.271 ms` | `+1.30%` | `63.965 ms` | `57.766 ms` | `434.479 ms` | `434.292 ms` |
+
+这组基线的当前解释：
+
+- 平均 total gap 约 `+5.43%`
+- 平均 decode gap 约 `+5.49%`
+- 最差点集中在 `512/64` 和 `1024/64`
+- 当前没有证据表明问题在 ViT；主线问题已经收敛到 VLM 的 language-side runtime，尤其是 `M-RoPE` / decode path
+
+### 7.2 历史 LLM 基线（保留作为回归参考）
+
+以下数据保留，主要用于 LLM 回归监控，不再作为第一优先级优化主线。
+
+#### 恢复 tuned attention 后的可信矩阵
 
 这是恢复 decode tuned attention 路径后的可信六组数据，用于指导后续优化优先级。
 
@@ -167,7 +211,7 @@
 | `prefill=1024, decode=64` | `230.557 ms` | `226.185 ms` | `+4.232 ms` / `+1.87%` | `18.712 ms` | `15.823 ms` | `+2.889 ms` | `211.541 ms` | `210.199 ms` | `+1.343 ms` |
 | `prefill=2048, decode=64` | `263.140 ms` | `264.530 ms` | `-1.525 ms` / `-0.58%` | `37.932 ms` | `37.737 ms` | `+0.195 ms` | `224.899 ms` | `226.619 ms` | `-1.720 ms` |
 
-### 7.2 当前最可信重跑快照
+#### 当前最可信重跑快照
 
 后续又对两组代表性 case 做了重跑确认，结果表明此前出现的“全局大回归”并不稳定复现。
 
@@ -176,7 +220,7 @@
 | `prefill=512, decode=64` | `221.646 ms` | `212.752 ms` | `+8.894 ms` / `+4.18%` | `12.168 ms` | `10.893 ms` | `+1.275 ms` | `209.208 ms` | `201.749 ms` | `+7.459 ms` |
 | `prefill=2048, decode=64` | `251.009 ms` | `256.591 ms` | `-5.582 ms` / `-2.18%` | `33.544 ms` | `29.472 ms` | `+4.072 ms` | `217.123 ms` | `226.946 ms` | `-9.823 ms` |
 
-### 7.3 基线解释
+#### 基线解释
 
 - 长 context case 已经基本打平甚至领先 TRT
 - 真正剩下的主要问题是短 context decode，尤其是 `512/64`
@@ -184,6 +228,12 @@
 - 剩余空间仍然存在，但已经不是那种显而易见的大 easy win
 
 ## 8. 已保留的有效优化
+
+说明：
+
+- 以下大部分保留优化来自 LLM 主线验证
+- 它们不默认代表 `Qwen2.5-VL-3B / 7B` 已经吃到同等收益
+- 对 VLM 尤其要单独验证：是否命中 `M-RoPE` 路径、是否命中 decode tuned attention、是否仍然受 runtime 固定成本主导
 
 - decode attention 的 tuned 路径已经恢复并保留
   - `impl_id`: `flashinfer_attention_decode_sm80_tuned`
@@ -217,6 +267,7 @@
     - 之前移除它会导致真实端到端回归
     - 当前剩余 gap 更像短 context decode 的固定成本，而不是 attention 大幅落后
   - 只有当新的 `nsys --cuda-graph-trace=node` 证明 attention 重新成为最大热点时，才允许重新打开 attention 主线
+  - 这条结论主要针对历史 LLM 主线；对于 `Qwen2.5-VL-3B / 7B` 的 `M-RoPE` decode attention，如果 profiling 证明它是主瓶颈，则这是允许且优先的方向
 - 已回退：prefill `mlp_down m=2048 -> algo_index=0`
   - 原因：operator test 明确更慢
 - 已明确否决“activation-only retune 是主要方向”
@@ -225,6 +276,70 @@
   - 原因：数值正确，但比现有生产路径慢约 `8.31x`
 - 已明确否决“一个慢的 Triton 原型就能证明 fusion 没价值”
   - 原因：Triton 只能证明原型本身不适合集成，不能否定生产级 fusion 的理论和实测 headroom
+
+## 9.1 2026-04-07：decode `fused_gate_up + SwiGLU` 生产级融合
+
+### 实验目标
+
+- 用仓库内 vendored 的 TRT-LLM SM80 fused MoE kernel 打通 decode `m=1` 的 `gate_up + SwiGLU`
+- 去掉 decode MLP 中间 `[1, 17920]` materialization 的必要性，并减少一个 activation kernel
+- 验证这条路径能不能明显缩小 `prefill=512` 短 context 下的 decode gap
+
+### 严格 A/B 条件
+
+- 模型：`Qwen2.5-1.5B BF16`
+- 设备：`A800-SXM4-80GB / sm80 / device=1`
+- 构建：`Release`
+- 运行口径：`EdgeFM(cuda-graph)`
+- microbench：
+  - 同一层 `model.layers.0.mlp`
+  - 输入 shape 固定 `m=1, k=1536, n=8960`
+- end-to-end：
+  - 使用仓库现有 benchmark helper
+  - `warmup=3`
+  - `timed runs=5` 的 3-way 短 context 重跑
+  - 以及同一二进制内的 direct A/B：
+    - 只切 decode fused path 开关
+    - `warmup=3`
+    - `timed runs=9`
+    - case：`512/32`、`512/64`
+
+### 代码改动
+
+- `FusedGateUpLinearLayer` 的内部物理布局改为 `[up, gate]`
+- `ActivationLayer` 新增 `forward_silu_and_mul_up_gate()`，并让 activation kernel 支持 layout-aware 输入
+- Qwen2.5 decode 路径优先尝试 `FusedGateUpLinearLayer::try_forward_decode_swiglu_fused()`
+- 新增 decode-only raw launcher 封装：
+  - [fused_gate_up_decode_trtllm.cu](/xs-train-nas/zzm/repos/edge-fm-x/src/layers/fused_gate_up_decode_trtllm.cu)
+- 清理了旧的 `decode_m1_tiled` / packed-weight 准备残留
+
+### 实测结果
+
+- 算子级 microbench：
+  - 两段式 decode MLP：`0.052896 ms`
+  - fused decode MLP：`0.048576 ms`
+  - 层内 speedup：`1.089x`
+- 端到端 direct A/B（同一二进制，仅切 decode fused path）：
+  - `prefill=512, decode=32`
+    - total trimmed mean：`115.569 -> 115.407 ms`，改善 `0.161 ms`
+    - decode stage avg：`102.608 -> 102.743 ms`，反而 `+0.134 ms`
+  - `prefill=512, decode=64`
+    - total trimmed mean：`223.549 -> 221.930 ms`，改善 `1.620 ms`
+    - decode stage avg：`209.096 -> 208.958 ms`，改善 `0.138 ms`
+- 结论：
+  - 这条 fusion 在单层 microbench 上是成立的
+  - 但当前端到端收益量级只有 `~0.1 ms` decode stage，远低于剩余总 gap
+  - 短 context 端到端表现已经明显受其它固定成本和 run-to-run 抖动影响，不能再把这条线当主线
+
+### 保留还是回退
+
+- 保留当前实现
+  - 原因：
+    - 正确性已通过
+    - 单层 microbench 确认不是负优化
+    - 当前没有证据表明它引入端到端 regression
+- 但不再把它视为当前最高 ROI 主线
+  - 后续只有在新的 node-level profiling 明确指出 decode MLP 再次成为主热点时，才继续深挖 tile / stage / epilogue 细节
 
 ## 10. 当前未决问题与风险
 
@@ -241,17 +356,17 @@
 1. 保持当前 tuned decode attention 路径，不再反复重开 attention 分支
 2. 用 `nsys --cuda-graph-trace=node` 对 `prefill=512, decode=64` 做更精确的剩余热点归因
 3. 在数据支持下继续推进以下分支：
-   - 生产级 `fused_gate_up + silu_and_mul` fusion
-   - decode `m=1` linear fixed-cost 优化
    - residual / norm / runtime fixed-cost 优化
+   - short-context prefill fixed-cost 优化
+   - 只在 profiling 明确支持时，再回到 decode MLP 内核细化
 4. 只有当新的 profiling 再次证明 prefill attention 或其他路径重新上升为主热点时，才切换主线
 
 当前默认优先级：
 
 1. 保住已恢复的 decode tuned attention 路径
 2. 对短 context gap 做 node-level profiling
-3. 先做短 context decode 固定成本优化
-4. 不再机械性地回到 attention 大改
+3. 先做短 context 非 MLP 固定成本优化
+4. 不再机械性地回到 attention 大改，也不再把 decode MLP fusion 当成默认主线
 
 ## 12. 当前正确性 gate
 
@@ -473,3 +588,128 @@
 - 处理：
   - 保留该 runtime 改动
   - 后续继续围绕短 context decode 固定成本推进，但不要再把重复 decode prepare 路径当成已无关因素
+
+### 2026-04-07：多步 decode CUDA graph replay 尝试（已回退）
+
+- 假设：
+  - `512/64` 的短 context decode gap 里，单步 `cudaGraphLaunch` 的 host 固定成本仍然可见
+  - 如果在无 stop-token、无动态 memcpy 节点的稳定 decode 路径上，把 4 个 decode step 合并进一次 graph replay，可能进一步缩小 `EdgeFM(cuda-graph)` 与 `TRT-Edge-LLM` 的差距
+- A/B 条件：
+  - 同模型、同 token、同 `ignore_stop_tokens=True`
+  - 同 benchmark 入口：
+    - `python3 .codex/skills/edge-fm-benchmark-report/scripts/report_qwen_3way_cuda_graph_vs_trt.py --device-id 1 --prefill-list 512 --decode-list 64 --json-only`
+  - 对比对象：
+    - A：保留当前稳定的单步 decode CUDA graph replay
+    - B：额外捕获一个 `replay_steps=4` 的 chunked decode graph，并在 decode 循环中优先走多步 replay
+- 代码改动：
+  - `CudaGraphManager` 增加单独的 `decode_chunk` graph runner
+  - `StandardEngine` 增加 `ensure_decode_chunk_graph_captured(...)`
+  - chunk graph 内每步执行：
+    - `model_->decode_step(context)`
+    - sampler
+    - 将采样 token 复制到固定 staging buffer
+    - `advance_decode_runtime_state(...)`
+  - chunk replay 结束后，再把 staging buffer 中的 4 个 token 一次性拷回 response buffer
+- 额外核验：
+  - `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6 EDGE_FM_DEVICE_ID=1 pytest -q tests/engine/test_qwen2_generate.py -k 'test_generate_token_alignment_cuda_graph or test_generate_vl_token_alignment_cuda_graph'`
+  - 结果：`2 passed, 10 deselected`
+- 实测结果：
+  - chunked replay 版本：
+    - EdgeFM total：`226.014 ms`
+    - EdgeFM prefill/decode：`13.013 / 212.627 ms`
+    - EdgeFM timed runs：
+      - `225.600`
+      - `226.010`
+      - `226.087`
+      - `226.289`
+      - `226.082`
+  - 回退并重新 build 后的稳定版本：
+    - EdgeFM total：`223.005 ms`
+    - EdgeFM prefill/decode：`13.428 / 209.253 ms`
+    - EdgeFM timed runs：
+      - `222.125`
+      - `223.832`
+      - `223.254`
+      - `222.807`
+      - `223.008`
+  - 对比结论：
+    - chunked replay 让 `512/64` total 额外变慢约 `3.0 ms`
+    - decode stage 额外变慢约 `3.37 ms`
+    - 没有证据表明它减少了真实 steady-state 固定成本，反而更像引入了额外 staging copy / replay 开销
+- 结论：
+  - 这条多步 decode graph replay 分支不具备保留价值
+  - 后续不要再把“多步 replay 合并 graph launch”当成默认优先方向
+  - 当前主线继续收敛到：
+    - `fused_gate_up + silu_and_mul` 生产级 fusion
+    - decode `m=1` linear 的生产级实现（后续可参考 CUTLASS GEMV）
+- 处理：
+  - 已完整回退该 runtime 分支
+  - 保留实验记录，避免后续重复试同一路径
+
+### 2026-04-07：decode fused SwiGLU CTA autotune（保留）
+
+- 背景：
+  - 新鲜 `512/64` profile 已确认当前短 context 剩余 gap 主要是 decode compute，而 `fused_gate_up + SwiGLU` 这条 TRT-LLM fused MoE kernel 仍占 decode GPU 时间的大头之一
+  - 现有实现把 decode-only fused SwiGLU 固定死在单一 CTA 配置：`16x128x64, stages=2`
+  - 这条路径虽然已经比两段式 `gate_up + silu_and_mul` 更好，但没有证据表明当前这个固定 tile 就是对 `m=1, k=1536, n=8960` 的最优点
+- 代码改动：
+  - `src/layers/fused_gate_up_decode_trtllm.cu`
+    - 增加少量候选 config：
+      - `16x128x64_s2`
+      - `16x256x64_s2`
+      - `32x128x64_s2`
+      - `64x128x64_s2`
+      - `128x128x64_s2`
+      - `16x128x64_s3`
+      - `16x256x64_s3`
+    - 增加一次性 autotune cache，key 为 `(sm, dtype, in_features, out_features)`
+    - 第一次命中该 shape 时，用真实 layer 权重做轻量 CUDA event microbench，选出最优 config；之后所有同 shape layer 直接复用
+    - 保留原先 `16x128x64_s2` 作为 safe fallback，不让 autotune 失败影响功能
+    - 增加两个实验开关，便于后续 A/B：
+      - `EDGE_FM_DECODE_SWIGLU_AUTOTUNE=0/1`
+      - `EDGE_FM_DECODE_SWIGLU_CONFIG=<config_name>`
+  - `src/layers/linear.cu`
+    - 把 `WeightLoader` 的全局修改锁收窄到“只包住权重表原地改写”
+    - 避免后续 decode fused SwiGLU autotune 在持锁状态下运行
+- 正确性核验：
+  - `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6 pytest -q tests/operators/test_fused_gate_up_activation.py::test_decode_fused_gate_up_swiglu_matches_two_stage_output`
+  - 结果：`1 passed`
+- 层级 microbench（Qwen2.5-1.5B layer0，`m=1, k=1536, n=8960`，BF16）：
+  - `default_s2`：`0.048448 ms`
+  - `16x256x64_s2`：`0.048416 ms`
+  - `32x128x64_s2`：`0.048576 ms`
+  - `64x128x64_s2`：`0.048048 ms`
+  - `128x128x64_s2`：`0.048160 ms`
+  - `16x128x64_s3`：`0.047952 ms`
+  - `16x256x64_s3`：`0.048512 ms`
+  - `autotune`：`0.047504 ms`
+  - 说明：
+    - 单层收益不大，但方向明确是正收益
+    - 旧默认 `16x128x64_s2` 已经不是最优点
+- 端到端 A/B（同一棵当前源码、同一 GPU、同一 `512/64` 三方 benchmark，只切 autotune 开关）：
+  - autotune 关闭：
+    - EdgeFM total：`222.708 ms`
+    - EdgeFM prefill/decode：`12.754 / 209.595 ms`
+    - TRT total：`213.732 ms`
+    - TRT prefill/decode：`9.117 / 204.474 ms`
+    - 总 gap：`+8.977 ms` / `+4.10%`
+    - decode gap：`+5.120 ms`
+  - autotune 开启：
+    - EdgeFM total：`220.240 ms`
+    - EdgeFM prefill/decode：`12.725 / 207.127 ms`
+    - TRT total：`214.188 ms`
+    - TRT prefill/decode：`9.141 / 204.918 ms`
+    - 总 gap：`+6.052 ms` / `+2.71%`
+    - decode gap：`+2.210 ms`
+  - A/B 收益：
+    - EdgeFM total：`-2.468 ms`
+    - EdgeFM decode：`-2.467 ms`
+    - 对 TRT 的总 gap 收窄：`2.925 ms`
+    - 对 TRT 的 decode gap 收窄：`2.910 ms`
+- 结论：
+  - 这条 decode fused SwiGLU CTA autotune 是真实有效优化，应保留
+  - 它已经把当前最关键的 `512/64` 短 context case 再往 TRT 拉近一截
+  - 但它不是最后的主胜负手；当前 decode 剩余大头仍然是 `gemvx` 对应的 `m=1` linear 家族
+- 后续优先级：
+  - 第一优先：继续攻 `fused_qkv / attention_output / mlp_down` 这组 decode `m=1` linear
+  - 第二优先：如果还留在这条 fused SwiGLU 线上，只做更有把握的 kernel-family 升级，不再反复做纯 tile 小调参

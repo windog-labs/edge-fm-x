@@ -643,7 +643,29 @@ PYBIND11_MODULE(edge_fm, m) {
             "    layer.forward_silu_and_mul(input, output)\n"
             "    layer.forward_silu_and_mul(input, output, stage=\"Decode\")\n\n"
             "    # 使用自定义 stream\n"
-            "    layer.forward_silu_and_mul(input, output, torch.cuda.current_stream().cuda_stream)");
+            "    layer.forward_silu_and_mul(input, output, torch.cuda.current_stream().cuda_stream)")
+        .def("forward_silu_and_mul_up_gate", [](ActivationLayer& self,
+                                                const Tensor& input,
+                                                Tensor& output,
+                                                uintptr_t stream_ptr = 0,
+                                                const std::string& stage_str = "Prefill") {
+                cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                self.forward_silu_and_mul_up_gate(input, output, stream, stage);
+            },
+            py::arg("input"),
+            py::arg("output"),
+            py::arg("stream") = 0,
+            py::arg("stage") = "Prefill",
+            "执行 SiLU and Mul 前向传播（输入布局为 [up, gate]）\n\n"
+            "功能:\n"
+            "    计算: output = silu(input[..., hidden_size:]) * input[..., :hidden_size]\n"
+            "    其中 input 的前半部分是 up projection，后半部分是 gate projection\n\n"
+            "参数:\n"
+            "    input: 输入张量，形状 (..., 2 * hidden_size)\n"
+            "    output: 输出张量，形状 (..., hidden_size)\n"
+            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n"
+            "    stage: 算子阶段，\"Prefill\" 或 \"Decode\"，默认 \"Prefill\"");
 
     // ============================================================================
     // SamplerLayer 类绑定
@@ -976,9 +998,26 @@ PYBIND11_MODULE(edge_fm, m) {
             "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n"
             "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"（默认: \"Prefill\"）\n\n"
             "注意:\n"
-            "    - 输出布局: [Gate: gate_out_features, Up: up_out_features]\n\n"
+            "    - 输出布局: [Up: up_out_features, Gate: gate_out_features]\n\n"
             "示例:\n"
-            "    layer.forward_fp16_bf16(input, output)\n");
+            "    layer.forward_fp16_bf16(input, output)\n")
+        .def("try_forward_decode_swiglu_fused", [](FusedGateUpLinearLayer& self,
+                                                   const Tensor& input,
+                                                   Tensor& output,
+                                                   uintptr_t stream_ptr = 0) {
+                cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                return self.try_forward_decode_swiglu_fused(input, output, stream);
+            },
+            py::arg("input"),
+            py::arg("output"),
+            py::arg("stream") = 0,
+            "尝试执行 decode-only 的 fused gate_up + SwiGLU\n\n"
+            "参数:\n"
+            "    input: 输入张量，形状 [1, in_features]\n"
+            "    output: 输出张量，形状 [1, up_out_features]\n"
+            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n\n"
+            "返回:\n"
+            "    如果当前设备/shape/dtype 支持 fused fast path，则返回 True 并写入 output；否则返回 False。");
 
     // ============================================================================
     // LMHeadLinearLayer 类绑定

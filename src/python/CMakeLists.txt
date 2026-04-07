@@ -60,6 +60,7 @@ if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABL
     endif()
 
     pybind11_add_module(edge_fm_trt_python pybind_trt_runtime.cpp)
+    add_dependencies(edge_fm_trt_python edge_fm_trt_runtime_libs)
     target_include_directories(edge_fm_trt_python PRIVATE
         ${TRT_EDGELLM_ROOT}/cpp
         ${TRT_EDGELLM_ROOT}/examples
@@ -102,4 +103,3 @@ if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABL
     )
     message(STATUS "edge_fm_trt Python module will be built")
 endif()
-
