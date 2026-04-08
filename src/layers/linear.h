@@ -17,6 +17,9 @@ class LinearCublasLtImpl;
 class LinearCutlassImpl;
 class LinearCutileImpl;
 class LinearAgentImpl;
+class FusedGateUpActivationOp;
+struct FusedGateUpActivationOpContext;
+struct FusedGateUpActivationOpState;
 
 class LinearLayer : public Layer {
 public:
@@ -267,8 +270,6 @@ private:
  */
 class FusedGateUpLinearLayer : public LinearLayer {
 public:
-    struct DecodeSwigluFusionState;
-
     ~FusedGateUpLinearLayer() override;
 
     /**
@@ -316,9 +317,11 @@ private:
         Tensor& fused_bias,
         cudaStream_t stream);
 
-    void prepare_decode_swiglu_fusion_state();
+    FusedGateUpActivationOp* resolve_decode_swiglu_impl(const FusedGateUpActivationOpContext& ctx);
 
-    std::unique_ptr<DecodeSwigluFusionState> decode_swiglu_fusion_state_;
+    FusedGateUpActivationOp* decode_swiglu_impl_ = nullptr;
+    std::string decode_swiglu_impl_id_;
+    std::unique_ptr<FusedGateUpActivationOpState> decode_swiglu_state_;
 };
 
 /**

@@ -92,11 +92,6 @@ target_link_libraries(sampler PUBLIC layer)
 # linear
 add_library(linear STATIC
     linear.cu
-    fused_gate_up_decode_trtllm.cu
-    ../../third_party/flashinfer/csrc/nv_internal/cpp/common/stringUtils.cpp
-    ../../third_party/flashinfer/csrc/nv_internal/cpp/common/tllmException.cpp
-    ../../third_party/flashinfer/csrc/nv_internal/cpp/common/logger.cpp
-    ../../third_party/flashinfer/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/cutlass_heuristic.cpp
 )
 set_target_properties(linear PROPERTIES
     POSITION_INDEPENDENT_CODE ON
@@ -108,9 +103,6 @@ target_include_directories(linear PUBLIC
 )
 target_include_directories(linear PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/cutlass/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/flashinfer/csrc/nv_internal
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/flashinfer/csrc/nv_internal/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/flashinfer/csrc/nv_internal/tensorrt_llm/cutlass_extensions/include
 )
 target_link_libraries(linear PUBLIC
     nlohmann_json::nlohmann_json

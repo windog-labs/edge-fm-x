@@ -1,4 +1,4 @@
-#include "layers/linear.h"
+#include "operators/fused_gate_up_activation_op.h"
 
 #include "utils/check.h"
 #include "utils/device/cuda_utils.h"
@@ -7,8 +7,10 @@
 #include <array>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 
 #include "cutlass/bfloat16.h"
@@ -16,33 +18,15 @@
 #include "tensorrt_llm/kernels/cutlass_kernels/moe_gemm/launchers/fused_moe_gemm_launcher_sm80.inl"
 
 namespace edge_fm {
-struct FusedGateUpLinearLayer::DecodeSwigluFusionState {
-    bool available = false;
-    std::string unavailable_reason;
-    void* expert_offsets_device_ptr = nullptr;
-    int sm_count = 0;
-    int selected_kernel_config = 0;
-    std::string selected_kernel_config_name;
-};
 
-FusedGateUpLinearLayer::FusedGateUpLinearLayer(
-    const std::string& layer_prefix_base,
-    const EngineConfig& engine_config,
-    uint32_t in_features,
-    uint32_t gate_out_features,
-    uint32_t up_out_features,
-    std::string layer_name)
-    : LinearLayer(layer_prefix_base + ".gate_up_fused",
-                  engine_config,
-                  in_features,
-                  gate_out_features + up_out_features,
-                  std::move(layer_name)),
-      in_features_(in_features),
-      gate_out_features_(gate_out_features),
-      up_out_features_(up_out_features),
-      layer_prefix_base_(layer_prefix_base) {}
-
-FusedGateUpLinearLayer::~FusedGateUpLinearLayer() = default;
+std::string FusedGateUpActivationOpContext::shape_sig() const {
+    return "input=" + std::to_string(static_cast<int>(input_dtype)) +
+        "|weight=" + std::to_string(static_cast<int>(weight_dtype)) +
+        "|output=" + std::to_string(static_cast<int>(output_dtype)) +
+        "|in_features=" + std::to_string(input_features) +
+        "|gate_out_features=" + std::to_string(gate_output_features) +
+        "|up_out_features=" + std::to_string(up_output_features);
+}
 
 namespace {
 
@@ -156,28 +140,23 @@ bool try_get_decode_swiglu_kernel_override(DecodeSwigluKernelConfigId& config_id
     return false;
 }
 
-int current_sm_version() {
-    int device = -1;
-    CUDA_CHECK_THROW(cudaGetDevice(&device), "FusedGateUpLinearLayer: failed to query CUDA device");
-
+int sm_version_for_device(int device_id) {
     int major = 0;
     int minor = 0;
     CUDA_CHECK_THROW(
-        cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device),
-        "FusedGateUpLinearLayer: failed to query compute capability major");
+        cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device_id),
+        "FusedGateUpActivationOp: failed to query compute capability major");
     CUDA_CHECK_THROW(
-        cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device),
-        "FusedGateUpLinearLayer: failed to query compute capability minor");
+        cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device_id),
+        "FusedGateUpActivationOp: failed to query compute capability minor");
     return major * 10 + minor;
 }
 
-int current_sm_count() {
-    int device = -1;
-    CUDA_CHECK_THROW(cudaGetDevice(&device), "FusedGateUpLinearLayer: failed to query CUDA device");
+int sm_count_for_device(int device_id) {
     int sm_count = 0;
     CUDA_CHECK_THROW(
-        cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device),
-        "FusedGateUpLinearLayer: failed to query SM count");
+        cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device_id),
+        "FusedGateUpActivationOp: failed to query SM count");
     return sm_count;
 }
 
@@ -192,11 +171,11 @@ constexpr DType dtype_for_decode_swiglu_kernel() {
 
 template <typename T, int TileM, int TileN, int TileK, int Stages>
 void launch_decode_swiglu_fused_kernel_config(
-    const Tensor* weight_tensor,
+    const Tensor& weight_tensor,
     const Tensor* bias_tensor,
     int64_t output_features,
     int64_t input_features,
-    const FusedGateUpLinearLayer::DecodeSwigluFusionState& state,
+    const FusedGateUpActivationOpState& state,
     const T* input_ptr,
     T* output_ptr,
     cudaStream_t stream) {
@@ -212,7 +191,7 @@ void launch_decode_swiglu_fused_kernel_config(
         Stages,
         EpilogueTag>(
         reinterpret_cast<const CutlassT*>(input_ptr),
-        reinterpret_cast<const CutlassT*>(weight_tensor->data_ptr()),
+        reinterpret_cast<const CutlassT*>(weight_tensor.data_ptr()),
         bias_tensor ? reinterpret_cast<const CutlassT*>(bias_tensor->data_ptr()) : nullptr,
         true,
         reinterpret_cast<CutlassT*>(output_ptr),
@@ -229,11 +208,11 @@ void launch_decode_swiglu_fused_kernel_config(
 template <typename T>
 void launch_decode_swiglu_fused_kernel(
     DecodeSwigluKernelConfigId config_id,
-    const Tensor* weight_tensor,
+    const Tensor& weight_tensor,
     const Tensor* bias_tensor,
     int64_t output_features,
     int64_t input_features,
-    const FusedGateUpLinearLayer::DecodeSwigluFusionState& state,
+    const FusedGateUpActivationOpState& state,
     const T* input_ptr,
     T* output_ptr,
     cudaStream_t stream) {
@@ -323,13 +302,13 @@ int query_decode_swiglu_kernel_occupancy(DecodeSwigluKernelConfigId config_id) {
 template <typename T>
 float benchmark_decode_swiglu_kernel(
     DecodeSwigluKernelConfigId config_id,
-    const Tensor* weight_tensor,
+    const Tensor& weight_tensor,
     const Tensor* bias_tensor,
     int64_t output_features,
     int64_t input_features,
     int device_id,
-    const FusedGateUpLinearLayer::DecodeSwigluFusionState& state) {
-    CUDA_CHECK_THROW(cudaSetDevice(device_id), "FusedGateUpLinearLayer: failed to set CUDA device");
+    const FusedGateUpActivationOpState& state) {
+    CUDA_CHECK_THROW(cudaSetDevice(device_id), "FusedGateUpActivationOp: failed to set CUDA device");
 
     const std::string tune_key = "decode_swiglu_fused.autotune." +
         std::to_string(static_cast<int>(dtype_for_decode_swiglu_kernel<T>())) + "." +
@@ -357,16 +336,16 @@ float benchmark_decode_swiglu_kernel(
     try {
         CUDA_CHECK_THROW(
             cudaStreamCreateWithFlags(&tune_stream, cudaStreamNonBlocking),
-            "FusedGateUpLinearLayer: failed to create autotune stream");
+            "FusedGateUpActivationOp: failed to create autotune stream");
         CUDA_CHECK_THROW(
             cudaEventCreate(&start_event),
-            "FusedGateUpLinearLayer: failed to create autotune start event");
+            "FusedGateUpActivationOp: failed to create autotune start event");
         CUDA_CHECK_THROW(
             cudaEventCreate(&stop_event),
-            "FusedGateUpLinearLayer: failed to create autotune stop event");
+            "FusedGateUpActivationOp: failed to create autotune stop event");
         CUDA_CHECK_THROW(
             cudaMemsetAsync(input_buf, 0, static_cast<size_t>(input_features) * sizeof(T), tune_stream),
-            "FusedGateUpLinearLayer: failed to initialize autotune input buffer");
+            "FusedGateUpActivationOp: failed to initialize autotune input buffer");
 
         constexpr int kWarmupIters = 8;
         constexpr int kBenchmarkIters = 40;
@@ -386,7 +365,7 @@ float benchmark_decode_swiglu_kernel(
 
         CUDA_CHECK_THROW(
             cudaEventRecord(start_event, tune_stream),
-            "FusedGateUpLinearLayer: failed to record autotune start event");
+            "FusedGateUpActivationOp: failed to record autotune start event");
         for (int iter = 0; iter < kBenchmarkIters; ++iter) {
             launch_decode_swiglu_fused_kernel<T>(
                 config_id,
@@ -401,15 +380,15 @@ float benchmark_decode_swiglu_kernel(
         }
         CUDA_CHECK_THROW(
             cudaEventRecord(stop_event, tune_stream),
-            "FusedGateUpLinearLayer: failed to record autotune stop event");
+            "FusedGateUpActivationOp: failed to record autotune stop event");
         CUDA_CHECK_THROW(
             cudaEventSynchronize(stop_event),
-            "FusedGateUpLinearLayer: failed to synchronize autotune stop event");
+            "FusedGateUpActivationOp: failed to synchronize autotune stop event");
 
         float elapsed_ms = 0.0f;
         CUDA_CHECK_THROW(
             cudaEventElapsedTime(&elapsed_ms, start_event, stop_event),
-            "FusedGateUpLinearLayer: failed to measure autotune elapsed time");
+            "FusedGateUpActivationOp: failed to measure autotune elapsed time");
 
         cleanup();
         return elapsed_ms / static_cast<float>(kBenchmarkIters);
@@ -421,12 +400,12 @@ float benchmark_decode_swiglu_kernel(
 
 template <typename T>
 DecodeSwigluKernelConfigId select_decode_swiglu_kernel_config(
-    const Tensor* weight_tensor,
+    const Tensor& weight_tensor,
     const Tensor* bias_tensor,
     int64_t output_features,
     int64_t input_features,
     int device_id,
-    const FusedGateUpLinearLayer::DecodeSwigluFusionState& state) {
+    const FusedGateUpActivationOpState& state) {
     DecodeSwigluKernelConfigId override_config = kDefaultDecodeSwigluKernelConfig;
     if (try_get_decode_swiglu_kernel_override(override_config)) {
         try {
@@ -443,7 +422,7 @@ DecodeSwigluKernelConfigId select_decode_swiglu_kernel_config(
     }
 
     const DecodeSwigluTuneKey cache_key{
-        current_sm_version(),
+        sm_version_for_device(device_id),
         output_features,
         input_features,
         dtype_for_decode_swiglu_kernel<T>()};
@@ -490,33 +469,29 @@ DecodeSwigluKernelConfigId select_decode_swiglu_kernel_config(
 }
 
 template <typename T>
-void prepare_decode_swiglu_fusion_state_for_dtype(
-    const Tensor* weight_tensor,
+void prepare_decode_swiglu_state_for_dtype(
+    const FusedGateUpActivationOpContext& ctx,
+    const Tensor& weight_tensor,
     const Tensor* bias_tensor,
-    int64_t output_features,
-    int64_t input_features,
-    int device_id,
-    const std::string& layer_prefix,
-    FusedGateUpLinearLayer::DecodeSwigluFusionState& state) {
-    (void)device_id;
-    const int sm = current_sm_version();
+    FusedGateUpActivationOpState& state) {
+    const int sm = sm_version_for_device(ctx.device_id);
     if (sm < 80 || sm >= 90) {
         state.unavailable_reason =
             "decode fused SwiGLU path currently only targets sm80-sm89 devices";
         return;
     }
 
-    if ((output_features % 64) != 0 || (input_features % 64) != 0) {
+    if ((ctx.up_output_features % 64) != 0 || (ctx.input_features % 64) != 0) {
         state.unavailable_reason =
             "decode fused SwiGLU shape is unsupported by TRT-LLM SM80 fused MoE kernel";
         return;
     }
 
-    CUDA_CHECK_THROW(cudaSetDevice(device_id), "FusedGateUpLinearLayer: failed to set CUDA device");
+    CUDA_CHECK_THROW(cudaSetDevice(ctx.device_id), "FusedGateUpActivationOp: failed to set CUDA device");
 
-    const std::string buffer_name = layer_prefix + ".decode_swiglu_fused.expert_offsets";
+    const std::string buffer_name = ctx.layer_prefix + ".decode_swiglu_fused.expert_offsets";
     state.expert_offsets_device_ptr =
-        StaticBufferManager::get_cache_buf(buffer_name, sizeof(int64_t), device_id);
+        StaticBufferManager::get_cache_buf(buffer_name, sizeof(int64_t), ctx.device_id);
 
     const std::array<int64_t, 1> expert_offsets = {1};
     CUDA_CHECK_THROW(
@@ -525,8 +500,8 @@ void prepare_decode_swiglu_fusion_state_for_dtype(
             expert_offsets.data(),
             sizeof(expert_offsets),
             cudaMemcpyHostToDevice),
-        "FusedGateUpLinearLayer: failed to initialize decode expert offsets");
-    state.sm_count = current_sm_count();
+        "FusedGateUpActivationOp: failed to initialize decode expert offsets");
+    state.sm_count = sm_count_for_device(ctx.device_id);
     state.available = true;
     state.selected_kernel_config = static_cast<int>(kDefaultDecodeSwigluKernelConfig);
     state.selected_kernel_config_name = decode_swiglu_kernel_config_name(kDefaultDecodeSwigluKernelConfig);
@@ -535,9 +510,9 @@ void prepare_decode_swiglu_fusion_state_for_dtype(
         const auto best_config = select_decode_swiglu_kernel_config<T>(
             weight_tensor,
             bias_tensor,
-            output_features,
-            input_features,
-            device_id,
+            ctx.up_output_features,
+            ctx.input_features,
+            ctx.device_id,
             state);
         state.selected_kernel_config = static_cast<int>(best_config);
         state.selected_kernel_config_name = decode_swiglu_kernel_config_name(best_config);
@@ -549,11 +524,10 @@ void prepare_decode_swiglu_fusion_state_for_dtype(
 
 template <typename T>
 void run_decode_swiglu_fused_for_dtype(
-    const Tensor* weight_tensor,
+    const FusedGateUpActivationOpContext& ctx,
+    const Tensor& weight_tensor,
     const Tensor* bias_tensor,
-    int64_t output_features,
-    int64_t input_features,
-    const FusedGateUpLinearLayer::DecodeSwigluFusionState& state,
+    const FusedGateUpActivationOpState& state,
     const Tensor& input,
     Tensor& output,
     cudaStream_t stream) {
@@ -562,113 +536,148 @@ void run_decode_swiglu_fused_for_dtype(
         config_id,
         weight_tensor,
         bias_tensor,
-        output_features,
-        input_features,
+        ctx.up_output_features,
+        ctx.input_features,
         state,
         static_cast<const T*>(input.data_ptr()),
         static_cast<T*>(output.data_ptr()),
         stream);
 }
 
+class TrtLlmDecodeSwigluOp final : public FusedGateUpActivationOp {
+public:
+    std::string impl_id() const override { return "trtllm_decode_swiglu"; }
+
+    bool supports(const FusedGateUpActivationOpContext& ctx) const override {
+        if (ctx.input_features <= 0 || ctx.gate_output_features <= 0 || ctx.up_output_features <= 0) {
+            return false;
+        }
+        if (ctx.gate_output_features != ctx.up_output_features) {
+            return false;
+        }
+        if (ctx.input_dtype != ctx.output_dtype || ctx.input_dtype != ctx.weight_dtype) {
+            return false;
+        }
+        if (ctx.input_dtype != DType::Float16 && ctx.input_dtype != DType::BFloat16) {
+            return false;
+        }
+        if ((ctx.up_output_features % 64) != 0 || (ctx.input_features % 64) != 0) {
+            return false;
+        }
+
+        try {
+            const int sm = sm_version_for_device(ctx.device_id);
+            return sm >= 80 && sm < 90;
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+
+    void prepare(
+        const FusedGateUpActivationOpContext& ctx,
+        const Tensor& weight,
+        const Tensor* bias,
+        FusedGateUpActivationOpState& state) override
+    {
+        state = FusedGateUpActivationOpState{};
+        state.initialized = true;
+
+        const auto& weight_shape = weight.shape();
+        if (weight_shape.size() != 2 ||
+            weight_shape[0] != ctx.gate_output_features + ctx.up_output_features ||
+            weight_shape[1] != ctx.input_features)
+        {
+            state.unavailable_reason = "decode fused SwiGLU weight shape does not match fused gate/up contract";
+            return;
+        }
+        if (bias != nullptr) {
+            const auto& bias_shape = bias->shape();
+            if (bias_shape.size() != 1 ||
+                bias_shape[0] != ctx.gate_output_features + ctx.up_output_features)
+            {
+                state.unavailable_reason = "decode fused SwiGLU bias shape does not match fused gate/up contract";
+                return;
+            }
+        }
+        if (!supports(ctx)) {
+            state.unavailable_reason = "decode fused SwiGLU is unsupported for the current device or dtype";
+            return;
+        }
+
+        try {
+            switch (ctx.weight_dtype) {
+                case DType::Float16:
+                    prepare_decode_swiglu_state_for_dtype<half>(ctx, weight, bias, state);
+                    break;
+                case DType::BFloat16:
+                    prepare_decode_swiglu_state_for_dtype<__nv_bfloat16>(ctx, weight, bias, state);
+                    break;
+                default:
+                    state.unavailable_reason = "decode fused SwiGLU requires FP16/BF16 weights";
+                    break;
+            }
+        } catch (const std::exception& ex) {
+            state.available = false;
+            state.unavailable_reason = ex.what();
+        }
+    }
+
+    void run(
+        const FusedGateUpActivationOpContext& ctx,
+        const Tensor& weight,
+        const Tensor* bias,
+        const FusedGateUpActivationOpState& state,
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream) override
+    {
+        if (!state.available) {
+            throw InvalidRequestError(
+                "decode fused SwiGLU fast path is unavailable: " + state.unavailable_reason);
+        }
+
+        switch (ctx.input_dtype) {
+            case DType::Float16:
+                run_decode_swiglu_fused_for_dtype<half>(ctx, weight, bias, state, input, output, stream);
+                return;
+            case DType::BFloat16:
+                run_decode_swiglu_fused_for_dtype<__nv_bfloat16>(ctx, weight, bias, state, input, output, stream);
+                return;
+            default:
+                throw InvalidRequestError("decode fused SwiGLU requires FP16/BF16 activations");
+        }
+    }
+};
+
 } // namespace
 
-void FusedGateUpLinearLayer::prepare_decode_swiglu_fusion_state() {
-    decode_swiglu_fusion_state_ = std::make_unique<DecodeSwigluFusionState>();
-
-    if (decode_weights_.quant_type_ != QuantType::FP16_BF16 || decode_weights_.weight_ == nullptr) {
-        decode_swiglu_fusion_state_->unavailable_reason =
-            "decode fused SwiGLU requires FP16/BF16 weights";
-        return;
-    }
-
-    if (gate_out_features_ != up_out_features_) {
-        decode_swiglu_fusion_state_->unavailable_reason =
-            "decode fused SwiGLU requires gate/up output widths to match";
-        return;
-    }
-
-    try {
-        switch (decode_weights_.weight_->dtype()) {
-            case DType::Float16:
-                prepare_decode_swiglu_fusion_state_for_dtype<half>(
-                    decode_weights_.weight_,
-                    decode_weights_.bias_,
-                    static_cast<int64_t>(up_out_features_),
-                    static_cast<int64_t>(in_features_),
-                    device_id_,
-                    layer_prefix_,
-                    *decode_swiglu_fusion_state_);
-                break;
-            case DType::BFloat16:
-                prepare_decode_swiglu_fusion_state_for_dtype<__nv_bfloat16>(
-                    decode_weights_.weight_,
-                    decode_weights_.bias_,
-                    static_cast<int64_t>(up_out_features_),
-                    static_cast<int64_t>(in_features_),
-                    device_id_,
-                    layer_prefix_,
-                    *decode_swiglu_fusion_state_);
-                break;
-            default:
-                decode_swiglu_fusion_state_->unavailable_reason =
-                    "decode fused SwiGLU requires FP16/BF16 weights";
-                break;
-        }
-    } catch (const std::exception& ex) {
-        decode_swiglu_fusion_state_->available = false;
-        decode_swiglu_fusion_state_->unavailable_reason = ex.what();
-    }
+FusedGateUpActivationOpRegistry::FusedGateUpActivationOpRegistry() {
+    impls_.emplace_back(std::make_unique<TrtLlmDecodeSwigluOp>());
 }
 
-bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
-    const Tensor& input,
-    Tensor& output,
-    cudaStream_t stream) {
-    if (decode_swiglu_fusion_state_ == nullptr) {
-        prepare_decode_swiglu_fusion_state();
-    }
-    if (decode_swiglu_fusion_state_ == nullptr || !decode_swiglu_fusion_state_->available) {
-        return false;
-    }
+FusedGateUpActivationOpRegistry& FusedGateUpActivationOpRegistry::instance() {
+    static FusedGateUpActivationOpRegistry registry;
+    return registry;
+}
 
-    check<InvalidRequestError>(
-        input.shape().size() == 2 && input.shape()[0] == 1 &&
-            input.shape()[1] == static_cast<int64_t>(in_features_),
-        "FusedGateUpLinearLayer: decode fused SwiGLU expects input shape [1, in_features]");
-    check<InvalidRequestError>(
-        output.shape().size() == 2 && output.shape()[0] == 1 &&
-            output.shape()[1] == static_cast<int64_t>(up_out_features_),
-        "FusedGateUpLinearLayer: decode fused SwiGLU expects output shape [1, up_out_features]");
-    check<InvalidRequestError>(
-        input.dtype() == output.dtype() && input.dtype() == decode_weights_.weight_->dtype(),
-        "FusedGateUpLinearLayer: decode fused SwiGLU requires input/output/weight dtypes to match");
-
-    switch (input.dtype()) {
-        case DType::Float16:
-            run_decode_swiglu_fused_for_dtype<half>(
-                decode_weights_.weight_,
-                decode_weights_.bias_,
-                static_cast<int64_t>(up_out_features_),
-                static_cast<int64_t>(in_features_),
-                *decode_swiglu_fusion_state_,
-                input,
-                output,
-                stream);
-            return true;
-        case DType::BFloat16:
-            run_decode_swiglu_fused_for_dtype<__nv_bfloat16>(
-                decode_weights_.weight_,
-                decode_weights_.bias_,
-                static_cast<int64_t>(up_out_features_),
-                static_cast<int64_t>(in_features_),
-                *decode_swiglu_fusion_state_,
-                input,
-                output,
-                stream);
-            return true;
-        default:
-            return false;
+FusedGateUpActivationOp* FusedGateUpActivationOpRegistry::find_impl_by_id(const std::string& impl_id) const {
+    for (const auto& impl : impls_) {
+        if (impl->impl_id() == impl_id) {
+            return impl.get();
+        }
     }
+    return nullptr;
+}
+
+FusedGateUpActivationOp* FusedGateUpActivationOpRegistry::default_impl(
+    const FusedGateUpActivationOpContext& ctx) const
+{
+    for (const auto& impl : impls_) {
+        if (impl->supports(ctx)) {
+            return impl.get();
+        }
+    }
+    return nullptr;
 }
 
 } // namespace edge_fm

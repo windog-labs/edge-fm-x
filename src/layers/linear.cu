@@ -1,4 +1,6 @@
 #include "layers/linear.h"
+#include "operators/fused_gate_up_activation_op.h"
+#include "operators/operator_impl_table.h"
 #include "utils/device/nvtx.h"
 #include <vector>
 #include <nlohmann/json.hpp>
@@ -44,6 +46,18 @@ std::string infer_layer_role(const std::string& layer_prefix) {
         return "mlp_down";
     }
     return "linear";
+}
+
+std::string stage_key(ModelStage stage) {
+    return stage == ModelStage::Decode ? "decode" : "prefill";
+}
+
+std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
+    try {
+        return engine_config.resolved_model_name();
+    } catch (const ConfigurationError&) {
+        return std::string();
+    }
 }
 
 } // namespace
@@ -877,6 +891,25 @@ void FusedQKVLinearLayer::load_weights(
 // ============================================================================
 // FusedGateUpLinearLayer implementation
 // ============================================================================
+FusedGateUpLinearLayer::FusedGateUpLinearLayer(
+    const std::string& layer_prefix_base,
+    const EngineConfig& engine_config,
+    uint32_t in_features,
+    uint32_t gate_out_features,
+    uint32_t up_out_features,
+    std::string layer_name)
+    : LinearLayer(layer_prefix_base + ".gate_up_fused",
+                  engine_config,
+                  in_features,
+                  gate_out_features + up_out_features,
+                  std::move(layer_name)),
+      in_features_(in_features),
+      gate_out_features_(gate_out_features),
+      up_out_features_(up_out_features),
+      layer_prefix_base_(layer_prefix_base) {}
+
+FusedGateUpLinearLayer::~FusedGateUpLinearLayer() = default;
+
 void FusedGateUpLinearLayer::merge_weights(
     const std::unordered_map<std::string, Tensor>& weights,
     Tensor& fused_weight,
@@ -1012,6 +1045,10 @@ void FusedGateUpLinearLayer::load_weights(
     const std::unordered_map<std::string, Tensor>& prefill_weights,
     const std::unordered_map<std::string, Tensor>& decode_weights)
 {
+    decode_swiglu_impl_ = nullptr;
+    decode_swiglu_impl_id_.clear();
+    decode_swiglu_state_.reset();
+
     // Local tensors for merged weights
     Tensor prefill_fused_weight, prefill_fused_bias;
     Tensor decode_fused_weight, decode_fused_bias;
@@ -1053,9 +1090,126 @@ void FusedGateUpLinearLayer::load_weights(
     }
     // Call base class load_weights with modified weights (now fused weights are in the map)
     LinearLayer::load_weights(mutable_prefill, mutable_decode);
-    prepare_decode_swiglu_fusion_state();
     
     weights_loaded_ = true;
+}
+
+FusedGateUpActivationOp* FusedGateUpLinearLayer::resolve_decode_swiglu_impl(
+    const FusedGateUpActivationOpContext& ctx)
+{
+    if (decode_swiglu_impl_ != nullptr) {
+        return decode_swiglu_impl_;
+    }
+
+    if (!decode_swiglu_impl_id_.empty()) {
+        if (FusedGateUpActivationOp* impl =
+                FusedGateUpActivationOpRegistry::instance().find_impl_by_id(decode_swiglu_impl_id_);
+            impl != nullptr)
+        {
+            decode_swiglu_impl_ = impl;
+            return impl;
+        }
+        decode_swiglu_impl_id_.clear();
+    }
+
+    OperatorQuery query;
+    query.op_kind = "fused_gate_up_activation";
+    query.layer_role = layer_role_;
+    query.op_name = layer_prefix_;
+    query.stage = stage_key(ModelStage::Decode);
+    query.shape_sig = ctx.shape_sig();
+
+    auto resolved = OperatorImplTable::instance().resolve(
+        model_name_for_operator_resolution(engine_config_),
+        engine_config_.resolved_hw_profile(),
+        engine_config_.operator_impl_table_path(),
+        query);
+
+    if (resolved.has_value()) {
+        if (FusedGateUpActivationOp* impl =
+                FusedGateUpActivationOpRegistry::instance().find_impl_by_id(resolved->impl_id);
+            impl != nullptr)
+        {
+            if (!impl->supports(ctx)) {
+                throw ConfigurationError(
+                    "FusedGateUpLinearLayer: operator_impl_table selected unsupported impl '" +
+                    resolved->impl_id + "'");
+            }
+            decode_swiglu_impl_id_ = impl->impl_id();
+            decode_swiglu_impl_ = impl;
+            return impl;
+        }
+        throw ConfigurationError(
+            "FusedGateUpLinearLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
+    }
+
+    if (FusedGateUpActivationOp* impl = FusedGateUpActivationOpRegistry::instance().default_impl(ctx);
+        impl != nullptr)
+    {
+        decode_swiglu_impl_id_ = impl->impl_id();
+        decode_swiglu_impl_ = impl;
+        return impl;
+    }
+
+    return nullptr;
+}
+
+bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream)
+{
+    check<InvalidRequestError>(
+        input.shape().size() == 2 && input.shape()[0] == 1 &&
+            input.shape()[1] == static_cast<int64_t>(in_features_),
+        "FusedGateUpLinearLayer: decode fused SwiGLU expects input shape [1, in_features]");
+    check<InvalidRequestError>(
+        output.shape().size() == 2 && output.shape()[0] == 1 &&
+            output.shape()[1] == static_cast<int64_t>(up_out_features_),
+        "FusedGateUpLinearLayer: decode fused SwiGLU expects output shape [1, up_out_features]");
+    check<InvalidRequestError>(
+        decode_weights_.weight_ != nullptr,
+        "FusedGateUpLinearLayer: decode fused SwiGLU requires loaded decode weights");
+    check<InvalidRequestError>(
+        input.dtype() == output.dtype() && input.dtype() == decode_weights_.weight_->dtype(),
+        "FusedGateUpLinearLayer: decode fused SwiGLU requires input/output/weight dtypes to match");
+
+    FusedGateUpActivationOpContext ctx;
+    ctx.layer_prefix = layer_prefix_;
+    ctx.layer_role = layer_role_;
+    ctx.device_id = device_id_;
+    ctx.input_features = static_cast<int64_t>(in_features_);
+    ctx.gate_output_features = static_cast<int64_t>(gate_out_features_);
+    ctx.up_output_features = static_cast<int64_t>(up_out_features_);
+    ctx.input_dtype = input.dtype();
+    ctx.weight_dtype = decode_weights_.weight_->dtype();
+    ctx.output_dtype = output.dtype();
+    ctx.has_bias = decode_weights_.bias_ != nullptr;
+
+    FusedGateUpActivationOp* impl = resolve_decode_swiglu_impl(ctx);
+    if (impl == nullptr) {
+        return false;
+    }
+
+    if (decode_swiglu_state_ == nullptr) {
+        decode_swiglu_state_ = std::make_unique<FusedGateUpActivationOpState>();
+    }
+    if (!decode_swiglu_state_->initialized) {
+        impl->prepare(ctx, *decode_weights_.weight_, decode_weights_.bias_, *decode_swiglu_state_);
+    }
+    if (!decode_swiglu_state_->available) {
+        return false;
+    }
+
+    impl->run(
+        ctx,
+        *decode_weights_.weight_,
+        decode_weights_.bias_,
+        *decode_swiglu_state_,
+        input,
+        output,
+        stream);
+    return true;
 }
 
 // ============================================================================
