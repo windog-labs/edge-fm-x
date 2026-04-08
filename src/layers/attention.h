@@ -2,6 +2,7 @@
 
 #include "layer.h"
 #include <edge-fm/core.h>
+#include <nlohmann/json.hpp>
 #include <array>
 #include <string>
 #include <unordered_map>
@@ -46,7 +47,9 @@ public:
         const Tensor& v,  // [kv_len, num_kv_heads, head_dim]
         Tensor& o,        // [qo_len, num_qo_heads, head_dim]
         bool causal,
-        cudaStream_t stream) const;
+        cudaStream_t stream,
+        uint32_t q_stride_n = 0,
+        uint32_t q_stride_h = 0) const;
 
     void forward_decode(
         const Tensor& q,  // [1, num_qo_heads, head_dim]
@@ -89,6 +92,10 @@ private:
     DType dtype_;
     RoPEMode rope_mode_;
     mutable std::array<std::string, 2> selected_impl_ids_ = {};
+    mutable std::array<nlohmann::json, 2> selected_impl_params_ = {
+        nlohmann::json::object(),
+        nlohmann::json::object(),
+    };
     mutable std::array<AttentionOp*, 2> selected_impls_ = {nullptr, nullptr};
 };
 

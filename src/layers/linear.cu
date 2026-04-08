@@ -274,6 +274,7 @@ void LinearLayer::cleanup_cached_descriptors(CachedDescriptors& cached)
     destroy_layout(cached.Ddesc_);
     cached.cached_m_ = -1;
     cached.has_algo_ = false;
+    cached.heuristic_candidate_count_ = 0;
     cached.best_algo_index_ = -1;
     cached.heuristic_candidates_.clear();
     cached.selected_impl_id_.clear();
@@ -397,6 +398,7 @@ void LinearLayer::get_or_create_descriptors(
         cached.cached_input_type_ = input_type;
         cached.cached_output_type_ = output_type;
         cached.heuristic_candidates_.clear();
+        cached.heuristic_candidate_count_ = 0;
         cached.best_algo_index_ = -1;
 
         // Query top-K algorithms via heuristic; operator_impl_table may optionally pin algo_index.
@@ -419,6 +421,7 @@ void LinearLayer::get_or_create_descriptors(
             cublasLtMatmulPreferenceDestroy(pref);
             if (status == CUBLAS_STATUS_SUCCESS && returned > 0) {
                 cached.heuristic_candidates_.assign(results.begin(), results.begin() + returned);
+                cached.heuristic_candidate_count_ = returned;
                 cached.heuristic_ = cached.heuristic_candidates_[0];
                 cached.has_algo_ = true;
                 cached.best_algo_index_ = (returned == 1) ? 0 : -1;  // single candidate: use directly
@@ -621,6 +624,39 @@ void LinearLayer::forward(
         throw InternalError("LinearLayer: Unsupported quantization type: " + 
                            std::to_string(static_cast<int>(weight_set.quant_type_)));
     }
+}
+
+nlohmann::json LinearLayer::debug_cached_impl_info(ModelStage stage, int32_t m) const
+{
+    const CachedDescriptors* cached = nullptr;
+    if (stage == ModelStage::Decode) {
+        cached = &decode_descriptors_;
+    } else {
+        auto it = prefill_descriptors_map_.find(m);
+        if (it != prefill_descriptors_map_.end()) {
+            cached = &it->second;
+        }
+    }
+
+    nlohmann::json info = {
+        {"layer_prefix", layer_prefix_},
+        {"layer_role", layer_role_},
+        {"stage", stage == ModelStage::Decode ? "decode" : "prefill"},
+        {"requested_m", m},
+        {"cached", cached != nullptr},
+    };
+    if (cached == nullptr) {
+        return info;
+    }
+
+    info["cached_m"] = cached->cached_m_;
+    info["selected_impl_id"] = cached->selected_impl_id_;
+    info["selected_impl_params"] = cached->selected_impl_params_;
+    info["has_algo"] = cached->has_algo_;
+    info["heuristic_candidate_count"] = cached->heuristic_candidate_count_;
+    info["best_algo_index"] = cached->best_algo_index_;
+    info["workspace_bytes"] = cached->has_algo_ ? cached->heuristic_.workspaceSize : 0;
+    return info;
 }
 
 // ============================================================================
@@ -897,29 +933,27 @@ void FusedGateUpLinearLayer::merge_weights(
         device_id_
     );
     
-    // Copy gate, up weights to fused weight tensor (concatenate along output dimension)
-    // Layout: [gate: gate_out, up: up_out, in_features]
-    size_t gate_weight_bytes = gate_out_features_ * in_features_ * dtype_size;
     size_t up_weight_bytes = up_out_features_ * in_features_ * dtype_size;
+    size_t gate_weight_bytes = gate_out_features_ * in_features_ * dtype_size;
     
-    // Copy gate weight
+    // Internal layout is [up, gate] so decode can directly feed TRT-LLM's fused SwiGLU kernel
+    // without keeping another reordered copy of the weight tensor.
     CUDA_CHECK_THROW(cudaMemcpyAsync(
         fused_weight_ptr,
-        gate_weight.data_ptr(),
-        gate_weight_bytes,
-        cudaMemcpyDeviceToDevice,
-        stream
-    ), "FusedGateUpLinearLayer: failed to copy gate weight");
-    
-    // Copy up weight (offset by gate_out_features rows)
-    void* up_dst = static_cast<char*>(fused_weight_ptr) + gate_weight_bytes;
-    CUDA_CHECK_THROW(cudaMemcpyAsync(
-        up_dst,
         up_weight.data_ptr(),
         up_weight_bytes,
         cudaMemcpyDeviceToDevice,
         stream
     ), "FusedGateUpLinearLayer: failed to copy up weight");
+    
+    void* gate_dst = static_cast<char*>(fused_weight_ptr) + up_weight_bytes;
+    CUDA_CHECK_THROW(cudaMemcpyAsync(
+        gate_dst,
+        gate_weight.data_ptr(),
+        gate_weight_bytes,
+        cudaMemcpyDeviceToDevice,
+        stream
+    ), "FusedGateUpLinearLayer: failed to copy gate weight");
     
     // Handle bias (if exists)
     std::string gate_bias_name = layer_prefix_base_ + ".gate_proj.bias";
@@ -948,29 +982,28 @@ void FusedGateUpLinearLayer::merge_weights(
         CUDA_CHECK_THROW(cudaMemsetAsync(fused_bias_ptr, 0, fused_bias_bytes, stream),
                          "FusedGateUpLinearLayer: failed to initialize fused bias");
         
-        // Copy gate bias if exists
-        if (has_gate_bias) {
-            size_t gate_bias_bytes = gate_out_features_ * dtype_size;
-            CUDA_CHECK_THROW(cudaMemcpyAsync(
-                fused_bias_ptr,
-                gate_bias_it->second.data_ptr(),
-                gate_bias_bytes,
-                cudaMemcpyDeviceToDevice,
-                stream
-            ), "FusedGateUpLinearLayer: failed to copy gate bias");
-        }
-        
-        // Copy up bias if exists
+        // Internal bias layout matches the internal weight layout: [up, gate].
         if (has_up_bias) {
-            void* up_bias_dst = static_cast<char*>(fused_bias_ptr) + gate_out_features_ * dtype_size;
             size_t up_bias_bytes = up_out_features_ * dtype_size;
             CUDA_CHECK_THROW(cudaMemcpyAsync(
-                up_bias_dst,
+                fused_bias_ptr,
                 up_bias_it->second.data_ptr(),
                 up_bias_bytes,
                 cudaMemcpyDeviceToDevice,
                 stream
             ), "FusedGateUpLinearLayer: failed to copy up bias");
+        }
+        
+        if (has_gate_bias) {
+            void* gate_bias_dst = static_cast<char*>(fused_bias_ptr) + up_out_features_ * dtype_size;
+            size_t gate_bias_bytes = gate_out_features_ * dtype_size;
+            CUDA_CHECK_THROW(cudaMemcpyAsync(
+                gate_bias_dst,
+                gate_bias_it->second.data_ptr(),
+                gate_bias_bytes,
+                cudaMemcpyDeviceToDevice,
+                stream
+            ), "FusedGateUpLinearLayer: failed to copy gate bias");
         }
     }
 }
@@ -988,39 +1021,39 @@ void FusedGateUpLinearLayer::load_weights(
         merge_weights(decode_weights, decode_fused_weight, decode_fused_bias, nullptr);
     }
     
-    // Use WeightLoader's mutex to protect weight map modifications
-    std::lock_guard<std::mutex> lock(WeightLoader::instance().get_modification_mutex());
-    // Cast to non-const reference to modify the weight map
     auto& mutable_prefill = const_cast<std::unordered_map<std::string, Tensor>&>(prefill_weights);
     auto& mutable_decode = const_cast<std::unordered_map<std::string, Tensor>&>(decode_weights);
-    // Add fused weights to the weight map (use emplace to avoid copy assignment)
-    mutable_prefill.erase(layer_prefix_base_ + ".gate_up_fused.weight");
-    mutable_prefill.emplace(layer_prefix_base_ + ".gate_up_fused.weight", std::move(prefill_fused_weight));
-    if (prefill_fused_bias.data_ptr() != nullptr) {
-        mutable_prefill.erase(layer_prefix_base_ + ".gate_up_fused.bias");
-        mutable_prefill.emplace(layer_prefix_base_ + ".gate_up_fused.bias", std::move(prefill_fused_bias));
-    }
-    // Remove original gate, up weights to save memory
-    mutable_prefill.erase(layer_prefix_base_ + ".gate_proj.weight");
-    mutable_prefill.erase(layer_prefix_base_ + ".up_proj.weight");
-    mutable_prefill.erase(layer_prefix_base_ + ".gate_proj.bias");
-    mutable_prefill.erase(layer_prefix_base_ + ".up_proj.bias");
-    // Handle decode weights (if different from prefill)
-    if (!decode_weights.empty() && &decode_weights != &prefill_weights) {
-        mutable_decode.erase(layer_prefix_base_ + ".gate_up_fused.weight");
-        mutable_decode.emplace(layer_prefix_base_ + ".gate_up_fused.weight", std::move(decode_fused_weight));
-        if (decode_fused_bias.data_ptr() != nullptr) {
-            mutable_decode.erase(layer_prefix_base_ + ".gate_up_fused.bias");
-            mutable_decode.emplace(layer_prefix_base_ + ".gate_up_fused.bias", std::move(decode_fused_bias));
+    {
+        // Only protect the in-place weight map mutation. The later layer setup can be slow and
+        // should not hold the global WeightLoader modification mutex.
+        std::lock_guard<std::mutex> lock(WeightLoader::instance().get_modification_mutex());
+        mutable_prefill.erase(layer_prefix_base_ + ".gate_up_fused.weight");
+        mutable_prefill.emplace(layer_prefix_base_ + ".gate_up_fused.weight", std::move(prefill_fused_weight));
+        if (prefill_fused_bias.data_ptr() != nullptr) {
+            mutable_prefill.erase(layer_prefix_base_ + ".gate_up_fused.bias");
+            mutable_prefill.emplace(layer_prefix_base_ + ".gate_up_fused.bias", std::move(prefill_fused_bias));
         }
-        
-        mutable_decode.erase(layer_prefix_base_ + ".gate_proj.weight");
-        mutable_decode.erase(layer_prefix_base_ + ".up_proj.weight");
-        mutable_decode.erase(layer_prefix_base_ + ".gate_proj.bias");
-        mutable_decode.erase(layer_prefix_base_ + ".up_proj.bias");
+        mutable_prefill.erase(layer_prefix_base_ + ".gate_proj.weight");
+        mutable_prefill.erase(layer_prefix_base_ + ".up_proj.weight");
+        mutable_prefill.erase(layer_prefix_base_ + ".gate_proj.bias");
+        mutable_prefill.erase(layer_prefix_base_ + ".up_proj.bias");
+        if (!decode_weights.empty() && &decode_weights != &prefill_weights) {
+            mutable_decode.erase(layer_prefix_base_ + ".gate_up_fused.weight");
+            mutable_decode.emplace(layer_prefix_base_ + ".gate_up_fused.weight", std::move(decode_fused_weight));
+            if (decode_fused_bias.data_ptr() != nullptr) {
+                mutable_decode.erase(layer_prefix_base_ + ".gate_up_fused.bias");
+                mutable_decode.emplace(layer_prefix_base_ + ".gate_up_fused.bias", std::move(decode_fused_bias));
+            }
+
+            mutable_decode.erase(layer_prefix_base_ + ".gate_proj.weight");
+            mutable_decode.erase(layer_prefix_base_ + ".up_proj.weight");
+            mutable_decode.erase(layer_prefix_base_ + ".gate_proj.bias");
+            mutable_decode.erase(layer_prefix_base_ + ".up_proj.bias");
+        }
     }
     // Call base class load_weights with modified weights (now fused weights are in the map)
     LinearLayer::load_weights(mutable_prefill, mutable_decode);
+    prepare_decode_swiglu_fusion_state();
     
     weights_loaded_ = true;
 }

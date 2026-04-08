@@ -136,6 +136,8 @@ Context Scheduler::create_context(const Request& request, Response* response) {
                    kv_cache_write_ptrs, 
                    response,
                    max_generated_tokens,
+                   matched_slot->prefix_size,
+                   matched_slot->max_tokens,
                    static_cast<int32_t>(k_cache_token_stride),
                    stream_);
 }
@@ -189,4 +191,3 @@ std::unordered_map<std::string, Tensor> Context::make_layer_outputs(
 }
 
 } // namespace edge_fm
-

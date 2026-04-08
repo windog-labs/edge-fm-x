@@ -15,11 +15,17 @@ enum class ActivationKind {
     kSilu,
 };
 
+enum class ActivationInputLayout {
+    kGateUp,
+    kUpGate,
+};
+
 struct ActivationOpContext {
     int64_t batch_size = 0;
     int64_t hidden_size = 0;
     DType dtype = DType::Float16;
     ActivationKind kind = ActivationKind::kSilu;
+    ActivationInputLayout input_layout = ActivationInputLayout::kGateUp;
 };
 
 class ActivationOp {

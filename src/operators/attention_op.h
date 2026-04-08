@@ -1,6 +1,7 @@
 #pragma once
 
 #include <edge-fm/core.h>
+#include <nlohmann/json.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -20,11 +21,14 @@ struct AttentionOpContext {
     uint32_t num_qo_heads = 0;
     uint32_t num_kv_heads = 0;
     uint32_t head_dim = 0;
+    uint32_t q_stride_n = 0;
+    uint32_t q_stride_h = 0;
     float rope_scale = 1.0f;
     float rope_theta = 1000000.0f;
     DType dtype = DType::Float16;
     AttentionPosEncoding pos_encoding = AttentionPosEncoding::kRoPELlama;
     int32_t device_id = 0;
+    nlohmann::json impl_params = nlohmann::json::object();
 };
 
 class AttentionOp {

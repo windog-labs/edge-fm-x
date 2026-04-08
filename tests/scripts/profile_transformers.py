@@ -7,24 +7,27 @@ Usage:
 
 Env vars:
   EDGE_FM_DEVICE_ID  – GPU device id (default 1)
+  PROFILE_PREFILL_LEN – prefill length to profile (default 512)
   PROFILE_NUM_STEPS  – decode steps to profile (default 20)
 """
 
-import os, sys
+import json, os, sys
 from pathlib import Path
 
+import numpy as np
 import torch
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
+PREFILL_LEN = int(os.environ.get("PROFILE_PREFILL_LEN", "512"))
 NUM_STEPS = int(os.environ.get("PROFILE_NUM_STEPS", "20"))
 WARMUP_RUNS = 3
 CUDA_DEVICE = f"cuda:{DEVICE_ID}"
 
 PROMPT = "Hello, how are you today?"
-SEQ_LEN = 6
+BASE_SEQ_LEN = 6
 
 
 def find_model_path():
@@ -54,13 +57,39 @@ def run_once(model, input_ids, device):
     return tok
 
 
+def build_prefill_token_ids(model_path: str) -> list[int]:
+    dump_dir = project_root / "tests" / "data" / "decode_dump"
+    manifest_path = dump_dir / "manifest.json"
+    token_ids_path = dump_dir / "token_ids.npy"
+    if manifest_path.exists() and token_ids_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        manifest_model_path = manifest.get("model_path", "")
+        if manifest_model_path and Path(manifest_model_path).exists():
+            model_path = manifest_model_path
+        token_ids = np.load(token_ids_path).flatten().tolist()
+    else:
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        token_ids = tokenizer.encode(PROMPT, add_special_tokens=True)[:BASE_SEQ_LEN]
+        if len(token_ids) < BASE_SEQ_LEN:
+            token_ids += [0] * (BASE_SEQ_LEN - len(token_ids))
+
+    if len(token_ids) < PREFILL_LEN:
+        repeat = (PREFILL_LEN + len(token_ids) - 1) // len(token_ids)
+        token_ids = (token_ids * repeat)[:PREFILL_LEN]
+    else:
+        token_ids = token_ids[:PREFILL_LEN]
+    return token_ids
+
+
 def main():
     from transformers import AutoModelForCausalLM, AutoConfig, AutoTokenizer
 
     model_path = find_model_path()
     assert model_path, "Model not found"
     print(f"Model: {model_path}")
-    print(f"Device: {CUDA_DEVICE}, Steps: {NUM_STEPS}")
+    print(f"Device: {CUDA_DEVICE}, Prefill: {PREFILL_LEN}, Steps: {NUM_STEPS}")
 
     config = AutoConfig.from_pretrained(model_path)
     dtype_str = str(getattr(config, "torch_dtype", "float16")).lower()
@@ -70,10 +99,7 @@ def main():
         model_path, torch_dtype=model_dtype, device_map=CUDA_DEVICE)
     model.eval()
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    token_ids = tokenizer.encode(PROMPT, add_special_tokens=True)[:SEQ_LEN]
-    if len(token_ids) < SEQ_LEN:
-        token_ids += [0] * (SEQ_LEN - len(token_ids))
+    token_ids = build_prefill_token_ids(model_path)
     input_ids = torch.tensor([token_ids], dtype=torch.long, device=CUDA_DEVICE)
     print(f"Prefill tokens: {len(token_ids)}")
 

@@ -1,4 +1,5 @@
 *.DS_Store
+.tmp*
 build*
 build/*
 *.pyc
@@ -13,3 +14,6 @@ tests/data/*
 
 ncu_*
 nsys_*
+
+doc/benchmark_reports
+doc/edge_fm_optimization_journal.md

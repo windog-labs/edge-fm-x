@@ -7,7 +7,11 @@ set(UTILS_SOURCES
 )
 
 if(ENABLE_CUDA)
-    list(APPEND UTILS_SOURCES device/weight_loader.cpp device/cuda_graph.cpp)
+    list(APPEND UTILS_SOURCES
+        device/weight_loader.cpp
+        device/cuda_graph.cpp
+        device/decode_runtime_kernels.cu
+    )
 endif()
 
 add_library(edge_fm_utils STATIC ${UTILS_SOURCES})

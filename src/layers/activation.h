@@ -1,14 +1,12 @@
 #pragma once
 #include "layer.h"
+#include "operators/activation_op.h"
 #include <edge-fm/core.h>
 #include <array>
 #include <string>
 #include <unordered_map>
 
 namespace edge_fm {
-
-class ActivationOp;
-struct ActivationOpContext;
 
 /**
  * @brief Activation layer for transformer MLP operations
@@ -35,7 +33,15 @@ public:
     void forward_silu_and_mul(
         const Tensor& input,
         Tensor& output,
-        cudaStream_t stream = nullptr
+        cudaStream_t stream = nullptr,
+        ModelStage stage = ModelStage::Prefill
+    );
+
+    void forward_silu_and_mul_up_gate(
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream = nullptr,
+        ModelStage stage = ModelStage::Prefill
     );
 
 private:
@@ -43,7 +49,8 @@ private:
         const Tensor& input,
         Tensor& output,
         cudaStream_t stream,
-        ModelStage stage);
+        ModelStage stage,
+        ActivationInputLayout input_layout);
 
     ActivationOp* resolve_impl(const ActivationOpContext& ctx, ModelStage stage);
 

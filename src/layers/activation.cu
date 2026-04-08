@@ -117,22 +117,33 @@ void ActivationLayer::forward(
 
     const auto& input = inputs.at("input");
     auto& output = outputs.at("output");
-    forward_silu_and_mul_impl(input, output, stream, stage);
+    forward_silu_and_mul_impl(input, output, stream, stage, ActivationInputLayout::kGateUp);
 }
 
 void ActivationLayer::forward_silu_and_mul(
     const Tensor& input,
     Tensor& output,
-    cudaStream_t stream)
+    cudaStream_t stream,
+    ModelStage stage)
 {
-    forward_silu_and_mul_impl(input, output, stream, ModelStage::Prefill);
+    forward_silu_and_mul_impl(input, output, stream, stage, ActivationInputLayout::kGateUp);
+}
+
+void ActivationLayer::forward_silu_and_mul_up_gate(
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream,
+    ModelStage stage)
+{
+    forward_silu_and_mul_impl(input, output, stream, stage, ActivationInputLayout::kUpGate);
 }
 
 void ActivationLayer::forward_silu_and_mul_impl(
     const Tensor& input,
     Tensor& output,
     cudaStream_t stream,
-    ModelStage stage)
+    ModelStage stage,
+    ActivationInputLayout input_layout)
 {
     validate_tensor_device(input, device_, device_id_, "Input");
     validate_tensor_device(output, device_, device_id_, "Output");
@@ -193,6 +204,7 @@ void ActivationLayer::forward_silu_and_mul_impl(
     ctx.hidden_size = static_cast<int64_t>(hidden_size_);
     ctx.dtype = input_dtype;
     ctx.kind = ActivationKind::kSilu;
+    ctx.input_layout = input_layout;
 
     ActivationOp* impl = resolve_impl(ctx, stage);
     impl->act_and_mul(ctx, input, output, stream);

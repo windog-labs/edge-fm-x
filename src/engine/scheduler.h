@@ -20,6 +20,8 @@ public:
             const std::vector<void*>& kv_write_ptrs,
             Response* response,
             int32_t max_generated_tokens,
+            size_t prefix_size,
+            int32_t slot_max_tokens,
             int32_t token_stride,
             cudaStream_t stream=nullptr
         ):
@@ -29,6 +31,8 @@ public:
             response_(response),
             max_generated_tokens_(max_generated_tokens),
             generated_tokens_(0),
+            prefix_size_(prefix_size),
+            slot_max_tokens_(slot_max_tokens),
             token_stride_(token_stride),
             stream_(stream),
             response_tokens_base_ptr_(nullptr),
@@ -44,6 +48,8 @@ public:
     void advance_after_prefill(int32_t seq_len);
     std::vector<void*> get_kv_read_ptrs() const;
     std::vector<void*> get_kv_write_ptrs() const;
+    const std::vector<void*>& kv_read_ptrs_ref() const { return kv_cache_ptrs_; }
+    const std::vector<void*>& kv_write_ptrs_ref() const { return kv_write_ptrs_; }
     void set_kv_write_ptrs(const std::vector<void*>& ptrs);
     
     const Request* request() const { return request_; }
@@ -97,6 +103,10 @@ public:
 
     void set_decode_cache_kv_len(int32_t v) { decode_cache_kv_len_ = v; }
     int32_t decode_cache_kv_len() const { return decode_cache_kv_len_; }
+    size_t prefix_size() const { return prefix_size_; }
+    int32_t slot_max_tokens() const { return slot_max_tokens_; }
+    bool decode_tensors_initialized() const { return decode_tensors_initialized_; }
+    void mark_decode_tensors_initialized() { decode_tensors_initialized_ = true; }
 
 private:
     const Request* request_;
@@ -105,6 +115,8 @@ private:
     Response* response_;
     int32_t max_generated_tokens_;
     int32_t generated_tokens_;
+    size_t prefix_size_;
+    int32_t slot_max_tokens_;
     int32_t token_stride_;
     cudaStream_t stream_;
     void* response_tokens_base_ptr_;
@@ -114,6 +126,7 @@ private:
     std::unordered_map<std::string, std::vector<int32_t>> model_state_;
 
     int32_t decode_cache_kv_len_ = 0;
+    bool decode_tensors_initialized_ = false;
 };
 
 class Scheduler : public NonCopyable {

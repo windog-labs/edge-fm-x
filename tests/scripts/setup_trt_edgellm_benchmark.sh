@@ -1,9 +1,11 @@
 #!/bin/bash
 # TensorRT-Edge-LLM benchmark 预置脚本
-# 导出 Qwen2.5-1.5B ONNX，构建 engine。首次运行 benchmark 前执行一次。
+# 导出指定 Qwen2.5 LLM ONNX，构建 engine。首次运行 benchmark 前执行一次。
 #
 # 用法（在项目根目录）:
 #   bash tests/scripts/setup_trt_edgellm_benchmark.sh
+#   EDGE_FM_TRT_MODEL_SIZE=0.5b bash tests/scripts/setup_trt_edgellm_benchmark.sh
+#   EDGE_FM_TRT_MODEL_SIZE=3b EDGE_FM_QWEN_3B_MODEL_PATH=/path/to/model bash tests/scripts/setup_trt_edgellm_benchmark.sh
 #
 # 需先: conda activate horizon_quant, pip install third_party/TensorRT-Edge-LLM
 
@@ -12,11 +14,74 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TRT_EDGELLM="$PROJECT_ROOT/third_party/TensorRT-Edge-LLM"
 WORKSPACE="$PROJECT_ROOT/tests/data/trt_edgellm_workspace"
-MODEL_NAME="qwen2.5-1.5b"
-MODEL_PATH="${EDGE_FM_QWEN_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-1.5b-instruct/qwen2.5-1.5b-instruct}"
+MODEL_SIZE="${EDGE_FM_TRT_MODEL_SIZE:-1.5b}"
+MAX_INPUT_LEN="${EDGE_FM_TRT_MAX_INPUT_LEN:-2048}"
+MAX_KV_CACHE_CAPACITY="${EDGE_FM_TRT_MAX_KV_CACHE_CAPACITY:-4096}"
+CONDA_ENV_PREFIX="${EDGE_FM_TRT_CONDA_PREFIX:-}"
+if [[ -n "$CONDA_ENV_PREFIX" && -x "$CONDA_ENV_PREFIX/bin/python" ]]; then
+    PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE:-$CONDA_ENV_PREFIX/bin/python}"
+else
+    PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE:-python3}"
+fi
+TRT_EXPORT_DEVICE="${EDGE_FM_TRT_EXPORT_DEVICE:-cuda}"
+case "$MODEL_SIZE" in
+    0.5b)
+        MODEL_NAME="qwen2.5-0.5b"
+        MODEL_PATH="${EDGE_FM_QWEN_0_5B_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-0.5b-instruct/qwen2.5-0.5b-instruct}"
+        ;;
+    1.5b)
+        MODEL_NAME="qwen2.5-1.5b"
+        MODEL_PATH="${EDGE_FM_QWEN_1_5B_MODEL_PATH:-${EDGE_FM_QWEN_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-1.5b-instruct/qwen2.5-1.5b-instruct}}"
+        ;;
+    3b)
+        MODEL_NAME="qwen2.5-3b"
+        MODEL_PATH="${EDGE_FM_QWEN_3B_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-3b-instruct/qwen2.5-3b-instruct}"
+        ;;
+    *)
+        echo "ERROR: unsupported EDGE_FM_TRT_MODEL_SIZE=$MODEL_SIZE (supported: 0.5b, 1.5b, 3b)"
+        exit 1
+        ;;
+esac
 ONNX_DIR="$WORKSPACE/$MODEL_NAME/onnx"
-ENGINE_DIR="$WORKSPACE/$MODEL_NAME/engines"
-TRT_PKG="${TRT_PACKAGE_DIR:-/usr/local/TensorRT-10.15.1.29}"
+ENGINE_DIR="$WORKSPACE/$MODEL_NAME/engines_mxil${MAX_INPUT_LEN}"
+TRT_PKG="${TRT_PACKAGE_DIR:-/xs-train-nas/zzm/packages/TensorRT-10.16.0.72}"
+
+resolve_export_llm_cmd() {
+    if [[ -n "$CONDA_ENV_PREFIX" && -x "$PYTHON_EXECUTABLE" ]]; then
+        if "$PYTHON_EXECUTABLE" - <<'PY' &>/dev/null
+import sys
+sys.path.insert(0, "third_party/TensorRT-Edge-LLM")
+from tensorrt_edgellm.scripts.export_llm import main  # noqa: F401
+print("ok")
+PY
+        then
+            echo "PYTHONPATH=\"$TRT_EDGELLM\" \"$PYTHON_EXECUTABLE\" \"$TRT_EDGELLM/tensorrt_edgellm/scripts/export_llm.py\""
+            return 0
+        fi
+    fi
+
+    if command -v conda >/dev/null 2>&1; then
+        local conda_prefix
+        conda_prefix="$(conda env list 2>/dev/null | awk '$1 == "horizon_quant" {print $2}' | head -1)"
+        if [[ -n "$conda_prefix" ]] && conda run -n horizon_quant which tensorrt-edgellm-export-llm &>/dev/null; then
+            echo "conda run -n horizon_quant tensorrt-edgellm-export-llm"
+            return 0
+        fi
+    fi
+
+    if "$PYTHON_EXECUTABLE" - <<'PY' &>/dev/null
+import sys
+sys.path.insert(0, "third_party/TensorRT-Edge-LLM")
+from tensorrt_edgellm.scripts.export_llm import main  # noqa: F401
+print("ok")
+PY
+    then
+        echo "PYTHONPATH=\"$TRT_EDGELLM\" \"$PYTHON_EXECUTABLE\" \"$TRT_EDGELLM/tensorrt_edgellm/scripts/export_llm.py\""
+        return 0
+    fi
+
+    return 1
+}
 
 cd "$PROJECT_ROOT"
 
@@ -35,15 +100,17 @@ cd "$PROJECT_ROOT"
 if [[ ! -d "$ONNX_DIR" ]] || [[ -z "$(ls -A "$ONNX_DIR" 2>/dev/null)" ]]; then
     echo "[2/4] Exporting ONNX from $MODEL_PATH..."
     mkdir -p "$ONNX_DIR"
-    if ! conda run -n horizon_quant which tensorrt-edgellm-export-llm &>/dev/null; then
-        echo "ERROR: tensorrt-edgellm not installed in horizon_quant."
-        echo "  Run: conda activate horizon_quant && pip install third_party/TensorRT-Edge-LLM"
-        echo "  (May take several minutes due to nvidia-modelopt dependencies)"
+    EXPORT_CMD="$(resolve_export_llm_cmd)" || {
+        echo "ERROR: unable to find a usable TensorRT-Edge-LLM export command."
+        echo "  Tried:"
+        echo "    1. conda run -n horizon_quant tensorrt-edgellm-export-llm"
+        echo "    2. repo-local export_llm.py via PYTHONPATH=$TRT_EDGELLM"
         exit 1
-    fi
-    conda run -n horizon_quant tensorrt-edgellm-export-llm \
-        --model_dir "$MODEL_PATH" \
-        --output_dir "$ONNX_DIR"
+    }
+    eval "$EXPORT_CMD" \
+        --model_dir "\"$MODEL_PATH\"" \
+        --output_dir "\"$ONNX_DIR\"" \
+        --device "\"$TRT_EXPORT_DEVICE\""
 else
     echo "[2/4] ONNX already exists at $ONNX_DIR, skipping export."
 fi
@@ -74,9 +141,9 @@ export LD_LIBRARY_PATH="${TRT_PKG}/lib:${LD_LIBRARY_PATH:-}"
     --onnxDir "$ONNX_DIR" \
     --engineDir "$ENGINE_DIR" \
     --maxBatchSize 1 \
-    --maxInputLen 1024 \
-    --maxKVCacheCapacity 4096
+    --maxInputLen "$MAX_INPUT_LEN" \
+    --maxKVCacheCapacity "$MAX_KV_CACHE_CAPACITY"
 
 echo ""
 echo "Done. Engine at: $ENGINE_DIR"
-echo "Run benchmark: pytest -s tests/engine/test_qwen2_generate.py -k benchmark_trt_edgellm -v"
+echo "Run benchmark: EDGE_FM_BENCH_LLM_MODELS=$MODEL_SIZE pytest -s tests/engine/test_qwen2_generate.py -k benchmark_trt_edgellm -v"

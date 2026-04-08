@@ -4,7 +4,10 @@
 #include "operators/operator_impl_table.h"
 #include "utils/device/memory.h"
 #include "engine/kv_manager.h"
+#include "utils/device/decode_runtime_kernels.h"
 #include "utils/device/cuda_utils.h"
+#include "utils/device/nvtx.h"
+#include "utils/check.h"
 #include <edge-fm/core.h>
 #include <cuda_runtime.h>
 #include <cstdint>
@@ -14,6 +17,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 
 namespace edge_fm {
 
@@ -46,12 +50,45 @@ Tensor last_token_logits_view(const Tensor& logits) {
     return Tensor::view(last_row_ptr, {1, row_width}, logits.dtype(), device, device_id);
 }
 
+int32_t prefill_token_count(const Context& context) {
+    const Tensor& token_ids = context.tensors().at(ModelTensors::TOKEN_IDS);
+    const auto& shape = token_ids.shape();
+    if (shape.empty()) {
+        throw InternalError("TOKEN_IDS tensor for prefill must have rank >= 1");
+    }
+    return static_cast<int32_t>(shape.back());
+}
+
+struct DecodeRuntimeStateLayout {
+    static constexpr size_t kTokenOffset = 0;
+    static constexpr size_t kKvLenOffset = kTokenOffset + sizeof(int32_t);
+    static constexpr size_t kPositionOffset = kKvLenOffset + sizeof(uint32_t);
+    static constexpr size_t kPositionElems = 3;
+    static constexpr size_t kBytes = kPositionOffset + kPositionElems * sizeof(int32_t);
+
+    static void* base_ptr(int32_t device_id) {
+        return StaticBufferManager::get_cache_buf("decode_runtime_state", kBytes, device_id);
+    }
+
+    static void* token_ids_ptr(void* base_ptr) {
+        return static_cast<void*>(static_cast<uint8_t*>(base_ptr) + kTokenOffset);
+    }
+
+    static void* kv_len_ptr(void* base_ptr) {
+        return static_cast<void*>(static_cast<uint8_t*>(base_ptr) + kKvLenOffset);
+    }
+
+    static void* position_ids_ptr(void* base_ptr) {
+        return static_cast<void*>(static_cast<uint8_t*>(base_ptr) + kPositionOffset);
+    }
+};
+
 struct DecodeWritePtrs {
     std::vector<void*> k;
     std::vector<void*> v;
 };
 
-DecodeWritePtrs collect_decode_write_ptrs(Context& context, int32_t num_layers) {
+DecodeWritePtrs collect_decode_write_ptrs_from_tensors(Context& context, int32_t num_layers) {
     auto& tensors = context.tensors();
     DecodeWritePtrs write_ptrs;
     write_ptrs.k.resize(num_layers);
@@ -59,6 +96,41 @@ DecodeWritePtrs collect_decode_write_ptrs(Context& context, int32_t num_layers) 
     for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
         write_ptrs.k[layer_id] = tensors.at(ModelTensors::k_write_layer(layer_id)).data_ptr();
         write_ptrs.v[layer_id] = tensors.at(ModelTensors::v_write_layer(layer_id)).data_ptr();
+    }
+    return write_ptrs;
+}
+
+DecodeWritePtrs collect_decode_write_ptrs_from_context(
+    const Context& context,
+    const KVManager& kv_manager,
+    int32_t num_layers)
+{
+    DecodeWritePtrs write_ptrs;
+    write_ptrs.k.resize(num_layers);
+    write_ptrs.v.resize(num_layers);
+
+    if (kv_manager.get_attention_type() == AttentionType::MLA) {
+        for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+            write_ptrs.k[layer_id] = context.kv_write_ptrs_ref()[layer_id];
+            write_ptrs.v[layer_id] = context.kv_write_ptrs_ref()[layer_id];
+        }
+        return write_ptrs;
+    }
+
+    const auto& kv_read_ptrs = context.kv_read_ptrs_ref();
+    const auto& kv_write_ptrs = context.kv_write_ptrs_ref();
+    const size_t token_stride = kv_manager.get_token_stride();
+    const size_t k_size_per_token = token_stride / 2;
+    const int32_t max_tokens = context.slot_max_tokens();
+
+    for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+        void* read_ptr = kv_read_ptrs[layer_id];
+        void* write_ptr = kv_write_ptrs[layer_id];
+        size_t offset_bytes = static_cast<uint8_t*>(write_ptr) - static_cast<uint8_t*>(read_ptr);
+        write_ptrs.k[layer_id] = write_ptr;
+        write_ptrs.v[layer_id] = static_cast<uint8_t*>(read_ptr)
+            + static_cast<size_t>(max_tokens) * k_size_per_token
+            + offset_bytes;
     }
     return write_ptrs;
 }
@@ -122,6 +194,113 @@ private:
     bool restored_ = false;
 };
 
+class ScopedPrefillCaptureRedirect {
+public:
+    ScopedPrefillCaptureRedirect(Context& context,
+                                 int32_t num_layers,
+                                 int32_t device_id,
+                                 const std::string& cache_key_prefix)
+        : tensors_(context.tensors())
+    {
+        for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+            redirect_pair(
+                ModelTensors::k_write_layer(layer_id),
+                ModelTensors::k_cache_layer(layer_id),
+                cache_key_prefix + "_k_L" + std::to_string(layer_id),
+                device_id);
+            redirect_pair(
+                ModelTensors::v_write_layer(layer_id),
+                ModelTensors::v_cache_layer(layer_id),
+                cache_key_prefix + "_v_L" + std::to_string(layer_id),
+                device_id);
+        }
+    }
+
+    ~ScopedPrefillCaptureRedirect() {
+        restore();
+    }
+
+    void restore() {
+        if (restored_) {
+            return;
+        }
+        for (auto& saved : saved_) {
+            tensors_[saved.name] = std::move(saved.tensor);
+        }
+        restored_ = true;
+    }
+
+private:
+    struct SavedTensor {
+        std::string name;
+        Tensor tensor;
+    };
+
+    void redirect_pair(const std::string& write_name,
+                       const std::string& cache_name,
+                       const std::string& buffer_name,
+                       int32_t device_id)
+    {
+        const Tensor& write_tensor = tensors_.at(write_name);
+        const Tensor& cache_tensor = tensors_.at(cache_name);
+
+        check<InternalError>(
+            tensor_nbytes(write_tensor) == tensor_nbytes(cache_tensor),
+            "Prefill capture redirect requires write/cache tensor sizes to match");
+
+        saved_.push_back(SavedTensor{write_name, make_tensor_view(write_tensor)});
+        saved_.push_back(SavedTensor{cache_name, make_tensor_view(cache_tensor)});
+
+        void* tmp_ptr = StaticBufferManager::get_cache_buf(
+            buffer_name,
+            tensor_nbytes(cache_tensor),
+            device_id);
+
+        auto [write_device, write_device_id] = write_tensor.device();
+        auto [cache_device, cache_device_id] = cache_tensor.device();
+        tensors_[write_name] = Tensor::view(
+            tmp_ptr,
+            write_tensor.shape(),
+            write_tensor.dtype(),
+            write_device,
+            write_device_id);
+        tensors_[cache_name] = Tensor::view(
+            tmp_ptr,
+            cache_tensor.shape(),
+            cache_tensor.dtype(),
+            cache_device,
+            cache_device_id);
+    }
+
+    std::unordered_map<std::string, Tensor>& tensors_;
+    std::vector<SavedTensor> saved_;
+    bool restored_ = false;
+};
+
+class ScopedCudaEvent {
+public:
+    ScopedCudaEvent() {
+        CUDA_CHECK_THROW(cudaEventCreate(&event_), "Failed to create CUDA event");
+    }
+
+    ~ScopedCudaEvent() {
+        if (event_ != nullptr) {
+            cudaEventDestroy(event_);
+        }
+    }
+
+    cudaEvent_t get() const { return event_; }
+
+private:
+    cudaEvent_t event_ = nullptr;
+};
+
+float elapsed_event_ms(cudaEvent_t start, cudaEvent_t end) {
+    float ms = 0.0f;
+    CUDA_CHECK_THROW(cudaEventElapsedTime(&ms, start, end), "Failed to query CUDA event elapsed time");
+    return ms;
+}
+
 } // namespace
 
 void StandardEngine::warmup() {
@@ -152,7 +331,7 @@ void StandardEngine::warmup() {
         }
 
         const Tensor& logits_prefill = context.tensors().at(ModelTensors::LOGITS);
-        int32_t seq_len = static_cast<int32_t>(logits_prefill.shape().front());
+        int32_t seq_len = prefill_token_count(context);
         run_sampler(
             last_token_logits_view(logits_prefill),
             context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT),
@@ -182,6 +361,96 @@ void StandardEngine::run_sampler(const Tensor& logits,
     sampler_->forward(in, out, stream, stage);
 }
 
+bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
+    if (!config_.use_cuda_graph()) {
+        return false;
+    }
+    if (kv_manager_->get_attention_type() == AttentionType::MLA) {
+        return false;
+    }
+
+    const Request* request = context.request();
+    if (request == nullptr || request->has_embedding() || request->has_position_ids()) {
+        return false;
+    }
+    if (context.prefix_size() != 0) {
+        return false;
+    }
+
+    auto& tensors = context.tensors();
+    if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
+        return false;
+    }
+
+    const int32_t seq_len = prefill_token_count(context);
+    if (seq_len <= 0) {
+        return false;
+    }
+
+    for (int32_t layer_id = 0; layer_id < model_->num_layers(); ++layer_id) {
+        if (tensor_nbytes(tensors.at(ModelTensors::k_write_layer(layer_id))) !=
+                tensor_nbytes(tensors.at(ModelTensors::k_cache_layer(layer_id))) ||
+            tensor_nbytes(tensors.at(ModelTensors::v_write_layer(layer_id))) !=
+                tensor_nbytes(tensors.at(ModelTensors::v_cache_layer(layer_id)))) {
+            return false;
+        }
+    }
+
+    const int32_t request_id = request->request_id();
+    cudaStream_t stream = context.stream();
+    CudaGraphRunner& runner = cuda_graph_manager_.prefill(request_id, seq_len);
+    if (runner.is_captured()) {
+        runner.launch(stream);
+        return true;
+    }
+
+    {
+        ScopedPrefillCaptureRedirect redirect_writes(
+            context,
+            model_->num_layers(),
+            device_id_,
+            "prefill_capture_warmup");
+
+        Tensor sampler_out_saved = make_tensor_view(tensors.at(ModelTensors::SAMPLER_TOKEN_OUT));
+        void* sampler_tmp_ptr = StaticBufferManager::get_cache_buf(
+            "prefill_capture_sampler_out",
+            tensor_nbytes(sampler_out_saved),
+            device_id_);
+        auto [sampler_device, sampler_device_id] = sampler_out_saved.device();
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(
+            sampler_tmp_ptr,
+            sampler_out_saved.shape(),
+            sampler_out_saved.dtype(),
+            sampler_device,
+            sampler_device_id);
+
+        model_->prefill(context);
+        run_sampler(
+            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+            stream,
+            ModelStage::Prefill);
+        if (stream != nullptr) {
+            CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
+                             "Failed to sync stream before prefill CUDA graph capture");
+        }
+
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = std::move(sampler_out_saved);
+    }
+
+    (void)cudaGetLastError();
+
+    runner.begin_capture(stream);
+    model_->prefill(context);
+    run_sampler(
+        last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+        stream,
+        ModelStage::Prefill);
+    runner.end_capture(stream);
+    return true;
+}
+
 void StandardEngine::ensure_decode_graph_captured(Context& context) {
     if (!config_.use_cuda_graph() || cuda_graph_manager_.is_decode_captured()) {
         return;
@@ -195,13 +464,28 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
     cudaStream_t stream = context.stream();
 
     // Run one uncaptured decode into temporary KV buffers so lazy allocations
-    // happen before capture and the real cache stays untouched.
+    // happen before capture and the real cache stays untouched. Sampler output
+    // is redirected as well so the stable decode token buffer is not clobbered.
     {
         ScopedKVWriteRedirect redirect_writes(
             context,
             model_->num_layers(),
             device_id_,
             "decode_capture_warmup");
+
+        Tensor sampler_out_saved = make_tensor_view(tensors.at(ModelTensors::SAMPLER_TOKEN_OUT));
+        void* sampler_tmp_ptr = StaticBufferManager::get_cache_buf(
+            "decode_capture_sampler_out",
+            tensor_nbytes(sampler_out_saved),
+            device_id_);
+        auto [sampler_device, sampler_device_id] = sampler_out_saved.device();
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(
+            sampler_tmp_ptr,
+            sampler_out_saved.shape(),
+            sampler_out_saved.dtype(),
+            sampler_device,
+            sampler_device_id);
+
         model_->decode_step(context);
         run_sampler(
             tensors.at(ModelTensors::LOGITS),
@@ -212,11 +496,13 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
             CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
                              "Failed to sync stream before CUDA graph capture");
         }
+
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = std::move(sampler_out_saved);
     }
 
     (void)cudaGetLastError();
 
-    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs(context, model_->num_layers());
+    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs_from_tensors(context, model_->num_layers());
     cuda_graph_manager_.capture_decode(stream, [&]() {
         model_->decode_step(context);
         run_sampler(
@@ -224,7 +510,27 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
             tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
             stream,
             ModelStage::Decode);
+        advance_decode_runtime_state(context, stream);
     }, write_ptrs.k, write_ptrs.v);
+
+    // Stream capture executes the captured work, so restore the first decode
+    // step's input state before the first graph replay.
+    if (context.get_generated_tokens() >= 1) {
+        void* token_ids_ptr = tensors.at(ModelTensors::TOKEN_IDS).data_ptr();
+        void* last_token_src = context.get_response_token_read_ptr();
+        CUDA_CHECK_THROW(cudaMemcpyAsync(
+            token_ids_ptr, last_token_src, sizeof(int32_t),
+            cudaMemcpyDeviceToDevice, stream),
+            "Failed to restore decode token_ids after CUDA graph capture");
+    }
+    if (tensors.count(ModelTensors::D_KV_LEN) > 0) {
+        uint32_t kv_len_val = static_cast<uint32_t>(context.decode_cache_kv_len());
+        CUDA_CHECK_THROW(cudaMemcpyAsync(
+            tensors.at(ModelTensors::D_KV_LEN).data_ptr(), &kv_len_val,
+            sizeof(uint32_t), cudaMemcpyHostToDevice, stream),
+            "Failed to restore decode d_kv_len after CUDA graph capture");
+    }
+    model_->prepare_decode_position_ids(context, device_, device_id_);
 }
 
 void StandardEngine::tune() {
@@ -238,10 +544,35 @@ void StandardEngine::tune() {
 
 
 Response StandardEngine::generate(const Request& request) {
+    CUDA_CHECK_THROW(cudaSetDevice(device_id_), "Failed to set device for generate");
+
+    last_generate_metrics_.clear();
+    last_generate_metrics_ = {
+        {"prefill_ms", 0.0},
+        {"decode_ms", 0.0},
+        {"total_stage_ms", 0.0},
+        {"decode_step_avg_ms", 0.0},
+        {"generated_tokens_total", 0.0},
+        {"decode_steps", 0.0},
+    };
+
     Response response;
     Context context = scheduler_->create_context(request, &response);
     cudaStream_t stream = context.stream();
     auto& tensors = context.tensors();
+    NVTX::Range generate_range("EDGEFM_GENERATE", NVTXColor::WHITE);
+
+    std::unique_ptr<ScopedCudaEvent> prefill_start_event;
+    std::unique_ptr<ScopedCudaEvent> prefill_end_event;
+    std::unique_ptr<ScopedCudaEvent> decode_start_event;
+    std::unique_ptr<ScopedCudaEvent> decode_end_event;
+    if (stream != nullptr) {
+        prefill_start_event = std::make_unique<ScopedCudaEvent>();
+        prefill_end_event = std::make_unique<ScopedCudaEvent>();
+        decode_start_event = std::make_unique<ScopedCudaEvent>();
+        decode_end_event = std::make_unique<ScopedCudaEvent>();
+    }
+    bool decode_started = false;
 
     // Build stop token set: model eos_token_ids + config stop_token_ids + request stop_token_ids
     // When request.ignore_stop_tokens() (e.g. alignment tests), use empty set to generate full steps
@@ -250,11 +581,6 @@ Response StandardEngine::generate(const Request& request) {
         for (int32_t id : config_.eos_token_ids()) stop_tokens.insert(id);
         for (int32_t id : config_.stop_token_ids()) stop_tokens.insert(id);
         for (int32_t id : request.stop_token_ids()) stop_tokens.insert(id);
-    }
-
-    prepare_tensors(ModelStage::Prefill, context);
-    if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
-        return response;
     }
 
     // Check the last sampled token against stop tokens.
@@ -269,44 +595,85 @@ Response StandardEngine::generate(const Request& request) {
         return stop_tokens.count(host_token_buf) > 0;
     };
 
-    model_->prefill(context);
-
-    const Tensor& logits_prefill = tensors.at(ModelTensors::LOGITS);
-    int32_t seq_len = static_cast<int32_t>(logits_prefill.shape().front());
-    void* prefill_write_ptr = context.get_response_token_write_ptr();
-    run_sampler(
-        last_token_logits_view(logits_prefill),
-        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-        stream,
-        ModelStage::Prefill);
-
-    if (check_stop(prefill_write_ptr)) {
-        context.finish();
-    }
-
-    context.advance_after_prefill(seq_len);
-
-    while (!context.is_finished()) {
-        prepare_tensors(ModelStage::Decode, context);
-        void* decode_write_ptr = context.get_response_token_write_ptr();
-
-        if (config_.use_cuda_graph()) {
-            ensure_decode_graph_captured(context);
-            sync_decode_graph(context);
-            cuda_graph_manager_.decode().launch(stream);
-        } else {
-            model_->decode_step(context);
-            run_sampler(
-                tensors.at(ModelTensors::LOGITS),
-                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-                stream,
-                ModelStage::Decode);
+    {
+        NVTX::Range prefill_range("EDGEFM_PREFILL", NVTXColor::BLUE);
+        if (prefill_start_event) {
+            CUDA_CHECK_THROW(cudaEventRecord(prefill_start_event->get(), stream),
+                             "Failed to record prefill start event");
         }
 
-        flush_sampled_token(decode_write_ptr, stream);
+        prepare_tensors(ModelStage::Prefill, context);
+        if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
+            return response;
+        }
 
-        if (check_stop(decode_write_ptr)) { ++context; context.finish(); break; }
-        ++context;
+        const bool ran_prefill_graph = try_run_prefill_cuda_graph(context);
+        if (!ran_prefill_graph) {
+            model_->prefill(context);
+            run_sampler(
+                last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Prefill);
+        }
+
+        int32_t seq_len = prefill_token_count(context);
+        void* prefill_write_ptr = context.get_response_token_write_ptr();
+        if (check_stop(prefill_write_ptr)) {
+            context.finish();
+        }
+
+        context.advance_after_prefill(seq_len);
+
+        if (prefill_end_event) {
+            CUDA_CHECK_THROW(cudaEventRecord(prefill_end_event->get(), stream),
+                             "Failed to record prefill end event");
+        }
+    }
+
+    {
+        NVTX::Range decode_range("EDGEFM_GENERATION", NVTXColor::GREEN);
+        while (!context.is_finished()) {
+            if (!decode_started && decode_start_event) {
+                CUDA_CHECK_THROW(cudaEventRecord(decode_start_event->get(), stream),
+                                 "Failed to record decode start event");
+                decode_started = true;
+            }
+
+            const bool skip_decode_prepare =
+                config_.use_cuda_graph() &&
+                cuda_graph_manager_.is_decode_captured() &&
+                context.decode_tensors_initialized() &&
+                model_->has_static_decode_runtime_tensors();
+            if (!skip_decode_prepare) {
+                prepare_tensors(ModelStage::Decode, context);
+            }
+            void* decode_write_ptr = context.get_response_token_write_ptr();
+
+            if (config_.use_cuda_graph()) {
+                ensure_decode_graph_captured(context);
+                sync_decode_graph(context);
+                cuda_graph_manager_.decode().launch(stream);
+            } else {
+                model_->decode_step(context);
+                run_sampler(
+                    tensors.at(ModelTensors::LOGITS),
+                    tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                    stream,
+                    ModelStage::Decode);
+                advance_decode_runtime_state(context, stream);
+            }
+
+            flush_sampled_token(context, decode_write_ptr, stream);
+
+            if (check_stop(decode_write_ptr)) { ++context; context.finish(); break; }
+            ++context;
+        }
+
+        if (decode_started && decode_end_event) {
+            CUDA_CHECK_THROW(cudaEventRecord(decode_end_event->get(), stream),
+                             "Failed to record decode end event");
+        }
     }
 
     int32_t num_generated = context.get_generated_tokens();
@@ -321,7 +688,29 @@ Response StandardEngine::generate(const Request& request) {
     }
     response.token_ids().swap(host_tokens);
 
+    double prefill_ms = 0.0;
+    double decode_ms = 0.0;
+    if (prefill_start_event && prefill_end_event) {
+        prefill_ms = static_cast<double>(elapsed_event_ms(prefill_start_event->get(), prefill_end_event->get()));
+    }
+    if (decode_started && decode_start_event && decode_end_event) {
+        decode_ms = static_cast<double>(elapsed_event_ms(decode_start_event->get(), decode_end_event->get()));
+    }
+    const double decode_steps = static_cast<double>(std::max(0, num_generated - 1));
+    last_generate_metrics_ = {
+        {"prefill_ms", prefill_ms},
+        {"decode_ms", decode_ms},
+        {"total_stage_ms", prefill_ms + decode_ms},
+        {"decode_step_avg_ms", decode_steps > 0.0 ? decode_ms / decode_steps : 0.0},
+        {"generated_tokens_total", static_cast<double>(num_generated)},
+        {"decode_steps", decode_steps},
+    };
+
     return response;
+}
+
+std::unordered_map<std::string, double> StandardEngine::get_last_generate_metrics() const {
+    return last_generate_metrics_;
 }
 
 void StandardEngine::prepare_tensors(ModelStage stage, Context& context) {
@@ -342,9 +731,8 @@ void StandardEngine::prepare_kvcache_tensors(
     size_t prefix_size)      // slot 的 prefix 长度，仅用于 cache 读长度（decode 时） 
 {
     auto& tensors = context.tensors();
-    
-    std::vector<void*> kv_read_ptrs = context.get_kv_read_ptrs();
-    std::vector<void*> kv_write_ptrs = context.get_kv_write_ptrs();
+    const auto& kv_read_ptrs = context.kv_read_ptrs_ref();
+    const auto& kv_write_ptrs = context.kv_write_ptrs_ref();
     size_t token_stride = kv_manager_->get_token_stride();
     
     auto kv_dtype = dtype_from_string(config_.kvcache_dtype());
@@ -383,24 +771,20 @@ void StandardEngine::prepare_kvcache_tensors(
         }
     } else {
         size_t k_size_per_token = token_stride / 2;
-        int32_t max_tokens = 0;
-        {
-            KVManagerStatus kv_status = kv_manager_->get_status();
-            int32_t req_id = context.request()->request_id();
-            for (const auto& slot : kv_status.slots) {
-                if (slot.request_id == req_id) { max_tokens = slot.max_tokens; break; }
-            }
-        }
+        int32_t max_tokens = context.slot_max_tokens();
         bool is_decode = (seq_len == 1 && generated_tokens > 0);
         int32_t cache_shape_len = is_decode ? max_tokens : cache_kv_len;
+        bool init_decode_static = is_decode && !context.decode_tensors_initialized();
 
-        if (is_decode) {
-            void* d_kv_len_ptr = StaticBufferManager::get_cache_buf(
-                "decode_d_kv_len", sizeof(uint32_t), device_id_);
-            uint32_t kv_len_val = static_cast<uint32_t>(cache_kv_len);
-            CUDA_CHECK_THROW(cudaMemcpyAsync(d_kv_len_ptr, &kv_len_val,
-                sizeof(uint32_t), cudaMemcpyHostToDevice, context.stream()),
-                "copy d_kv_len to device");
+        if (init_decode_static) {
+            void* decode_state_ptr = DecodeRuntimeStateLayout::base_ptr(device_id_);
+            void* d_kv_len_ptr = DecodeRuntimeStateLayout::kv_len_ptr(decode_state_ptr);
+            if (generated_tokens <= 1) {
+                uint32_t kv_len_val = static_cast<uint32_t>(cache_kv_len);
+                CUDA_CHECK_THROW(cudaMemcpyAsync(d_kv_len_ptr, &kv_len_val,
+                    sizeof(uint32_t), cudaMemcpyHostToDevice, context.stream()),
+                    "copy d_kv_len to device");
+            }
             tensors[ModelTensors::D_KV_LEN] = Tensor::view(
                 d_kv_len_ptr, {1}, DType::Int32, device_, device_id_);
         }
@@ -417,12 +801,14 @@ void StandardEngine::prepare_kvcache_tensors(
             tensors[ModelTensors::v_write_layer(layer_id)] = Tensor::view(
                 v_write_ptr, {seq_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
 
-            void* k_cache_ptr = read_ptr;
-            void* v_cache_ptr = static_cast<uint8_t*>(read_ptr) + static_cast<size_t>(max_tokens) * k_size_per_token;
-            tensors[ModelTensors::k_cache_layer(layer_id)] = Tensor::view(
-                k_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
-            tensors[ModelTensors::v_cache_layer(layer_id)] = Tensor::view(
-                v_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
+            if (!is_decode || init_decode_static) {
+                void* k_cache_ptr = read_ptr;
+                void* v_cache_ptr = static_cast<uint8_t*>(read_ptr) + static_cast<size_t>(max_tokens) * k_size_per_token;
+                tensors[ModelTensors::k_cache_layer(layer_id)] = Tensor::view(
+                    k_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
+                tensors[ModelTensors::v_cache_layer(layer_id)] = Tensor::view(
+                    v_cache_ptr, {cache_shape_len, num_kv_heads, head_dim}, kv_dtype, device_, device_id_);
+            }
         }
     }
 }
@@ -440,17 +826,8 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     const Request* request = context.request();
     const std::vector<int32_t>& token_ids_vec = request->token_ids();
     
-    KVManagerStatus kv_status = kv_manager_->get_status();
-    size_t prefix_size = 0;
-    int32_t max_generated_tokens = 0;
-    int32_t request_id = request->request_id();
-    for (const auto& slot : kv_status.slots) {
-        if (slot.request_id == request_id) {
-            prefix_size = slot.prefix_size;
-            max_generated_tokens = slot.max_tokens - static_cast<int32_t>(prefix_size);
-            break;
-        }
-    }
+    size_t prefix_size = context.prefix_size();
+    int32_t max_generated_tokens = context.slot_max_tokens() - static_cast<int32_t>(prefix_size);
     
     // seq_len = 实际写入 KV 的 token 数（prompt 部分，不含 prefix）
     int32_t seq_len = static_cast<int32_t>(token_ids_vec.size());
@@ -473,19 +850,18 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
         token_ids_src = token_ids_vec.data() + prefix_size;
     }
     size_t token_ids_size = static_cast<size_t>(seq_len) * sizeof(int32_t);
-    void* token_ids_ptr = MemoryPool::instance().allocate(token_ids_size, stream, device_id_);
+    void* token_ids_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_token_ids", token_ids_size, device_id_);
     CUDA_CHECK_THROW(cudaMemcpyAsync(token_ids_ptr, token_ids_src, token_ids_size, 
                                      cudaMemcpyHostToDevice, stream), 
                      "Failed to copy token_ids to GPU");
     
-    tensors[ModelTensors::TOKEN_IDS] = Tensor::adopt(
+    tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
         token_ids_ptr,
         {1, seq_len},
         DType::Int32,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 1'. 可选的自定义 embedding: [num_custom_embeddings, hidden_size] 与 embed_token_id
@@ -554,15 +930,14 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     // ==================== 构建临时激活值 tensors ====================
     // 1. Hidden states: [batch_size=1, seq_len, hidden_size]（embed 层要求 3D，dtype 与 embedding 一致）
     size_t hidden_states_size = seq_len * hidden_size * model_dtype_size;
-    void* hidden_states_ptr = MemoryPool::instance().allocate(hidden_states_size, stream, device_id_);
-    tensors[ModelTensors::HIDDEN_STATES] = Tensor::adopt(
+    void* hidden_states_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_hidden_states", hidden_states_size, device_id_);
+    tensors[ModelTensors::HIDDEN_STATES] = Tensor::view(
         hidden_states_ptr,
         {1, seq_len, hidden_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 2. Fused QKV projection output: [seq_len, qkv_total_dim]（临时 buffer，MemoryPool）
@@ -576,134 +951,118 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     int32_t v_dim = num_kv_heads * head_dim;
     int32_t qkv_total_dim = q_dim + k_dim + v_dim;
     size_t qkv_proj_size = seq_len * qkv_total_dim * model_dtype_size;
-    void* qkv_proj_ptr = MemoryPool::instance().allocate(qkv_proj_size, stream, device_id_);
-    tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::adopt(
+    void* qkv_proj_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_qkv_proj", qkv_proj_size, device_id_);
+    tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::view(
         qkv_proj_ptr,
         {seq_len, qkv_total_dim},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
-    // 2.1. Q projection output: 单独分配 [seq_len, num_attention_heads, q_head_dim]，attention 需要连续 stride
-    size_t q_size = seq_len * num_attention_heads * q_head_dim * model_dtype_size;
-    void* q_ptr = MemoryPool::instance().allocate(q_size, stream, device_id_);
-    tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::adopt(
+    // 2.1. Q projection output:
+    // - 标准 LLM prefill 直接 alias 到 fused QKV 首段，避免额外缓冲
+    // - M-RoPE 路径仍保留独立连续 Q 缓冲，供后续 in-place rotary 使用
+    void* q_ptr = qkv_proj_ptr;
+    if (model_->needs_separate_prefill_q_buffer()) {
+        size_t q_size = seq_len * num_attention_heads * q_head_dim * model_dtype_size;
+        q_ptr = StaticBufferManager::get_cache_buf(
+            "prefill_q_proj", q_size, device_id_);
+    }
+    tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::view(
         q_ptr,
         {seq_len, num_attention_heads, q_head_dim},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     // K/V 直接写入 k_write/v_write，无需 K_PROJ_OUTPUT、V_PROJ_OUTPUT
     
     // 3. Attention output: [seq_len, num_attention_heads, head_dim]
     size_t attn_output_size = seq_len * hidden_size * model_dtype_size;
-    void* attn_output_ptr = MemoryPool::instance().allocate(attn_output_size, stream, device_id_);
-    tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::adopt(
+    void* attn_output_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_attn_output", attn_output_size, device_id_);
+    tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::view(
         attn_output_ptr,
         {seq_len, num_attention_heads, head_dim},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 4. MLP intermediate: [seq_len, intermediate_size]
     int32_t intermediate_size = model_config.value("intermediate_size", hidden_size * 4);
     size_t mlp_intermediate_size = seq_len * intermediate_size * model_dtype_size;
-    void* mlp_intermediate_ptr = MemoryPool::instance().allocate(mlp_intermediate_size, stream, device_id_);
-    tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::adopt(
+    void* mlp_intermediate_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_mlp_intermediate", mlp_intermediate_size, device_id_);
+    tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::view(
         mlp_intermediate_ptr,
         {seq_len, intermediate_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 5. Norm output: [seq_len, hidden_size] (for LayerNorm outputs)
     size_t norm_output_size = seq_len * hidden_size * model_dtype_size;
-    void* norm_output_ptr = MemoryPool::instance().allocate(norm_output_size, stream, device_id_);
-    tensors[ModelTensors::NORM_OUTPUT] = Tensor::adopt(
+    void* norm_output_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_norm_output", norm_output_size, device_id_);
+    tensors[ModelTensors::NORM_OUTPUT] = Tensor::view(
         norm_output_ptr,
         {seq_len, hidden_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
     // 6. Post-attention LayerNorm output: [seq_len, hidden_size]
     size_t post_norm_size = seq_len * hidden_size * model_dtype_size;
-    void* post_norm_ptr = MemoryPool::instance().allocate(post_norm_size, stream, device_id_);
-    tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::adopt(
+    void* post_norm_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_post_norm", post_norm_size, device_id_);
+    tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::view(
         post_norm_ptr,
         {seq_len, hidden_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
-    // 7. MLP up projection output: [seq_len, intermediate_size]
-    size_t up_proj_size = seq_len * intermediate_size * model_dtype_size;
-    void* up_proj_ptr = MemoryPool::instance().allocate(up_proj_size, stream, device_id_);
-    tensors[ModelTensors::UP_PROJ_OUTPUT] = Tensor::adopt(
-        up_proj_ptr,
-        {seq_len, intermediate_size},
-        model_dtype,
-        device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
-    );
-    
-    // 8. MLP activation input: [seq_len, 2 * intermediate_size] (gate + up concatenated)
+    // 7. MLP activation input: [seq_len, 2 * intermediate_size] (gate + up concatenated)
     size_t mlp_activation_input_size = seq_len * 2 * intermediate_size * model_dtype_size;
-    void* mlp_activation_input_ptr = MemoryPool::instance().allocate(mlp_activation_input_size, stream, device_id_);
-    tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::adopt(
+    void* mlp_activation_input_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_mlp_activation_input", mlp_activation_input_size, device_id_);
+    tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::view(
         mlp_activation_input_ptr,
         {seq_len, 2 * intermediate_size},
         model_dtype,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
     
-    // 9. Logits: [seq_len, vocab_size]
-    size_t logits_size = seq_len * vocab_size * fp32_size;
-    void* logits_ptr = MemoryPool::instance().allocate(logits_size, stream, device_id_);
-    tensors[ModelTensors::LOGITS] = Tensor::adopt(
+    // 8. Prefill only samples the last token, so one logits row is enough.
+    size_t logits_size = static_cast<size_t>(vocab_size) * fp32_size;
+    void* logits_ptr = StaticBufferManager::get_cache_buf(
+        "prefill_logits", logits_size, device_id_);
+    tensors[ModelTensors::LOGITS] = Tensor::view(
         logits_ptr,
-        {seq_len, vocab_size},
+        {1, vocab_size},
         DType::Float32,
         device_,
-        device_id_,
-        MemoryOwnership::OwnCudaPool,
-        stream
+        device_id_
     );
 
-    // 10. Sampler output 与 11. Response tokens：sampler 直接写入 response 缓冲当前写位置，无需单独缓冲与 D2D copy
+    // 9. Sampler output 与 10. Response tokens：sampler 直接写入 response 缓冲当前写位置，无需单独缓冲与 D2D copy
     if (max_generated_tokens > 0) {
-        void* response_tokens_ptr = MemoryPool::instance().allocate(
-            static_cast<size_t>(max_generated_tokens) * sizeof(int32_t), stream, device_id_);
-        tensors[ModelTensors::RESPONSE_TOKENS_DEVICE] = Tensor::adopt(
+        void* response_tokens_ptr = StaticBufferManager::get_cache_buf(
+            "prefill_response_tokens",
+            static_cast<size_t>(max_generated_tokens) * sizeof(int32_t),
+            device_id_);
+        tensors[ModelTensors::RESPONSE_TOKENS_DEVICE] = Tensor::view(
             response_tokens_ptr,
             {max_generated_tokens},
             DType::Int32,
             device_,
-            device_id_,
-            MemoryOwnership::OwnCudaPool,
-            stream
+            device_id_
         );
         context.set_response_tokens_base_ptr(response_tokens_ptr);
         tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(
@@ -719,6 +1078,7 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
 void StandardEngine::prepare_decode_tensors(Context& context) {
     auto& tensors = context.tensors();
     cudaStream_t stream = context.stream();
+    const bool init_static = !context.decode_tensors_initialized();
 
     // 获取模型参数
     int32_t num_layers = model_->num_layers();
@@ -728,20 +1088,9 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     // Decode 阶段：每次处理 1 个 token
     int32_t seq_len = 1;
 
-    // TOKEN_IDS: input token for this decode step（上一拍采样结果，从 device response 缓冲读取，与 operator++ 对齐）
-    if (context.get_generated_tokens() >= 1) {
-        void* last_token_src = context.get_response_token_read_ptr();
-        void* token_ids_ptr = StaticBufferManager::get_cache_buf("decode_token_ids", sizeof(int32_t), device_id_);
-        CUDA_CHECK_THROW(cudaMemcpyAsync(token_ids_ptr, last_token_src, sizeof(int32_t), cudaMemcpyDeviceToDevice, stream), "Failed to copy decode token_ids from response buffer");
-        tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
-            token_ids_ptr,
-            {1, seq_len},
-            DType::Int32,
-            device_,
-            device_id_
-        );
-    }
-    
+    void* decode_state_ptr = DecodeRuntimeStateLayout::base_ptr(device_id_);
+    void* token_ids_ptr = DecodeRuntimeStateLayout::token_ids_ptr(decode_state_ptr);
+
     // 获取模型配置以计算 attention 参数
     auto model_config = config_.prefill_model_config();
     int32_t num_attention_heads = model_config.value("num_attention_heads", 32);
@@ -749,20 +1098,8 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     int32_t head_dim = hidden_size / num_attention_heads;
     
     // prepare kvcache tensors(write buffers and read buffers)
-    KVManagerStatus kv_status = kv_manager_->get_status();
-    size_t prefix_size = 0;
-    const Request* request = context.request();
-    int32_t request_id = request->request_id();
-    for (const auto& slot : kv_status.slots) {
-        if (slot.request_id == request_id) {
-            prefix_size = slot.prefix_size;
-            break;
-        }
-    }
-    prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, prefix_size);
+    prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, context.prefix_size());
 
-    model_->prepare_decode_position_ids(context, device_, device_id_);
-    
     DType model_dtype = model_->dtype();
     size_t model_dtype_size = get_dtype_size(model_dtype);
     size_t fp32_size = get_dtype_size(DType::Float32);
@@ -785,33 +1122,79 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     void* mlp_inter_ptr     = StaticBufferManager::get_cache_buf("decode_mlp_inter",       intermediate_size * model_dtype_size, device_id_);
     void* mlp_act_ptr       = StaticBufferManager::get_cache_buf("decode_mlp_act",         2 * intermediate_size * model_dtype_size, device_id_);
     void* logits_ptr        = StaticBufferManager::get_cache_buf("decode_logits",          vocab_size * fp32_size, device_id_);
-    void* sampler_out_ptr   = StaticBufferManager::get_cache_buf("decode_sampler_staging", sizeof(int32_t), device_id_);
+    void* sampler_out_ptr   = token_ids_ptr;
 
-    tensors[ModelTensors::HIDDEN_STATES] = Tensor::view(hidden_states_ptr, {1, seq_len, hidden_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, qkv_total_dim}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, num_attention_heads, q_head_dim}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::view(attn_output_ptr, {seq_len, num_attention_heads, head_dim}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::NORM_OUTPUT] = Tensor::view(norm_output_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::view(post_norm_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::view(mlp_inter_ptr, {seq_len, intermediate_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::view(mlp_act_ptr, {seq_len, 2 * intermediate_size}, model_dtype, device_, device_id_);
-    tensors[ModelTensors::LOGITS] = Tensor::view(logits_ptr, {seq_len, vocab_size}, DType::Float32, device_, device_id_);
-    tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(sampler_out_ptr, {1}, DType::Int32, device_, device_id_);
+    if (init_static) {
+        // TOKEN_IDS / SAMPLER_TOKEN_OUT share one stable device buffer. Seed it
+        // once from the prefill sample, then keep updating it in-place.
+        if (context.get_generated_tokens() >= 1) {
+            if (context.get_generated_tokens() == 1) {
+                void* last_token_src = context.get_response_token_read_ptr();
+                CUDA_CHECK_THROW(cudaMemcpyAsync(
+                    token_ids_ptr, last_token_src, sizeof(int32_t),
+                    cudaMemcpyDeviceToDevice, stream),
+                    "Failed to seed decode token_ids from response buffer");
+            }
+            tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
+                token_ids_ptr,
+                {1, seq_len},
+                DType::Int32,
+                device_,
+                device_id_);
+        }
+
+        if (context.get_model_state("mrope_last_pos") != nullptr) {
+            tensors[ModelTensors::POSITION_IDS] = Tensor::view(
+                DecodeRuntimeStateLayout::position_ids_ptr(decode_state_ptr),
+                {3, 1},
+                DType::Int32,
+                device_,
+                device_id_);
+        }
+
+        if (context.get_generated_tokens() <= 1) {
+            model_->prepare_decode_position_ids(context, device_, device_id_);
+        }
+
+        tensors[ModelTensors::HIDDEN_STATES] = Tensor::view(hidden_states_ptr, {1, seq_len, hidden_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::QKV_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, qkv_total_dim}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::view(qkv_proj_ptr, {seq_len, num_attention_heads, q_head_dim}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::ATTENTION_OUTPUT] = Tensor::view(attn_output_ptr, {seq_len, num_attention_heads, head_dim}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::NORM_OUTPUT] = Tensor::view(norm_output_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::POST_NORM_OUTPUT] = Tensor::view(post_norm_ptr, {seq_len, hidden_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::MLP_INTERMEDIATE] = Tensor::view(mlp_inter_ptr, {seq_len, intermediate_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::MLP_ACTIVATION_INPUT] = Tensor::view(mlp_act_ptr, {seq_len, 2 * intermediate_size}, model_dtype, device_, device_id_);
+        tensors[ModelTensors::LOGITS] = Tensor::view(logits_ptr, {seq_len, vocab_size}, DType::Float32, device_, device_id_);
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(sampler_out_ptr, {1}, DType::Int32, device_, device_id_);
+        context.mark_decode_tensors_initialized();
+    }
 }
 
-void StandardEngine::flush_sampled_token(void* write_ptr, cudaStream_t stream) {
-    void* staging_ptr = StaticBufferManager::get_cache_buf(
-        "decode_sampler_staging", sizeof(int32_t), device_id_);
-    CUDA_CHECK_THROW(cudaMemcpyAsync(write_ptr, staging_ptr,
+void StandardEngine::flush_sampled_token(const Context& context, void* write_ptr, cudaStream_t stream) {
+    const void* sampled_ptr = context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT).data_ptr();
+    CUDA_CHECK_THROW(cudaMemcpyAsync(write_ptr, sampled_ptr,
         sizeof(int32_t), cudaMemcpyDeviceToDevice, stream),
-        "copy sampled token from staging to response buffer");
+        "copy sampled token from decode runtime buffer to response buffer");
+}
+
+void StandardEngine::advance_decode_runtime_state(Context& context, cudaStream_t stream) {
+    auto& tensors = context.tensors();
+    auto kv_it = tensors.find(ModelTensors::D_KV_LEN);
+    if (kv_it != tensors.end()) {
+        launch_increment_uint32_scalar(
+            static_cast<uint32_t*>(kv_it->second.data_ptr()), stream);
+        CUDA_CHECK_THROW(cudaGetLastError(), "Failed to advance decode d_kv_len");
+    }
+
+    model_->advance_decode_runtime_tensors(context, stream);
 }
 
 
 void StandardEngine::sync_decode_graph(Context& context) {
     if (!cuda_graph_manager_.has_decode_dynamic_nodes()) return;
 
-    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs(context, model_->num_layers());
+    DecodeWritePtrs write_ptrs = collect_decode_write_ptrs_from_context(
+        context, *kv_manager_, model_->num_layers());
     cuda_graph_manager_.update_decode_nodes(write_ptrs.k, write_ptrs.v);
 }
 

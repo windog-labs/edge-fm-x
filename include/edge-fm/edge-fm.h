@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace edge_fm {
 
@@ -38,6 +39,15 @@ public:
      *         or inference fails (e.g., GPU memory不足, timeout)
      */
     Response generate(const Request& request) const;
+
+    /**
+     * @brief Return stage timing from the most recent generate() call.
+     *
+     * Keys are stable strings such as `prefill_ms`, `decode_ms`,
+     * `total_stage_ms`, `decode_step_avg_ms`, `generated_tokens_total`,
+     * and `decode_steps`.
+     */
+    std::unordered_map<std::string, double> last_generate_metrics() const;
 
     /**
      * @brief Build or tune backend-specific execution artifacts for the current model/configuration.

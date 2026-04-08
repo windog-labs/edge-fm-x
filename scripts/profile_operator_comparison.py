@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 """
-Edge-FM vs TRT-Edge-LLM 算子耗时对比
+Edge-FM(cuda graph) vs TRT-Edge-LLM 算子耗时对比
 
 使用 nsys 采集 GPU kernel 耗时，对比两个框架的算子分布，找出 Edge-FM 中较慢的算子。
+默认 workload 对齐当前主 benchmark 口径：
+  - Qwen2.5-1.5B BF16
+  - batch=1
+  - prefill=2048
+  - decode=64
+  - Edge-FM 仅分析 cuda-graph 路径
 
 用法（在项目根目录）:
-  # 1. 采集（需先运行 benchmark 确保 dump 存在）
+  # 1. 采集
   bash scripts/profile_operator_comparison.sh
 
   # 2. 或手动采集
-  nsys profile -o ncu_reports/edgefm_profile --stats=true python scripts/profile_operator_comparison.py edgefm
-  nsys profile -o ncu_reports/trt_profile --stats=true python scripts/profile_operator_comparison.py trt
+  nsys profile -o ncu_reports/edgefm_profile --stats=true \
+      --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
+      python scripts/profile_operator_comparison.py edgefm
+  nsys profile -o ncu_reports/trt_profile --stats=true \
+      --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
+      python scripts/profile_operator_comparison.py trt
 
   # 3. 提取 kernel 汇总
-  nsys stats ncu_reports/edgefm_profile.nsys-rep --report gpukernsum -o ncu_reports/edgefm_kernels
-  nsys stats ncu_reports/trt_profile.nsys-rep --report gpukernsum -o ncu_reports/trt_kernels
+  nsys stats --report cuda_gpu_kern_sum --format csv --output ncu_reports/edgefm_kernels ncu_reports/edgefm_profile.nsys-rep
+  nsys stats --report cuda_gpu_kern_sum --format csv --output ncu_reports/trt_kernels ncu_reports/trt_profile.nsys-rep
 """
 
 import json
@@ -30,10 +40,12 @@ for _p in [project_root / "build" / "python", project_root / "build" / "install"
         sys.path.insert(0, str(_p))
         break
 
-# 与 test_qwen2_generate 保持一致
-DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))
+# 与当前主 benchmark 默认口径保持一致
+DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
 PROFILE_WARMUP = 2
 PROFILE_RUNS = 3  # 少量 run 便于 nsys 采集
+PROFILE_PREFILL_LEN = int(os.environ.get("EDGE_FM_PROFILE_PREFILL_LEN", "2048"))
+PROFILE_DECODE_LEN = int(os.environ.get("EDGE_FM_PROFILE_DECODE_LEN", "64"))
 
 
 def _load_dump():
@@ -57,24 +69,43 @@ def _load_dump():
     }
 
 
-def _create_engine_config(model_path: str, seq_len: int, num_steps: int) -> str:
+def _build_prefill_token_ids(base_token_ids: list[int], prefill_len: int) -> list[int]:
+    if prefill_len <= 0:
+        raise ValueError(f"prefill_len must be > 0, got {prefill_len}")
+    if not base_token_ids:
+        raise ValueError("token_ids is empty")
+    if len(base_token_ids) >= prefill_len:
+        return base_token_ids[:prefill_len]
+    mul = (prefill_len + len(base_token_ids) - 1) // len(base_token_ids)
+    return (base_token_ids * mul)[:prefill_len]
+
+
+def _create_engine_config(model_path: str, prefill_len: int, num_steps: int) -> str:
     import json
     config_path = Path(model_path) / "config.json"
     with open(config_path, "r", encoding="utf-8") as f:
         config = json.load(f)
-    num_heads = config.get("num_attention_heads", 8)
-    num_kv_heads = config.get("num_key_value_heads", num_heads)
+    text_config = config.get("text_config", config)
+    num_heads = text_config.get("num_attention_heads", 8)
+    num_kv_heads = text_config.get("num_key_value_heads", num_heads)
     attention_type = "gqa" if num_kv_heads < num_heads else "mha"
-    max_tokens = seq_len + num_steps + 2
+    torch_dtype = str(text_config.get("torch_dtype", "float16")).lower()
+    kvcache_dtype = "bf16" if ("bfloat" in torch_dtype or "bf16" in torch_dtype) else "fp16"
+    max_tokens = prefill_len + num_steps - 1
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
     with open(engine_config_path, "w", encoding="utf-8") as f:
         json.dump({
             "model_name": "Qwen2.5",
-            "runtime": {"device": "cuda", "device_id": DEVICE_ID},
+            "runtime": {
+                "device": "cuda",
+                "device_id": DEVICE_ID,
+                "hw_profile": "cuda_sm80",
+                "use_cuda_graph": True,
+            },
             "prefill_model_path": str(Path(model_path).resolve()),
             "kvcache": {
-                "dtype": "fp16",
+                "dtype": kvcache_dtype,
                 "attention_type": attention_type,
                 "requests": [{"request_id": 0, "prefix_token_ids": [], "max_tokens": max_tokens}],
             },
@@ -84,14 +115,14 @@ def _create_engine_config(model_path: str, seq_len: int, num_steps: int) -> str:
 
 
 def run_edgefm():
-    """运行 Edge-FM 推理（供 nsys 采集）。"""
+    """运行 Edge-FM(cuda graph) 推理（供 nsys 采集）。"""
     import time
     import torch
     import edge_fm
 
     data = _load_dump()
-    token_ids_list = data["token_ids"]
-    num_steps = 50
+    token_ids_list = _build_prefill_token_ids(data["token_ids"], PROFILE_PREFILL_LEN)
+    num_steps = PROFILE_DECODE_LEN
     prefill_len = len(token_ids_list)
     engine_config_path = _create_engine_config(data["model_path"], prefill_len, num_steps)
     engine = edge_fm.EdgeFM(engine_config_path)
@@ -101,6 +132,10 @@ def run_edgefm():
         req.set_ignore_stop_tokens(True)
         return req
 
+    print(
+        f"[profile] Edge-FM cuda-graph config: device=cuda:{DEVICE_ID}, "
+        f"prefill={prefill_len}, decode={num_steps}"
+    )
     for _ in range(PROFILE_WARMUP):
         engine.generate(make_request())
     torch.cuda.synchronize()
@@ -113,7 +148,10 @@ def run_edgefm():
         torch.cuda.synchronize()
         times.append((time.perf_counter() - t0) * 1000)
     avg_ms = sum(times) / len(times)
-    print(f"[profile] Edge-FM inference completed. Timed {PROFILE_RUNS} runs: avg={avg_ms:.1f}ms, times={[f'{t:.0f}' for t in times]}ms")
+    print(
+        f"[profile] Edge-FM(cuda graph) inference completed. "
+        f"Timed {PROFILE_RUNS} runs: avg={avg_ms:.1f}ms, times={[f'{t:.0f}' for t in times]}ms"
+    )
 
 
 def run_trt():
@@ -139,10 +177,14 @@ def run_trt():
         os.environ["EDGELLM_PLUGIN_PATH"] = str(plugin_path)
 
     runtime = edge_fm_trt.TrtEdgeLlmRuntime(engine_dir, "", DEVICE_ID)
-    token_ids_list = data["token_ids"]
-    num_steps = 50
+    token_ids_list = _build_prefill_token_ids(data["token_ids"], PROFILE_PREFILL_LEN)
+    num_steps = PROFILE_DECODE_LEN
 
     import time
+    print(
+        f"[profile] TRT-Edge-LLM config: device=cuda:{DEVICE_ID}, "
+        f"prefill={len(token_ids_list)}, decode={num_steps}"
+    )
     for _ in range(PROFILE_WARMUP):
         runtime.generate_from_token_ids(
             token_ids_list, num_steps, temperature=0.0, top_p=1.0, top_k=1, ignore_stop_tokens=True
@@ -156,7 +198,10 @@ def run_trt():
         )
         times.append((time.perf_counter() - t0) * 1000)
     avg_ms = sum(times) / len(times)
-    print(f"[profile] TRT-Edge-LLM inference completed. Timed {PROFILE_RUNS} runs: avg={avg_ms:.1f}ms, times={[f'{t:.0f}' for t in times]}ms")
+    print(
+        f"[profile] TRT-Edge-LLM inference completed. "
+        f"Timed {PROFILE_RUNS} runs: avg={avg_ms:.1f}ms, times={[f'{t:.0f}' for t in times]}ms"
+    )
 
 
 def _normalize_kernel_name(name: str) -> str:
@@ -203,19 +248,21 @@ def _normalize_kernel_name(name: str) -> str:
 def analyze():
     """解析 nsys gpukernsum 输出，生成 Edge-FM vs TRT 对比报告。"""
     report_dir = project_root / "ncu_reports"
-    efm_csv = report_dir / "edgefm_kernels.csv"
-    trt_csv = report_dir / "trt_kernels.csv"
-    # nsys stats -o X -f csv 会生成 X_gpukernsum.csv
-    for p in [report_dir / "edgefm_kernels_gpukernsum.csv", efm_csv]:
-        if p.exists():
-            efm_csv = p
-            break
-    for p in [report_dir / "trt_kernels_gpukernsum.csv", trt_csv]:
-        if p.exists():
-            trt_csv = p
-            break
+    def find_kernel_csv(prefix: str) -> Path | None:
+        candidates = [
+            report_dir / f"{prefix}_cuda_gpu_kern_sum.csv",
+            report_dir / f"{prefix}_gpukernsum.csv",
+            report_dir / f"{prefix}.csv",
+        ]
+        for path in candidates:
+            if path.exists():
+                return path
+        return None
 
-    if not efm_csv.exists() or not trt_csv.exists():
+    efm_csv = find_kernel_csv("edgefm_kernels")
+    trt_csv = find_kernel_csv("trt_kernels")
+
+    if efm_csv is None or trt_csv is None:
         print("Run profile first: bash scripts/profile_operator_comparison.sh")
         return
 
@@ -257,7 +304,8 @@ def analyze():
                     return k
         return "Name"
 
-    name_col = get_name_col(efm_rows)
+    efm_name_col = get_name_col(efm_rows)
+    trt_name_col = get_name_col(trt_rows)
     efm_total_ns = get_total_time(efm_rows)
     trt_total_ns = get_total_time(trt_rows)
 
@@ -268,7 +316,7 @@ def analyze():
                 return parse_time(v)
         return 0.0
 
-    def aggregate(rows):
+    def aggregate(rows, name_col):
         agg = {}
         for r in rows:
             name = r.get(name_col, r.get("Name", ""))
@@ -277,24 +325,31 @@ def analyze():
             agg[cat] = agg.get(cat, 0) + t
         return agg
 
-    efm_agg = aggregate(efm_rows)
-    trt_agg = aggregate(trt_rows)
+    efm_agg = aggregate(efm_rows, efm_name_col)
+    trt_agg = aggregate(trt_rows, trt_name_col)
 
     # 输出报告
     out = report_dir / "operator_comparison.md"
     with open(out, "w", encoding="utf-8") as f:
         f.write("# Edge-FM vs TRT-Edge-LLM 算子耗时对比\n\n")
         f.write("## ⚠️ 重要说明\n\n")
-        f.write("**nsys 对 TRT-Edge-LLM 的 CUDA Graph 回放可能无法完整记录 kernel 时间**，导致 TRT 的 GPU 总时间被严重低估。\n\n")
-        f.write("benchmark 实测（pytest）：Edge-FM **542ms** vs TRT **309ms**，约 **1.75x** 差距。请以 benchmark 为准，勿将 raw GPU 时间比值当作真实性能比。\n\n")
+        f.write(
+            "**nsys 对 CUDA Graph replay 的 kernel 统计可能不完整，"
+            "因此图模式下的 raw kernel sum 更适合看热点排序，不适合直接当端到端时延。**\n\n"
+        )
+        f.write(
+            f"本次 profile 默认 workload: prefill={PROFILE_PREFILL_LEN}, decode={PROFILE_DECODE_LEN}, "
+            f"device=cuda:{DEVICE_ID}。\n\n"
+        )
         efm_ms = efm_total_ns / 1e6
         trt_ms = trt_total_ns / 1e6
         f.write("## 总 GPU Kernel 时间（raw nsys，TRT 可能低估）\n\n")
         f.write(f"| 框架 | 总时间 (ms) | 说明 |\n")
         f.write(f"|------|-------------|------|\n")
-        f.write(f"| Edge-FM | {efm_ms:.2f} | 含 init，可参考 |\n")
+        f.write(f"| Edge-FM(cuda graph) | {efm_ms:.2f} | raw nsys kernel sum |\n")
         f.write(f"| TRT-Edge-LLM | {trt_ms:.2f} | CUDA Graph 导致可能漏记 |\n")
-        f.write(f"| raw 比值 | {efm_ms/trt_ms:.1f}x | **不可信**，以 benchmark 1.75x 为准 |\n\n")
+        ratio = (efm_ms / trt_ms) if trt_ms > 0 else float('inf')
+        f.write(f"| raw 比值 | {ratio:.1f}x | 仅供热点排序参考，不等同于端到端时延 |\n\n")
 
         f.write("## 按算子类别耗时分布\n\n")
         f.write("（TRT 列因 CUDA Graph 可能不完整，**Edge-FM 占比**更有参考价值）\n\n")
@@ -314,7 +369,7 @@ def analyze():
         for r in sorted_efm[:10]:
             t = get_row_time(r)
             pct = 100 * t / efm_total_ns if efm_total_ns > 0 else 0
-            nm = r.get(name_col, r.get("Name", ""))[:70]
+            nm = r.get(efm_name_col, r.get("Name", ""))[:70]
             f.write(f"| {nm} | {t/1e6:.2f} | {pct:.1f}% |\n")
 
         f.write("\n## TRT-Edge-LLM Top 10 最耗时 Kernel\n\n")
@@ -324,7 +379,7 @@ def analyze():
         for r in sorted_trt[:10]:
             t = get_row_time(r)
             pct = 100 * t / trt_total_ns if trt_total_ns > 0 else 0
-            nm = r.get(name_col, r.get("Name", ""))[:70]
+            nm = r.get(trt_name_col, r.get("Name", ""))[:70]
             f.write(f"| {nm} | {t/1e6:.2f} | {pct:.1f}% |\n")
 
         f.write("\n## 结论与优化建议（基于 Edge-FM 算子占比）\n\n")

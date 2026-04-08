@@ -54,6 +54,10 @@ public:
         ModelStage stage = ModelStage::Prefill
     );
 
+    nlohmann::json debug_cached_impl_info(
+        ModelStage stage = ModelStage::Decode,
+        int32_t m = 1) const;
+
 protected:
     friend class LinearOpRegistry;
     friend class LinearCublasLtImpl;
@@ -147,6 +151,7 @@ protected:
         cudaDataType_t cached_output_type_ = CUDA_R_16F;
         bool has_bias_ = false;
         std::vector<cublasLtMatmulHeuristicResult_t> heuristic_candidates_;
+        int heuristic_candidate_count_ = 0;
         int best_algo_index_ = -1;
         std::string selected_impl_id_;
         nlohmann::json selected_impl_params_ = nlohmann::json::object();
@@ -258,10 +263,14 @@ private:
  * @brief Fused Gate+Up Linear Layer for MLP
  * 
  * Merges gate_proj and up_proj into a single linear layer for better performance.
- * Output layout: [gate: gate_out_features, up: up_out_features, in_features]
+ * Internal output layout: [up: up_out_features, gate: gate_out_features, in_features]
  */
 class FusedGateUpLinearLayer : public LinearLayer {
 public:
+    struct DecodeSwigluFusionState;
+
+    ~FusedGateUpLinearLayer() override;
+
     /**
      * @brief Constructor for FusedGateUpLinearLayer
      * @param layer_prefix_base Base prefix for the layer (e.g., "model.layers.0.mlp")
@@ -276,16 +285,7 @@ public:
         uint32_t in_features,
         uint32_t gate_out_features,
         uint32_t up_out_features,
-        std::string layer_name = "")
-        : LinearLayer(layer_prefix_base + ".gate_up_fused", engine_config, in_features, 
-                      gate_out_features + up_out_features, std::move(layer_name)),
-          in_features_(in_features),
-          gate_out_features_(gate_out_features),
-          up_out_features_(up_out_features),
-          layer_prefix_base_(layer_prefix_base)
-    {
-        // Base class (LinearLayer) handles initialization
-    }
+        std::string layer_name = "");
 
     /**
      * @brief Load and merge gate, up weights into a single fused weight tensor
@@ -294,6 +294,11 @@ public:
         const std::unordered_map<std::string, Tensor>& prefill_weights,
         const std::unordered_map<std::string, Tensor>& decode_weights
     ) override;
+
+    bool try_forward_decode_swiglu_fused(
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream = nullptr);
 
 private:
     // Input and output dimensions
@@ -310,6 +315,10 @@ private:
         Tensor& fused_weight,
         Tensor& fused_bias,
         cudaStream_t stream);
+
+    void prepare_decode_swiglu_fusion_state();
+
+    std::unique_ptr<DecodeSwigluFusionState> decode_swiglu_fusion_state_;
 };
 
 /**
