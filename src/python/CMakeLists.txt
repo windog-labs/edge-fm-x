@@ -4,12 +4,12 @@
 if(TARGET pybind11::module)
     # pybind11_add_module(edge_fm_python pybind.cpp)
     pybind11_add_module(edge_fm_python pybind_debug.cpp)
-    target_link_libraries(edge_fm_python PRIVATE 
-        edge_fm 
+    target_link_libraries(edge_fm_python PRIVATE
+        edge_fm
         edge_fm_utils
         pybind11::module
     )
-    
+
     set_target_properties(edge_fm_python PROPERTIES
         OUTPUT_NAME "edge_fm"
         PREFIX ""
@@ -18,7 +18,7 @@ if(TARGET pybind11::module)
         BUILD_WITH_INSTALL_RPATH FALSE
         BUILD_RPATH "${CMAKE_BINARY_DIR}/lib"
     )
-    
+
     install(TARGETS edge_fm_python
         LIBRARY DESTINATION python
         RUNTIME DESTINATION python
@@ -32,7 +32,29 @@ endif()
 # 需先: bash tests/scripts/setup_trt_edgellm_benchmark.sh
 # ============================================================================
 if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABLE)
-    find_library(CUDA_DRIVER_LIB cuda HINTS ${CUDAToolkit_LIBRARY_DIR} /usr/lib/x86_64-linux-gnu PATH_SUFFIXES lib lib64 lib/stubs)
+    file(GLOB_RECURSE TRT_EDGELLM_BUILD_DEPS CONFIGURE_DEPENDS
+        ${TRT_EDGELLM_ROOT}/cpp/*.cpp
+        ${TRT_EDGELLM_ROOT}/cpp/*.cu
+        ${TRT_EDGELLM_ROOT}/cpp/*.h
+        ${TRT_EDGELLM_ROOT}/examples/utils/*.cpp
+        ${TRT_EDGELLM_ROOT}/examples/utils/*.cu
+        ${TRT_EDGELLM_ROOT}/examples/utils/*.h
+        ${TRT_EDGELLM_ROOT}/CMakeLists.txt
+        ${TRT_EDGELLM_ROOT}/cpp/CMakeLists.txt
+        ${TRT_EDGELLM_ROOT}/examples/utils/CMakeLists.txt
+    )
+    add_custom_command(
+        OUTPUT ${TRT_EDGELLM_CORE_LIB} ${TRT_EDGELLM_TOKENIZER_LIB} ${TRT_EDGELLM_UTILS_LIB}
+        COMMAND ${CMAKE_COMMAND} --build ${TRT_EDGELLM_BUILD_DIR} --parallel --target edgellmCore edgellmTokenizer exampleUtils
+        DEPENDS ${TRT_EDGELLM_BUILD_DEPS}
+        COMMENT "Rebuilding TensorRT-Edge-LLM runtime libraries for edge_fm_trt"
+        VERBATIM
+    )
+    add_custom_target(edge_fm_trt_runtime_libs
+        DEPENDS ${TRT_EDGELLM_CORE_LIB} ${TRT_EDGELLM_TOKENIZER_LIB} ${TRT_EDGELLM_UTILS_LIB}
+    )
+
+    find_library(CUDA_DRIVER_LIB cuda HINTS ${CUDAToolkit_LIBRARY_DIR} /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu PATH_SUFFIXES lib lib64 lib/stubs)
     if(NOT CUDA_DRIVER_LIB)
         set(CUDA_DRIVER_LIB "cuda")  # Let linker find it
     endif()
