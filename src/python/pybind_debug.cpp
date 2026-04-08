@@ -30,6 +30,78 @@
 namespace py = pybind11;
 using namespace edge_fm;
 
+namespace {
+
+std::vector<std::string> collect_safetensors_files(const std::string& model_dir) {
+    std::vector<std::string> out;
+    std::filesystem::path dir(model_dir);
+    if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
+        return out;
+    }
+
+    const std::string single = model_dir + "/model.safetensors";
+    if (std::filesystem::exists(single) && std::filesystem::is_regular_file(single)) {
+        out.push_back(single);
+        return out;
+    }
+
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        if (!entry.is_regular_file()) continue;
+        const std::string name = entry.path().filename().string();
+        if (name.size() > 18 && name.compare(0, 6, "model-") == 0 &&
+            name.find("-of-") != std::string::npos &&
+            name.size() >= 12 && name.compare(name.size() - 12, 12, ".safetensors") == 0) {
+            out.push_back(entry.path().string());
+        }
+    }
+
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+const std::unordered_map<std::string, Tensor>& load_stage_weights_for_debug_layer(
+    WeightLoader& loader,
+    const EngineConfig& config,
+    ModelStage stage,
+    int32_t runtime_device_id,
+    const std::unordered_map<std::string, Tensor>* fallback_weights = nullptr) {
+    const std::string model_path =
+        (stage == ModelStage::Decode && !config.decode_model_path().empty())
+            ? config.decode_model_path()
+            : config.prefill_model_path();
+    const auto safetensors_files = collect_safetensors_files(model_path);
+    if (safetensors_files.empty()) {
+        if (fallback_weights != nullptr) {
+            return *fallback_weights;
+        }
+        throw ConfigurationError("No model.safetensors or model-*-of-*.safetensors found in: " + model_path);
+    }
+
+    const bool is_vlm = (config.resolved_model_name() == "qwen2_5_vl");
+    if (is_vlm) {
+        auto vlm_filter = [](const std::string& name) {
+            return name.rfind("model.", 0) == 0;
+        };
+        auto vlm_key_mapper = [](const std::string& name) {
+            if (name.rfind("model.model.", 0) == 0) {
+                return name.substr(6);
+            }
+            return name;
+        };
+        for (const auto& file : safetensors_files) {
+            loader.load_weights_from_file(stage, file, Device::GPU, runtime_device_id, true, vlm_filter, vlm_key_mapper);
+        }
+    } else {
+        for (const auto& file : safetensors_files) {
+            loader.load_weights_from_file(stage, file, Device::GPU, runtime_device_id, true);
+        }
+    }
+
+    return loader.get(stage);
+}
+
+}  // namespace
+
 // 异常转换函数
 // 注意：对于已经通过 py::register_exception 注册的异常类型，不应该在这里捕获
 // 让它们直接通过，pybind11 会自动处理并转换为对应的 Python 异常类
@@ -728,25 +800,16 @@ PYBIND11_MODULE(edge_fm, m) {
                  
                  // 加载权重
                  WeightLoader& loader = WeightLoader::instance();
-                 const std::string safetensors_path =
-                    config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(
-                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
-                 const auto& prefill_weights = loader.get(ModelStage::Prefill);
+                 const auto& prefill_weights = load_stage_weights_for_debug_layer(
+                     loader, config, ModelStage::Prefill, runtime_device_id);
                  
                  // 尝试加载 decode 权重（如果存在）
                  const auto& decode_weights = [&]() -> const std::unordered_map<std::string, Tensor>& {
                      std::string decode_model_path = config.decode_model_path();
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
-                         const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(
-                                 ModelStage::Decode,
-                                 decode_safetensors_path,
-                                 Device::GPU,
-                                 runtime_device_id,
-                                 true);
-                             return loader.get(ModelStage::Decode);
+                             return load_stage_weights_for_debug_layer(
+                                 loader, config, ModelStage::Decode, runtime_device_id, &prefill_weights);
                          } catch (...) {
                              return prefill_weights;
                          }
@@ -826,12 +889,24 @@ PYBIND11_MODULE(edge_fm, m) {
             "    # 使用默认 stream 和 Prefill 阶段\n"
             "    layer.forward_int4_groupwise(input, output)\n\n"
             "    # 使用 Decode 阶段\n"
-            "    layer.forward_int4_groupwise(input, output, 0, \"Decode\")");
+            "    layer.forward_int4_groupwise(input, output, 0, \"Decode\")")
+        .def("debug_cached_impl_info", [](LinearLayer& self,
+                                          const std::string& stage_str = "Decode",
+                                          int32_t m = 1) {
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                return self.debug_cached_impl_info(stage, m).dump();
+            },
+            py::arg("stage") = "Decode",
+            py::arg("m") = 1,
+            "返回当前 layer 最近一次命中的缓存 impl / algo 调试信息（JSON 字符串）。\n\n"
+            "参数:\n"
+            "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n"
+            "    m: Prefill 阶段对应 batch/seq 维度；Decode 阶段通常固定为 1\n");
 
     // ============================================================================
     // FusedQKVLinearLayer 类绑定
     // ============================================================================
-    py::class_<FusedQKVLinearLayer>(m, "FusedQKVLinearLayer", "融合的 QKV 线性层，将 Q、K、V 三个投影合并为一个")
+    py::class_<FusedQKVLinearLayer, LinearLayer>(m, "FusedQKVLinearLayer", "融合的 QKV 线性层，将 Q、K、V 三个投影合并为一个")
         // 构造函数: 接受 layer_prefix_base, config_path, in_features, q_out_features, k_out_features, v_out_features
         .def(py::init([](const std::string& layer_prefix_base, const std::string& config_path, 
                          uint32_t in_features, uint32_t q_out_features, 
@@ -841,25 +916,16 @@ PYBIND11_MODULE(edge_fm, m) {
                  
                  // 加载权重
                  WeightLoader& loader = WeightLoader::instance();
-                 const std::string safetensors_path =
-                    config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(
-                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
-                 const auto& prefill_weights = loader.get(ModelStage::Prefill);
+                 const auto& prefill_weights = load_stage_weights_for_debug_layer(
+                     loader, config, ModelStage::Prefill, runtime_device_id);
                  
                  // 尝试加载 decode 权重（如果存在）
                  const auto& decode_weights = [&]() -> const std::unordered_map<std::string, Tensor>& {
                      std::string decode_model_path = config.decode_model_path();
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
-                         const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(
-                                 ModelStage::Decode,
-                                 decode_safetensors_path,
-                                 Device::GPU,
-                                 runtime_device_id,
-                                 true);
-                             return loader.get(ModelStage::Decode);
+                             return load_stage_weights_for_debug_layer(
+                                 loader, config, ModelStage::Decode, runtime_device_id, &prefill_weights);
                          } catch (...) {
                              return prefill_weights;
                          }
@@ -923,7 +989,7 @@ PYBIND11_MODULE(edge_fm, m) {
     // ============================================================================
     // FusedGateUpLinearLayer 类绑定
     // ============================================================================
-    py::class_<FusedGateUpLinearLayer>(m, "FusedGateUpLinearLayer", "融合的 Gate+Up 线性层，将 gate_proj 和 up_proj 合并为一个")
+    py::class_<FusedGateUpLinearLayer, LinearLayer>(m, "FusedGateUpLinearLayer", "融合的 Gate+Up 线性层，将 gate_proj 和 up_proj 合并为一个")
         .def(py::init([](const std::string& layer_prefix_base, const std::string& config_path,
                          uint32_t in_features, uint32_t gate_out_features,
                          uint32_t up_out_features) {
@@ -931,24 +997,15 @@ PYBIND11_MODULE(edge_fm, m) {
                  const int32_t runtime_device_id = config.runtime_device_id();
 
                  WeightLoader& loader = WeightLoader::instance();
-                 const std::string safetensors_path =
-                    config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(
-                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
-                 const auto& prefill_weights = loader.get(ModelStage::Prefill);
+                 const auto& prefill_weights = load_stage_weights_for_debug_layer(
+                     loader, config, ModelStage::Prefill, runtime_device_id);
 
                  const auto& decode_weights = [&]() -> const std::unordered_map<std::string, Tensor>& {
                      std::string decode_model_path = config.decode_model_path();
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
-                         const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(
-                                 ModelStage::Decode,
-                                 decode_safetensors_path,
-                                 Device::GPU,
-                                 runtime_device_id,
-                                 true);
-                             return loader.get(ModelStage::Decode);
+                             return load_stage_weights_for_debug_layer(
+                                 loader, config, ModelStage::Decode, runtime_device_id, &prefill_weights);
                          } catch (...) {
                              return prefill_weights;
                          }
@@ -1022,7 +1079,7 @@ PYBIND11_MODULE(edge_fm, m) {
     // ============================================================================
     // LMHeadLinearLayer 类绑定
     // ============================================================================
-    py::class_<LMHeadLinearLayer>(m, "LMHeadLinearLayer", "LM Head 线性层，支持 lm_head.weight 或 model.embed_tokens.weight (tied)")
+    py::class_<LMHeadLinearLayer, LinearLayer>(m, "LMHeadLinearLayer", "LM Head 线性层，支持 lm_head.weight 或 model.embed_tokens.weight (tied)")
         .def(py::init([](const std::string& config_path,
                          uint32_t in_features,
                          uint32_t out_features,
@@ -1031,24 +1088,15 @@ PYBIND11_MODULE(edge_fm, m) {
                  const int32_t runtime_device_id = config.runtime_device_id();
 
                  WeightLoader& loader = WeightLoader::instance();
-                 const std::string safetensors_path =
-                    config.prefill_model_path() + "/model.safetensors";
-                 loader.load_weights_from_file(
-                     ModelStage::Prefill, safetensors_path, Device::GPU, runtime_device_id, true);
-                 const auto& prefill_weights = loader.get(ModelStage::Prefill);
+                 const auto& prefill_weights = load_stage_weights_for_debug_layer(
+                     loader, config, ModelStage::Prefill, runtime_device_id);
 
                  const auto& decode_weights = [&]() -> const std::unordered_map<std::string, Tensor>& {
                      std::string decode_model_path = config.decode_model_path();
                      if (!decode_model_path.empty() && decode_model_path != config.prefill_model_path()) {
-                         const std::string decode_safetensors_path = decode_model_path + "/model.safetensors";
                          try {
-                             loader.load_weights_from_file(
-                                 ModelStage::Decode,
-                                 decode_safetensors_path,
-                                 Device::GPU,
-                                 runtime_device_id,
-                                 true);
-                             return loader.get(ModelStage::Decode);
+                             return load_stage_weights_for_debug_layer(
+                                 loader, config, ModelStage::Decode, runtime_device_id, &prefill_weights);
                          } catch (...) {
                              return prefill_weights;
                          }

@@ -207,7 +207,9 @@ void Qwen2_5::forward_prefill(
     void* norm_buf = MemoryPool::instance().allocate(seq_len * hidden_size_ * dtype_size, stream, device_id);
     int32_t qkv_total = q_dim + k_dim + v_dim;
     void* qkv_buf = MemoryPool::instance().allocate(seq_len * qkv_total * dtype_size, stream, device_id);
-    void* q_buf = MemoryPool::instance().allocate(seq_len * q_dim * dtype_size, stream, device_id);
+    void* q_buf = use_mrope_
+        ? MemoryPool::instance().allocate(seq_len * q_dim * dtype_size, stream, device_id)
+        : qkv_buf;
     void* k_buf = MemoryPool::instance().allocate(seq_len * k_dim * dtype_size, stream, device_id);
     void* v_buf = MemoryPool::instance().allocate(seq_len * v_dim * dtype_size, stream, device_id);
     void* attn_buf = MemoryPool::instance().allocate(seq_len * hidden_size_ * dtype_size, stream, device_id);
@@ -300,21 +302,29 @@ void Qwen2_5::forward_prefill(
         size_t q_row_bytes = static_cast<size_t>(q_dim) * dtype_size;
         size_t k_row_bytes = static_cast<size_t>(k_dim) * dtype_size;
         size_t v_row_bytes = static_cast<size_t>(v_dim) * dtype_size;
-        CUDA_CHECK_THROW(cudaMemcpy2DAsync(q_buf, q_row_bytes, qkv_buf, qkv_row_bytes, q_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy Q from qkv");
+        void* q_attn_ptr = q_buf;
+        uint32_t q_attn_stride_n = static_cast<uint32_t>(q_dim);
+        if (use_mrope_) {
+            CUDA_CHECK_THROW(cudaMemcpy2DAsync(q_buf, q_row_bytes, qkv_buf, qkv_row_bytes, q_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy Q from qkv");
+        } else {
+            q_attn_ptr = qkv_buf;
+            q_attn_stride_n = static_cast<uint32_t>(qkv_total);
+        }
         CUDA_CHECK_THROW(cudaMemcpy2DAsync(k_buf, k_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes, qkv_row_bytes, k_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy K from qkv");
         CUDA_CHECK_THROW(cudaMemcpy2DAsync(v_buf, v_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes + k_row_bytes, qkv_row_bytes, v_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy V from qkv");
 
-        Tensor q_view = Tensor::view(q_buf, {seq_len, num_attention_heads_, head_dim_}, dtype_, Device::GPU, device_id);
+        Tensor q_view = Tensor::view(q_attn_ptr, {seq_len, num_attention_heads_, head_dim_}, dtype_, Device::GPU, device_id);
         Tensor k_view = Tensor::view(k_buf, {seq_len, num_kv_heads_, head_dim_}, dtype_, Device::GPU, device_id);
         Tensor v_view = Tensor::view(v_buf, {seq_len, num_kv_heads_, head_dim_}, dtype_, Device::GPU, device_id);
-        std::unordered_map<std::string, Tensor> attn_inputs;
-        attn_inputs.emplace("q", std::move(q_view));
-        attn_inputs.emplace("k", std::move(k_view));
-        attn_inputs.emplace("v", std::move(v_view));
-        std::unordered_map<std::string, Tensor> attn_outputs;
-        attn_outputs.emplace("o", Tensor::view(attn_output.data_ptr(), {seq_len, num_attention_heads_, head_dim_},
-            attn_output.dtype(), std::get<0>(attn_output.device()), std::get<1>(attn_output.device())));
-        attentions_[layer_prefix + ".attn"]->forward(attn_inputs, attn_outputs, stream, ModelStage::Prefill);
+        attentions_[layer_prefix + ".attn"]->forward_prefill(
+            q_view,
+            k_view,
+            v_view,
+            attn_output,
+            true,
+            stream,
+            q_attn_stride_n,
+            static_cast<uint32_t>(head_dim_));
 
         Tensor o_proj_in = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         Tensor o_proj_out = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
@@ -438,6 +448,8 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         Tensor& q_tensor = tensors[ModelTensors::Q_PROJ_OUTPUT];
         void* qkv_buf = qkv_tensor.data_ptr();
         void* q_buf = q_tensor.data_ptr();
+        uint32_t q_attn_stride_n = static_cast<uint32_t>(q_dim);
+        uint32_t q_attn_stride_h = static_cast<uint32_t>(head_dim_);
 
         Tensor qkv_out = Tensor::view(qkv_buf, {seq_len, qkv_total}, dtype_, Device::GPU, device_id);
         linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_out, stream, stage);
@@ -482,7 +494,12 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
             }
         } else {
             // Prefill: multi-row strided copy required
-            CUDA_CHECK_THROW(cudaMemcpy2DAsync(q_buf, q_row_bytes, qkv_buf, qkv_row_bytes, q_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy Q from qkv");
+            if (use_mrope_) {
+                CUDA_CHECK_THROW(cudaMemcpy2DAsync(q_buf, q_row_bytes, qkv_buf, qkv_row_bytes, q_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy Q from qkv");
+            } else {
+                q_buf = qkv_buf;
+                q_attn_stride_n = static_cast<uint32_t>(qkv_total);
+            }
             CUDA_CHECK_THROW(cudaMemcpy2DAsync(k_write.data_ptr(), k_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes, qkv_row_bytes, k_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy K to k_write");
             CUDA_CHECK_THROW(cudaMemcpy2DAsync(v_write.data_ptr(), v_row_bytes, v_src, qkv_row_bytes, v_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
             k_rotated_src = k_write.data_ptr();
@@ -522,7 +539,15 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         Tensor q_attn = Tensor::view(q_buf, {seq_len, num_attention_heads_, head_dim_}, dtype_, Device::GPU, device_id);
         Tensor& attn_output = tensors[ModelTensors::ATTENTION_OUTPUT];
         if (stage == ModelStage::Prefill) {
-            attentions_[attn_key]->forward_prefill(q_attn, k_cache, v_cache, attn_output, true, stream);
+            attentions_[attn_key]->forward_prefill(
+                q_attn,
+                k_cache,
+                v_cache,
+                attn_output,
+                true,
+                stream,
+                q_attn_stride_n,
+                q_attn_stride_h);
         } else {
             uint32_t* decode_kv_len = nullptr;
             uint32_t max_kv_len = 0;

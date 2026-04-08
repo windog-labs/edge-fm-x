@@ -54,6 +54,10 @@ public:
         ModelStage stage = ModelStage::Prefill
     );
 
+    nlohmann::json debug_cached_impl_info(
+        ModelStage stage = ModelStage::Decode,
+        int32_t m = 1) const;
+
 protected:
     friend class LinearOpRegistry;
     friend class LinearCublasLtImpl;
@@ -147,6 +151,7 @@ protected:
         cudaDataType_t cached_output_type_ = CUDA_R_16F;
         bool has_bias_ = false;
         std::vector<cublasLtMatmulHeuristicResult_t> heuristic_candidates_;
+        int heuristic_candidate_count_ = 0;
         int best_algo_index_ = -1;
         std::string selected_impl_id_;
         nlohmann::json selected_impl_params_ = nlohmann::json::object();

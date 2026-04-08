@@ -26,6 +26,7 @@ private:
                      const Tensor& token_out,
                      cudaStream_t stream,
                      ModelStage stage);
+    bool try_run_prefill_cuda_graph(Context& context);
     void ensure_decode_graph_captured(Context& context);
 
     void prepare_kvcache_tensors(

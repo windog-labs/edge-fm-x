@@ -20,6 +20,12 @@ import torch
 QWEN_1P5B_MODEL_PATH = (
     PROJECT_ROOT / "examples" / "qwen2.5-1.5b-instruct" / "qwen2.5-1.5b-instruct"
 )
+QWEN_0P5B_MODEL_PATH = (
+    PROJECT_ROOT / "examples" / "qwen2.5-0.5b-instruct" / "qwen2.5-0.5b-instruct"
+)
+QWEN_3B_MODEL_PATH = (
+    PROJECT_ROOT / "examples" / "qwen2.5-3b-instruct" / "qwen2.5-3b-instruct"
+)
 OPERATOR_IMPL_TABLE_PATH = PROJECT_ROOT / "examples" / "config" / "operator_impl_table.json"
 DEFAULT_DEVICE_ID = int(os.environ.get("EDGE_FM_TEST_DEVICE_ID", "0"))
 DEFAULT_PREFILL_LENGTHS = [512, 1024, 2048]
@@ -40,8 +46,44 @@ def ensure_cuda(device_id: int = DEFAULT_DEVICE_ID) -> None:
     torch.cuda.set_device(device_id)
 
 
+def _edge_fm_dtype(torch_dtype: torch.dtype) -> edge_fm.DType:
+    if torch_dtype == torch.bfloat16:
+        return edge_fm.DType.BFloat16
+    if torch_dtype == torch.float16:
+        return edge_fm.DType.Float16
+    if torch_dtype == torch.float32:
+        return edge_fm.DType.Float32
+    if torch_dtype == torch.int32:
+        return edge_fm.DType.Int32
+    if torch_dtype == torch.int64:
+        return edge_fm.DType.Int64
+    if torch_dtype == torch.int8:
+        return edge_fm.DType.Int8
+    if torch_dtype == torch.uint8:
+        return edge_fm.DType.UInt8
+    raise TypeError(f"Unsupported torch dtype for edge_fm.Tensor view: {torch_dtype}")
+
+
+def _edge_fm_device(torch_tensor: torch.Tensor) -> tuple[edge_fm.Device, int]:
+    if torch_tensor.device.type == "cuda":
+        return edge_fm.Device.GPU, torch_tensor.device.index or 0
+    if torch_tensor.device.type == "cpu":
+        return edge_fm.Device.CPU, 0
+    raise TypeError(f"Unsupported torch device for edge_fm.Tensor view: {torch_tensor.device}")
+
+
 def tensor_to_edge_fm_tensor(torch_tensor: torch.Tensor) -> edge_fm.Tensor:
-    return edge_fm.Tensor.from_dlpack(torch_tensor.contiguous().__dlpack__())
+    if not torch_tensor.is_contiguous():
+        raise ValueError("tensor_to_edge_fm_tensor expects a contiguous torch.Tensor")
+    device, device_id = _edge_fm_device(torch_tensor)
+    return edge_fm.Tensor(
+        torch_tensor.data_ptr(),
+        list(torch_tensor.shape),
+        _edge_fm_dtype(torch_tensor.dtype),
+        device,
+        device_id,
+        False,
+    )
 
 
 def edge_fm_tensor_to_torch(tensor: edge_fm.Tensor) -> torch.Tensor:

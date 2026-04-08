@@ -274,6 +274,7 @@ void LinearLayer::cleanup_cached_descriptors(CachedDescriptors& cached)
     destroy_layout(cached.Ddesc_);
     cached.cached_m_ = -1;
     cached.has_algo_ = false;
+    cached.heuristic_candidate_count_ = 0;
     cached.best_algo_index_ = -1;
     cached.heuristic_candidates_.clear();
     cached.selected_impl_id_.clear();
@@ -397,6 +398,7 @@ void LinearLayer::get_or_create_descriptors(
         cached.cached_input_type_ = input_type;
         cached.cached_output_type_ = output_type;
         cached.heuristic_candidates_.clear();
+        cached.heuristic_candidate_count_ = 0;
         cached.best_algo_index_ = -1;
 
         // Query top-K algorithms via heuristic; operator_impl_table may optionally pin algo_index.
@@ -419,6 +421,7 @@ void LinearLayer::get_or_create_descriptors(
             cublasLtMatmulPreferenceDestroy(pref);
             if (status == CUBLAS_STATUS_SUCCESS && returned > 0) {
                 cached.heuristic_candidates_.assign(results.begin(), results.begin() + returned);
+                cached.heuristic_candidate_count_ = returned;
                 cached.heuristic_ = cached.heuristic_candidates_[0];
                 cached.has_algo_ = true;
                 cached.best_algo_index_ = (returned == 1) ? 0 : -1;  // single candidate: use directly
@@ -621,6 +624,39 @@ void LinearLayer::forward(
         throw InternalError("LinearLayer: Unsupported quantization type: " + 
                            std::to_string(static_cast<int>(weight_set.quant_type_)));
     }
+}
+
+nlohmann::json LinearLayer::debug_cached_impl_info(ModelStage stage, int32_t m) const
+{
+    const CachedDescriptors* cached = nullptr;
+    if (stage == ModelStage::Decode) {
+        cached = &decode_descriptors_;
+    } else {
+        auto it = prefill_descriptors_map_.find(m);
+        if (it != prefill_descriptors_map_.end()) {
+            cached = &it->second;
+        }
+    }
+
+    nlohmann::json info = {
+        {"layer_prefix", layer_prefix_},
+        {"layer_role", layer_role_},
+        {"stage", stage == ModelStage::Decode ? "decode" : "prefill"},
+        {"requested_m", m},
+        {"cached", cached != nullptr},
+    };
+    if (cached == nullptr) {
+        return info;
+    }
+
+    info["cached_m"] = cached->cached_m_;
+    info["selected_impl_id"] = cached->selected_impl_id_;
+    info["selected_impl_params"] = cached->selected_impl_params_;
+    info["has_algo"] = cached->has_algo_;
+    info["heuristic_candidate_count"] = cached->heuristic_candidate_count_;
+    info["best_algo_index"] = cached->best_algo_index_;
+    info["workspace_bytes"] = cached->has_algo_ ? cached->heuristic_.workspaceSize : 0;
+    return info;
 }
 
 // ============================================================================

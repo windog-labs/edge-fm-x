@@ -147,6 +147,12 @@ std::string stage_key(ModelStage stage) {
     return stage == ModelStage::Decode ? "decode" : "prefill";
 }
 
+std::string attention_shape_sig(uint32_t num_qo_heads, uint32_t num_kv_heads, uint32_t head_dim) {
+    return "num_qo_heads=" + std::to_string(num_qo_heads) +
+        "|num_kv_heads=" + std::to_string(num_kv_heads) +
+        "|head_dim=" + std::to_string(head_dim);
+}
+
 std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
     try {
         return engine_config.resolved_model_name();
@@ -226,6 +232,7 @@ AttentionOp* AttentionLayer::resolve_impl(ModelStage stage) const {
     query.op_kind = "attention";
     query.op_name = "attention";
     query.stage = stage_key(stage);
+    query.shape_sig = attention_shape_sig(num_qo_heads_, num_kv_heads_, head_dim_);
 
     auto resolved = OperatorImplTable::instance().resolve(
         model_name_for_operator_resolution(engine_config_),
@@ -235,20 +242,26 @@ AttentionOp* AttentionLayer::resolve_impl(ModelStage stage) const {
 
     if (resolved.has_value()) {
         if (AttentionOp* impl = AttentionOpRegistry::instance().find_impl_by_id(resolved->impl_id); impl != nullptr) {
-            if (!impl->supports(ctx)) {
-                throw ConfigurationError(
-                    "AttentionLayer: operator_impl_table selected unsupported impl '" + resolved->impl_id + "'");
+            if (impl->supports(ctx)) {
+                selected_impl_id = impl->impl_id();
+                selected_impl_params_[slot] = resolved->impl_params;
+                selected_impls_[slot] = impl;
+                return impl;
             }
-            selected_impl_id = impl->impl_id();
-            selected_impls_[slot] = impl;
-            return impl;
+            // The impl table may contain a shape-tuned decode kernel for another
+            // Qwen2.5 variant (for example the 1.5B path). When the selected impl
+            // does not support the current attention shape, fall back to the
+            // registry default instead of hard-failing the whole model.
+            selected_impl_id.clear();
+        } else {
+            throw ConfigurationError(
+                "AttentionLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
         }
-        throw ConfigurationError(
-            "AttentionLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
     }
 
     if (AttentionOp* impl = AttentionOpRegistry::instance().default_impl(ctx); impl != nullptr) {
         selected_impl_id = impl->impl_id();
+        selected_impl_params_[slot] = nlohmann::json::object();
         selected_impls_[slot] = impl;
         return impl;
     }
@@ -300,7 +313,9 @@ void AttentionLayer::forward_prefill(
     const Tensor& v,
     Tensor& o,
     bool causal,
-    cudaStream_t stream) const
+    cudaStream_t stream,
+    uint32_t q_stride_n,
+    uint32_t q_stride_h) const
 {
     validate_tensor_device(q, device_, device_id_, "q");
     validate_tensor_device(k, device_, device_id_, "k");
@@ -343,6 +358,8 @@ void AttentionLayer::forward_prefill(
     ctx.num_qo_heads = num_qo_heads_;
     ctx.num_kv_heads = num_kv_heads_;
     ctx.head_dim = head_dim_;
+    ctx.q_stride_n = q_stride_n;
+    ctx.q_stride_h = q_stride_h;
     ctx.rope_scale = rope_scale_;
     ctx.rope_theta = rope_theta_;
     ctx.dtype = dtype_;
@@ -350,6 +367,7 @@ void AttentionLayer::forward_prefill(
     ctx.device_id = device_id_;
 
     AttentionOp* impl = resolve_impl(ModelStage::Prefill);
+    ctx.impl_params = selected_impl_params_[stage_slot(ModelStage::Prefill)];
     impl->forward_prefill(ctx, q, k, v, o, causal, stream);
 }
 
@@ -416,6 +434,7 @@ void AttentionLayer::forward_decode(
     ctx.device_id = device_id_;
 
     AttentionOp* impl = resolve_impl(ModelStage::Decode);
+    ctx.impl_params = selected_impl_params_[stage_slot(ModelStage::Decode)];
     impl->forward_decode(ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
 }
 

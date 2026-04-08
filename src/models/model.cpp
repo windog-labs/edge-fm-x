@@ -23,6 +23,10 @@ bool Model::has_static_decode_runtime_tensors() const {
     return false;
 }
 
+bool Model::needs_separate_prefill_q_buffer() const {
+    return false;
+}
+
 Model::Model(const EngineConfig& config)
     : engine_config_(config)
     , num_layers_(0)

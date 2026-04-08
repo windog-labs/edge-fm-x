@@ -83,6 +83,10 @@ public:
     /// 重新构建 tensor 视图时返回 true，Engine 可跳过重复 prepare_decode_tensors。
     virtual bool has_static_decode_runtime_tensors() const;
 
+    /// 某些模型（例如 VLM 的 M-RoPE 路径）要求 prefill 阶段的 Q 使用独立连续缓冲。
+    /// 默认 false，允许 Engine 直接将 Q 视图 alias 到 fused QKV 首段。
+    virtual bool needs_separate_prefill_q_buffer() const;
+
     int32_t num_layers() const { return num_layers_; }
     int32_t hidden_size() const { return hidden_size_; }
     int32_t vocab_size() const { return vocab_size_; }

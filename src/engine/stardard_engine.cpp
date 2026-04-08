@@ -7,6 +7,7 @@
 #include "utils/device/decode_runtime_kernels.h"
 #include "utils/device/cuda_utils.h"
 #include "utils/device/nvtx.h"
+#include "utils/check.h"
 #include <edge-fm/core.h>
 #include <cuda_runtime.h>
 #include <cstdint>
@@ -193,6 +194,89 @@ private:
     bool restored_ = false;
 };
 
+class ScopedPrefillCaptureRedirect {
+public:
+    ScopedPrefillCaptureRedirect(Context& context,
+                                 int32_t num_layers,
+                                 int32_t device_id,
+                                 const std::string& cache_key_prefix)
+        : tensors_(context.tensors())
+    {
+        for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+            redirect_pair(
+                ModelTensors::k_write_layer(layer_id),
+                ModelTensors::k_cache_layer(layer_id),
+                cache_key_prefix + "_k_L" + std::to_string(layer_id),
+                device_id);
+            redirect_pair(
+                ModelTensors::v_write_layer(layer_id),
+                ModelTensors::v_cache_layer(layer_id),
+                cache_key_prefix + "_v_L" + std::to_string(layer_id),
+                device_id);
+        }
+    }
+
+    ~ScopedPrefillCaptureRedirect() {
+        restore();
+    }
+
+    void restore() {
+        if (restored_) {
+            return;
+        }
+        for (auto& saved : saved_) {
+            tensors_[saved.name] = std::move(saved.tensor);
+        }
+        restored_ = true;
+    }
+
+private:
+    struct SavedTensor {
+        std::string name;
+        Tensor tensor;
+    };
+
+    void redirect_pair(const std::string& write_name,
+                       const std::string& cache_name,
+                       const std::string& buffer_name,
+                       int32_t device_id)
+    {
+        const Tensor& write_tensor = tensors_.at(write_name);
+        const Tensor& cache_tensor = tensors_.at(cache_name);
+
+        check<InternalError>(
+            tensor_nbytes(write_tensor) == tensor_nbytes(cache_tensor),
+            "Prefill capture redirect requires write/cache tensor sizes to match");
+
+        saved_.push_back(SavedTensor{write_name, make_tensor_view(write_tensor)});
+        saved_.push_back(SavedTensor{cache_name, make_tensor_view(cache_tensor)});
+
+        void* tmp_ptr = StaticBufferManager::get_cache_buf(
+            buffer_name,
+            tensor_nbytes(cache_tensor),
+            device_id);
+
+        auto [write_device, write_device_id] = write_tensor.device();
+        auto [cache_device, cache_device_id] = cache_tensor.device();
+        tensors_[write_name] = Tensor::view(
+            tmp_ptr,
+            write_tensor.shape(),
+            write_tensor.dtype(),
+            write_device,
+            write_device_id);
+        tensors_[cache_name] = Tensor::view(
+            tmp_ptr,
+            cache_tensor.shape(),
+            cache_tensor.dtype(),
+            cache_device,
+            cache_device_id);
+    }
+
+    std::unordered_map<std::string, Tensor>& tensors_;
+    std::vector<SavedTensor> saved_;
+    bool restored_ = false;
+};
+
 class ScopedCudaEvent {
 public:
     ScopedCudaEvent() {
@@ -275,6 +359,96 @@ void StandardEngine::run_sampler(const Tensor& logits,
     out.emplace("token_ids", Tensor::view(
         token_out.data_ptr(), token_out.shape(), token_out.dtype(), token_device, token_device_id));
     sampler_->forward(in, out, stream, stage);
+}
+
+bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
+    if (!config_.use_cuda_graph()) {
+        return false;
+    }
+    if (kv_manager_->get_attention_type() == AttentionType::MLA) {
+        return false;
+    }
+
+    const Request* request = context.request();
+    if (request == nullptr || request->has_embedding() || request->has_position_ids()) {
+        return false;
+    }
+    if (context.prefix_size() != 0) {
+        return false;
+    }
+
+    auto& tensors = context.tensors();
+    if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
+        return false;
+    }
+
+    const int32_t seq_len = prefill_token_count(context);
+    if (seq_len <= 0) {
+        return false;
+    }
+
+    for (int32_t layer_id = 0; layer_id < model_->num_layers(); ++layer_id) {
+        if (tensor_nbytes(tensors.at(ModelTensors::k_write_layer(layer_id))) !=
+                tensor_nbytes(tensors.at(ModelTensors::k_cache_layer(layer_id))) ||
+            tensor_nbytes(tensors.at(ModelTensors::v_write_layer(layer_id))) !=
+                tensor_nbytes(tensors.at(ModelTensors::v_cache_layer(layer_id)))) {
+            return false;
+        }
+    }
+
+    const int32_t request_id = request->request_id();
+    cudaStream_t stream = context.stream();
+    CudaGraphRunner& runner = cuda_graph_manager_.prefill(request_id, seq_len);
+    if (runner.is_captured()) {
+        runner.launch(stream);
+        return true;
+    }
+
+    {
+        ScopedPrefillCaptureRedirect redirect_writes(
+            context,
+            model_->num_layers(),
+            device_id_,
+            "prefill_capture_warmup");
+
+        Tensor sampler_out_saved = make_tensor_view(tensors.at(ModelTensors::SAMPLER_TOKEN_OUT));
+        void* sampler_tmp_ptr = StaticBufferManager::get_cache_buf(
+            "prefill_capture_sampler_out",
+            tensor_nbytes(sampler_out_saved),
+            device_id_);
+        auto [sampler_device, sampler_device_id] = sampler_out_saved.device();
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(
+            sampler_tmp_ptr,
+            sampler_out_saved.shape(),
+            sampler_out_saved.dtype(),
+            sampler_device,
+            sampler_device_id);
+
+        model_->prefill(context);
+        run_sampler(
+            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+            stream,
+            ModelStage::Prefill);
+        if (stream != nullptr) {
+            CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
+                             "Failed to sync stream before prefill CUDA graph capture");
+        }
+
+        tensors[ModelTensors::SAMPLER_TOKEN_OUT] = std::move(sampler_out_saved);
+    }
+
+    (void)cudaGetLastError();
+
+    runner.begin_capture(stream);
+    model_->prefill(context);
+    run_sampler(
+        last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+        stream,
+        ModelStage::Prefill);
+    runner.end_capture(stream);
+    return true;
 }
 
 void StandardEngine::ensure_decode_graph_captured(Context& context) {
@@ -433,17 +607,18 @@ Response StandardEngine::generate(const Request& request) {
             return response;
         }
 
-        model_->prefill(context);
+        const bool ran_prefill_graph = try_run_prefill_cuda_graph(context);
+        if (!ran_prefill_graph) {
+            model_->prefill(context);
+            run_sampler(
+                last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Prefill);
+        }
 
-        const Tensor& logits_prefill = tensors.at(ModelTensors::LOGITS);
         int32_t seq_len = prefill_token_count(context);
         void* prefill_write_ptr = context.get_response_token_write_ptr();
-        run_sampler(
-            last_token_logits_view(logits_prefill),
-            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-            stream,
-            ModelStage::Prefill);
-
         if (check_stop(prefill_write_ptr)) {
             context.finish();
         }
@@ -785,10 +960,15 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
         device_,
         device_id_
     );
-    // 2.1. Q projection output: 单独分配 [seq_len, num_attention_heads, q_head_dim]，attention 需要连续 stride
-    size_t q_size = seq_len * num_attention_heads * q_head_dim * model_dtype_size;
-    void* q_ptr = StaticBufferManager::get_cache_buf(
-        "prefill_q_proj", q_size, device_id_);
+    // 2.1. Q projection output:
+    // - 标准 LLM prefill 直接 alias 到 fused QKV 首段，避免额外缓冲
+    // - M-RoPE 路径仍保留独立连续 Q 缓冲，供后续 in-place rotary 使用
+    void* q_ptr = qkv_proj_ptr;
+    if (model_->needs_separate_prefill_q_buffer()) {
+        size_t q_size = seq_len * num_attention_heads * q_head_dim * model_dtype_size;
+        q_ptr = StaticBufferManager::get_cache_buf(
+            "prefill_q_proj", q_size, device_id_);
+    }
     tensors[ModelTensors::Q_PROJ_OUTPUT] = Tensor::view(
         q_ptr,
         {seq_len, num_attention_heads, q_head_dim},
