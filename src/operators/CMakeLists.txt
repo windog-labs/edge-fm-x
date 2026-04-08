@@ -12,6 +12,11 @@ if(ENABLE_CUDA)
         attention_op.cu
         norm_op.cu
         activation_op.cu
+        fused_gate_up_activation_op.cu
+        ../../third_party/flashinfer/csrc/nv_internal/cpp/common/stringUtils.cpp
+        ../../third_party/flashinfer/csrc/nv_internal/cpp/common/tllmException.cpp
+        ../../third_party/flashinfer/csrc/nv_internal/cpp/common/logger.cpp
+        ../../third_party/flashinfer/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/cutlass_heuristic.cpp
         kernels/int4_groupwise_gemm/int4WoqGemmCuda.cu
         kernels/int4_groupwise_gemm/int4WoQGemvCuda.cu
     )
@@ -40,6 +45,12 @@ if(ENABLE_CUDA)
     target_compile_definitions(edge_fm_operators PRIVATE
         ENABLE_BF16
         ENABLE_FP8
+    )
+    target_include_directories(edge_fm_operators PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/cutlass/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/flashinfer/csrc/nv_internal
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/flashinfer/csrc/nv_internal/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/flashinfer/csrc/nv_internal/tensorrt_llm/cutlass_extensions/include
     )
     target_link_libraries(edge_fm_operators PUBLIC
         CUDA::cudart
