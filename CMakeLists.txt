@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(edge-fm 
+project(edge-fm
     VERSION 0.1.0
     LANGUAGES CXX CUDA
 )
@@ -9,7 +9,7 @@ project(edge-fm
 # ============================================================================
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS 
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
@@ -71,7 +71,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # ============================================================================
 # 平台选择
 # ============================================================================
-set(PLATFORM_OPTIONS "5090" "4050" "3060" "a100" "thor" "j6m")
+set(PLATFORM_OPTIONS "5090" "4050" "3060" "a100" "orin" "thor" "j6m")
 set(PLATFORM "a100" CACHE STRING "Target platform")
 set_property(CACHE PLATFORM PROPERTY STRINGS ${PLATFORM_OPTIONS})
 
@@ -85,11 +85,27 @@ else()
     message(WARNING "Platform configuration file not found: cmake/platform_${PLATFORM}.cmake")
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release"
+   AND (PLATFORM STREQUAL "5090"
+        OR PLATFORM STREQUAL "4050"
+        OR PLATFORM STREQUAL "3060"
+        OR PLATFORM STREQUAL "a100"
+        OR PLATFORM STREQUAL "orin"
+        OR PLATFORM STREQUAL "thor"))
+    set(_edge_fm_cuda_release_flags "${CMAKE_CUDA_FLAGS_RELEASE}")
+    if(NOT _edge_fm_cuda_release_flags MATCHES "(^| )-use_fast_math($| )")
+        string(APPEND _edge_fm_cuda_release_flags " -use_fast_math")
+        string(STRIP "${_edge_fm_cuda_release_flags}" _edge_fm_cuda_release_flags)
+        set(CMAKE_CUDA_FLAGS_RELEASE "${_edge_fm_cuda_release_flags}" CACHE STRING "CUDA release flags" FORCE)
+    endif()
+    message(STATUS "CUDA release flags: ${CMAKE_CUDA_FLAGS_RELEASE}")
+endif()
+
 # ============================================================================
 # CUDA 和 cuDNN 检查和配置（仅适用于 NVIDIA 平台）
 # ============================================================================
 set(ENABLE_CUDA OFF)
-if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "3060" OR PLATFORM STREQUAL "a100" OR PLATFORM STREQUAL "thor")
+if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "3060" OR PLATFORM STREQUAL "a100" OR PLATFORM STREQUAL "orin" OR PLATFORM STREQUAL "thor")
     # 查找 CUDA
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
@@ -98,11 +114,16 @@ if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "30
         enable_language(CUDA)
         # CUDA 找到后，启用 CUDA device utilities
         set(ENABLE_CUDA ON)
-        # FlashInfer sampling.cuh 需要 libcu++ (cuda/functional)，位于 targets/x86_64-linux/include
+        # FlashInfer sampling.cuh 需要 libcu++ (cuda/functional)。
         set(CUDA_LIBCPP_INCLUDE_DIR "")
         foreach(_base "${CUDAToolkit_ROOT_DIR}" "$ENV{CUDA_PATH}" "/usr/local/cuda" "/usr/local/cuda-12.6" "/usr/local/cuda-12")
-            if(_base AND EXISTS "${_base}/targets/x86_64-linux/include/cuda/functional")
-                set(CUDA_LIBCPP_INCLUDE_DIR "${_base}/targets/x86_64-linux/include" CACHE INTERNAL "libcu++ include for FlashInfer")
+            foreach(_cuda_target "aarch64-linux" "x86_64-linux")
+                if(_base AND EXISTS "${_base}/targets/${_cuda_target}/include/cuda/functional")
+                    set(CUDA_LIBCPP_INCLUDE_DIR "${_base}/targets/${_cuda_target}/include" CACHE INTERNAL "libcu++ include for FlashInfer")
+                    break()
+                endif()
+            endforeach()
+            if(CUDA_LIBCPP_INCLUDE_DIR)
                 break()
             endif()
         endforeach()
@@ -115,13 +136,16 @@ if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "30
     endif()
 
     # 查找 cuDNN
-    find_path(CUDNN_INCLUDE_DIR 
+    find_path(CUDNN_INCLUDE_DIR
         NAMES cudnn.h
-        PATHS 
+        PATHS
             ${CUDAToolkit_INCLUDE_DIRS}
             /usr/local/cuda/include
+            /usr/local/cuda/targets/aarch64-linux/include
             /usr/local/cuda/targets/x86_64-linux/include
             /usr/include
+            /usr/include/aarch64-linux-gnu
+            /usr/include/x86_64-linux-gnu
         PATH_SUFFIXES cudnn
     )
 
@@ -130,7 +154,9 @@ if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "30
         PATHS
             ${CUDAToolkit_LIBRARY_DIR}
             /usr/local/cuda/lib64
+            /usr/local/cuda/targets/aarch64-linux/lib
             /usr/local/cuda/targets/x86_64-linux/lib
+            /usr/lib/aarch64-linux-gnu
             /usr/lib/x86_64-linux-gnu
     )
 
