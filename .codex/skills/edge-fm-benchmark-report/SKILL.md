@@ -35,7 +35,7 @@ description: Generate detailed benchmark reports inside this edge-fm repo, cover
 1. 先确认环境变量：
    - `LD_LIBRARY_PATH=/xs-train-nas/zzm/packages/TensorRT-10.16.0.72/lib:${LD_LIBRARY_PATH:-}`
    - `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6`
-   - `EDGE_FM_DEVICE_ID=1`（或用户指定 GPU）
+  - `EDGE_FM_DEVICE_ID=0`（或用户指定 GPU）
 2. 优先运行本 skill 自带 suite 脚本：
    - `python3 .codex/skills/edge-fm-benchmark-report/scripts/report_qwen_benchmark_suite.py`
 3. 如果用户只看 legacy 单模型 LLM 3-way，对齐旧报告时再运行：

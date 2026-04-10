@@ -2,10 +2,11 @@ import json
 import os
 import statistics
 import sys
-import tempfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 BUILD_PYTHON_CANDIDATES = [
     PROJECT_ROOT / "build" / "install" / "python",
     PROJECT_ROOT / "build" / "python",
@@ -16,6 +17,8 @@ for build_python in reversed(BUILD_PYTHON_CANDIDATES):
 
 import edge_fm
 import torch
+from scripts._repo_temp import make_temp_dir
+from scripts.operator_table_utils import resolve_operator_table_path
 
 QWEN_1P5B_MODEL_PATH = (
     PROJECT_ROOT / "examples" / "qwen2.5-1.5b-instruct" / "qwen2.5-1.5b-instruct"
@@ -26,7 +29,10 @@ QWEN_0P5B_MODEL_PATH = (
 QWEN_3B_MODEL_PATH = (
     PROJECT_ROOT / "examples" / "qwen2.5-3b-instruct" / "qwen2.5-3b-instruct"
 )
-OPERATOR_IMPL_TABLE_PATH = PROJECT_ROOT / "examples" / "config" / "operator_impl_table.json"
+OPERATOR_IMPL_TABLE_PATH = resolve_operator_table_path(
+    model_path=QWEN_1P5B_MODEL_PATH,
+    model_name="Qwen2.5",
+)
 DEFAULT_DEVICE_ID = int(os.environ.get("EDGE_FM_TEST_DEVICE_ID", "0"))
 DEFAULT_PREFILL_LENGTHS = [512, 1024, 2048]
 DEFAULT_DECODE_LENGTHS = [32, 64]
@@ -91,7 +97,7 @@ def edge_fm_tensor_to_torch(tensor: edge_fm.Tensor) -> torch.Tensor:
 
 
 def write_json_file(prefix: str, name: str, payload: dict) -> Path:
-    temp_dir = Path(tempfile.mkdtemp(prefix=prefix))
+    temp_dir = make_temp_dir(prefix)
     path = temp_dir / name
     path.write_text(json.dumps(payload))
     return path

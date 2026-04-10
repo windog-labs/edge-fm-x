@@ -23,13 +23,14 @@ for build_python in [PROJECT_ROOT / "build" / "python", PROJECT_ROOT / "build" /
 
 import edge_fm
 from _repo_temp import make_temp_dir
+from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Profile a single EdgeFM generate case")
     parser.add_argument("--model-path", required=True, help="HF model directory")
-    parser.add_argument("--model-name", default="Qwen2.5", help="Engine model_name field")
-    parser.add_argument("--device-id", type=int, default=1)
+    parser.add_argument("--model-name", default="", help="Engine model_name field; empty means auto-detect")
+    parser.add_argument("--device-id", type=int, default=0)
     parser.add_argument("--prefill-len", type=int, required=True)
     parser.add_argument("--decode-len", type=int, default=1)
     parser.add_argument("--warmup", type=int, default=1)
@@ -37,9 +38,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt", default="Hello, how are you today?")
     parser.add_argument(
         "--operator-impl-table",
-        default=str(PROJECT_ROOT / "examples" / "config" / "operator_impl_table.json"),
+        default="",
     )
     parser.add_argument("--use-cuda-graph", action="store_true", default=False)
+    parser.add_argument(
+        "--profile-range",
+        action="store_true",
+        help="Wrap only the timed runs with cudaProfilerStart/Stop for nsys capture-range=cudaProfilerApi",
+    )
     parser.add_argument("--json", action="store_true", help="Print only final JSON metrics")
     return parser.parse_args()
 
@@ -80,14 +86,25 @@ def make_engine_config(
     max_tokens = prefill_len + decode_len - 1
 
     payload = {
-        "model_name": model_name,
+        "model_name": resolve_engine_model_name(
+            model_path,
+            explicit_model_name=model_name or None,
+            config=config,
+        ),
         "runtime": {
             "device": "cuda",
             "device_id": device_id,
             "hw_profile": "cuda_sm80",
             "use_cuda_graph": use_cuda_graph,
         },
-        "operator_impl_table_path": str(Path(operator_impl_table_path).resolve()),
+        "operator_impl_table_path": str(
+            resolve_operator_table_path(
+                Path(operator_impl_table_path).resolve() if operator_impl_table_path else None,
+                model_path=model_path,
+                model_name=model_name or None,
+                config=config,
+            )
+        ),
         "prefill_model_path": str(model_path.resolve()),
         "kvcache": {
             "dtype": kvcache_dtype,
@@ -135,17 +152,29 @@ def main() -> None:
         warmup_generated.append(len(response.token_ids()))
     torch.cuda.synchronize()
 
+    cudart = torch.cuda.cudart() if args.profile_range else None
+    if cudart is not None:
+        err = cudart.cudaProfilerStart()
+        if err != 0:
+            raise RuntimeError(f"cudaProfilerStart failed with error code {err}")
+
     times_ms = []
     stage_metrics = []
     generated_counts = []
-    for _ in range(args.runs):
-        torch.cuda.synchronize()
-        t0 = time.perf_counter()
-        response = engine.generate(make_request())
-        torch.cuda.synchronize()
-        times_ms.append((time.perf_counter() - t0) * 1000.0)
-        generated_counts.append(len(response.token_ids()))
-        stage_metrics.append(engine.last_generate_metrics())
+    try:
+        for _ in range(args.runs):
+            torch.cuda.synchronize()
+            t0 = time.perf_counter()
+            response = engine.generate(make_request())
+            torch.cuda.synchronize()
+            times_ms.append((time.perf_counter() - t0) * 1000.0)
+            generated_counts.append(len(response.token_ids()))
+            stage_metrics.append(engine.last_generate_metrics())
+    finally:
+        if cudart is not None:
+            err = cudart.cudaProfilerStop()
+            if err != 0:
+                raise RuntimeError(f"cudaProfilerStop failed with error code {err}")
 
     result = {
         "model_path": str(model_path),

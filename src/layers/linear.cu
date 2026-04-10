@@ -14,6 +14,9 @@
 #include "utils/device/weight_loader.h"
 #include "operators/kernels/int4_groupwise_gemm/int4GroupwiseGemm.h"
 
+#include <cstdlib>
+#include <limits>
+
 using namespace trt_edgellm::kernel;
 
 namespace edge_fm {
@@ -58,6 +61,40 @@ std::string model_name_for_operator_resolution(const EngineConfig& engine_config
     } catch (const ConfigurationError&) {
         return std::string();
     }
+}
+
+int cublaslt_max_algo_candidates() {
+    static int value = []() {
+        constexpr int kDefault = 16;
+        const char* raw = std::getenv("EDGE_FM_CUBLASLT_MAX_ALGO_CANDIDATES");
+        if (raw == nullptr || *raw == '\0') {
+            return kDefault;
+        }
+        char* end = nullptr;
+        long parsed = std::strtol(raw, &end, 10);
+        if (end == raw || *end != '\0' || parsed <= 0 || parsed > std::numeric_limits<int>::max()) {
+            return kDefault;
+        }
+        return static_cast<int>(parsed);
+    }();
+    return value;
+}
+
+size_t cublaslt_max_workspace_bytes() {
+    static size_t value = []() {
+        constexpr size_t kDefaultBytes = 64ULL * 1024ULL * 1024ULL;
+        const char* raw = std::getenv("EDGE_FM_CUBLASLT_MAX_WORKSPACE_MB");
+        if (raw == nullptr || *raw == '\0') {
+            return kDefaultBytes;
+        }
+        char* end = nullptr;
+        unsigned long long parsed = std::strtoull(raw, &end, 10);
+        if (end == raw || *end != '\0' || parsed == 0) {
+            return kDefaultBytes;
+        }
+        return static_cast<size_t>(parsed) * static_cast<size_t>(1024ULL) * static_cast<size_t>(1024ULL);
+    }();
+    return value;
 }
 
 } // namespace
@@ -416,21 +453,21 @@ void LinearLayer::get_or_create_descriptors(
         cached.best_algo_index_ = -1;
 
         // Query top-K algorithms via heuristic; operator_impl_table may optionally pin algo_index.
-        constexpr int kMaxAlgoCandidates = 5;
-        std::vector<cublasLtMatmulHeuristicResult_t> results(kMaxAlgoCandidates);
+        const int max_algo_candidates = cublaslt_max_algo_candidates();
+        std::vector<cublasLtMatmulHeuristicResult_t> results(static_cast<size_t>(max_algo_candidates));
         cublasLtMatmulPreference_t pref = nullptr;
         status = cublasLtMatmulPreferenceCreate(&pref);
         if (status == CUBLAS_STATUS_SUCCESS) {
-            constexpr size_t kMaxWorkspaceBytes = 32 * 1024 * 1024;  // 32 MB
+            const size_t max_workspace_bytes = cublaslt_max_workspace_bytes();
             status = cublasLtMatmulPreferenceSetAttribute(
                 pref, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES,
-                &kMaxWorkspaceBytes, sizeof(kMaxWorkspaceBytes));
+                &max_workspace_bytes, sizeof(max_workspace_bytes));
             int returned = 0;
             if (status == CUBLAS_STATUS_SUCCESS) {
                 status = cublasLtMatmulAlgoGetHeuristic(
                     cublaslt_handle_, cached.matmul_desc_,
                     cached.Bdesc_, cached.Adesc_, cached.Cdesc_, cached.Ddesc_,
-                    pref, kMaxAlgoCandidates, results.data(), &returned);
+                    pref, max_algo_candidates, results.data(), &returned);
             }
             cublasLtMatmulPreferenceDestroy(pref);
             if (status == CUBLAS_STATUS_SUCCESS && returned > 0) {
@@ -1107,7 +1144,7 @@ FusedGateUpActivationOp* FusedGateUpLinearLayer::resolve_decode_swiglu_impl(
             impl != nullptr)
         {
             decode_swiglu_impl_ = impl;
-            return impl;
+            return decode_swiglu_impl_;
         }
         decode_swiglu_impl_id_.clear();
     }
@@ -1137,7 +1174,7 @@ FusedGateUpActivationOp* FusedGateUpLinearLayer::resolve_decode_swiglu_impl(
             }
             decode_swiglu_impl_id_ = impl->impl_id();
             decode_swiglu_impl_ = impl;
-            return impl;
+            return decode_swiglu_impl_;
         }
         throw ConfigurationError(
             "FusedGateUpLinearLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
@@ -1148,13 +1185,13 @@ FusedGateUpActivationOp* FusedGateUpLinearLayer::resolve_decode_swiglu_impl(
     {
         decode_swiglu_impl_id_ = impl->impl_id();
         decode_swiglu_impl_ = impl;
-        return impl;
+        return decode_swiglu_impl_;
     }
 
     return nullptr;
 }
 
-bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
+bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused_impl(
     const Tensor& input,
     Tensor& output,
     cudaStream_t stream)
@@ -1164,15 +1201,17 @@ bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
             input.shape()[1] == static_cast<int64_t>(in_features_),
         "FusedGateUpLinearLayer: decode fused SwiGLU expects input shape [1, in_features]");
     check<InvalidRequestError>(
-        output.shape().size() == 2 && output.shape()[0] == 1 &&
+        output.shape().size() == 2 && output.shape()[0] == input.shape()[0] &&
             output.shape()[1] == static_cast<int64_t>(up_out_features_),
         "FusedGateUpLinearLayer: decode fused SwiGLU expects output shape [1, up_out_features]");
+
+    const WeightSet& weights = decode_weights_;
     check<InvalidRequestError>(
-        decode_weights_.weight_ != nullptr,
-        "FusedGateUpLinearLayer: decode fused SwiGLU requires loaded decode weights");
+        weights.weight_ != nullptr,
+        "FusedGateUpLinearLayer: fused SwiGLU requires loaded weights");
     check<InvalidRequestError>(
-        input.dtype() == output.dtype() && input.dtype() == decode_weights_.weight_->dtype(),
-        "FusedGateUpLinearLayer: decode fused SwiGLU requires input/output/weight dtypes to match");
+        input.dtype() == output.dtype() && input.dtype() == weights.weight_->dtype(),
+        "FusedGateUpLinearLayer: fused SwiGLU requires input/output/weight dtypes to match");
 
     FusedGateUpActivationOpContext ctx;
     ctx.layer_prefix = layer_prefix_;
@@ -1182,9 +1221,9 @@ bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
     ctx.gate_output_features = static_cast<int64_t>(gate_out_features_);
     ctx.up_output_features = static_cast<int64_t>(up_out_features_);
     ctx.input_dtype = input.dtype();
-    ctx.weight_dtype = decode_weights_.weight_->dtype();
+    ctx.weight_dtype = weights.weight_->dtype();
     ctx.output_dtype = output.dtype();
-    ctx.has_bias = decode_weights_.bias_ != nullptr;
+    ctx.has_bias = weights.bias_ != nullptr;
 
     FusedGateUpActivationOp* impl = resolve_decode_swiglu_impl(ctx);
     if (impl == nullptr) {
@@ -1195,7 +1234,7 @@ bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
         decode_swiglu_state_ = std::make_unique<FusedGateUpActivationOpState>();
     }
     if (!decode_swiglu_state_->initialized) {
-        impl->prepare(ctx, *decode_weights_.weight_, decode_weights_.bias_, *decode_swiglu_state_);
+        impl->prepare(ctx, *weights.weight_, weights.bias_, *decode_swiglu_state_);
     }
     if (!decode_swiglu_state_->available) {
         return false;
@@ -1203,13 +1242,27 @@ bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
 
     impl->run(
         ctx,
-        *decode_weights_.weight_,
-        decode_weights_.bias_,
+        *weights.weight_,
+        weights.bias_,
         *decode_swiglu_state_,
         input,
         output,
         stream);
     return true;
+}
+
+bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream)
+{
+    check<InvalidRequestError>(
+        input.shape().size() == 2 && input.shape()[0] == 1,
+        "FusedGateUpLinearLayer: decode fused SwiGLU expects input shape [1, in_features]");
+    check<InvalidRequestError>(
+        output.shape().size() == 2 && output.shape()[0] == 1,
+        "FusedGateUpLinearLayer: decode fused SwiGLU expects output shape [1, up_out_features]");
+    return try_forward_decode_swiglu_fused_impl(input, output, stream);
 }
 
 // ============================================================================

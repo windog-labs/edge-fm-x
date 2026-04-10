@@ -317,7 +317,13 @@ private:
         Tensor& fused_bias,
         cudaStream_t stream);
 
-    FusedGateUpActivationOp* resolve_decode_swiglu_impl(const FusedGateUpActivationOpContext& ctx);
+    FusedGateUpActivationOp* resolve_decode_swiglu_impl(
+        const FusedGateUpActivationOpContext& ctx);
+
+    bool try_forward_decode_swiglu_fused_impl(
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream);
 
     FusedGateUpActivationOp* decode_swiglu_impl_ = nullptr;
     std::string decode_swiglu_impl_id_;

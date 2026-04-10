@@ -130,7 +130,7 @@ def print_case_report(report: dict):
 def main():
     parser = argparse.ArgumentParser(description="Run multi-model Qwen benchmark suite for LLM/VLM.")
     parser.add_argument("--repo-root", default="/xs-train-nas/zzm/repos/edge-fm-x")
-    parser.add_argument("--device-id", type=int, default=int(os.environ.get("EDGE_FM_DEVICE_ID", "1")))
+    parser.add_argument("--device-id", type=int, default=int(os.environ.get("EDGE_FM_DEVICE_ID", "0")))
     parser.add_argument("--kind", choices=["llm", "vlm", "all"], default="all")
     parser.add_argument("--llm-models", default="")
     parser.add_argument("--vlm-models", default="")

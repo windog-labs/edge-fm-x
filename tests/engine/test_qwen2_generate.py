@@ -4,7 +4,7 @@ Qwen2.5 generate 对齐测试（pytest）
 验证 edge_fm.EdgeFM.generate() 的 greedy 解码输出与 Transformers 参考 dump 一致。
 dump 数据位于 tests/data/decode_dump/，首次运行时自动通过 Transformers 生成。
 
-默认使用 GPU device 1（可通过环境变量 EDGE_FM_DEVICE_ID 覆盖，如 EDGE_FM_DEVICE_ID=0）。
+默认使用 GPU device 0（可通过环境变量 EDGE_FM_DEVICE_ID 覆盖）。
 
 运行（建议在项目根目录 /xs-train-nas/zzm/repos/edge-fm 下）:
   pytest -s tests/engine/test_qwen2_generate.py
@@ -16,7 +16,6 @@ import json
 import os
 import statistics as stats
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -24,12 +23,15 @@ import numpy as np
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "scripts"))
 for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
     if _p.exists():
         sys.path.insert(0, str(_p))
         break
 
 import edge_fm
+from _repo_temp import make_temp_dir
+from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
 
 # Optional: TRT-Edge-LLM in-process runtime (built with BUILD_TRT_EDGELLM_PYBIND=ON)
 try:
@@ -105,8 +107,8 @@ BENCH_MODEL_SPECS = {
     "vlm": VLM_MODEL_SPECS,
 }
 
-# GPU device：默认 1，避免占用 device 0；可通过环境变量 EDGE_FM_DEVICE_ID 覆盖
-DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
+# GPU device：性能 benchmark / profiling 默认走 device 0；可通过环境变量覆盖
+DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))
 CUDA_DEVICE = f"cuda:{DEVICE_ID}"
 
 
@@ -314,9 +316,10 @@ def _create_engine_config(
     use_cuda_graph: bool = False,
     prefix_token_ids: list | None = None,
     generated_tokens_total: int | None = None,
-    model_name: str = "Qwen2.5",
+    model_name: str | None = None,
 ) -> str:
-    config = _load_model_config_for_engine(model_path)
+    model_path_obj = Path(model_path).resolve()
+    config = _load_model_config_for_engine(str(model_path_obj))
     torch_dtype = str(config.get("torch_dtype", "float16")).lower()
     kvcache_dtype = "bf16" if ("bfloat" in torch_dtype or "bf16" in torch_dtype) else "fp16"
     num_heads = config.get("num_attention_heads", 8)
@@ -327,7 +330,17 @@ def _create_engine_config(
         # prefill sample, so the engine must allow one extra generated token.
         generated_tokens_total = num_steps + 1
     max_tokens = seq_len + generated_tokens_total - 1
-    engine_config_dir = tempfile.mkdtemp()
+    resolved_model_name = resolve_engine_model_name(
+        model_path_obj,
+        explicit_model_name=model_name,
+        config=config,
+    )
+    operator_table_path = resolve_operator_table_path(
+        model_path=model_path_obj,
+        model_name=resolved_model_name,
+        config=config,
+    )
+    engine_config_dir = make_temp_dir("efm_qwen2_generate_cfg_")
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
     runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda_sm80"}
     if use_cuda_graph:
@@ -335,10 +348,10 @@ def _create_engine_config(
     prefix = prefix_token_ids if prefix_token_ids is not None else []
     with open(engine_config_path, "w", encoding="utf-8") as f:
         json.dump({
-            "model_name": model_name,
+            "model_name": resolved_model_name,
             "runtime": runtime,
-            "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
-            "prefill_model_path": str(Path(model_path).resolve()),
+            "operator_impl_table_path": str(operator_table_path),
+            "prefill_model_path": str(model_path_obj),
             "kvcache": {
                 "dtype": kvcache_dtype,
                 "attention_type": attention_type,

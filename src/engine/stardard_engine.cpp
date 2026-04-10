@@ -59,6 +59,21 @@ int32_t prefill_token_count(const Context& context) {
     return static_cast<int32_t>(shape.back());
 }
 
+int32_t request_prefill_seq_len(const Context& context) {
+    const Request* request = context.request();
+    if (request == nullptr) {
+        throw InternalError("Context request must not be null");
+    }
+
+    const auto& token_ids = request->token_ids();
+    int32_t seq_len = static_cast<int32_t>(token_ids.size());
+    size_t prefix_size = context.prefix_size();
+    if (prefix_size > 0 && token_ids.size() > prefix_size) {
+        seq_len -= static_cast<int32_t>(prefix_size);
+    }
+    return seq_len;
+}
+
 struct DecodeRuntimeStateLayout {
     static constexpr size_t kTokenOffset = 0;
     static constexpr size_t kKvLenOffset = kTokenOffset + sizeof(int32_t);
@@ -378,12 +393,77 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
     }
 
     auto& tensors = context.tensors();
-    if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
+    const int32_t seq_len = request_prefill_seq_len(context);
+    if (seq_len <= 0) {
         return false;
     }
 
-    const int32_t seq_len = prefill_token_count(context);
-    if (seq_len <= 0) {
+    const int32_t request_id = request->request_id();
+    const uint64_t graph_key = prefill_graph_key(request_id, seq_len);
+    cudaStream_t stream = context.stream();
+    CudaGraphRunner& runner = cuda_graph_manager_.prefill(request_id, seq_len);
+
+    auto invalidate_prefill_capture = [&]() {
+        runner.reset();
+        prefill_replay_states_.erase(graph_key);
+    };
+
+    if (runner.is_captured()) {
+        auto replay_it = prefill_replay_states_.find(graph_key);
+        if (replay_it == prefill_replay_states_.end()) {
+            invalidate_prefill_capture();
+        } else {
+            const PrefillReplayState& replay_state = replay_it->second;
+            bool kv_ptrs_match =
+                replay_state.kv_read_ptrs == context.kv_read_ptrs_ref() &&
+                replay_state.kv_write_ptrs == context.kv_write_ptrs_ref();
+            if (!kv_ptrs_match) {
+                invalidate_prefill_capture();
+            } else {
+                const int32_t* token_ids_src = request->token_ids().data();
+                size_t prefix_size = context.prefix_size();
+                if (prefix_size > 0 && request->token_ids().size() > prefix_size) {
+                    token_ids_src += prefix_size;
+                }
+
+                if (replay_state.token_ids_size_bytes > 0) {
+                    CUDA_CHECK_THROW(cudaMemcpyAsync(
+                        replay_state.token_ids_ptr,
+                        token_ids_src,
+                        replay_state.token_ids_size_bytes,
+                        cudaMemcpyHostToDevice,
+                        stream),
+                        "Failed to refresh prefill token_ids before CUDA graph replay");
+                }
+
+                tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
+                    replay_state.token_ids_ptr,
+                    {1, seq_len},
+                    DType::Int32,
+                    device_,
+                    device_id_);
+                tensors[ModelTensors::RESPONSE_TOKENS_DEVICE] = Tensor::view(
+                    replay_state.response_tokens_ptr,
+                    {replay_state.max_generated_tokens},
+                    DType::Int32,
+                    device_,
+                    device_id_);
+                context.set_response_tokens_base_ptr(replay_state.response_tokens_ptr);
+                tensors[ModelTensors::SAMPLER_TOKEN_OUT] = Tensor::view(
+                    context.get_response_token_write_ptr(),
+                    {1},
+                    DType::Int32,
+                    device_,
+                    device_id_);
+
+                runner.launch(stream);
+                return true;
+            }
+        }
+    }
+
+    prepare_tensors(ModelStage::Prefill, context);
+    if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
         return false;
     }
 
@@ -396,9 +476,21 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
         }
     }
 
-    const int32_t request_id = request->request_id();
-    cudaStream_t stream = context.stream();
-    CudaGraphRunner& runner = cuda_graph_manager_.prefill(request_id, seq_len);
+    PrefillReplayState replay_state;
+    replay_state.token_ids_ptr = tensors.at(ModelTensors::TOKEN_IDS).data_ptr();
+    replay_state.token_ids_size_bytes = tensor_nbytes(tensors.at(ModelTensors::TOKEN_IDS));
+    replay_state.response_tokens_ptr = tensors.at(ModelTensors::RESPONSE_TOKENS_DEVICE).data_ptr();
+    replay_state.max_generated_tokens = static_cast<int32_t>(
+        tensors.at(ModelTensors::RESPONSE_TOKENS_DEVICE).shape().front());
+    replay_state.seq_len = seq_len;
+    replay_state.kv_read_ptrs = context.kv_read_ptrs_ref();
+    replay_state.kv_write_ptrs = context.kv_write_ptrs_ref();
+
+    {
+        auto& saved_state = prefill_replay_states_[graph_key];
+        saved_state = std::move(replay_state);
+    }
+
     if (runner.is_captured()) {
         runner.launch(stream);
         return true;
@@ -602,12 +694,14 @@ Response StandardEngine::generate(const Request& request) {
                              "Failed to record prefill start event");
         }
 
-        prepare_tensors(ModelStage::Prefill, context);
+        const bool ran_prefill_graph = try_run_prefill_cuda_graph(context);
+        if (tensors.count(ModelTensors::TOKEN_IDS) == 0) {
+            prepare_tensors(ModelStage::Prefill, context);
+        }
         if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
             return response;
         }
 
-        const bool ran_prefill_graph = try_run_prefill_cuda_graph(context);
         if (!ran_prefill_graph) {
             model_->prefill(context);
             run_sampler(
@@ -617,7 +711,7 @@ Response StandardEngine::generate(const Request& request) {
                 ModelStage::Prefill);
         }
 
-        int32_t seq_len = prefill_token_count(context);
+        int32_t seq_len = request_prefill_seq_len(context);
         void* prefill_write_ptr = context.get_response_token_write_ptr();
         if (check_stop(prefill_write_ptr)) {
             context.finish();

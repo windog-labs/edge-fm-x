@@ -116,6 +116,11 @@ using Qwen3BDecodeTunedShape = DecodeTunedShape<
     3U, 4U, 1024U, 192U, 32U, 32U,
     32U, 64U, 128U, 256U>;
 
+using Qwen7BDecodeTunedShape = DecodeTunedShape<
+    28U, 4U, 128U, 8U, 1U, 2U,
+    3U, 4U, 1024U, 192U, 32U, 32U,
+    32U, 64U, 128U, 256U>;
+
 uint32_t round_up_u32(uint32_t value, uint32_t alignment) {
     return ((value + alignment - 1U) / alignment) * alignment;
 }
@@ -757,7 +762,8 @@ public:
         return major == 8 &&
             (Qwen0P5DecodeTunedShape::matches(ctx) ||
              Qwen1P5DecodeTunedShape::matches(ctx) ||
-             Qwen3BDecodeTunedShape::matches(ctx));
+             Qwen3BDecodeTunedShape::matches(ctx) ||
+             Qwen7BDecodeTunedShape::matches(ctx));
     }
 
     void forward_prefill(
@@ -797,6 +803,11 @@ public:
         }
         if (Qwen3BDecodeTunedShape::matches(ctx)) {
             forward_decode_tuned_impl<Qwen3BDecodeTunedShape, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
+                ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+            return;
+        }
+        if (Qwen7BDecodeTunedShape::matches(ctx)) {
+            forward_decode_tuned_impl<Qwen7BDecodeTunedShape, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
                 ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
             return;
         }

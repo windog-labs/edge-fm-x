@@ -15,6 +15,11 @@ for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "inst
 
 import edge_fm
 from _repo_temp import make_temp_dir
+from operator_table_utils import (
+    resolve_engine_model_name,
+    resolve_operator_model_name,
+    resolve_operator_table_path,
+)
 
 
 LAYER_ROLE_BY_KIND = {
@@ -53,7 +58,7 @@ def make_engine_config(model_path: Path, device_id: int, operator_impl_table_pat
         "efm_qwen_cublaslt_cfg_",
         "engine_config.json",
         {
-            "model_name": "Qwen2.5",
+            "model_name": resolve_engine_model_name(model_path),
             "runtime": {
                 "device": "cuda",
                 "device_id": device_id,
@@ -65,8 +70,44 @@ def make_engine_config(model_path: Path, device_id: int, operator_impl_table_pat
     )
 
 
+def _edge_fm_dtype(torch_dtype: torch.dtype) -> edge_fm.DType:
+    if torch_dtype == torch.bfloat16:
+        return edge_fm.DType.BFloat16
+    if torch_dtype == torch.float16:
+        return edge_fm.DType.Float16
+    if torch_dtype == torch.float32:
+        return edge_fm.DType.Float32
+    if torch_dtype == torch.int32:
+        return edge_fm.DType.Int32
+    if torch_dtype == torch.int64:
+        return edge_fm.DType.Int64
+    if torch_dtype == torch.int8:
+        return edge_fm.DType.Int8
+    if torch_dtype == torch.uint8:
+        return edge_fm.DType.UInt8
+    raise TypeError(f"Unsupported torch dtype for edge_fm.Tensor view: {torch_dtype}")
+
+
+def _edge_fm_device(torch_tensor: torch.Tensor) -> tuple[edge_fm.Device, int]:
+    if torch_tensor.device.type == "cuda":
+        return edge_fm.Device.GPU, torch_tensor.device.index or 0
+    if torch_tensor.device.type == "cpu":
+        return edge_fm.Device.CPU, 0
+    raise TypeError(f"Unsupported torch device for edge_fm.Tensor view: {torch_tensor.device}")
+
+
 def tensor_to_edge_fm_tensor(torch_tensor: torch.Tensor) -> edge_fm.Tensor:
-    return edge_fm.Tensor.from_dlpack(torch_tensor.contiguous().__dlpack__())
+    if not torch_tensor.is_contiguous():
+        raise ValueError("tensor_to_edge_fm_tensor expects a contiguous torch.Tensor")
+    device, device_id = _edge_fm_device(torch_tensor)
+    return edge_fm.Tensor(
+        torch_tensor.data_ptr(),
+        list(torch_tensor.shape),
+        _edge_fm_dtype(torch_tensor.dtype),
+        device,
+        device_id,
+        False,
+    )
 
 
 def reset_weight_loader() -> None:
@@ -138,6 +179,7 @@ def shape_sig_for(kind: str, *, m: int, dims: dict) -> str:
 def build_tuned_records(
     base_records: list[dict],
     *,
+    operator_model_name: str,
     kind: str,
     stage: str,
     m: int,
@@ -150,7 +192,7 @@ def build_tuned_records(
     kept = []
     for record in base_records:
         if (
-            record.get("model_name") == "qwen2_5"
+            record.get("model_name") == operator_model_name
             and record.get("hw_profile") == "cuda_sm80"
             and record.get("op_kind") == "linear"
             and record.get("layer_role") == layer_role
@@ -163,7 +205,7 @@ def build_tuned_records(
     if algo_index is not None:
         kept.append(
             {
-                "model_name": "qwen2_5",
+                "model_name": operator_model_name,
                 "hw_profile": "cuda_sm80",
                 "op_kind": "linear",
                 "layer_role": layer_role,
@@ -244,6 +286,7 @@ def benchmark_candidate(
     model_path: Path,
     dims: dict,
     base_records: list[dict],
+    operator_model_name: str,
     kind: str,
     stage: str,
     m: int,
@@ -255,6 +298,7 @@ def benchmark_candidate(
     table_path = write_operator_impl_table(
         build_tuned_records(
             base_records,
+            operator_model_name=operator_model_name,
             kind=kind,
             stage=stage,
             m=m,
@@ -311,7 +355,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iters", type=int, default=120)
     parser.add_argument(
         "--operator-table",
-        default=str(REPO_ROOT / "examples" / "config" / "operator_impl_table.json"),
+        default="",
     )
     parser.add_argument(
         "--candidate-indices",
@@ -325,14 +369,20 @@ def main() -> None:
     args = parse_args()
     torch.cuda.set_device(args.device_id)
     model_path = Path(args.model_path).resolve()
+    operator_table_path = resolve_operator_table_path(
+        Path(args.operator_table).resolve() if args.operator_table else None,
+        model_path=model_path,
+    )
     dims = load_model_dims(model_path)
-    base_records = load_operator_impl_table(Path(args.operator_table))["records"]
+    base_records = load_operator_impl_table(operator_table_path)["records"]
+    operator_model_name = resolve_operator_model_name(model_path=model_path)
 
     reset_weight_loader()
     baseline = benchmark_candidate(
         model_path=model_path,
         dims=dims,
         base_records=base_records,
+        operator_model_name=operator_model_name,
         kind=args.layer_kind,
         stage=args.stage,
         m=args.m,
@@ -357,6 +407,7 @@ def main() -> None:
                 model_path=model_path,
                 dims=dims,
                 base_records=base_records,
+                operator_model_name=operator_model_name,
                 kind=args.layer_kind,
                 stage=args.stage,
                 m=args.m,
@@ -374,6 +425,7 @@ def main() -> None:
         "stage": args.stage,
         "m": args.m,
         "shape_sig": shape_sig_for(args.layer_kind, m=args.m, dims=dims),
+        "operator_model_name": operator_model_name,
         "candidates": candidates,
         "best": best,
     }
