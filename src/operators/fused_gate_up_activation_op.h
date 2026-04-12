@@ -15,6 +15,7 @@ struct FusedGateUpActivationOpContext {
     std::string layer_prefix;
     std::string layer_role;
     int32_t device_id = 0;
+    int64_t batch_rows = 0;
     int64_t input_features = 0;
     int64_t gate_output_features = 0;
     int64_t up_output_features = 0;
@@ -33,6 +34,8 @@ struct FusedGateUpActivationOpState {
     void* expert_offsets_device_ptr = nullptr;
     int sm_count = 0;
     int selected_kernel_config = 0;
+    int selected_kernel_occupancy = 0;
+    int selected_threadblock_count = 0;
     std::string selected_kernel_config_name;
 };
 

@@ -20,7 +20,8 @@
 namespace edge_fm {
 
 std::string FusedGateUpActivationOpContext::shape_sig() const {
-    return "input=" + std::to_string(static_cast<int>(input_dtype)) +
+    return "m=" + std::to_string(batch_rows) +
+        "|input=" + std::to_string(static_cast<int>(input_dtype)) +
         "|weight=" + std::to_string(static_cast<int>(weight_dtype)) +
         "|output=" + std::to_string(static_cast<int>(output_dtype)) +
         "|in_features=" + std::to_string(input_features) +
@@ -76,12 +77,14 @@ constexpr std::array<DecodeSwigluKernelCandidate, 7> kDecodeSwigluKernelCandidat
 
 struct DecodeSwigluTuneKey {
     int sm = 0;
+    int64_t batch_rows = 0;
     int64_t output_features = 0;
     int64_t input_features = 0;
     DType dtype = DType::Float16;
 
     bool operator==(const DecodeSwigluTuneKey& other) const noexcept {
-        return sm == other.sm && output_features == other.output_features &&
+        return sm == other.sm && batch_rows == other.batch_rows &&
+            output_features == other.output_features &&
             input_features == other.input_features && dtype == other.dtype;
     }
 };
@@ -89,10 +92,11 @@ struct DecodeSwigluTuneKey {
 struct DecodeSwigluTuneKeyHash {
     std::size_t operator()(const DecodeSwigluTuneKey& key) const noexcept {
         const std::size_t h1 = std::hash<int>{}(key.sm);
-        const std::size_t h2 = std::hash<int64_t>{}(key.output_features);
-        const std::size_t h3 = std::hash<int64_t>{}(key.input_features);
-        const std::size_t h4 = std::hash<int>{}(static_cast<int>(key.dtype));
-        return (((h1 * 1315423911u) ^ h2) * 2654435761u) ^ (h3 << 1) ^ (h4 << 3);
+        const std::size_t h2 = std::hash<int64_t>{}(key.batch_rows);
+        const std::size_t h3 = std::hash<int64_t>{}(key.output_features);
+        const std::size_t h4 = std::hash<int64_t>{}(key.input_features);
+        const std::size_t h5 = std::hash<int>{}(static_cast<int>(key.dtype));
+        return ((((h1 * 1315423911u) ^ h2) * 2654435761u) ^ (h3 << 1)) ^ (h4 << 3) ^ (h5 << 5);
     }
 };
 
@@ -170,9 +174,41 @@ constexpr DType dtype_for_decode_swiglu_kernel() {
 }
 
 template <typename T, int TileM, int TileN, int TileK, int Stages>
+using DecodeSwigluGemmType = fused_moe::Fused_Moe_Kernel_sm80<
+    typename CutlassScalarType<T>::type,
+    typename CutlassScalarType<T>::type,
+    typename CutlassScalarType<T>::type,
+    TileM,
+    TileN,
+    TileK,
+    Stages,
+    fused_moe::EpilogueRouting<tensorrt_llm::cutlass_extensions::EpilogueOpDefaultSilu>(true)>;
+
+template <typename T, int TileM, int TileN, int TileK, int Stages>
+int64_t query_decode_swiglu_tile_count(int64_t batch_rows, int64_t output_features) {
+    using GemmType = DecodeSwigluGemmType<T, TileM, TileN, TileK, Stages>;
+    const int64_t m_tiles = (batch_rows + GemmType::kMaxTileM - 1) / GemmType::kMaxTileM;
+    const int64_t n_tiles = (output_features + GemmType::kTileN - 1) / GemmType::kTileN;
+    return std::max<int64_t>(1, m_tiles * n_tiles);
+}
+
+template <typename T, int TileM, int TileN, int TileK, int Stages>
+int query_decode_swiglu_threadblock_count(
+    int64_t batch_rows,
+    int64_t output_features,
+    int sm_count,
+    int occupancy) {
+    const int64_t tile_count =
+        query_decode_swiglu_tile_count<T, TileM, TileN, TileK, Stages>(batch_rows, output_features);
+    const int64_t launch_limit = static_cast<int64_t>(sm_count) * static_cast<int64_t>(occupancy);
+    return static_cast<int>(std::max<int64_t>(1, std::min(tile_count, launch_limit)));
+}
+
+template <typename T, int TileM, int TileN, int TileK, int Stages>
 void launch_decode_swiglu_fused_kernel_config(
     const Tensor& weight_tensor,
     const Tensor* bias_tensor,
+    int64_t batch_rows,
     int64_t output_features,
     int64_t input_features,
     const FusedGateUpActivationOpState& state,
@@ -180,29 +216,42 @@ void launch_decode_swiglu_fused_kernel_config(
     T* output_ptr,
     cudaStream_t stream) {
     using CutlassT = typename CutlassScalarType<T>::type;
-    using EpilogueTag = tensorrt_llm::cutlass_extensions::EpilogueOpDefaultSilu;
+    using GemmType = DecodeSwigluGemmType<T, TileM, TileN, TileK, Stages>;
+    using Arguments = typename GemmType::Arguments;
 
-    tensorrt_llm::kernels::cutlass_kernels_oss::sm80_generic_fused_moe_gemm_kernelLauncher<
-        CutlassT,
-        CutlassT,
-        TileM,
-        TileN,
-        TileK,
-        Stages,
-        EpilogueTag>(
-        reinterpret_cast<const CutlassT*>(input_ptr),
-        reinterpret_cast<const CutlassT*>(weight_tensor.data_ptr()),
-        bias_tensor ? reinterpret_cast<const CutlassT*>(bias_tensor->data_ptr()) : nullptr,
-        true,
-        reinterpret_cast<CutlassT*>(output_ptr),
-        static_cast<const int64_t*>(state.expert_offsets_device_ptr),
+    const int threadblock_count = state.selected_threadblock_count > 0
+        ? state.selected_threadblock_count
+        : query_decode_swiglu_threadblock_count<T, TileM, TileN, TileK, Stages>(
+              batch_rows,
+              output_features,
+              state.sm_count,
+              std::max(1, state.selected_kernel_occupancy));
+
+    if constexpr (GemmType::kSmemSize >= (48 << 10)) {
+        CUDA_CHECK_THROW(
+            cudaFuncSetAttribute(
+                fused_moe::run_global<GemmType>,
+                cudaFuncAttributeMaxDynamicSharedMemorySize,
+                GemmType::kSmemSize),
+            "FusedGateUpActivationOp: failed to set fused decode SwiGLU dynamic shared memory size");
+    }
+
+    Arguments args{
+        {const_cast<CutlassT*>(reinterpret_cast<const CutlassT*>(input_ptr)),
+         const_cast<CutlassT*>(reinterpret_cast<const CutlassT*>(weight_tensor.data_ptr())),
+         bias_tensor ? const_cast<CutlassT*>(reinterpret_cast<const CutlassT*>(bias_tensor->data_ptr())) : nullptr,
+         reinterpret_cast<CutlassT*>(output_ptr),
+         static_cast<const int64_t*>(state.expert_offsets_device_ptr),
+         static_cast<int>(output_features),
+         static_cast<int>(input_features),
+         1,
+         true},
         1,
-        output_features,
-        input_features,
-        1,
-        state.sm_count,
-        stream,
-        nullptr);
+        threadblock_count};
+    auto params = GemmType::to_underlying_arguments(args);
+    fused_moe::run_global<GemmType>
+        <<<dim3(threadblock_count, 1, 1), dim3(GemmType::kThreadCount), GemmType::kSmemSize, stream>>>(params);
+    CUDA_CHECK_THROW(cudaGetLastError(), "FusedGateUpActivationOp: failed to launch fused decode SwiGLU kernel");
 }
 
 template <typename T>
@@ -210,6 +259,7 @@ void launch_decode_swiglu_fused_kernel(
     DecodeSwigluKernelConfigId config_id,
     const Tensor& weight_tensor,
     const Tensor* bias_tensor,
+    int64_t batch_rows,
     int64_t output_features,
     int64_t input_features,
     const FusedGateUpActivationOpState& state,
@@ -219,63 +269,39 @@ void launch_decode_swiglu_fused_kernel(
     switch (config_id) {
         case DecodeSwigluKernelConfigId::Tile16x128x64Stage2:
             launch_decode_swiglu_fused_kernel_config<T, 16, 128, 64, 2>(
-                weight_tensor, bias_tensor, output_features, input_features, state, input_ptr, output_ptr, stream);
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features, state, input_ptr, output_ptr, stream);
             return;
         case DecodeSwigluKernelConfigId::Tile16x256x64Stage2:
             launch_decode_swiglu_fused_kernel_config<T, 16, 256, 64, 2>(
-                weight_tensor, bias_tensor, output_features, input_features, state, input_ptr, output_ptr, stream);
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features, state, input_ptr, output_ptr, stream);
             return;
         case DecodeSwigluKernelConfigId::Tile32x128x64Stage2:
             launch_decode_swiglu_fused_kernel_config<T, 32, 128, 64, 2>(
-                weight_tensor, bias_tensor, output_features, input_features, state, input_ptr, output_ptr, stream);
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features, state, input_ptr, output_ptr, stream);
             return;
         case DecodeSwigluKernelConfigId::Tile64x128x64Stage2:
             launch_decode_swiglu_fused_kernel_config<T, 64, 128, 64, 2>(
-                weight_tensor, bias_tensor, output_features, input_features, state, input_ptr, output_ptr, stream);
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features, state, input_ptr, output_ptr, stream);
             return;
         case DecodeSwigluKernelConfigId::Tile128x128x64Stage2:
             launch_decode_swiglu_fused_kernel_config<T, 128, 128, 64, 2>(
-                weight_tensor, bias_tensor, output_features, input_features, state, input_ptr, output_ptr, stream);
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features, state, input_ptr, output_ptr, stream);
             return;
         case DecodeSwigluKernelConfigId::Tile16x128x64Stage3:
             launch_decode_swiglu_fused_kernel_config<T, 16, 128, 64, 3>(
-                weight_tensor, bias_tensor, output_features, input_features, state, input_ptr, output_ptr, stream);
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features, state, input_ptr, output_ptr, stream);
             return;
         case DecodeSwigluKernelConfigId::Tile16x256x64Stage3:
             launch_decode_swiglu_fused_kernel_config<T, 16, 256, 64, 3>(
-                weight_tensor, bias_tensor, output_features, input_features, state, input_ptr, output_ptr, stream);
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features, state, input_ptr, output_ptr, stream);
             return;
     }
 }
 
 template <typename T, int TileM, int TileN, int TileK, int Stages>
 int query_decode_swiglu_kernel_occupancy_for_config() {
-    using CutlassT = typename CutlassScalarType<T>::type;
-    using EpilogueTag = tensorrt_llm::cutlass_extensions::EpilogueOpDefaultSilu;
-
-    int occupancy = 0;
-    tensorrt_llm::kernels::cutlass_kernels_oss::sm80_generic_fused_moe_gemm_kernelLauncher<
-        CutlassT,
-        CutlassT,
-        TileM,
-        TileN,
-        TileK,
-        Stages,
-        EpilogueTag>(
-        nullptr,
-        nullptr,
-        nullptr,
-        true,
-        nullptr,
-        nullptr,
-        0,
-        0,
-        0,
-        0,
-        0,
-        nullptr,
-        &occupancy);
-    return occupancy;
+    using GemmType = DecodeSwigluGemmType<T, TileM, TileN, TileK, Stages>;
+    return fused_moe::fused_gemm_maximum_active_blocks<GemmType>();
 }
 
 template <typename T>
@@ -304,19 +330,23 @@ float benchmark_decode_swiglu_kernel(
     DecodeSwigluKernelConfigId config_id,
     const Tensor& weight_tensor,
     const Tensor* bias_tensor,
+    int64_t batch_rows,
     int64_t output_features,
     int64_t input_features,
     int device_id,
-    const FusedGateUpActivationOpState& state) {
+    const FusedGateUpActivationOpState& state,
+    int occupancy,
+    int threadblock_count) {
     CUDA_CHECK_THROW(cudaSetDevice(device_id), "FusedGateUpActivationOp: failed to set CUDA device");
 
     const std::string tune_key = "decode_swiglu_fused.autotune." +
         std::to_string(static_cast<int>(dtype_for_decode_swiglu_kernel<T>())) + "." +
+        std::to_string(batch_rows) + "." +
         std::to_string(input_features) + "." + std::to_string(output_features);
     void* input_buf = StaticBufferManager::get_cache_buf(
-        tune_key + ".input", static_cast<size_t>(input_features) * sizeof(T), device_id);
+        tune_key + ".input", static_cast<size_t>(batch_rows) * static_cast<size_t>(input_features) * sizeof(T), device_id);
     void* output_buf = StaticBufferManager::get_cache_buf(
-        tune_key + ".output", static_cast<size_t>(output_features) * sizeof(T), device_id);
+        tune_key + ".output", static_cast<size_t>(batch_rows) * static_cast<size_t>(output_features) * sizeof(T), device_id);
 
     cudaStream_t tune_stream = nullptr;
     cudaEvent_t start_event = nullptr;
@@ -344,20 +374,28 @@ float benchmark_decode_swiglu_kernel(
             cudaEventCreate(&stop_event),
             "FusedGateUpActivationOp: failed to create autotune stop event");
         CUDA_CHECK_THROW(
-            cudaMemsetAsync(input_buf, 0, static_cast<size_t>(input_features) * sizeof(T), tune_stream),
+            cudaMemsetAsync(
+                input_buf,
+                0,
+                static_cast<size_t>(batch_rows) * static_cast<size_t>(input_features) * sizeof(T),
+                tune_stream),
             "FusedGateUpActivationOp: failed to initialize autotune input buffer");
 
         constexpr int kWarmupIters = 8;
         constexpr int kBenchmarkIters = 40;
 
         for (int iter = 0; iter < kWarmupIters; ++iter) {
+            FusedGateUpActivationOpState launch_state = state;
+            launch_state.selected_kernel_occupancy = occupancy;
+            launch_state.selected_threadblock_count = threadblock_count;
             launch_decode_swiglu_fused_kernel<T>(
                 config_id,
                 weight_tensor,
                 bias_tensor,
+                batch_rows,
                 output_features,
                 input_features,
-                state,
+                launch_state,
                 static_cast<const T*>(input_buf),
                 static_cast<T*>(output_buf),
                 tune_stream);
@@ -367,13 +405,17 @@ float benchmark_decode_swiglu_kernel(
             cudaEventRecord(start_event, tune_stream),
             "FusedGateUpActivationOp: failed to record autotune start event");
         for (int iter = 0; iter < kBenchmarkIters; ++iter) {
+            FusedGateUpActivationOpState launch_state = state;
+            launch_state.selected_kernel_occupancy = occupancy;
+            launch_state.selected_threadblock_count = threadblock_count;
             launch_decode_swiglu_fused_kernel<T>(
                 config_id,
                 weight_tensor,
                 bias_tensor,
+                batch_rows,
                 output_features,
                 input_features,
-                state,
+                launch_state,
                 static_cast<const T*>(input_buf),
                 static_cast<T*>(output_buf),
                 tune_stream);
@@ -399,9 +441,43 @@ float benchmark_decode_swiglu_kernel(
 }
 
 template <typename T>
+int query_decode_swiglu_threadblock_count(
+    DecodeSwigluKernelConfigId config_id,
+    int64_t batch_rows,
+    int64_t output_features,
+    int sm_count,
+    int occupancy) {
+    switch (config_id) {
+        case DecodeSwigluKernelConfigId::Tile16x128x64Stage2:
+            return query_decode_swiglu_threadblock_count<T, 16, 128, 64, 2>(
+                batch_rows, output_features, sm_count, occupancy);
+        case DecodeSwigluKernelConfigId::Tile16x256x64Stage2:
+            return query_decode_swiglu_threadblock_count<T, 16, 256, 64, 2>(
+                batch_rows, output_features, sm_count, occupancy);
+        case DecodeSwigluKernelConfigId::Tile32x128x64Stage2:
+            return query_decode_swiglu_threadblock_count<T, 32, 128, 64, 2>(
+                batch_rows, output_features, sm_count, occupancy);
+        case DecodeSwigluKernelConfigId::Tile64x128x64Stage2:
+            return query_decode_swiglu_threadblock_count<T, 64, 128, 64, 2>(
+                batch_rows, output_features, sm_count, occupancy);
+        case DecodeSwigluKernelConfigId::Tile128x128x64Stage2:
+            return query_decode_swiglu_threadblock_count<T, 128, 128, 64, 2>(
+                batch_rows, output_features, sm_count, occupancy);
+        case DecodeSwigluKernelConfigId::Tile16x128x64Stage3:
+            return query_decode_swiglu_threadblock_count<T, 16, 128, 64, 3>(
+                batch_rows, output_features, sm_count, occupancy);
+        case DecodeSwigluKernelConfigId::Tile16x256x64Stage3:
+            return query_decode_swiglu_threadblock_count<T, 16, 256, 64, 3>(
+                batch_rows, output_features, sm_count, occupancy);
+    }
+    return 0;
+}
+
+template <typename T>
 DecodeSwigluKernelConfigId select_decode_swiglu_kernel_config(
     const Tensor& weight_tensor,
     const Tensor* bias_tensor,
+    int64_t batch_rows,
     int64_t output_features,
     int64_t input_features,
     int device_id,
@@ -423,6 +499,7 @@ DecodeSwigluKernelConfigId select_decode_swiglu_kernel_config(
 
     const DecodeSwigluTuneKey cache_key{
         sm_version_for_device(device_id),
+        batch_rows,
         output_features,
         input_features,
         dtype_for_decode_swiglu_kernel<T>()};
@@ -446,16 +523,25 @@ DecodeSwigluKernelConfigId select_decode_swiglu_kernel_config(
         if (occupancy <= 0) {
             continue;
         }
+        const int threadblock_count = query_decode_swiglu_threadblock_count<T>(
+            candidate.id,
+            batch_rows,
+            output_features,
+            state.sm_count,
+            std::min(2, occupancy));
 
         try {
             const float candidate_ms = benchmark_decode_swiglu_kernel<T>(
                 candidate.id,
                 weight_tensor,
                 bias_tensor,
+                batch_rows,
                 output_features,
                 input_features,
                 device_id,
-                state);
+                state,
+                std::min(2, occupancy),
+                threadblock_count);
             if (candidate_ms < best_ms) {
                 best_ms = candidate_ms;
                 best_config = candidate.id;
@@ -489,11 +575,12 @@ void prepare_decode_swiglu_state_for_dtype(
 
     CUDA_CHECK_THROW(cudaSetDevice(ctx.device_id), "FusedGateUpActivationOp: failed to set CUDA device");
 
-    const std::string buffer_name = ctx.layer_prefix + ".decode_swiglu_fused.expert_offsets";
+    const std::string buffer_name = ctx.layer_prefix + ".swiglu_fused.total_tokens." +
+        std::to_string(ctx.batch_rows);
     state.expert_offsets_device_ptr =
         StaticBufferManager::get_cache_buf(buffer_name, sizeof(int64_t), ctx.device_id);
 
-    const std::array<int64_t, 1> expert_offsets = {1};
+    const std::array<int64_t, 1> expert_offsets = {ctx.batch_rows};
     CUDA_CHECK_THROW(
         cudaMemcpy(
             state.expert_offsets_device_ptr,
@@ -504,20 +591,38 @@ void prepare_decode_swiglu_state_for_dtype(
     state.sm_count = sm_count_for_device(ctx.device_id);
     state.available = true;
     state.selected_kernel_config = static_cast<int>(kDefaultDecodeSwigluKernelConfig);
+    state.selected_kernel_occupancy = 0;
+    state.selected_threadblock_count = 0;
     state.selected_kernel_config_name = decode_swiglu_kernel_config_name(kDefaultDecodeSwigluKernelConfig);
 
     try {
         const auto best_config = select_decode_swiglu_kernel_config<T>(
             weight_tensor,
             bias_tensor,
+            ctx.batch_rows,
             ctx.up_output_features,
             ctx.input_features,
             ctx.device_id,
             state);
+        const int max_active_blocks = query_decode_swiglu_kernel_occupancy<T>(best_config);
+        if (max_active_blocks <= 0) {
+            state.available = false;
+            state.unavailable_reason = "decode fused SwiGLU selected kernel has no legal occupancy";
+            return;
+        }
         state.selected_kernel_config = static_cast<int>(best_config);
+        state.selected_kernel_occupancy = std::min(2, max_active_blocks);
+        state.selected_threadblock_count = query_decode_swiglu_threadblock_count<T>(
+            best_config,
+            ctx.batch_rows,
+            ctx.up_output_features,
+            state.sm_count,
+            state.selected_kernel_occupancy);
         state.selected_kernel_config_name = decode_swiglu_kernel_config_name(best_config);
     } catch (const std::exception&) {
         state.selected_kernel_config = static_cast<int>(kDefaultDecodeSwigluKernelConfig);
+        state.selected_kernel_occupancy = 0;
+        state.selected_threadblock_count = 0;
         state.selected_kernel_config_name = decode_swiglu_kernel_config_name(kDefaultDecodeSwigluKernelConfig);
     }
 }
@@ -536,6 +641,7 @@ void run_decode_swiglu_fused_for_dtype(
         config_id,
         weight_tensor,
         bias_tensor,
+        ctx.batch_rows,
         ctx.up_output_features,
         ctx.input_features,
         state,
@@ -549,7 +655,8 @@ public:
     std::string impl_id() const override { return "trtllm_decode_swiglu"; }
 
     bool supports(const FusedGateUpActivationOpContext& ctx) const override {
-        if (ctx.input_features <= 0 || ctx.gate_output_features <= 0 || ctx.up_output_features <= 0) {
+        if (ctx.batch_rows <= 0 || ctx.input_features <= 0 || ctx.gate_output_features <= 0 ||
+            ctx.up_output_features <= 0) {
             return false;
         }
         if (ctx.gate_output_features != ctx.up_output_features) {
