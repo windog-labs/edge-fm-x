@@ -21,10 +21,10 @@ import torch
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "scripts"))
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
-    if _p.exists():
-        sys.path.insert(0, str(_p))
-        break
+
+from edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 import edge_fm
 from _repo_temp import make_temp_dir

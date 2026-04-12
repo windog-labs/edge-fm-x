@@ -67,7 +67,7 @@ if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABL
         ${TRT_EDGELLM_ROOT}/examples/multimodal
         ${TRT_EDGELLM_ROOT}/3rdParty/nlohmannJson/include
         ${TRT_EDGELLM_ROOT}/3rdParty/stb
-        ${TRT_PACKAGE_DIR}/include
+        ${TRT_INCLUDE_DIR}
     )
     if(CUDAToolkit_FOUND)
         target_include_directories(edge_fm_trt_python PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
@@ -76,14 +76,14 @@ if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABL
         ${TRT_EDGELLM_UTILS_LIB}
         ${TRT_EDGELLM_CORE_LIB}
         ${TRT_EDGELLM_TOKENIZER_LIB}
-        ${TRT_PACKAGE_DIR}/lib/libnvinfer.so
+        ${TRT_NVINFER_LIBRARY}
         CUDA::cudart
         ${CUDA_DRIVER_LIB}
         dl
         pybind11::module
     )
     # RPATH: TensorRT + CUDA (需与 TRT 构建时的 CUDA 版本一致)
-    set(_trt_rpath "${TRT_PACKAGE_DIR}/lib")
+    set(_trt_rpath "${TRT_LIBRARY_DIR}")
     if(CUDAToolkit_ROOT)
         list(APPEND _trt_rpath "${CUDAToolkit_ROOT}/lib64")
     elseif(CUDAToolkit_LIBRARY_DIR)

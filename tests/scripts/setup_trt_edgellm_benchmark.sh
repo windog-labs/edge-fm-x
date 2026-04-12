@@ -12,6 +12,7 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+source "$PROJECT_ROOT/scripts/edge_fm_env.sh"
 TRT_EDGELLM="$PROJECT_ROOT/third_party/TensorRT-Edge-LLM"
 WORKSPACE="$PROJECT_ROOT/tests/data/trt_edgellm_workspace"
 MODEL_SIZE="${EDGE_FM_TRT_MODEL_SIZE:-1.5b}"
@@ -44,7 +45,37 @@ case "$MODEL_SIZE" in
 esac
 ONNX_DIR="$WORKSPACE/$MODEL_NAME/onnx"
 ENGINE_DIR="$WORKSPACE/$MODEL_NAME/engines_mxil${MAX_INPUT_LEN}"
-TRT_PKG="${TRT_PACKAGE_DIR:-/xs-train-nas/zzm/packages/TensorRT-10.16.0.72}"
+TRT_PKG="$(edgefm_resolve_tensorrt_package_dir "$PROJECT_ROOT" "$WORKSPACE")" || {
+    echo "ERROR: TensorRT headers/libraries not found. Set TRT_PACKAGE_DIR and retry."
+    exit 1
+}
+CUDA_HOME_RESOLVED="$(edgefm_resolve_cuda_home)" || {
+    echo "ERROR: unable to locate CUDA toolkit. Set CUDA_HOME and retry."
+    exit 1
+}
+CUDA_VERSION_RESOLVED="${EDGE_FM_TRT_CUDA_VERSION:-$(edgefm_resolve_cuda_version "$CUDA_HOME_RESOLVED")}"
+if [[ -z "$CUDA_VERSION_RESOLVED" ]]; then
+    echo "ERROR: unable to determine CUDA version from ${CUDA_HOME_RESOLVED}. Set EDGE_FM_TRT_CUDA_VERSION and retry."
+    exit 1
+fi
+CUDA_NVCC="${EDGE_FM_TRT_CMAKE_CUDA_COMPILER:-${CUDA_HOME_RESOLVED}/bin/nvcc}"
+CUDA_ARCHS="${EDGE_FM_TRT_CMAKE_CUDA_ARCHITECTURES:-$(edgefm_default_trt_cuda_architectures || true)}"
+TRT_BUILD_DIR="${EDGE_FM_TRT_BUILD_DIR:-$TRT_EDGELLM/build}"
+TRT_BUILD_LLM_BINARY="${TRT_BUILD_DIR}/examples/llm/llm_build"
+if [[ -n "${EDGE_FM_TRT_BUILD_JOBS:-}" ]]; then
+    TRT_BUILD_JOBS="${EDGE_FM_TRT_BUILD_JOBS}"
+elif [[ "$(uname -m)" =~ ^(aarch64|arm64)$ ]]; then
+    TRT_BUILD_JOBS=1
+else
+    TRT_BUILD_JOBS="$(nproc)"
+fi
+
+if [[ "$(uname -m)" =~ ^(aarch64|arm64)$ ]]; then
+    TRT_CUDA_DIR_DEFAULT="${CUDA_HOME_RESOLVED}/targets/$(edgefm_resolve_cuda_target_triple)"
+else
+    TRT_CUDA_DIR_DEFAULT="${CUDA_HOME_RESOLVED}"
+fi
+TRT_CUDA_DIR="${EDGE_FM_TRT_CUDA_DIR:-$TRT_CUDA_DIR_DEFAULT}"
 
 resolve_export_llm_cmd() {
     if [[ -n "$CONDA_ENV_PREFIX" && -x "$PYTHON_EXECUTABLE" ]]; then
@@ -116,18 +147,21 @@ else
 fi
 
 # 3. 构建 C++ 运行时
-if [[ ! -f "$TRT_EDGELLM/build/examples/llm/llm_build" ]]; then
+if [[ ! -f "$TRT_BUILD_LLM_BINARY" ]]; then
     echo "[3/4] Building TensorRT-Edge-LLM C++ runtime..."
-    mkdir -p "$TRT_EDGELLM/build"
-    cd "$TRT_EDGELLM/build"
-    cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DTRT_PACKAGE_DIR="$TRT_PKG" \
-        -DCUDA_VERSION=12.8 \
-        -DCMAKE_CUDA_COMPILER="${CUDA_HOME:-/usr/local/cuda-12.8}/bin/nvcc" \
-        -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
-    make -j$(nproc)
-    cd "$PROJECT_ROOT"
+    mkdir -p "$TRT_BUILD_DIR"
+    cmake_args=(
+        -DCMAKE_BUILD_TYPE=Release
+        -DTRT_PACKAGE_DIR="$TRT_PKG"
+        -DCUDA_VERSION="$CUDA_VERSION_RESOLVED"
+        -DCUDA_DIR="$TRT_CUDA_DIR"
+        -DCMAKE_CUDA_COMPILER="$CUDA_NVCC"
+    )
+    if [[ -n "$CUDA_ARCHS" ]]; then
+        cmake_args+=(-DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS")
+    fi
+    cmake -S "$TRT_EDGELLM" -B "$TRT_BUILD_DIR" "${cmake_args[@]}"
+    cmake --build "$TRT_BUILD_DIR" --parallel "$TRT_BUILD_JOBS"
 else
     echo "[3/4] C++ runtime already built, skipping."
 fi
@@ -135,9 +169,9 @@ fi
 # 4. 构建 Engine
 echo "[4/4] Building TensorRT engine..."
 mkdir -p "$ENGINE_DIR"
-export EDGELLM_PLUGIN_PATH="$TRT_EDGELLM/build/libNvInfer_edgellm_plugin.so"
+export EDGELLM_PLUGIN_PATH="$TRT_BUILD_DIR/libNvInfer_edgellm_plugin.so"
 export LD_LIBRARY_PATH="${TRT_PKG}/lib:${LD_LIBRARY_PATH:-}"
-"$TRT_EDGELLM/build/examples/llm/llm_build" \
+"$TRT_BUILD_LLM_BINARY" \
     --onnxDir "$ONNX_DIR" \
     --engineDir "$ENGINE_DIR" \
     --maxBatchSize 1 \

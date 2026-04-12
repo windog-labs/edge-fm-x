@@ -23,10 +23,10 @@ import torch
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
-    if _p.exists():
-        sys.path.insert(0, str(_p))
-        break
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 import edge_fm_trt
 
