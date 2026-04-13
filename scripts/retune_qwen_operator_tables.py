@@ -43,6 +43,7 @@ MODEL_SPECS = {
     ),
     "vlm": OrderedDict(
         [
+            ("0.5b", REPO_ROOT / "examples" / "qwen2.5-vl-0.5b" / "qwen2.5-vl-0.5b"),
             ("3b", REPO_ROOT / "examples" / "qwen2.5-vl-3b-instruct" / "qwen2.5-vl-3b-instruct"),
             ("7b", REPO_ROOT / "examples" / "qwen2.5-vl-7b-instruct" / "qwen2.5-vl-7b-instruct"),
         ]
@@ -201,8 +202,7 @@ def tune_attention_prefill_for_model(
             model_path=model_path,
             operator_model_name=operator_model_name,
             dims=dims,
-            base_table=table_state(base_table, records),
-            source_table_path=source_table_path,
+            base_records=records,
             impl_params=impl_params,
             seq_lens=seq_lens,
             device_id=device_id,
@@ -253,8 +253,7 @@ def tune_attention_decode_for_model(
             model_path=model_path,
             operator_model_name=operator_model_name,
             dims=dims,
-            base_table=table_state(base_table, records),
-            source_table_path=source_table_path,
+            base_records=records,
             impl_params=impl_params,
             kv_lens=kv_lens,
             device_id=device_id,
@@ -330,8 +329,7 @@ def tune_linear_shape(
     baseline = tune_cublaslt.benchmark_candidate(
         model_path=model_path,
         dims=dims,
-        base_table=table_state(base_table, records),
-        source_table_path=source_table_path,
+        base_records=records,
         operator_model_name=operator_model_name,
         kind=kind,
         stage=stage,
@@ -349,8 +347,7 @@ def tune_linear_shape(
             tune_cublaslt.benchmark_candidate(
                 model_path=model_path,
                 dims=dims,
-                base_table=table_state(base_table, records),
-                source_table_path=source_table_path,
+                base_records=records,
                 operator_model_name=operator_model_name,
                 kind=kind,
                 stage=stage,
@@ -390,7 +387,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device-id", type=int, default=0)
     parser.add_argument("--families", default="llm,vlm")
     parser.add_argument("--llm-models", default="0.5b,1.5b,3b")
-    parser.add_argument("--vlm-models", default="3b,7b")
+    parser.add_argument("--vlm-models", default="0.5b,3b,7b")
     parser.add_argument("--prefill-list", default="512,1024,2048")
     parser.add_argument("--kv-lens", default="512,1024,2048")
     parser.add_argument("--attention-warmup", type=int, default=20)

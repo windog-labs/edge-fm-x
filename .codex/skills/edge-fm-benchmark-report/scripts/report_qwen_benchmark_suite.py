@@ -28,6 +28,32 @@ def load_test_module(repo_root: Path, device_id: int):
     return module
 
 
+@contextlib.contextmanager
+def suppress_process_output(enabled: bool):
+    if not enabled:
+        yield
+        return
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    saved_stdout_fd = os.dup(1)
+    saved_stderr_fd = os.dup(2)
+    try:
+        os.dup2(devnull_fd, 1)
+        os.dup2(devnull_fd, 2)
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            yield
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.dup2(saved_stdout_fd, 1)
+        os.dup2(saved_stderr_fd, 2)
+        os.close(saved_stdout_fd)
+        os.close(saved_stderr_fd)
+        os.close(devnull_fd)
+
+
 def summary(result: dict) -> dict:
     existing = result.get("latency_summary")
     if existing:
@@ -153,7 +179,7 @@ def main():
     t = load_test_module(repo_root, args.device_id)
 
     def quiet_context():
-        return contextlib.redirect_stdout(io.StringIO()) if args.json_only else contextlib.nullcontext()
+        return suppress_process_output(args.json_only)
 
     payload = {
         "device_id": args.device_id,

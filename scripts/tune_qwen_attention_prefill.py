@@ -15,7 +15,11 @@ for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "inst
 
 import edge_fm
 from _repo_temp import make_temp_dir
-from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
+from operator_table_utils import (
+    resolve_engine_model_name,
+    resolve_operator_model_name,
+    resolve_operator_table_path,
+)
 
 
 def write_json_file(prefix: str, name: str, payload: dict) -> Path:
@@ -144,6 +148,7 @@ def attention_shape_sig(dims: dict) -> str:
 def build_tuned_records(
     base_records: list[dict],
     *,
+    operator_model_name: str,
     dims: dict,
     impl_params: dict,
 ) -> list[dict]:
@@ -151,7 +156,7 @@ def build_tuned_records(
     kept = []
     for record in base_records:
         if (
-            record.get("model_name") == "qwen2_5"
+            record.get("model_name") == operator_model_name
             and record.get("hw_profile") == "cuda_sm80"
             and record.get("op_kind") == "attention"
             and record.get("stage") == "prefill"
@@ -163,7 +168,7 @@ def build_tuned_records(
     if impl_params:
         kept.append(
             {
-                "model_name": "qwen2_5",
+                "model_name": operator_model_name,
                 "hw_profile": "cuda_sm80",
                 "op_kind": "attention",
                 "layer_role": "",
@@ -181,6 +186,7 @@ def build_tuned_records(
 def benchmark_candidate(
     *,
     model_path: Path,
+    operator_model_name: str,
     dims: dict,
     base_records: list[dict],
     impl_params: dict,
@@ -190,7 +196,12 @@ def benchmark_candidate(
     iters: int,
 ) -> dict:
     table_path = write_operator_impl_table(
-        build_tuned_records(base_records, dims=dims, impl_params=impl_params)
+        build_tuned_records(
+            base_records,
+            operator_model_name=operator_model_name,
+            dims=dims,
+            impl_params=impl_params,
+        )
     )
     engine_config_path = make_engine_config(model_path, device_id, table_path)
     layer = edge_fm.AttentionLayer(str(engine_config_path))
@@ -343,6 +354,7 @@ def main() -> None:
     )
     dims = load_model_attention_dims(model_path)
     base_records = load_operator_impl_table(operator_table_path)["records"]
+    operator_model_name = resolve_operator_model_name(model_path=model_path)
 
     impl_param_candidates = [{}]
     if not args.skip_global_cta_sweep:
@@ -366,6 +378,7 @@ def main() -> None:
         candidates.append(
             benchmark_candidate(
                 model_path=model_path,
+                operator_model_name=operator_model_name,
                 dims=dims,
                 base_records=base_records,
                 impl_params=impl_params,
