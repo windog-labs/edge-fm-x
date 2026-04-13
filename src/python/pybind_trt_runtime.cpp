@@ -10,7 +10,10 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 #include <algorithm>
+#include <cctype>
+#include <fstream>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 
@@ -23,6 +26,56 @@
 namespace py = pybind11;
 namespace trt = trt_edgellm;
 namespace rt = trt_edgellm::rt;
+
+namespace {
+
+std::string normalize_model_type_string(std::string value)
+{
+    value.erase(std::remove_if(value.begin(), value.end(),
+                    [](unsigned char c) { return std::isspace(c); }),
+        value.end());
+    std::transform(value.begin(), value.end(), value.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value;
+}
+
+bool config_indicates_llava_prepared_only(std::string const& multimodal_engine_dir)
+{
+    if (multimodal_engine_dir.empty()) {
+        return false;
+    }
+
+    std::ifstream config_stream(multimodal_engine_dir + "/config.json");
+    if (!config_stream.is_open()) {
+        return false;
+    }
+
+    nlohmann::json config_json;
+    try {
+        config_json = nlohmann::json::parse(config_stream);
+    } catch (...) {
+        return false;
+    }
+
+    if (normalize_model_type_string(config_json.value("model_type", std::string{})) == "llava") {
+        return true;
+    }
+
+    if (!config_json.contains("architectures") || !config_json["architectures"].is_array()) {
+        return false;
+    }
+    for (auto const& architecture : config_json["architectures"]) {
+        if (!architecture.is_string()) {
+            continue;
+        }
+        if (normalize_model_type_string(architecture.get<std::string>()).find("llava") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
 
 class TrtEdgeLlmRuntime {
 public:
@@ -50,8 +103,12 @@ public:
         }
 
         std::unordered_map<std::string, std::string> lora_weights_map;
+        bool const llava_prepared_only = config_indicates_llava_prepared_only(multimodal_engine_dir);
         m_runtime = std::make_unique<rt::LLMInferenceRuntime>(
-            engine_dir, multimodal_engine_dir, lora_weights_map, m_stream);
+            engine_dir, llava_prepared_only ? std::string{} : multimodal_engine_dir, lora_weights_map, m_stream);
+        if (llava_prepared_only) {
+            m_runtime->setPreparedExternalMultimodalOnly(true);
+        }
 
         if (!m_runtime->captureDecodingCUDAGraph(m_stream)) {
             // Non-fatal: proceed without CUDA graph
@@ -91,10 +148,6 @@ public:
         py::array_t<float, py::array::c_style | py::array::forcecast> image_embeddings,
         std::vector<std::vector<int64_t>> image_grid_thw)
     {
-        if (image_grid_thw.empty()) {
-            throw std::runtime_error("image_grid_thw must not be empty for multimodal preparation");
-        }
-
         py::buffer_info info = image_embeddings.request();
         if (info.ndim != 2) {
             throw std::runtime_error("image_embeddings must be a 2D array [num_image_tokens, hidden_size]");
@@ -301,7 +354,9 @@ Returns:
 Prepare a multimodal request from precomputed image embeddings and token IDs.
 
 This path is intended for fair VLM runtime benchmarking where image embeddings
-and prompt token IDs are already prepared outside the timed region.
+and prompt token IDs are already prepared outside the timed region. For Qwen-VL
+style models, pass `image_grid_thw`; for Llava prepared benchmarking, an empty
+list is accepted.
 )doc")
         .def("generate_from_prepared_multimodal",
              &TrtEdgeLlmRuntime::generate_from_prepared_multimodal,

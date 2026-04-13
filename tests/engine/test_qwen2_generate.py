@@ -24,7 +24,11 @@ import numpy as np
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "scripts"))
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
+for _p in [
+    project_root / "build_trt_pybind" / "python",
+    project_root / "build" / "python",
+    project_root / "build" / "install" / "python",
+]:
     if _p.exists():
         sys.path.insert(0, str(_p))
         break
@@ -1005,10 +1009,23 @@ def _resolve_trt_engine_dir(
 def _resolve_trt_vlm_multimodal_engine_dir(
     workspace_dir: Path,
     requested_multimodal_engine_dir: Path | None = None,
+    fallback_model_dir: Path | None = None,
 ) -> Path:
+    def _config_only_llava_dir(path: Path) -> bool:
+        config_path = path / "config.json"
+        if not config_path.exists():
+            return False
+        try:
+            config = json.loads(config_path.read_text())
+        except Exception:
+            return False
+        return str(config.get("model_type", "")).lower() == "llava"
+
     if requested_multimodal_engine_dir is not None:
         engine_dir = requested_multimodal_engine_dir.resolve()
-        if not engine_dir.exists() or not (engine_dir / "visual.engine").exists():
+        if not engine_dir.exists() or (
+            not (engine_dir / "visual.engine").exists() and not _config_only_llava_dir(engine_dir)
+        ):
             raise FileNotFoundError(f"TRT-Edge-LLM multimodal engine not found at {engine_dir}")
         return engine_dir
 
@@ -1023,7 +1040,15 @@ def _resolve_trt_vlm_multimodal_engine_dir(
         if engine_dir.exists() and (engine_dir / "visual.engine").exists():
             candidate_dirs.append(engine_dir.resolve())
 
+    onnx_dir = workspace_dir / "onnx"
+    if onnx_dir.exists() and _config_only_llava_dir(onnx_dir):
+        candidate_dirs.append(onnx_dir.resolve())
+
     if not candidate_dirs:
+        if fallback_model_dir is not None:
+            fallback_model_dir = fallback_model_dir.resolve()
+            if fallback_model_dir.exists() and _config_only_llava_dir(fallback_model_dir):
+                return fallback_model_dir
         raise FileNotFoundError(f"No TRT-Edge-LLM multimodal engine directory found under {workspace_dir}")
 
     return candidate_dirs[0]
@@ -1034,6 +1059,7 @@ def _resolve_trt_vlm_engine_dirs(
     requested_engine_dir: Path | None = None,
     requested_multimodal_engine_dir: Path | None = None,
     model_size: str = "3b",
+    model_path: str | None = None,
 ) -> tuple[Path, Path]:
     workspace_dir = _default_trt_vlm_workspace_dir(model_size)
     if requested_engine_dir is not None:
@@ -1072,7 +1098,9 @@ def _resolve_trt_vlm_engine_dirs(
         engine_dir = supported_dirs[0][1]
 
     multimodal_engine_dir = _resolve_trt_vlm_multimodal_engine_dir(
-        workspace_dir, requested_multimodal_engine_dir=requested_multimodal_engine_dir
+        workspace_dir,
+        requested_multimodal_engine_dir=requested_multimodal_engine_dir,
+        fallback_model_dir=Path(model_path).resolve() if model_path else None,
     )
     return engine_dir, multimodal_engine_dir
 
@@ -1821,13 +1849,14 @@ def _bench_trt_edgellm_vlm_prepared(
     import time
 
     image_grid_thw = prepared_inputs.get("image_grid_thw")
-    if image_grid_thw is None:
+    model_type = str(prepared_inputs.get("model_type", "")).lower()
+    if image_grid_thw is None and model_type != "llava":
         raise RuntimeError("prepared_inputs.image_grid_thw is required for TRT VLM benchmarking")
 
     runtime.prepare_multimodal_from_token_ids(
         token_ids_list,
         prepared_inputs["image_embeddings"],
-        image_grid_thw.tolist(),
+        image_grid_thw.tolist() if image_grid_thw is not None else [],
     )
 
     warmup_counts = []
@@ -2091,6 +2120,7 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
                 requested_engine_dir=requested_engine_dir,
                 requested_multimodal_engine_dir=requested_multimodal_engine_dir,
                 model_size=model_spec["model_size"],
+                model_path=model_path,
             )
         except (FileNotFoundError, RuntimeError) as exc:
             print(f"\n[benchmark] skipping TRT for {model_spec['label']}: {exc}")
@@ -2166,24 +2196,18 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
 
             trt_result = None
             if include_trt:
-                if prepared_inputs.get("image_grid_thw") is None:
-                    print(
-                        f"[benchmark] skipping TRT for {model_spec['label']} prefill={prefill_len} decode={num_steps}: "
-                        "prepared inputs do not provide image_grid_thw"
-                    )
-                else:
-                    trt_token_ids_list = _build_trt_vlm_token_ids(prepared_inputs, model_path)
-                    trt_result = _bench_trt_edgellm_vlm_prepared(
-                        trt_runtime,
-                        trt_token_ids_list,
-                        prepared_inputs,
-                        num_steps,
-                        prefill_len,
-                        warmup=BENCH_WARMUP_RUNS,
-                        runs=BENCH_TIMED_RUNS,
-                        ignore_stop_tokens=True,
-                    )
-                    torch.cuda.empty_cache()
+                trt_token_ids_list = _build_trt_vlm_token_ids(prepared_inputs, model_path)
+                trt_result = _bench_trt_edgellm_vlm_prepared(
+                    trt_runtime,
+                    trt_token_ids_list,
+                    prepared_inputs,
+                    num_steps,
+                    prefill_len,
+                    warmup=BENCH_WARMUP_RUNS,
+                    runs=BENCH_TIMED_RUNS,
+                    ignore_stop_tokens=True,
+                )
+                torch.cuda.empty_cache()
 
             label = (
                 f"{model_spec['label']}: Transformers vs EdgeFM (cuda graph) vs TRT-Edge-LLM "
