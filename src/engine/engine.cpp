@@ -110,7 +110,7 @@ namespace {
         for (unsigned char ch : raw_name) {
             if (std::isalnum(ch)) {
                 normalized.push_back(static_cast<char>(std::tolower(ch)));
-            } else if (ch == '.' || ch == '-' || ch == ' ' || ch == '/') {
+            } else if (ch == '_' || ch == '.' || ch == '-' || ch == ' ' || ch == '/') {
                 normalized.push_back('_');
             }
         }
@@ -118,7 +118,8 @@ namespace {
         if (normalized == "qwen2_5" || normalized == "qwen25" || normalized == "qwen2") {
             return "qwen2_5";
         }
-        if (normalized == "qwen2_5_vl" || normalized == "qwen25_vl" || normalized == "qwen2_vl") {
+        if (normalized == "qwen2_5_vl" || normalized == "qwen25_vl" || normalized == "qwen2_vl" ||
+            normalized == "qwen25vl" || normalized == "qwen2_5vl" || normalized == "qwen2vl") {
             return "qwen2_5_vl";
         }
         return normalized;
@@ -130,7 +131,7 @@ namespace {
         for (unsigned char ch : raw_profile) {
             if (std::isalnum(ch)) {
                 normalized.push_back(static_cast<char>(std::tolower(ch)));
-            } else if (ch == '.' || ch == '-' || ch == ' ' || ch == '/') {
+            } else if (ch == '_' || ch == '.' || ch == '-' || ch == ' ' || ch == '/') {
                 normalized.push_back('_');
             }
         }

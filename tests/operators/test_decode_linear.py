@@ -1,4 +1,6 @@
+import json
 import math
+from pathlib import Path
 
 import pytest
 import torch
@@ -21,6 +23,7 @@ from ._test_utils import (
     torch_device,
     write_operator_impl_table,
 )
+from scripts.operator_table_utils import resolve_operator_table_path
 
 MODEL_CONFIG = {
     "hidden_size": 1536,
@@ -30,6 +33,17 @@ MODEL_CONFIG = {
     "v_out_features": 256,
     "vocab_size": 151936,
 }
+
+QWEN_VL_3B_MODEL_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "examples"
+    / "qwen2.5-vl-3b-instruct"
+    / "qwen2.5-vl-3b-instruct"
+)
+VLM_OPERATOR_IMPL_TABLE_PATH = resolve_operator_table_path(
+    model_path=QWEN_VL_3B_MODEL_PATH,
+    model_name="Qwen2.5-VL",
+)
 
 ATTENTION_OUTPUT_DECODE_SHAPE_SIG = "m=1|input=2|weight=2|output=2|in_features=1536|out_features=1536"
 MLP_DOWN_DECODE_SHAPE_SIG = "m=1|input=2|weight=2|output=2|in_features=8960|out_features=1536"
@@ -383,3 +397,36 @@ def test_decode_tuned_record_matches_baseline_output(case):
     torch.testing.assert_close(y_tuned_torch, y_baseline_torch, rtol=rtol, atol=atol)
     assert math.isfinite(baseline_ms)
     assert math.isfinite(tuned_ms)
+
+
+def test_vlm_decode_linear_uses_shape_tuned_record():
+    ensure_cuda()
+    if not QWEN_VL_3B_MODEL_PATH.exists():
+        pytest.skip("Qwen2.5-VL-3B model path not found")
+
+    reset_weight_loader()
+    device = torch_device()
+    engine_config_path = make_engine_config(
+        QWEN_VL_3B_MODEL_PATH,
+        device_id=DEFAULT_DEVICE_ID,
+        operator_impl_table_path=VLM_OPERATOR_IMPL_TABLE_PATH,
+        model_name="Qwen2.5-VL",
+    )
+
+    layer = edge_fm.LinearLayer(
+        "model.layers.0.self_attn.o_proj",
+        str(engine_config_path),
+        2048,
+        2048,
+    )
+    x = torch.randn(1, 2048, device=device, dtype=torch.bfloat16)
+    y = torch.empty(1, 2048, device=device, dtype=torch.bfloat16)
+    x_efm = tensor_to_edge_fm_tensor(x)
+    y_efm = tensor_to_edge_fm_tensor(y)
+
+    layer.forward_fp16_bf16(x_efm, y_efm, 0, "Decode")
+    torch.cuda.synchronize()
+
+    info = json.loads(layer.debug_cached_impl_info("Decode", 1))
+    assert info["selected_impl_id"] == "cublasLt"
+    assert info["selected_impl_params"].get("algo_index") == 1

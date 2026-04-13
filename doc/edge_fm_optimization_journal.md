@@ -178,19 +178,19 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 
 - `Qwen2.5-1.5B-Instruct 512/32`
   - 当前单次复测：
-    - `prefill_ms = 8.6238`
-    - `decode_ms = 97.5996`
-    - `total_stage_ms = 106.2234`
+    - `prefill_ms = 8.6060`
+    - `decode_ms = 97.8189`
+    - `total_stage_ms = 106.4249`
 - 历史 retained 完整套件均值：
     - `prefill_ms = 8.6073`
     - `decode_ms = 100.1371`
     - `total_stage_ms = 108.7811`
 - `Qwen2.5-3B-Instruct 512/32`
   - 当前单次复测：
-    - `prefill_ms = 16.0588`
-    - `decode_ms = 164.2139`
-    - `total_stage_ms = 180.2726`
-    - `decode_step_avg_ms = 5.2972`
+    - `prefill_ms = 16.0420`
+    - `decode_ms = 164.5125`
+    - `total_stage_ms = 180.5545`
+    - `decode_step_avg_ms = 5.3069`
   - 历史 retained 完整套件均值：
     - `prefill_ms = 16.0571`
     - `decode_ms = 171.6401`
@@ -247,28 +247,24 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
     - `total 350.78 -> 331.21 ms`
 
 - `VL-3B 512/32 prepared`
-  - 当前最新复测结果：
-    - `prefill 16.11 ms`
-    - `decode 172.68 ms`
-    - `total 188.78 ms`
+  - 当前最新 5-run 结果：
+    - `prefill 16.10 ms`
+    - `decode 172.37 ms`
+    - `total 188.47 ms`
   - 当前参考 TRT：
-    - `prefill 17.76 ms`
-    - `decode 164.63 ms`
-    - `total 182.39 ms`
+    - `prefill 17.75 ms`
+    - `decode 164.57 ms`
+    - `total 182.32 ms`
   - 当前 gap：
-    - `prefill -9.27%`
-    - `decode +4.88%`
-    - `total +3.51%`
-  - 相比上一版 retained 结果：
+    - `prefill -9.25%`
+    - `decode +4.74%`
+    - `total +3.38%`
+  - 相比旧 retained 结果：
     - `prefill 23.52 -> 16.11 ms`
     - `decode 181.18 -> 172.68 ms`
     - `total 204.70 -> 188.78 ms`
-  - `2026-04-13` 当前 3-run 复测：
-    - `prefill 16.09 ms`
-    - `decode 172.63 ms`
-    - `total 188.72 ms`
   - 当前解释：
-    - 与上面的 retained 数字一致，没有出现新的漂移
+    - 与 `2026-04-13` 当天 earlier recheck 一致，没有出现新的漂移
     - `VL-3B` 当前主 residual 仍然是 decode，不是 prefill
 
 - `VL-0.5B 512/32 prepared`
@@ -551,6 +547,60 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
     - 收益远低于噪声带
     - 不保留，已回退
 
+- `explicit cublas` decode linear 候选：
+  - 目标：
+    - 对 `VL-3B` 的 `m=1` decode 线性层直接 A/B `cublasLt` 与 `cublas`
+    - 判断是否能绕开当前 `gemvx / gemv2T` 风格 residual
+  - 微基准结果：
+    - `attention_output`：`0.01850 -> 0.01888 ms`，`-2.1%`
+    - `mlp_down`：`0.05645 -> 0.06102 ms`，`-8.1%`
+    - `fused_gate_up`：`0.06581 -> 0.06669 ms`，`-1.3%`
+    - `lm_head`：`0.36744 -> 0.36882 ms`，`-0.37%`
+    - `fused_qkv`：由于带 `q/k/v bias`，当前 no-bias `cublas` 实现根本不支持
+  - 结论：
+    - 这条路径不能覆盖 `fused_qkv` 主路径
+    - 其余关键 decode 线性层也都不如现有 `cublasLt`
+    - 不保留，已回退
+
+### 7.10 `2026-04-13` VLM operator_impl_table 命中 bug 已修复并验证
+
+- 根因：
+  - `src/operators/operator_impl_table.cpp` 与 `src/engine/engine.cpp` 的 identifier 归一化规则不一致
+  - 对 `qwen2_5_vl` / `cuda_sm80` 这类带下划线的 VLM 标识，query 侧和 JSON table 侧会被归一化成不同字符串
+  - 结果是：
+    - VLM JSON tuning records 可能直接 miss
+    - 退回到 builtin/default `cublasLt` fallback
+- 代码修复：
+  - 统一保留下划线
+  - 同时兼容 `qwen25vl` 等无下划线别名
+- 命中验证：
+  - 新增测试：
+    - `tests/operators/test_decode_linear.py::test_vlm_decode_linear_uses_shape_tuned_record`
+  - 当前已通过，且 `selected_impl_params.algo_index` 能正确读到 VLM tuned record
+- 当前量化结论：
+  - `VL-3B decode linear` layer microbench，相比 stripped fallback：
+    - `fused_qkv`：`+26.1%`
+    - `attention_output`：`+5.2%`
+    - `mlp_down`：`+14.6%`
+    - `lm_head`：`+0.38%`
+  - `VL-3B 512/32 prepared` 的 `EdgeFM-only` A/B：
+    - 保留 tuned decode linear records：
+      - `prefill 16.08 ms`
+      - `decode 172.77 ms`
+      - `total 188.85 ms`
+    - 删除这些 tuned records：
+      - `prefill 16.07 ms`
+      - `decode 184.47 ms`
+      - `total 200.54 ms`
+    - 当前记录相对 stripped fallback：
+      - `decode -11.70 ms`
+      - `total -11.69 ms`
+      - `decode_step_avg -6.34%`
+- 当前准确判断：
+  - 不需要再怀疑 `operator_impl_table_vlm.json` 的 decode linear tuned records 是否命中
+  - 它们现在已经命中，而且是当前 `VL-3B` 基线不可缺少的一部分
+  - 在此基础上，`VL-3B` 相比 TRT 仍有 `~7.8 ms decode residual`，说明剩余问题已经不是“表没命中”这一层
+
 ## 8. 当前不应继续重复尝试的方向
 
 除非出现新的 profiling 证据，否则不要优先回到这些方向：
@@ -562,6 +612,7 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 - 自己手写裸 attention CUDA kernel 作为主线
 - 未经过 LLM 哨兵验证的共享 runtime 改动
 - `cuBLASLt row-major descriptor` decode 线性候选
+- no-bias `explicit cublas` decode linear 候选
 - 只改善单个小 kernel、但端到端增益落在噪声带内的 `mrope` 向量化尝试
 
 ## 9. 当前建议的下一步
@@ -592,10 +643,12 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
    - 要么继续把 `1024/32` 作为首个有效 prepared 对照点扩展出更完整矩阵
    - 同时评估是否需要为 `llava` 补 TRT 可比口径，而不是继续沿用 `image_grid_thw` 假设
 4. 在新的 residual 上继续优先看：
-   - `decode qkv / attention_output / mlp_down / lm_head`
+   - `decode qkv / attention_output / mlp_down / lm_head` 的 kernel-level residual
    - TRT multimodal 路径里已经存在的 plugin / kernel / shape 策略
+   - 继续围绕 `attention / rope-write / fused decode path` 做 node-level 对照
    - 不再优先投入：
      - `row-major Lt`
+     - `explicit cublas`
      - 只改 `mrope` 一条小 kernel 的局部尝试
 5. 如果候选只在 microbench 更快、但端到端没有稳定收益：
    - 不保留
