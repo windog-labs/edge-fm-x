@@ -74,6 +74,21 @@ int32_t request_prefill_seq_len(const Context& context) {
     return seq_len;
 }
 
+bool tensor_is_on_device(const Tensor& tensor, Device device, int32_t device_id) {
+    auto [tensor_device, tensor_device_id] = tensor.device();
+    return tensor_device == device && tensor_device_id == device_id;
+}
+
+bool request_supports_prefill_cuda_graph(const Request& request, Device device, int32_t device_id) {
+    if (request.has_embedding() && !tensor_is_on_device(request.embedding(), device, device_id)) {
+        return false;
+    }
+    if (request.has_position_ids() && !tensor_is_on_device(request.position_ids(), device, device_id)) {
+        return false;
+    }
+    return true;
+}
+
 struct DecodeRuntimeStateLayout {
     static constexpr size_t kTokenOffset = 0;
     static constexpr size_t kKvLenOffset = kTokenOffset + sizeof(int32_t);
@@ -385,7 +400,10 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
     }
 
     const Request* request = context.request();
-    if (request == nullptr || request->has_embedding() || request->has_position_ids()) {
+    if (request == nullptr) {
+        return false;
+    }
+    if (!request_supports_prefill_cuda_graph(*request, device_, device_id_)) {
         return false;
     }
     if (context.prefix_size() != 0) {
@@ -417,7 +435,22 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
             bool kv_ptrs_match =
                 replay_state.kv_read_ptrs == context.kv_read_ptrs_ref() &&
                 replay_state.kv_write_ptrs == context.kv_write_ptrs_ref();
-            if (!kv_ptrs_match) {
+            bool request_inputs_match = replay_state.has_embedding == request->has_embedding() &&
+                replay_state.has_position_ids == request->has_position_ids();
+            if (request_inputs_match && replay_state.has_embedding) {
+                const Tensor& embedding = request->embedding();
+                request_inputs_match =
+                    replay_state.embedding_ptr == embedding.data_ptr() &&
+                    replay_state.embedding_size_bytes == tensor_nbytes(embedding) &&
+                    replay_state.embed_token_id == request->embed_token_id();
+            }
+            if (request_inputs_match && replay_state.has_position_ids) {
+                const Tensor& position_ids = request->position_ids();
+                request_inputs_match =
+                    replay_state.position_ids_ptr == position_ids.data_ptr() &&
+                    replay_state.position_ids_size_bytes == tensor_nbytes(position_ids);
+            }
+            if (!kv_ptrs_match || !request_inputs_match) {
                 invalidate_prefill_capture();
             } else {
                 const int32_t* token_ids_src = request->token_ids().data();
@@ -455,6 +488,9 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
                     DType::Int32,
                     device_,
                     device_id_);
+                if (!replay_state.mrope_last_pos.empty()) {
+                    context.set_model_state("mrope_last_pos", replay_state.mrope_last_pos);
+                }
 
                 runner.launch(stream);
                 return true;
@@ -483,6 +519,21 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
     replay_state.max_generated_tokens = static_cast<int32_t>(
         tensors.at(ModelTensors::RESPONSE_TOKENS_DEVICE).shape().front());
     replay_state.seq_len = seq_len;
+    replay_state.has_embedding = request->has_embedding();
+    if (replay_state.has_embedding) {
+        replay_state.embedding_ptr = request->embedding().data_ptr();
+        replay_state.embedding_size_bytes = tensor_nbytes(request->embedding());
+        replay_state.embed_token_id = request->embed_token_id();
+    }
+    replay_state.has_position_ids = request->has_position_ids();
+    if (replay_state.has_position_ids) {
+        replay_state.position_ids_ptr = request->position_ids().data_ptr();
+        replay_state.position_ids_size_bytes = tensor_nbytes(request->position_ids());
+        if (const std::vector<int32_t>* last_pos = context.get_model_state("mrope_last_pos");
+            last_pos != nullptr) {
+            replay_state.mrope_last_pos = *last_pos;
+        }
+    }
     replay_state.kv_read_ptrs = context.kv_read_ptrs_ref();
     replay_state.kv_write_ptrs = context.kv_write_ptrs_ref();
 
@@ -946,10 +997,10 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     size_t token_ids_size = static_cast<size_t>(seq_len) * sizeof(int32_t);
     void* token_ids_ptr = StaticBufferManager::get_cache_buf(
         "prefill_token_ids", token_ids_size, device_id_);
-    CUDA_CHECK_THROW(cudaMemcpyAsync(token_ids_ptr, token_ids_src, token_ids_size, 
-                                     cudaMemcpyHostToDevice, stream), 
+    CUDA_CHECK_THROW(cudaMemcpyAsync(token_ids_ptr, token_ids_src, token_ids_size,
+                                     cudaMemcpyHostToDevice, stream),
                      "Failed to copy token_ids to GPU");
-    
+
     tensors[ModelTensors::TOKEN_IDS] = Tensor::view(
         token_ids_ptr,
         {1, seq_len},
@@ -962,15 +1013,25 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     if (request->has_embedding()) {
         const Tensor& emb = request->embedding();
         auto [src_device, src_device_id] = emb.device();
-        tensors[ModelTensors::EMBEDDING] = Tensor::clone_from(
-            emb.data_ptr(),
-            emb.shape(),
-            emb.dtype(),
-            src_device, src_device_id,
-            device_, device_id_,
-            MemoryOwnership::OwnCudaPool,
-            stream
-        );
+        if (src_device == device_ && src_device_id == device_id_) {
+            tensors[ModelTensors::EMBEDDING] = Tensor::view(
+                emb.data_ptr(),
+                emb.shape(),
+                emb.dtype(),
+                src_device,
+                src_device_id
+            );
+        } else {
+            tensors[ModelTensors::EMBEDDING] = Tensor::clone_from(
+                emb.data_ptr(),
+                emb.shape(),
+                emb.dtype(),
+                src_device, src_device_id,
+                device_, device_id_,
+                MemoryOwnership::OwnCudaPool,
+                stream
+            );
+        }
         embed_token_id_buf_ = request->embed_token_id();
         tensors[ModelTensors::EMBED_TOKEN_ID] = Tensor::view(
             &embed_token_id_buf_,
@@ -985,37 +1046,52 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     if (request->has_position_ids()) {
         const Tensor& pos = request->position_ids();
         auto [pos_device, pos_device_id] = pos.device();
-        tensors[ModelTensors::POSITION_IDS] = Tensor::clone_from(
-            pos.data_ptr(),
-            pos.shape(),
-            pos.dtype(),
-            pos_device, pos_device_id,
-            device_, device_id_,
-            MemoryOwnership::OwnCudaPool,
-            stream
-        );
-        // Extract max position per dimension for decode-phase M-RoPE computation.
-        int64_t total_len = pos.shape()[1];
-        size_t bytes = 3 * total_len * sizeof(int32_t);
-        std::vector<int32_t> pos_cpu(3 * total_len);
-        if (pos_device == Device::GPU) {
-            CUDA_CHECK_THROW(cudaMemcpyAsync(pos_cpu.data(), pos.data_ptr(), bytes,
-                                             cudaMemcpyDeviceToHost, stream),
-                             "copy position_ids to CPU");
-            CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "sync after position_ids copy");
+        if (pos_device == device_ && pos_device_id == device_id_) {
+            tensors[ModelTensors::POSITION_IDS] = Tensor::view(
+                pos.data_ptr(),
+                pos.shape(),
+                pos.dtype(),
+                pos_device,
+                pos_device_id
+            );
         } else {
-            std::memcpy(pos_cpu.data(), pos.data_ptr(), bytes);
+            tensors[ModelTensors::POSITION_IDS] = Tensor::clone_from(
+                pos.data_ptr(),
+                pos.shape(),
+                pos.dtype(),
+                pos_device, pos_device_id,
+                device_, device_id_,
+                MemoryOwnership::OwnCudaPool,
+                stream
+            );
         }
-        std::vector<int32_t> mrope_last_pos(3);
-        for (int d = 0; d < 3; ++d) {
-            int32_t mx = 0;
-            for (int64_t i = 0; i < total_len; ++i) {
-                int32_t v = pos_cpu[d * total_len + i];
-                if (v > mx) mx = v;
+
+        if (request->has_mrope_last_pos()) {
+            context.set_model_state("mrope_last_pos", request->mrope_last_pos());
+        } else {
+            // Fallback for older request producers that do not precompute M-RoPE state.
+            int64_t total_len = pos.shape()[1];
+            size_t bytes = 3 * total_len * sizeof(int32_t);
+            std::vector<int32_t> pos_cpu(3 * total_len);
+            if (pos_device == Device::GPU) {
+                CUDA_CHECK_THROW(cudaMemcpyAsync(pos_cpu.data(), pos.data_ptr(), bytes,
+                                                 cudaMemcpyDeviceToHost, stream),
+                                 "copy position_ids to CPU");
+                CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "sync after position_ids copy");
+            } else {
+                std::memcpy(pos_cpu.data(), pos.data_ptr(), bytes);
             }
-            mrope_last_pos[d] = mx;
+            std::vector<int32_t> mrope_last_pos(3);
+            for (int d = 0; d < 3; ++d) {
+                int32_t mx = 0;
+                for (int64_t i = 0; i < total_len; ++i) {
+                    int32_t v = pos_cpu[d * total_len + i];
+                    if (v > mx) mx = v;
+                }
+                mrope_last_pos[d] = mx;
+            }
+            context.set_model_state("mrope_last_pos", std::move(mrope_last_pos));
         }
-        context.set_model_state("mrope_last_pos", std::move(mrope_last_pos));
     }
     
     DType model_dtype = model_->dtype();

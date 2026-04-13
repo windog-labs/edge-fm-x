@@ -51,7 +51,7 @@ DEFAULT_SEED = 42
 DEFAULT_BENCH_PREFILL_LENGTHS = [512, 1024, 2048]
 DEFAULT_BENCH_DECODE_LENGTHS = [32, 64]
 DEFAULT_BENCH_LLM_MODEL_SIZES = ["0.5b", "1.5b", "3b"]
-DEFAULT_BENCH_VLM_MODEL_SIZES = ["3b", "7b"]
+DEFAULT_BENCH_VLM_MODEL_SIZES = ["0.5b", "3b", "7b"]
 
 LLM_MODEL_SPECS = {
     "0.5b": {
@@ -78,6 +78,17 @@ LLM_MODEL_SPECS = {
 }
 
 VLM_MODEL_SPECS = {
+    "0.5b": {
+        "label": "Qwen2.5-VL-0.5B",
+        "dir_name": "qwen2.5-vl-0.5b",
+        "env_keys": ["EDGE_FM_QWEN_VL_0_5B_MODEL_PATH", "EDGE_FM_QWEN_VL_MODEL_PATH"],
+        "trt_workspace_name": "qwen2.5-vl-0.5b",
+        "trt_engine_env_keys": ["TRT_EDGELLM_VLM_ENGINE_DIR_0_5B", "TRT_EDGELLM_VLM_ENGINE_DIR"],
+        "trt_multimodal_engine_env_keys": [
+            "TRT_EDGELLM_VLM_MULTIMODAL_ENGINE_DIR_0_5B",
+            "TRT_EDGELLM_VLM_MULTIMODAL_ENGINE_DIR",
+        ],
+    },
     "3b": {
         "label": "Qwen2.5-VL-3B-Instruct",
         "dir_name": "qwen2.5-vl-3b-instruct",
@@ -523,9 +534,11 @@ def _make_vl_request_factory(
 
     pos_tensor = None
     position_ids_tensor = None
+    mrope_last_pos = None
     if position_ids is not None:
         pos_tensor = torch.from_numpy(position_ids.astype(np.int32)).to(CUDA_DEVICE).contiguous()
         position_ids_tensor = edge_fm.Tensor.from_dlpack(pos_tensor.__dlpack__())
+        mrope_last_pos = np.max(position_ids, axis=1).astype(np.int32).tolist()
 
     keepalive = (emb_tensor, pos_tensor)
 
@@ -533,7 +546,7 @@ def _make_vl_request_factory(
         _ = keepalive
         if position_ids_tensor is not None:
             request = edge_fm.Request(
-                0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor
+                0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor, mrope_last_pos
             )
         else:
             request = edge_fm.Request(0, token_ids_list, embedding_tensor, embed_token_id)
@@ -1159,16 +1172,27 @@ def _extend_vlm_input_ids(input_ids, image_token_id: int, target_prefill_len: in
     import torch
 
     base_ids = input_ids[0].tolist()
-    if len(base_ids) > target_prefill_len:
-        raise ValueError(
-            f"Base VLM prefill length {len(base_ids)} exceeds target prefill length {target_prefill_len}"
-        )
-    if len(base_ids) == target_prefill_len:
-        return input_ids.clone()
-
     image_positions = [i for i, token_id in enumerate(base_ids) if token_id == image_token_id]
     if not image_positions:
         raise RuntimeError(f"Image token id {image_token_id} not found in VLM input_ids")
+
+    if len(base_ids) > target_prefill_len:
+        # Some VLM variants, especially smaller checkpoints, can build a longer
+        # multimodal prompt than the requested benchmark prefill length. In
+        # that case we only allow trimming text tail tokens after the image
+        # token span; cutting through the image token region would change the
+        # multimodal workload semantics and is therefore rejected.
+        if image_positions[-1] >= target_prefill_len:
+            raise ValueError(
+                "Base VLM prefill length "
+                f"{len(base_ids)} exceeds target prefill length {target_prefill_len}, "
+                f"and image token span reaches position {image_positions[-1]}. "
+                "This benchmark case cannot be safely truncated."
+            )
+        return torch.tensor([base_ids[:target_prefill_len]], dtype=input_ids.dtype)
+
+    if len(base_ids) == target_prefill_len:
+        return input_ids.clone()
 
     tail_tokens = [tok for tok in base_ids[image_positions[-1] + 1:] if tok != image_token_id]
     if not tail_tokens:
@@ -1198,15 +1222,54 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         {"type": "image", "image": image},
         {"type": "text", "text": prompt},
     ]}]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
+    try:
+        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    except ValueError as exc:
+        if "does not have a chat template" not in str(exc):
+            raise
+        tokenizer = getattr(processor, "tokenizer", None)
+        if tokenizer is None or not getattr(tokenizer, "chat_template", None):
+            raise
+
+        image_token = getattr(processor, "image_token", None)
+        if not image_token:
+            image_token = getattr(getattr(processor, "image_processor", None), "image_token", None)
+        if not image_token:
+            image_token = "<image>"
+
+        fallback_messages = [
+            {
+                "role": "user",
+                "content": f"{image_token}\n{prompt}",
+            }
+        ]
+        text = tokenizer.apply_chat_template(
+            fallback_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
     inputs = processor(text=[text], images=[image], return_tensors="pt", padding=True)
 
     vocab_size = model.config.text_config.vocab_size
-    embed_token_id = getattr(
-        model.config,
-        "image_token_id",
-        getattr(model.config.text_config, "image_token_id", vocab_size),
-    )
+    processor_image_token_id = None
+    tokenizer = getattr(processor, "tokenizer", None)
+    if tokenizer is not None:
+        processor_image_token = getattr(processor, "image_token", None)
+        if not processor_image_token:
+            processor_image_token = "<image>"
+        token_id = tokenizer.convert_tokens_to_ids(processor_image_token)
+        if isinstance(token_id, int) and token_id >= 0:
+            processor_image_token_id = token_id
+
+    embed_token_id = processor_image_token_id
+    if embed_token_id is None:
+        embed_token_id = getattr(
+            model.config,
+            "image_token_id",
+            getattr(model.config.text_config, "image_token_id", vocab_size),
+        )
 
     input_ids = _extend_vlm_input_ids(inputs["input_ids"], embed_token_id, prefill_len).to(CUDA_DEVICE)
     attention_mask = torch.ones_like(input_ids, dtype=torch.long, device=input_ids.device)
@@ -1216,6 +1279,11 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
     image_grid_thw = inputs.get("image_grid_thw")
     if image_grid_thw is not None:
         image_grid_thw = image_grid_thw.to(input_ids.device)
+    else:
+        raise NotImplementedError(
+            "Current prepared-multimodal benchmark path requires image_grid_thw, "
+            "but the processor outputs do not provide it for this model."
+        )
 
     mm_token_type_ids = inputs.get("mm_token_type_ids")
     if mm_token_type_ids is not None:
@@ -1411,7 +1479,13 @@ def _bench_transformers_vlm(model_path: str, token_ids_list: list[int],
         torch.cuda.empty_cache()
 
 
-def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
+def _resolve_edgefm_request(request_or_factory):
+    if callable(request_or_factory):
+        return request_or_factory()
+    return request_or_factory
+
+
+def _bench_edgefm(engine, request_or_factory, num_steps: int, prefill_len: int,
                   warmup: int, runs: int) -> dict:
     """Benchmark EdgeFM engine.generate().
 
@@ -1424,7 +1498,7 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
 
     warmup_counts = []
     for _ in range(warmup):
-        response = engine.generate(request_fn())
+        response = engine.generate(_resolve_edgefm_request(request_or_factory))
         warmup_counts.append(len(response.token_ids()))
     torch.cuda.synchronize()
 
@@ -1445,7 +1519,7 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
     for _ in range(runs):
         torch.cuda.synchronize()
         t0 = time.perf_counter()
-        response = engine.generate(request_fn())
+        response = engine.generate(_resolve_edgefm_request(request_or_factory))
         torch.cuda.synchronize()
         times.append(time.perf_counter() - t0)
         generated_counts.append(len(response.token_ids()))
@@ -1940,7 +2014,13 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
     reports = []
     try:
         for prefill_len, num_steps in bench_cases:
-            prepared_inputs = _prepare_vlm_bench_case(tf_model, processor, prefill_len)
+            try:
+                prepared_inputs = _prepare_vlm_bench_case(tf_model, processor, prefill_len)
+            except (ValueError, NotImplementedError) as exc:
+                print(
+                    f"[benchmark] skipping {model_spec['label']} prefill={prefill_len} decode={num_steps}: {exc}"
+                )
+                continue
             token_ids_list = prepared_inputs["edgefm_token_ids"]
             image_embeddings = prepared_inputs["image_embeddings"]
             embed_token_id = prepared_inputs["embed_token_id"]
@@ -1961,6 +2041,7 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
                 position_ids,
                 ignore_stop_tokens=True,
             )
+            prepared_request = make_request()
             cfg_graph = _create_engine_config(
                 model_path,
                 prefill_len,
@@ -1972,7 +2053,7 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
             engine_graph = edge_fm.EdgeFM(cfg_graph)
             try:
                 efm_graph_result = _bench_edgefm(
-                    engine_graph, make_request, num_steps, prefill_len,
+                    engine_graph, prepared_request, num_steps, prefill_len,
                     warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
             finally:
                 del engine_graph

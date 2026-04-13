@@ -1472,6 +1472,14 @@ PYBIND11_MODULE(edge_fm, m) {
              py::arg("embed_token_id"),
              py::arg("position_ids"),
              "创建包含图像嵌入和 M-RoPE position_ids 的请求")
+        .def(py::init<int32_t, const std::vector<int32_t>&, const Tensor&, int32_t, const Tensor&, const std::vector<int32_t>&>(),
+             py::arg("request_id"),
+             py::arg("token_ids"),
+             py::arg("embedding"),
+             py::arg("embed_token_id"),
+             py::arg("position_ids"),
+             py::arg("mrope_last_pos"),
+             "创建包含图像嵌入、M-RoPE position_ids 和预计算 mrope_last_pos 的请求")
         .def("request_id", &Request::request_id,
              "获取请求 ID")
         .def("token_ids", &Request::token_ids,
@@ -1489,6 +1497,11 @@ PYBIND11_MODULE(edge_fm, m) {
              py::return_value_policy::reference_internal)
         .def("has_position_ids", &Request::has_position_ids,
              "检查是否有 M-RoPE position_ids")
+        .def("mrope_last_pos", &Request::mrope_last_pos,
+             "获取预计算的 M-RoPE last_pos",
+             py::return_value_policy::reference_internal)
+        .def("has_mrope_last_pos", &Request::has_mrope_last_pos,
+             "检查是否有预计算的 M-RoPE last_pos")
         .def("set_stop_token_ids", &Request::set_stop_token_ids,
              py::arg("stop_token_ids"),
              "设置自定义停止 token IDs 列表（生成到这些 token 时会提前终止）")

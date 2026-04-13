@@ -37,6 +37,10 @@ public:
             stream_(stream),
             response_tokens_base_ptr_(nullptr),
             eos_detected_(false) { /* empty */ }
+    Context(Context&&) noexcept = default;
+    Context& operator=(Context&&) noexcept = default;
+    Context(const Context&) = delete;
+    Context& operator=(const Context&) = delete;
     ~Context() = default;
 
     bool is_finished() const { return eos_detected_ || generated_tokens_ >= max_generated_tokens_; }

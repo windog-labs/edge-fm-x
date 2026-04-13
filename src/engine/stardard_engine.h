@@ -26,6 +26,14 @@ private:
         void* response_tokens_ptr = nullptr;
         int32_t max_generated_tokens = 0;
         int32_t seq_len = 0;
+        bool has_embedding = false;
+        void* embedding_ptr = nullptr;
+        size_t embedding_size_bytes = 0;
+        int32_t embed_token_id = -1;
+        bool has_position_ids = false;
+        void* position_ids_ptr = nullptr;
+        size_t position_ids_size_bytes = 0;
+        std::vector<int32_t> mrope_last_pos;
         std::vector<void*> kv_read_ptrs;
         std::vector<void*> kv_write_ptrs;
     };

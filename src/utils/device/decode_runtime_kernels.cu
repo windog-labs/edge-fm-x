@@ -11,6 +11,32 @@ namespace edge_fm {
 
 namespace {
 
+template <typename T>
+__device__ __forceinline__ float dtype_to_float(T value);
+
+template <>
+__device__ __forceinline__ float dtype_to_float<half>(half value) {
+    return __half2float(value);
+}
+
+template <>
+__device__ __forceinline__ float dtype_to_float<__nv_bfloat16>(__nv_bfloat16 value) {
+    return __bfloat162float(value);
+}
+
+template <typename T>
+__device__ __forceinline__ T float_to_dtype(float value);
+
+template <>
+__device__ __forceinline__ half float_to_dtype<half>(float value) {
+    return __float2half(value);
+}
+
+template <>
+__device__ __forceinline__ __nv_bfloat16 float_to_dtype<__nv_bfloat16>(float value) {
+    return __float2bfloat16(value);
+}
+
 __global__ void increment_uint32_scalar_kernel(uint32_t* value) {
     if (blockIdx.x == 0 && threadIdx.x == 0) {
         value[0] += 1;
@@ -107,6 +133,81 @@ __global__ void copy_decode_kv_cache_slots_vec16_kernel(const uint4* k_src,
         v_cache_base[static_cast<size_t>(slot) * static_cast<size_t>(v_vecs_per_token) +
                      static_cast<size_t>(idx)] = v_src[idx];
     }
+}
+
+template <typename T>
+__global__ void decode_mrope_apply_q_write_kv_kernel(
+    const T* q_src,
+    const T* k_src,
+    const T* v_src,
+    T* q_dst,
+    T* k_cache_base,
+    T* v_cache_base,
+    int num_qo_heads,
+    int num_kv_heads,
+    int head_dim,
+    const int32_t* position_ids,
+    const int32_t* mrope_section_cumsum,
+    float rope_rcp_scale,
+    float rope_theta,
+    const uint32_t* d_kv_len)
+{
+    const uint32_t kv_len = d_kv_len[0];
+    if (kv_len == 0) {
+        return;
+    }
+
+    const int half_dim = head_dim / 2;
+    const int d = static_cast<int>(threadIdx.x);
+    if (d >= half_dim) {
+        return;
+    }
+
+    const int head_idx = static_cast<int>(blockIdx.y);
+    const int cum0 = mrope_section_cumsum[0];
+    const int cum1 = mrope_section_cumsum[1];
+    const int d_lo = d;
+    const int d_hi = d + half_dim;
+    const int section_lo = (d_lo < cum0) ? 0 : ((d_lo < cum1) ? 1 : 2);
+    const int section_hi = (d_hi < cum0) ? 0 : ((d_hi < cum1) ? 1 : 2);
+    const int pos_lo = position_ids[section_lo];
+    const int pos_hi = position_ids[section_hi];
+    const float inv_freq_d = 1.0f / powf(rope_theta, static_cast<float>(2 * d) / static_cast<float>(head_dim));
+    const float angle_lo = static_cast<float>(pos_lo) * inv_freq_d * rope_rcp_scale;
+    const float angle_hi = static_cast<float>(pos_hi) * inv_freq_d * rope_rcp_scale;
+
+    float sin_lo, cos_lo, sin_hi, cos_hi;
+    __sincosf(angle_lo, &sin_lo, &cos_lo);
+    __sincosf(angle_hi, &sin_hi, &cos_hi);
+
+    if (head_idx < num_qo_heads) {
+        const size_t base = static_cast<size_t>(head_idx) * static_cast<size_t>(head_dim);
+        const float val_lo = dtype_to_float(q_src[base + static_cast<size_t>(d_lo)]);
+        const float val_hi = dtype_to_float(q_src[base + static_cast<size_t>(d_hi)]);
+        q_dst[base + static_cast<size_t>(d_lo)] = float_to_dtype<T>(val_lo * cos_lo - val_hi * sin_lo);
+        q_dst[base + static_cast<size_t>(d_hi)] = float_to_dtype<T>(val_hi * cos_hi + val_lo * sin_hi);
+        return;
+    }
+
+    const int kv_head = head_idx - num_qo_heads;
+    if (kv_head >= num_kv_heads) {
+        return;
+    }
+
+    const size_t kv_head_base = static_cast<size_t>(kv_head) * static_cast<size_t>(head_dim);
+    const float k_val_lo = dtype_to_float(k_src[kv_head_base + static_cast<size_t>(d_lo)]);
+    const float k_val_hi = dtype_to_float(k_src[kv_head_base + static_cast<size_t>(d_hi)]);
+    const T k_rot_lo = float_to_dtype<T>(k_val_lo * cos_lo - k_val_hi * sin_lo);
+    const T k_rot_hi = float_to_dtype<T>(k_val_hi * cos_hi + k_val_lo * sin_hi);
+
+    const size_t kv_elems_per_token = static_cast<size_t>(num_kv_heads) * static_cast<size_t>(head_dim);
+    const size_t slot_base = static_cast<size_t>(kv_len - 1U) * kv_elems_per_token;
+    const size_t cache_base = slot_base + kv_head_base;
+
+    k_cache_base[cache_base + static_cast<size_t>(d_lo)] = k_rot_lo;
+    k_cache_base[cache_base + static_cast<size_t>(d_hi)] = k_rot_hi;
+    v_cache_base[cache_base + static_cast<size_t>(d_lo)] = v_src[kv_head_base + static_cast<size_t>(d_lo)];
+    v_cache_base[cache_base + static_cast<size_t>(d_hi)] = v_src[kv_head_base + static_cast<size_t>(d_hi)];
 }
 
 inline bool can_vectorize_vec16(const void* ptr, int bytes) {
@@ -228,6 +329,74 @@ void launch_copy_decode_kv_cache_slots(const void* k_src,
     }
 
     throw ConfigurationError("launch_copy_decode_kv_cache_slots only supports Float16 / BFloat16");
+}
+
+void launch_decode_mrope_apply_q_write_kv(const void* q_src,
+                                          const void* k_src,
+                                          const void* v_src,
+                                          void* q_dst,
+                                          void* k_cache_base,
+                                          void* v_cache_base,
+                                          int num_qo_heads,
+                                          int num_kv_heads,
+                                          int head_dim,
+                                          const int32_t* position_ids,
+                                          const int32_t* mrope_section_cumsum,
+                                          float rope_theta,
+                                          float rope_scale,
+                                          DType dtype,
+                                          const uint32_t* d_kv_len,
+                                          cudaStream_t stream)
+{
+    check<ConfigurationError>(head_dim > 0 && (head_dim % 2) == 0,
+                              "launch_decode_mrope_apply_q_write_kv expects even head_dim");
+    check<ConfigurationError>(num_qo_heads > 0 && num_kv_heads > 0,
+                              "launch_decode_mrope_apply_q_write_kv expects positive head counts");
+    check<ConfigurationError>(position_ids != nullptr && mrope_section_cumsum != nullptr,
+                              "launch_decode_mrope_apply_q_write_kv expects valid M-RoPE metadata");
+
+    const dim3 grid(1U, static_cast<unsigned>(num_qo_heads + num_kv_heads));
+    const dim3 block(static_cast<unsigned>(head_dim / 2));
+    const float rope_rcp_scale = 1.0f / rope_scale;
+
+    if (dtype == DType::BFloat16) {
+        decode_mrope_apply_q_write_kv_kernel<<<grid, block, 0, stream>>>(
+            static_cast<const __nv_bfloat16*>(q_src),
+            static_cast<const __nv_bfloat16*>(k_src),
+            static_cast<const __nv_bfloat16*>(v_src),
+            static_cast<__nv_bfloat16*>(q_dst),
+            static_cast<__nv_bfloat16*>(k_cache_base),
+            static_cast<__nv_bfloat16*>(v_cache_base),
+            num_qo_heads,
+            num_kv_heads,
+            head_dim,
+            position_ids,
+            mrope_section_cumsum,
+            rope_rcp_scale,
+            rope_theta,
+            d_kv_len);
+        return;
+    }
+    if (dtype == DType::Float16) {
+        decode_mrope_apply_q_write_kv_kernel<<<grid, block, 0, stream>>>(
+            static_cast<const half*>(q_src),
+            static_cast<const half*>(k_src),
+            static_cast<const half*>(v_src),
+            static_cast<half*>(q_dst),
+            static_cast<half*>(k_cache_base),
+            static_cast<half*>(v_cache_base),
+            num_qo_heads,
+            num_kv_heads,
+            head_dim,
+            position_ids,
+            mrope_section_cumsum,
+            rope_rcp_scale,
+            rope_theta,
+            d_kv_len);
+        return;
+    }
+
+    throw ConfigurationError("launch_decode_mrope_apply_q_write_kv only supports Float16 / BFloat16");
 }
 
 } // namespace edge_fm
