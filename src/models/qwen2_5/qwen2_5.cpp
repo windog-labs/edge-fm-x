@@ -166,6 +166,13 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
     activation_layer_->load_weights(prefill_weights, decode_weights);
 }
 
+Qwen2_5::~Qwen2_5() {
+    if (mrope_section_cumsum_gpu_ != nullptr) {
+        (void)cudaFree(mrope_section_cumsum_gpu_);
+        mrope_section_cumsum_gpu_ = nullptr;
+    }
+}
+
 void Qwen2_5::prefill(const Context& context) {
     // Use actual prefill seq_len from TOKEN_IDS (with prefix, engine passes only non-prefix tokens)
     const auto& token_ids = context.tensors().at(ModelTensors::TOKEN_IDS);

@@ -13,7 +13,7 @@ namespace edge_fm {
 class Qwen2_5 : public Model {
 public:
     explicit Qwen2_5(const EngineConfig& config);
-    ~Qwen2_5() = default;
+    ~Qwen2_5() override;
 
     void prefill(const Context& context) override;
     void decode_step(const Context& context) override;
