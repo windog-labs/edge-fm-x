@@ -1153,18 +1153,50 @@ def _bench_transformers_llm(model_path: str, token_ids_list: list[int], num_step
 
 def _load_transformers_vlm_model(model_path: str):
     import torch
-    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+    from transformers import AutoConfig, AutoProcessor
 
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-        low_cpu_mem_usage=False,
-    )
+    config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+    torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+    if getattr(config, "model_type", "") == "llava":
+        from transformers import LlavaForConditionalGeneration
+
+        model = LlavaForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=False,
+        )
+    else:
+        from transformers import Qwen2_5_VLForConditionalGeneration
+
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=False,
+        )
     model = model.to(CUDA_DEVICE if torch.cuda.is_available() else "cpu")
     model.eval()
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-    processor.image_processor.min_pixels = 3136
-    processor.image_processor.max_pixels = 50176
+    image_processor = getattr(processor, "image_processor", None)
+    if image_processor is not None:
+        if hasattr(image_processor, "min_pixels"):
+            image_processor.min_pixels = 3136
+        if hasattr(image_processor, "max_pixels"):
+            image_processor.max_pixels = 50176
+    if getattr(config, "model_type", "") == "llava":
+        vision_config = getattr(config, "vision_config", None)
+        if vision_config is not None and hasattr(processor, "patch_size"):
+            processor.patch_size = getattr(vision_config, "patch_size", processor.patch_size)
+        if hasattr(processor, "vision_feature_select_strategy"):
+            processor.vision_feature_select_strategy = getattr(
+                config,
+                "vision_feature_select_strategy",
+                processor.vision_feature_select_strategy,
+            )
+        if hasattr(processor, "num_additional_image_tokens"):
+            processor.num_additional_image_tokens = max(
+                int(getattr(processor, "num_additional_image_tokens", 0)),
+                1,
+            )
     return model, processor
 
 
@@ -1252,7 +1284,12 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
 
     inputs = processor(text=[text], images=[image], return_tensors="pt", padding=True)
 
-    vocab_size = model.config.text_config.vocab_size
+    text_config = getattr(model.config, "text_config", None)
+    vocab_size = getattr(text_config, "vocab_size", None)
+    if vocab_size is None:
+        vocab_size = getattr(model.config, "vocab_size", None)
+    if vocab_size is None:
+        raise RuntimeError("Unable to resolve VLM vocab size from model config")
     processor_image_token_id = None
     tokenizer = getattr(processor, "tokenizer", None)
     if tokenizer is not None:
@@ -1265,10 +1302,11 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
 
     embed_token_id = processor_image_token_id
     if embed_token_id is None:
+        text_image_token_id = getattr(text_config, "image_token_id", vocab_size)
         embed_token_id = getattr(
             model.config,
             "image_token_id",
-            getattr(model.config.text_config, "image_token_id", vocab_size),
+            text_image_token_id,
         )
 
     input_ids = _extend_vlm_input_ids(inputs["input_ids"], embed_token_id, prefill_len).to(CUDA_DEVICE)
@@ -1276,14 +1314,12 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
     pixel_values = inputs.get("pixel_values")
     if pixel_values is not None:
         pixel_values = pixel_values.to(input_ids.device)
+    image_sizes = inputs.get("image_sizes")
+    if image_sizes is not None:
+        image_sizes = image_sizes.to(input_ids.device)
     image_grid_thw = inputs.get("image_grid_thw")
     if image_grid_thw is not None:
         image_grid_thw = image_grid_thw.to(input_ids.device)
-    else:
-        raise NotImplementedError(
-            "Current prepared-multimodal benchmark path requires image_grid_thw, "
-            "but the processor outputs do not provide it for this model."
-        )
 
     mm_token_type_ids = inputs.get("mm_token_type_ids")
     if mm_token_type_ids is not None:
@@ -1299,15 +1335,27 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         mm_token_type_ids = torch.zeros_like(input_ids, dtype=torch.int32, device=input_ids.device)
         mm_token_type_ids[input_ids == embed_token_id] = 1
 
-    with torch.no_grad():
-        outputs = model(
-            input_ids=input_ids,
-            pixel_values=pixel_values,
-            image_grid_thw=image_grid_thw,
-            output_hidden_states=True,
-            use_cache=True,
-            return_dict=True,
+    model_type = getattr(model.config, "model_type", "")
+    model_forward_kwargs = {
+        "input_ids": input_ids,
+        "pixel_values": pixel_values,
+        "output_hidden_states": True,
+        "use_cache": True,
+        "return_dict": True,
+    }
+    if image_grid_thw is not None:
+        model_forward_kwargs["image_grid_thw"] = image_grid_thw
+    elif model_type == "llava":
+        if image_sizes is not None:
+            model_forward_kwargs["image_sizes"] = image_sizes
+    else:
+        raise NotImplementedError(
+            "Current prepared-multimodal benchmark path requires image_grid_thw for this model type, "
+            f"but the processor outputs do not provide it (model_type={model_type})."
         )
+
+    with torch.no_grad():
+        outputs = model(**model_forward_kwargs)
 
     hidden_states = outputs.hidden_states
     embed_output = hidden_states[0]
@@ -1316,17 +1364,20 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         raise RuntimeError(f"Unable to locate image token positions for embed_token_id={embed_token_id}")
     image_embeddings = embed_output[0, positions, :].float().cpu().numpy()
 
-    rope_sig = inspect.signature(model.model.get_rope_index)
-    rope_kwargs = {
-        "input_ids": input_ids,
-        "image_grid_thw": image_grid_thw,
-    }
-    if "mm_token_type_ids" in rope_sig.parameters:
-        rope_kwargs["mm_token_type_ids"] = mm_token_type_ids
-    if "attention_mask" in rope_sig.parameters:
-        rope_kwargs["attention_mask"] = attention_mask
-    position_ids_3d, rope_deltas = model.model.get_rope_index(**rope_kwargs)
-    position_ids_np = position_ids_3d[:, 0, :].cpu().numpy().astype(np.int32)
+    position_ids_np = None
+    rope_deltas = None
+    if image_grid_thw is not None:
+        rope_sig = inspect.signature(model.model.get_rope_index)
+        rope_kwargs = {
+            "input_ids": input_ids,
+            "image_grid_thw": image_grid_thw,
+        }
+        if "mm_token_type_ids" in rope_sig.parameters:
+            rope_kwargs["mm_token_type_ids"] = mm_token_type_ids
+        if "attention_mask" in rope_sig.parameters:
+            rope_kwargs["attention_mask"] = attention_mask
+        position_ids_3d, rope_deltas = model.model.get_rope_index(**rope_kwargs)
+        position_ids_np = position_ids_3d[:, 0, :].cpu().numpy().astype(np.int32)
 
     edgefm_token_ids = input_ids[0].cpu().numpy().astype(np.int32)
     embed_counter = 0
@@ -1341,12 +1392,14 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         "prefill_tokens": int(input_ids.shape[1]),
         "input_ids": input_ids.detach().cpu(),
         "pixel_values": pixel_values.detach().cpu() if pixel_values is not None else None,
+        "image_sizes": image_sizes.detach().cpu() if image_sizes is not None else None,
         "image_grid_thw": image_grid_thw.detach().cpu() if image_grid_thw is not None else None,
         "edgefm_token_ids": edgefm_token_ids.tolist(),
         "image_embeddings": image_embeddings.astype(np.float32),
         "embed_token_id": int(embed_token_id),
+        "model_type": model_type,
         "position_ids": position_ids_np,
-        "rope_deltas": rope_deltas.detach().cpu(),
+        "rope_deltas": rope_deltas.detach().cpu() if rope_deltas is not None else None,
     }
 
 
@@ -1386,12 +1439,18 @@ def _bench_transformers_vlm_loaded(model, prepared_inputs: dict,
 
     input_ids = prepared_inputs["input_ids"].to(CUDA_DEVICE)
     attention_mask = torch.ones_like(input_ids, dtype=torch.long, device=CUDA_DEVICE)
-    image_grid_thw = prepared_inputs["image_grid_thw"].to(CUDA_DEVICE)
+    image_grid_thw = prepared_inputs.get("image_grid_thw")
+    if image_grid_thw is not None:
+        image_grid_thw = image_grid_thw.to(CUDA_DEVICE)
+    image_sizes = prepared_inputs.get("image_sizes")
+    if image_sizes is not None:
+        image_sizes = image_sizes.to(CUDA_DEVICE)
     image_embeddings = torch.from_numpy(prepared_inputs["image_embeddings"]).to(
         device=CUDA_DEVICE, dtype=model.dtype
     )
     embed_token_id = int(prepared_inputs["embed_token_id"])
     prefill_len = input_ids.shape[1]
+    model_type = prepared_inputs.get("model_type", getattr(model.config, "model_type", ""))
 
     with torch.no_grad():
         inputs_embeds = model.get_input_embeddings()(input_ids)
@@ -1403,36 +1462,82 @@ def _bench_transformers_vlm_loaded(model, prepared_inputs: dict,
         )
     inputs_embeds[0, image_positions, :] = image_embeddings
 
-    prefill_position_ids = torch.from_numpy(prepared_inputs["position_ids"]).to(
-        device=CUDA_DEVICE, dtype=torch.long
-    ).unsqueeze(1)
-    rope_deltas = prepared_inputs["rope_deltas"].to(device=CUDA_DEVICE, dtype=torch.long)
-
     def run_once():
+        if image_grid_thw is not None:
+            prefill_position_ids = torch.from_numpy(prepared_inputs["position_ids"]).to(
+                device=CUDA_DEVICE, dtype=torch.long
+            ).unsqueeze(1)
+            rope_deltas = prepared_inputs["rope_deltas"].to(device=CUDA_DEVICE, dtype=torch.long)
+
+            with torch.no_grad():
+                out = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    inputs_embeds=inputs_embeds,
+                    position_ids=prefill_position_ids,
+                    use_cache=True,
+                    return_dict=True,
+                )
+            past_kv = out.past_key_values
+            tok = out.logits[0, -1].argmax().item()
+            decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
+            cl = prefill_len
+            for _ in range(num_steps - 1):
+                cache_position = torch.arange(cl, cl + 1, dtype=torch.long, device=CUDA_DEVICE)
+                mrope_pos = (cache_position + rope_deltas).view(1, 1, 1).expand(3, 1, 1).to(torch.long)
+                text_pos = cache_position.view(1, 1, 1)
+                position_ids = torch.cat([text_pos, mrope_pos], dim=0)
+                with torch.no_grad():
+                    out = model(
+                        input_ids=decode_input,
+                        past_key_values=past_kv,
+                        position_ids=position_ids,
+                        cache_position=cache_position,
+                        use_cache=True,
+                        return_dict=True,
+                    )
+                past_kv = out.past_key_values
+                tok = out.logits[0, -1].argmax().item()
+                decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
+                cl += 1
+            return
+
+        if model_type != "llava":
+            raise NotImplementedError(
+                f"Prepared Transformers VLM benchmark does not support model_type={model_type} without image_grid_thw"
+            )
+
+        prefill_kwargs = {
+            "attention_mask": attention_mask,
+            "inputs_embeds": inputs_embeds,
+            "use_cache": True,
+            "return_dict": True,
+        }
+        if image_sizes is not None:
+            prefill_kwargs["image_sizes"] = image_sizes
         with torch.no_grad():
-            out = model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                inputs_embeds=inputs_embeds,
-                position_ids=prefill_position_ids,
-                use_cache=True, return_dict=True)
+            out = model(**prefill_kwargs)
         past_kv = out.past_key_values
         tok = out.logits[0, -1].argmax().item()
         decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
         cl = prefill_len
+        decode_attention_mask = attention_mask
         for _ in range(num_steps - 1):
-            cache_position = torch.arange(cl, cl + 1, dtype=torch.long, device=CUDA_DEVICE)
-            mrope_pos = (cache_position + rope_deltas).view(1, 1, 1).expand(3, 1, 1).to(torch.long)
-            text_pos = cache_position.view(1, 1, 1)
-            position_ids = torch.cat([text_pos, mrope_pos], dim=0)
+            cl += 1
+            decode_attention_mask = torch.ones((1, cl), dtype=torch.long, device=CUDA_DEVICE)
+            cache_position = torch.arange(cl - 1, cl, dtype=torch.long, device=CUDA_DEVICE)
             with torch.no_grad():
-                out = model(input_ids=decode_input, past_key_values=past_kv,
-                            position_ids=position_ids, cache_position=cache_position,
-                            use_cache=True, return_dict=True)
+                out = model(
+                    input_ids=decode_input,
+                    attention_mask=decode_attention_mask,
+                    past_key_values=past_kv,
+                    cache_position=cache_position,
+                    use_cache=True,
+                    return_dict=True,
+                )
             past_kv = out.past_key_values
             tok = out.logits[0, -1].argmax().item()
             decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
-            cl += 1
 
     for _ in range(warmup):
         run_once()
@@ -2061,18 +2166,24 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
 
             trt_result = None
             if include_trt:
-                trt_token_ids_list = _build_trt_vlm_token_ids(prepared_inputs, model_path)
-                trt_result = _bench_trt_edgellm_vlm_prepared(
-                    trt_runtime,
-                    trt_token_ids_list,
-                    prepared_inputs,
-                    num_steps,
-                    prefill_len,
-                    warmup=BENCH_WARMUP_RUNS,
-                    runs=BENCH_TIMED_RUNS,
-                    ignore_stop_tokens=True,
-                )
-                torch.cuda.empty_cache()
+                if prepared_inputs.get("image_grid_thw") is None:
+                    print(
+                        f"[benchmark] skipping TRT for {model_spec['label']} prefill={prefill_len} decode={num_steps}: "
+                        "prepared inputs do not provide image_grid_thw"
+                    )
+                else:
+                    trt_token_ids_list = _build_trt_vlm_token_ids(prepared_inputs, model_path)
+                    trt_result = _bench_trt_edgellm_vlm_prepared(
+                        trt_runtime,
+                        trt_token_ids_list,
+                        prepared_inputs,
+                        num_steps,
+                        prefill_len,
+                        warmup=BENCH_WARMUP_RUNS,
+                        runs=BENCH_TIMED_RUNS,
+                        ignore_stop_tokens=True,
+                    )
+                    torch.cuda.empty_cache()
 
             label = (
                 f"{model_spec['label']}: Transformers vs EdgeFM (cuda graph) vs TRT-Edge-LLM "

@@ -1,6 +1,6 @@
 # EdgeFM 优化 Journal
 
-最近更新：2026-04-12
+最近更新：2026-04-13
 
 这份文档只保留当前有效事实，不再保留长流水账。
 历史 benchmark、profiling、临时实验产物统一留在 `doc/benchmark_reports/` 和仓库内 `.tmp_codex/`。
@@ -267,14 +267,34 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
     - base prepared input length = `612`
     - image token span reaches position `598`
     - 因此 `prefill_len=512` 不能安全截断
-  - 在 `0.5B` 的 `512/32 prepared` 口径修复前，不再保留任何过期的 `0.5B 512/32` benchmark 结论
+  - 这仍然不是一个合法 prepared 对照点
+  - 不再保留任何过期的 `0.5B 512/32` benchmark 结论
+
+- `VL-0.5B 1024/32 prepared`
+  - 当前首个可引用 prepared case：
+    - 模型封装：`llava`
+    - `position_ids = None`
+    - `image_grid_thw = None`
+  - 当前 smoke baseline：
+    - Transformers total `612.13 ms`
+    - EdgeFM total `71.66 ms`
+    - EdgeFM prefill stage `6.77 ms`
+    - EdgeFM decode stage `64.72 ms`
+    - EdgeFM total stage `71.49 ms`
+  - 当前解释：
+    - 这说明 `0.5B llava` 的文本塔权重映射和 prepared request 路径已经打通
+    - 但这还不是 `TRT-Edge-LLM` 的 3-way 公平对照结果
 
 当前准确判断：
 
 - `VL-7B 512/32 prepared` 这个最关键的 VLM case 已经基本打平并略微超过当前 TRT 参考
 - 当前主 residual 已经不再是 `VL-7B 512/32 prepared`
 - `VL-3B 512/32 prepared` 也已经显著收敛，但 decode 仍有 `~4.9%` residual
-- `VL-0.5B` 当前的首要问题不是 kernel residual，而是 `512/32 prepared` case 本身与默认 prompt/image 组合不兼容
+- `VL-0.5B` 已经不再被权重别名或 prepared request contract 阻塞
+- `VL-0.5B` 当前真正受限的是 benchmark 口径：
+  - `512/32` 不是合法 case
+  - 当前首个可信 prepared 对照点是 `1024/32`
+  - 因为该模型是 `llava/CLIP` 风格，prepared 输入没有 `image_grid_thw`，所以当前测试脚本会跳过 TRT 3-way 对照
 - 最新代码上的 VLM fullsuite 还没有重跑完，所以这里不再保留旧的模型均值表，避免把过期数字当成当前结论
 - `Qwen2.5-VL-0.5B / 3B / 7B` 的最新模型级均值 gap，需要等下一轮 fullsuite 后再回填
 
@@ -509,8 +529,10 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 1. 先基于这版新结果重做 `VL-3B` decode residual 的 `nsys` 定位
 2. `VL-7B` 主 key case 已基本收平，后续主要做回归保护与 fullsuite 扩展验证
 3. `VL-0.5B` 先修 benchmark contract：
-   - 要么给 `512/32 prepared` 换一个合法的短 prompt/image case
-   - 要么明确把 `1024/32` 作为首个有效 prepared 对照点
+   - `llava` prepared 输入链路已经打通
+   - 下一步要么给 `512/32 prepared` 换一个合法的短 prompt/image case
+   - 要么继续把 `1024/32` 作为首个有效 prepared 对照点扩展出更完整矩阵
+   - 同时评估是否需要为 `llava` 补 TRT 可比口径，而不是继续沿用 `image_grid_thw` 假设
 4. 在新的 residual 上继续优先看：
    - `decode qkv / attention_output / mlp_down / lm_head`
    - TRT multimodal 路径里已经存在的 plugin / kernel / shape 策略

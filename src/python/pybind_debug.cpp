@@ -80,11 +80,14 @@ const std::unordered_map<std::string, Tensor>& load_stage_weights_for_debug_laye
     const bool is_vlm = (config.resolved_model_name() == "qwen2_5_vl");
     if (is_vlm) {
         auto vlm_filter = [](const std::string& name) {
-            return name.rfind("model.", 0) == 0;
+            return name.rfind("model.", 0) == 0 || name.rfind("language_model.", 0) == 0;
         };
         auto vlm_key_mapper = [](const std::string& name) {
             if (name.rfind("model.model.", 0) == 0) {
                 return name.substr(6);
+            }
+            if (name.rfind("language_model.", 0) == 0) {
+                return name.substr(std::string("language_model.").size());
             }
             return name;
         };
