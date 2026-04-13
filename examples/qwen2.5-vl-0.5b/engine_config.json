@@ -14,7 +14,7 @@
     "enabled": false
   },
   "kvcache": {
-    "dtype": "fp16",
+    "dtype": "bf16",
     "attention_type": "gqa",
     "requests": [
       {
