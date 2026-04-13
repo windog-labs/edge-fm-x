@@ -220,8 +220,11 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 - `.tmp_codex/bench/vlm7b_51232_decode_swiglu_launchcompact_20260412.json`
 - `.tmp_codex/bench/vlm3b_shortctx_runtime_candidate_20260411.json`
 - `.tmp_codex/bench/vlm3b_51232_decode_swiglu_launchcompact_20260412.json`
+- `.tmp_codex/bench/vlm3b_51232_rowmajor_ab_default_20260413.json`
 - `scripts/profile_vlm_prepared_case.py`
 - `.tmp_codex/nsys/vlm7b_51232_edgefm_prepared_20260412_decodefused.nsys-rep`
+- `.tmp_codex/nsys/vlm3b_51232_edgefm_nodes_20260413.nsys-rep`
+- `.tmp_codex/nsys/vlm3b_51232_trt_nodes_20260413.nsys-rep`
 
 当前最重要的 key case：
 
@@ -260,6 +263,13 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
     - `prefill 23.52 -> 16.11 ms`
     - `decode 181.18 -> 172.68 ms`
     - `total 204.70 -> 188.78 ms`
+  - `2026-04-13` 当前 3-run 复测：
+    - `prefill 16.09 ms`
+    - `decode 172.63 ms`
+    - `total 188.72 ms`
+  - 当前解释：
+    - 与上面的 retained 数字一致，没有出现新的漂移
+    - `VL-3B` 当前主 residual 仍然是 decode，不是 prefill
 
 - `VL-0.5B 512/32 prepared`
   - 当前不能再引用旧数字
@@ -290,6 +300,21 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 - `VL-7B 512/32 prepared` 这个最关键的 VLM case 已经基本打平并略微超过当前 TRT 参考
 - 当前主 residual 已经不再是 `VL-7B 512/32 prepared`
 - `VL-3B 512/32 prepared` 也已经显著收敛，但 decode 仍有 `~4.9%` residual
+- `VL-3B` 最新 node-level `nsys` 已经足够说明 residual 结构：
+  - EdgeFM decode top kernels：
+    - `fused_moe::run_global...` `61.83 ms`
+    - `internal::gemvx::kernel...` `52.77 ms`
+    - `flashinfer::SingleDecodeWithKVCacheKernel...` `19.54 ms`
+    - `gemv2T_kernel_val...` `13.72 ms`
+    - `decode_mrope_apply_q_write_kv_kernel...` `3.34 ms`
+  - TRT decode top kernels：
+    - TC-style GEMM kernels `62.16 / 33.91 / 12.05 / 10.80 ms`
+    - `kernel_mha` `16.63 ms`
+    - `applyRopeWriteKV` `2.67 ms`
+  - 当前最准确判断：
+    - `VL-3B` residual 主要还是 decode 小 shape 线性层实现形态差异
+    - attention 次之
+    - `mrope` 仍有差距，但不是当前最大头
 - `VL-0.5B` 已经不再被权重别名或 prepared request contract 阻塞
 - `VL-0.5B` 当前真正受限的是 benchmark 口径：
   - `512/32` 不是合法 case
@@ -500,6 +525,32 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 - 它既提升了 VLM，也没有拉坏 LLM 哨兵，反而改善了共享 decode 路径
 - 后续 VLM decode profiling 应基于这版结果继续往下做，而不是回到修改前的 residual 判断
 
+### 7.9 `2026-04-13` 两条新候选都已证伪并回退
+
+- `cuBLASLt row-major descriptor` 候选：
+  - 目标：
+    - 通过改写 Lt descriptor 表达，避免 decode 小 shape 线性层落到 GEMV-like tactic
+  - 结果：
+    - `VL-3B 512/32 prepared` 在候选路径下直接触发 `cuBLASLt status 15`
+  - 结论：
+    - 这条路径不能稳定运行
+    - 已回退，不进入主线
+
+- `decode mrope vec8` 候选：
+  - 目标：
+    - 参考 `TRT-Edge-LLM applyRopeWriteKV` 的向量化形态，缩小 `decode_mrope_apply_q_write_kv` 与 TRT 的差距
+  - correctness：
+    - `test_generate_vl_token_alignment`
+    - `test_generate_vl_token_alignment_cuda_graph`
+    - 均通过
+  - 端到端结果：
+    - `VL-3B 512/32 prepared`
+    - `decode_ms: 172.63 -> 172.60 ms`
+    - `total_stage_ms: 188.72 -> 188.71 ms`
+  - 结论：
+    - 收益远低于噪声带
+    - 不保留，已回退
+
 ## 8. 当前不应继续重复尝试的方向
 
 除非出现新的 profiling 证据，否则不要优先回到这些方向：
@@ -510,6 +561,8 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 - host-path map lookup / `dynamic_cast` 一类微优化
 - 自己手写裸 attention CUDA kernel 作为主线
 - 未经过 LLM 哨兵验证的共享 runtime 改动
+- `cuBLASLt row-major descriptor` decode 线性候选
+- 只改善单个小 kernel、但端到端增益落在噪声带内的 `mrope` 向量化尝试
 
 ## 9. 当前建议的下一步
 
@@ -527,6 +580,11 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 后续 VLM 主线优先级：
 
 1. 先基于这版新结果重做 `VL-3B` decode residual 的 `nsys` 定位
+   - 这一步已经完成
+   - 当前重点不再是“哪里慢”，而是只针对下面三块做有把握的候选：
+     - decode 小 shape linear 实现形态
+     - attention decode 实现形态
+     - TRT 已有可直接复用的 multimodal / decode plugin 与 kernel 形态
 2. `VL-7B` 主 key case 已基本收平，后续主要做回归保护与 fullsuite 扩展验证
 3. `VL-0.5B` 先修 benchmark contract：
    - `llava` prepared 输入链路已经打通
@@ -536,6 +594,9 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 4. 在新的 residual 上继续优先看：
    - `decode qkv / attention_output / mlp_down / lm_head`
    - TRT multimodal 路径里已经存在的 plugin / kernel / shape 策略
+   - 不再优先投入：
+     - `row-major Lt`
+     - 只改 `mrope` 一条小 kernel 的局部尝试
 5. 如果候选只在 microbench 更快、但端到端没有稳定收益：
    - 不保留
 
