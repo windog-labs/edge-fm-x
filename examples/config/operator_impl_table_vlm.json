@@ -131,6 +131,30 @@
       "layer_role": "",
       "op_name": "",
       "stage": "decode",
+      "shape_sig": "num_qo_heads=14|num_kv_heads=2|head_dim=64",
+      "impl_id": "flashinfer_attention_decode_sm80_tuned",
+      "impl_params": {
+        "short_seq_bdz": 4,
+        "long_seq_bdz": 4,
+        "long_seq_threshold": 1536,
+        "no_split_kv_threshold": 256,
+        "min_chunk_size": 64,
+        "chunk_alignment": 64,
+        "chunk_candidates": [
+          64,
+          128,
+          256,
+          512
+        ]
+      }
+    },
+    {
+      "model_name": "qwen2_5_vl",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "attention",
+      "layer_role": "",
+      "op_name": "",
+      "stage": "decode",
       "shape_sig": "num_qo_heads=28|num_kv_heads=4|head_dim=128",
       "impl_id": "flashinfer_attention_decode_sm80_tuned",
       "impl_params": {
@@ -206,6 +230,45 @@
       "shape_sig": "",
       "impl_id": "flashinfer_silu_and_mul",
       "impl_params": {}
+    },
+    {
+      "model_name": "qwen2_5_vl",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=896|out_features=1152",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 5
+      }
+    },
+    {
+      "model_name": "qwen2_5_vl",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=896|out_features=896",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 5
+      }
+    },
+    {
+      "model_name": "qwen2_5_vl",
+      "hw_profile": "cuda_sm80",
+      "op_kind": "linear",
+      "layer_role": "lm_head",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=896|out_features=151936",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 3
+      }
     },
     {
       "model_name": "qwen2_5_vl",

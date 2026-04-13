@@ -139,15 +139,23 @@ def median_cuda_ms(fn, *, warmup: int, iters: int) -> float:
 
 def load_model_dims(model_path: Path) -> dict:
     cfg = json.loads((model_path / "config.json").read_text())
-    hidden = int(cfg["hidden_size"])
-    intermediate = int(cfg["intermediate_size"])
-    head_dim = hidden // int(cfg["num_attention_heads"])
-    kv = int(cfg["num_key_value_heads"]) * head_dim
+    text_cfg = cfg.get("text_config", {})
+
+    def _resolve_int(key: str) -> int:
+        value = cfg.get(key, text_cfg.get(key))
+        if value is None:
+            raise KeyError(key)
+        return int(value)
+
+    hidden = _resolve_int("hidden_size")
+    intermediate = _resolve_int("intermediate_size")
+    head_dim = hidden // _resolve_int("num_attention_heads")
+    kv = _resolve_int("num_key_value_heads") * head_dim
     return {
         "hidden": hidden,
         "intermediate": intermediate,
         "kv": kv,
-        "vocab": int(cfg["vocab_size"]),
+        "vocab": _resolve_int("vocab_size"),
     }
 
 
