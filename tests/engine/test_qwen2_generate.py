@@ -538,20 +538,16 @@ def _make_vl_request_factory(
 
     pos_tensor = None
     position_ids_tensor = None
-    mrope_last_pos = None
     if position_ids is not None:
         pos_tensor = torch.from_numpy(position_ids.astype(np.int32)).to(CUDA_DEVICE).contiguous()
         position_ids_tensor = edge_fm.Tensor.from_dlpack(pos_tensor.__dlpack__())
-        mrope_last_pos = np.max(position_ids, axis=1).astype(np.int32).tolist()
 
     keepalive = (emb_tensor, pos_tensor)
 
     def make_request():
         _ = keepalive
         if position_ids_tensor is not None:
-            request = edge_fm.Request(
-                0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor, mrope_last_pos
-            )
+            request = edge_fm.Request(0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor)
         else:
             request = edge_fm.Request(0, token_ids_list, embedding_tensor, embed_token_id)
         request.set_ignore_stop_tokens(ignore_stop_tokens)

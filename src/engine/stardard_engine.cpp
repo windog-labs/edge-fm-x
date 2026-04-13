@@ -1081,15 +1081,7 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
             } else {
                 std::memcpy(pos_cpu.data(), pos.data_ptr(), bytes);
             }
-            std::vector<int32_t> mrope_last_pos(3);
-            for (int d = 0; d < 3; ++d) {
-                int32_t mx = 0;
-                for (int64_t i = 0; i < total_len; ++i) {
-                    int32_t v = pos_cpu[d * total_len + i];
-                    if (v > mx) mx = v;
-                }
-                mrope_last_pos[d] = mx;
-            }
+            std::vector<int32_t> mrope_last_pos = model_->derive_mrope_last_pos(pos_cpu.data(), total_len);
             context.set_model_state("mrope_last_pos", std::move(mrope_last_pos));
         }
     }

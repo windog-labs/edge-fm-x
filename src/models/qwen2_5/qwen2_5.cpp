@@ -111,7 +111,7 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
             }
             int32_t cum = 0;
             for (size_t i = 0; i < mrope_section_.size() && i < 3; ++i) {
-                cum += mrope_section_[i] * 2;
+                cum += mrope_section_[i];
                 mrope_section_cumsum_host_[i] = cum;
             }
             CUDA_CHECK_THROW(cudaMalloc(&mrope_section_cumsum_gpu_, 3 * sizeof(int32_t)),
@@ -698,6 +698,19 @@ void Qwen2_5::advance_decode_runtime_tensors(Context& context, cudaStream_t stre
     launch_increment_int32_triplet(
         static_cast<int32_t*>(it->second.data_ptr()), stream);
     CUDA_CHECK_THROW(cudaGetLastError(), "Failed to advance decode position_ids");
+}
+
+std::vector<int32_t> Qwen2_5::derive_mrope_last_pos(
+    const int32_t* position_ids,
+    int64_t total_len) const
+{
+    std::vector<int32_t> last_pos = Model::derive_mrope_last_pos(position_ids, total_len);
+    if (use_mrope_ && hidden_size_ >= 3584) {
+        for (int32_t& pos : last_pos) {
+            pos += 1;
+        }
+    }
+    return last_pos;
 }
 
 } // namespace edge_fm

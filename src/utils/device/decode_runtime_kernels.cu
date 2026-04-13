@@ -169,7 +169,7 @@ __global__ void decode_mrope_apply_q_write_kv_kernel(
     const int d_lo = d;
     const int d_hi = d + half_dim;
     const int section_lo = (d_lo < cum0) ? 0 : ((d_lo < cum1) ? 1 : 2);
-    const int section_hi = (d_hi < cum0) ? 0 : ((d_hi < cum1) ? 1 : 2);
+    const int section_hi = section_lo;
     const int pos_lo = position_ids[section_lo];
     const int pos_hi = position_ids[section_hi];
     const float inv_freq_d = 1.0f / powf(rope_theta, static_cast<float>(2 * d) / static_cast<float>(head_dim));

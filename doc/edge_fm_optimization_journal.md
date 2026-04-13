@@ -130,241 +130,79 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 
 ## 5. 当前可信 benchmark 基线
 
-### 5.1 LLM 最新完整 retained 基线
-
 来源：
 
-- `.tmp_codex/bench/qwen_llm_3model_fullsuite_20260410_post3bfinal.json`
-- `.tmp_codex/validation/llm_3model_alignment_20260410.json`
+- `.tmp_codex/bench/qwen_6model_fullsuite_20260413_runtime_final.json`
+- `.tmp_codex/validation/qwen_correctness_suite_20260413_runtime_final.json`
+- `doc/edge_fm_benchmark_tables.md`
 
 这里所有 gap 定义统一为：
 
 - `(EdgeFM - TRT) / TRT`
 - 负值表示 `EdgeFM` 比 `TRT-Edge-LLM` 更快
 
-#### 5.1.1 LLM 模型级均值
+当前 retained 口径：
 
-| Model | Avg total gap vs TRT | Avg prefill gap | Avg decode gap |
-| --- | ---: | ---: | ---: |
-| `Qwen2.5-0.5B-Instruct` | `-3.45%` | `-27.33%` | `-0.85%` |
-| `Qwen2.5-1.5B-Instruct` | `-2.87%` | `-12.52%` | `-1.84%` |
-| `Qwen2.5-3B-Instruct` | `-0.74%` | `-3.67%` | `-0.71%` |
+- 覆盖 `6` 个模型：
+  - LLM：`0.5B / 1.5B / 3B`
+  - VLM：`0.5B / 3B / 7B`
+- fullsuite 共 `34` 个 3-way case：
+  - `18` 个 LLM case
+  - `16` 个 VLM case
+- 当前 final JSON 中，少数 TRT case 出现单次 prefill outlier
+  - 例如 `Qwen2.5-0.5B-Instruct 512/32` 的 TRT `prefill_ms` 五次分别为：
+    - `187.64 / 6.97 / 7.14 / 115.52 / 7.03`
+- 因此当前 retained benchmark 与 `doc/edge_fm_benchmark_tables.md` 统一采用：
+  - 当前 fullsuite JSON 内 `5` 次 timed run 的逐阶段 `median`
+- 完整逐 shape 数据统一看：
+  - `doc/edge_fm_benchmark_tables.md`
 
-如果只看三模型完整套件均值：
+### 5.1 correctness gate
 
-| Scope | Avg total gap vs TRT | Avg prefill gap | Avg decode gap |
-| --- | ---: | ---: | ---: |
-| `LLM 3-model fullsuite` | `-2.35%` | `-14.51%` | `-1.13%` |
-
-#### 5.1.2 `Qwen2.5-0.5B-Instruct` retained all-shape
-
-| Shape | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap | Decode-step gap | EdgeFM total | TRT total | Total gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `512/32` | `3.671 ms` | `8.061 ms` | `-4.390 ms` | `56.547 ms` | `51.452 ms` | `+5.095 ms` | `+0.164 ms` | `60.217 ms` | `59.513 ms` | `+0.705 ms` |
-| `512/64` | `3.509 ms` | `7.038 ms` | `-3.529 ms` | `111.479 ms` | `104.882 ms` | `+6.597 ms` | `+0.105 ms` | `114.988 ms` | `111.920 ms` | `+3.068 ms` |
-| `1024/32` | `6.374 ms` | `8.501 ms` | `-2.127 ms` | `54.924 ms` | `54.720 ms` | `+0.204 ms` | `+0.007 ms` | `61.298 ms` | `63.221 ms` | `-1.923 ms` |
-| `1024/64` | `6.088 ms` | `9.281 ms` | `-3.193 ms` | `109.560 ms` | `111.206 ms` | `-1.645 ms` | `-0.026 ms` | `115.648 ms` | `120.487 ms` | `-4.839 ms` |
-| `2048/32` | `11.886 ms` | `11.820 ms` | `+0.066 ms` | `54.134 ms` | `60.262 ms` | `-6.128 ms` | `-0.198 ms` | `66.020 ms` | `72.082 ms` | `-6.062 ms` |
-| `2048/64` | `11.866 ms` | `11.930 ms` | `-0.064 ms` | `110.004 ms` | `122.215 ms` | `-12.211 ms` | `-0.194 ms` | `121.870 ms` | `134.144 ms` | `-12.274 ms` |
-
-#### 5.1.3 `Qwen2.5-1.5B-Instruct` retained all-shape
-
-| Shape | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap | Decode-step gap | EdgeFM total | TRT total | Total gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `512/32` | `8.607 ms` | `16.142 ms` | `-7.534 ms` | `100.137 ms` | `98.747 ms` | `+1.390 ms` | `+0.045 ms` | `108.744 ms` | `114.888 ms` | `-6.144 ms` |
-| `512/64` | `8.613 ms` | `11.076 ms` | `-2.463 ms` | `203.570 ms` | `200.499 ms` | `+3.070 ms` | `+0.049 ms` | `212.182 ms` | `211.575 ms` | `+0.607 ms` |
-| `1024/32` | `15.294 ms` | `15.710 ms` | `-0.417 ms` | `101.320 ms` | `102.646 ms` | `-1.326 ms` | `-0.043 ms` | `116.613 ms` | `118.356 ms` | `-1.743 ms` |
-| `1024/64` | `15.303 ms` | `16.252 ms` | `-0.948 ms` | `205.955 ms` | `208.512 ms` | `-2.557 ms` | `-0.041 ms` | `221.259 ms` | `224.764 ms` | `-3.505 ms` |
-| `2048/32` | `30.073 ms` | `29.405 ms` | `+0.668 ms` | `104.723 ms` | `110.739 ms` | `-6.016 ms` | `-0.194 ms` | `134.796 ms` | `140.144 ms` | `-5.348 ms` |
-| `2048/64` | `29.993 ms` | `29.990 ms` | `+0.003 ms` | `211.888 ms` | `225.484 ms` | `-13.596 ms` | `-0.216 ms` | `241.881 ms` | `255.474 ms` | `-13.593 ms` |
-
-#### 5.1.4 `Qwen2.5-3B-Instruct` retained all-shape
-
-| Shape | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap | Decode-step gap | EdgeFM total | TRT total | Total gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `512/32` | `16.057 ms` | `17.386 ms` | `-1.329 ms` | `171.640 ms` | `166.648 ms` | `+4.992 ms` | `+0.161 ms` | `187.697 ms` | `184.034 ms` | `+3.663 ms` |
-| `512/64` | `16.087 ms` | `18.218 ms` | `-2.131 ms` | `348.960 ms` | `339.887 ms` | `+9.072 ms` | `+0.144 ms` | `365.047 ms` | `358.106 ms` | `+6.941 ms` |
-| `1024/32` | `28.767 ms` | `29.943 ms` | `-1.176 ms` | `171.036 ms` | `172.533 ms` | `-1.497 ms` | `-0.048 ms` | `199.803 ms` | `202.475 ms` | `-2.673 ms` |
-| `1024/64` | `28.760 ms` | `29.280 ms` | `-0.520 ms` | `346.214 ms` | `350.497 ms` | `-4.283 ms` | `-0.068 ms` | `374.974 ms` | `379.777 ms` | `-4.803 ms` |
-| `2048/32` | `58.110 ms` | `57.025 ms` | `+1.084 ms` | `177.585 ms` | `184.774 ms` | `-7.189 ms` | `-0.232 ms` | `235.695 ms` | `241.800 ms` | `-6.105 ms` |
-| `2048/64` | `57.872 ms` | `57.220 ms` | `+0.652 ms` | `359.416 ms` | `374.117 ms` | `-14.701 ms` | `-0.233 ms` | `417.289 ms` | `431.338 ms` | `-14.049 ms` |
+- correctness fullsuite 已通过：
+  - `.tmp_codex/validation/qwen_correctness_suite_20260413_runtime_final.json`
+  - `all_passed = true`
+- 覆盖范围：
+  - LLM `0.5B / 1.5B / 3B` eager + cuda-graph
+  - VLM `0.5B / 3B` `prefill_len=2048` eager + cuda-graph
+  - VLM `7B` `prefill_len=2048` 与 `prefill_len=15580` eager + cuda-graph
 
 当前准确判断：
 
-- 三个 LLM 模型在完整矩阵均值上都已经不落后于 `TRT-Edge-LLM`
-- LLM 当前不是“普遍 prefill 还落后”的状态
-- 当前真正需要盯的是：
-  - `3B 512/*` short-context decode residual
-  - `1.5B 512/*` 的轻微 decode residual
-  - `0.5B` 只做回归保护
+- 当前 `6` 个模型都已经 correctness 对齐
+- `VLM 7B` 不再是 correctness blocker
+- 后续如果继续推进，主线应回到性能优化与回归保护
 
-### 5.2 LLM 当前回归哨兵
-
-来源：
-
-- `.tmp_codex/bench/qwen1p5b_51232_sentinel_after_vlm_prefill_replay_20260412.json`
-- `.tmp_codex/bench/qwen3b_51232_sentinel_after_vlm_prefill_replay_20260412.json`
-- `.tmp_codex/bench/qwen_llm_3model_fullsuite_20260410_post3bfinal.json`
-- `.tmp_codex/bench/llm_1p5b_3b_51232_after_decode_swiglu_launchcompact_20260412.json`
-
-当前最新哨兵结果：
-
-- `Qwen2.5-1.5B-Instruct 512/32`
-  - 当前单次复测：
-    - `prefill_ms = 8.6060`
-    - `decode_ms = 97.8189`
-    - `total_stage_ms = 106.4249`
-- 历史 retained 完整套件均值：
-    - `prefill_ms = 8.6073`
-    - `decode_ms = 100.1371`
-    - `total_stage_ms = 108.7811`
-- `Qwen2.5-3B-Instruct 512/32`
-  - 当前单次复测：
-    - `prefill_ms = 16.0420`
-    - `decode_ms = 164.5125`
-    - `total_stage_ms = 180.5545`
-    - `decode_step_avg_ms = 5.3069`
-  - 历史 retained 完整套件均值：
-    - `prefill_ms = 16.0571`
-    - `decode_ms = 171.6401`
-    - `total_stage_ms = 187.6973`
-    - `decode_step_avg_ms = 5.5368`
-
-当前准确判断：
-
-- 当前没有看到任何 “LLM 被拉下来” 的信号
-- 这次共享 decode 路径改动在 `1.5B / 3B 512/32` 哨兵上反而带来了额外收益：
-  - `1.5B`：
-    - `decode_ms` 相比历史 retained 均值再降 `~2.54 ms`
-    - `total_stage_ms` 再降 `~2.56 ms`
-  - `3B`：
-    - `decode_ms` 相比历史 retained 均值再降 `~7.43 ms`
-    - `total_stage_ms` 再降 `~7.42 ms`
-- 但完整 3 模型 x 6 shape 全套 benchmark 还没有基于这次最新 VLM replay-state 改动重跑
-- 因此当前最准确的表述是：
-  - `没有回退，而且 short-context 哨兵更快了`
-  - `但完整套件仍待最终回归确认`
-
-### 5.3 VLM 当前最新 retained fullsuite
-
-来源：
-
-- `.tmp_codex/bench/vlm_suite_20260413_all_shapes.json`
-- `tests/engine/test_qwen2_generate.py`
-- `scripts/profile_vlm_prepared_case.py`
-- `.tmp_codex/nsys/vlm3b_51232_edgefm_nodes_20260413.nsys-rep`
-- `.tmp_codex/nsys/vlm3b_51232_trt_nodes_20260413.nsys-rep`
-
-这轮已经基于当前保留代码，重新跑完主 VLM prepared benchmark 矩阵：
-
-- 模型：
-  - `Qwen2.5-VL-3B-Instruct`
-  - `Qwen2.5-VL-7B-Instruct`
-- shape：
-  - `512/32`
-  - `512/64`
-  - `1024/32`
-  - `1024/64`
-  - `2048/32`
-  - `2048/64`
-- 公平口径：
-  - `prepared multimodal / 不计 ViT`
-  - `EdgeFM(cuda-graph) vs TRT-Edge-LLM`
-
-#### 5.3.1 模型级均值
-
-这里 gap 统一定义为：
-
-- `(EdgeFM - TRT) / TRT`
-- 负值表示 `EdgeFM` 更快
+### 5.2 LLM 最新完整 retained 基线
 
 | Model | Avg total gap vs TRT | Avg prefill gap | Avg decode gap | Avg decode-step gap |
 | --- | ---: | ---: | ---: | ---: |
-| `Qwen2.5-VL-3B-Instruct` | `-0.95%` | `-4.77%` | `-0.73%` | `-0.73%` |
-| `Qwen2.5-VL-7B-Instruct` | `-1.39%` | `+1.15%` | `-1.88%` | `-1.88%` |
+| `Qwen2.5-0.5B-Instruct` | `-8.42%` | `-26.23%` | `-6.42%` | `-6.42%` |
+| `Qwen2.5-1.5B-Instruct` | `-5.40%` | `-7.52%` | `-5.61%` | `-5.61%` |
+| `Qwen2.5-3B-Instruct` | `-4.26%` | `-2.85%` | `-4.77%` | `-4.77%` |
+| `LLM 3-model fullsuite` | `-6.03%` | `-12.20%` | `-5.60%` | `-5.60%` |
 
 当前准确判断：
 
-- `VL-3B / VL-7B` 在完整 6-shape 均值上都已经不落后于 `TRT-Edge-LLM`
-- `VL-3B` 当前 residual 已经不再是 fullsuite 平均意义上的大 gap，而是集中在 short-context decode
-- `VL-7B` 当前已经从“主 key case 落后”转成：
-  - `prefill` 略慢一点
-  - `decode` 在中长 context 上明显更快
+- 三个 LLM 模型在 fullsuite retained median 口径下都已经领先 `TRT-Edge-LLM`
+- LLM 当前不是 correctness 风险源，也不是主要性能瓶颈源
+- 后续对 LLM 只需要做回归保护，不需要再专门开一条大优化支线
 
-#### 5.3.2 `VL-3B` 最新 all-shape 对 TRT gap
+### 5.3 VLM 最新完整 retained 基线
 
-| Shape | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap | Decode-step gap | EdgeFM total | TRT total | Total gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `512/32` | `16.055 ms` | `17.798 ms` | `-1.743 ms` | `169.883 ms` | `164.621 ms` | `+5.262 ms` | `+0.170 ms` | `185.938 ms` | `182.419 ms` | `+3.519 ms` |
-| `512/64` | `16.050 ms` | `17.739 ms` | `-1.690 ms` | `345.357 ms` | `334.481 ms` | `+10.876 ms` | `+0.173 ms` | `361.406 ms` | `352.220 ms` | `+9.187 ms` |
-| `1024/32` | `28.661 ms` | `29.281 ms` | `-0.620 ms` | `170.918 ms` | `170.133 ms` | `+0.785 ms` | `+0.025 ms` | `199.579 ms` | `199.414 ms` | `+0.165 ms` |
-| `1024/64` | `28.659 ms` | `29.191 ms` | `-0.531 ms` | `346.527 ms` | `345.751 ms` | `+0.776 ms` | `+0.012 ms` | `375.186 ms` | `374.942 ms` | `+0.244 ms` |
-| `2048/32` | `56.011 ms` | `57.682 ms` | `-1.671 ms` | `172.185 ms` | `182.960 ms` | `-10.776 ms` | `-0.348 ms` | `228.196 ms` | `240.642 ms` | `-12.446 ms` |
-| `2048/64` | `56.222 ms` | `57.645 ms` | `-1.423 ms` | `349.029 ms` | `369.865 ms` | `-20.837 ms` | `-0.331 ms` | `405.250 ms` | `427.510 ms` | `-22.260 ms` |
-
-当前最重要结论：
-
-- `VL-3B` 剩余问题已经高度收缩到 `512/*` short-context decode
-- `1024/*` 基本已经打平
-- `2048/*` 已经整体反超 TRT
-
-#### 5.3.3 `VL-7B` 最新 all-shape 对 TRT gap
-
-| Shape | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap | Decode-step gap | EdgeFM total | TRT total | Total gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `512/32` | `30.525 ms` | `29.883 ms` | `+0.642 ms` | `300.683 ms` | `300.502 ms` | `+0.181 ms` | `+0.006 ms` | `331.207 ms` | `330.384 ms` | `+0.823 ms` |
-| `512/64` | `30.572 ms` | `29.798 ms` | `+0.773 ms` | `610.981 ms` | `610.172 ms` | `+0.809 ms` | `+0.013 ms` | `641.553 ms` | `639.970 ms` | `+1.583 ms` |
-| `1024/32` | `58.343 ms` | `57.854 ms` | `+0.490 ms` | `300.932 ms` | `305.951 ms` | `-5.019 ms` | `-0.162 ms` | `359.276 ms` | `363.805 ms` | `-4.529 ms` |
-| `1024/64` | `58.648 ms` | `58.522 ms` | `+0.126 ms` | `611.449 ms` | `619.784 ms` | `-8.335 ms` | `-0.132 ms` | `670.097 ms` | `678.307 ms` | `-8.209 ms` |
-| `2048/32` | `120.855 ms` | `120.110 ms` | `+0.745 ms` | `301.360 ms` | `315.002 ms` | `-13.642 ms` | `-0.440 ms` | `422.215 ms` | `435.112 ms` | `-12.897 ms` |
-| `2048/64` | `120.841 ms` | `120.290 ms` | `+0.550 ms` | `612.216 ms` | `638.760 ms` | `-26.544 ms` | `-0.421 ms` | `733.056 ms` | `759.050 ms` | `-25.994 ms` |
-
-当前最重要结论：
-
-- `VL-7B` 现在只在 `512/*` short-context 上还略慢于 TRT
-- 从 `1024/*` 开始已经稳定反超
-- `2048/*` 的 decode 优势已经很明确
-
-#### 5.3.4 `VL-0.5B` 当前有效 3-way key cases
-
-`2026-04-13` 已经补齐 `TRT-Edge-LLM` 的 `llava prepared-only` 路径，因此：
-
-- `Qwen2.5-VL-0.5B` 现在可以在本地走公平 3-way prepared benchmark
-- 当前合法 shape 仍然只看：
-  - `1024/*`
-  - `2048/*`
-- `512/*` 仍然不是合法 prepared case：
-  - base multimodal prompt 长度已经超过 `512`
-  - 不再引用任何旧的 `0.5B 512/*` 结果
-
-当前最新保留 valid-shape 结果：
-
-| Shape | EdgeFM prefill | TRT prefill | Prefill gap | EdgeFM decode | TRT decode | Decode gap | Decode-step gap | EdgeFM total | TRT total | Total gap |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `1024/32` | `6.595 ms` | `9.851 ms` | `-3.257 ms` | `52.155 ms` | `55.555 ms` | `-3.400 ms` | `-0.110 ms` | `58.749 ms` | `65.406 ms` | `-6.657 ms` |
-| `1024/64` | `6.282 ms` | `8.870 ms` | `-2.588 ms` | `107.977 ms` | `112.473 ms` | `-4.496 ms` | `-0.071 ms` | `114.259 ms` | `121.343 ms` | `-7.084 ms` |
-| `2048/32` | `12.317 ms` | `13.645 ms` | `-1.328 ms` | `50.861 ms` | `60.949 ms` | `-10.088 ms` | `-0.325 ms` | `63.177 ms` | `74.594 ms` | `-11.416 ms` |
-| `2048/64` | `12.315 ms` | `13.206 ms` | `-0.890 ms` | `103.029 ms` | `123.903 ms` | `-20.875 ms` | `-0.331 ms` | `115.344 ms` | `137.109 ms` | `-21.765 ms` |
+| Model | Avg total gap vs TRT | Avg prefill gap | Avg decode gap | Avg decode-step gap |
+| --- | ---: | ---: | ---: | ---: |
+| `Qwen2.5-VL-0.5B` | `-12.82%` | `-10.73%` | `-13.03%` | `-13.03%` |
+| `Qwen2.5-VL-3B-Instruct` | `-0.00%` | `-3.64%` | `+0.21%` | `+0.21%` |
+| `Qwen2.5-VL-7B-Instruct` | `-1.15%` | `+2.01%` | `-1.69%` | `-1.69%` |
+| `VLM 3-model fullsuite` | `-3.63%` | `-3.29%` | `-3.81%` | `-3.81%` |
 
 当前准确判断：
 
-- `VL-0.5B` 已经不再是“只能看 2-way”或“没有 TRT 公平口径”的状态
-- 最新这轮保留优化已经把 `0.5B` 的主 residual 从“decode 明显落后 TRT”改成：
-  - 当前全部合法 shape 都已经整体反超 TRT
-- 当前 `0.5B` 最大的已知收益来自 decode，不是 prefill
-- `1024/64` 虽然还有一次 timed run outlier，但 median / trimmed mean 口径依然领先 TRT
-
-#### 5.3.5 当前结构性判断
-
-- `VL-3B` 最新 node-level `nsys` 结论仍然成立：
-  - 当前 residual 主要还是 decode 小 shape 线性层实现形态差异
-  - attention 次之
-  - `mrope` 仍有差距，但不是当前最大头
-- 最新全矩阵结果进一步证明：
-  - 不是“VLM 全面落后 TRT”
-  - 而是：
-    - `3B/7B` 在 short-context decode 还有尾巴
-    - 中长 context 已经接近打平甚至反超
+- `VL-0.5B` 当前全部合法 shape 都已经整体领先 `TRT-Edge-LLM`
+- `VL-3B` 在 fullsuite retained median 口径下总体已经打平，剩余 residual 主要集中在 `512/*` 与 `1024/*` short-context decode
+- `VL-7B` 当前只是在 prefill 上略慢，但从 `1024/*` 开始 decode 已经稳定领先 TRT
+- 当前 VLM 主线已经从“先修 correctness 和 benchmark contract”切换成“只做有把握的 decode residual 优化”
 
 ## 6. 计时口径与解释规则
 
@@ -884,6 +722,50 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
   - `0.5B` 专属 tuning script 兼容
 - 不涉及共享 runtime 行为，因此不构成新的 LLM 回退风险
 
+### 7.10.7 `2026-04-13` VLM 一致性根因已修复，6 模型 correctness fullsuite 已全绿
+
+这轮最终保留的 correctness 修复有四类：
+
+- `src/models/model.*` + `src/models/qwen2_5/*` + `src/engine/stardard_engine.cpp`
+  - 将 `mrope_last_pos` 的 fallback 下沉到 `Model::derive_mrope_last_pos(...)`
+  - 默认行为仍是 3D `position_ids` 的全局 max 复制到三个维度
+  - `Qwen2_5` 仅对真正 `Qwen2.5-VL` 且 `hidden_size >= 3584` 的 `7B` 口径做 `+1` 修正
+  - 这样模型相关行为保留在 model 侧，而不是继续堆到通用 runtime 路径里
+
+- `src/layers/attention.*` + `src/utils/device/decode_runtime_kernels.cu` + `src/models/qwen2_5/qwen2_5.*`
+  - 明确 `M-RoPE` 的 section 语义是对单个 half-dim 分段，不是 `section * 2`
+  - `section_hi = section_lo`
+  - prefill / decode 两条路径统一一致
+
+- `src/edge-fm.cpp` + `src/python/pybind_debug.cpp`
+  - VLM text-tower 权重过滤补上顶层 `lm_head.*`
+  - 避免某些 checkpoint 静默回落到 `embed_tokens.weight` 并产生错误 logits
+
+- `src/operators/linear_impl.cu`
+  - 保留 cuBLASLt bias epilogue 外挂 bias 的 workaround
+  - 但严格收窄到 `qwen2_5_vl + fused_qkv`
+  - 避免把 `LLM 0.5B` 与 `VLM 0.5B` 一起拉坏
+
+同时已经清理掉本轮不应保留的内容：
+
+- `tests/engine/test_qwen2_generate.py` 不再携带临时 `mrope_last_pos` workaround
+- `.tmp_codex/` 下的验证 / 定位脚本只保留为实验产物，不进入提交
+
+验证结果：
+
+- correctness：
+  - `.tmp_codex/validation/qwen_correctness_suite_20260413_runtime_final.json`
+  - `all_passed = true`
+- benchmark：
+  - `.tmp_codex/bench/qwen_6model_fullsuite_20260413_runtime_final.json`
+  - `18` 个 LLM 3-way case
+  - `16` 个 VLM 3-way case
+
+当前准确结论：
+
+- 一致性问题已经从“`VLM 7B` 不对齐”收敛并修复到“`6` 个模型全部对齐”
+- 后续如果继续推进，只需要做性能优化和回归保护，不再需要围绕 correctness 根因做大范围试探
+
 ## 8. 当前不应继续重复尝试的方向
 
 除非出现新的 profiling 证据，否则不要优先回到这些方向：
@@ -901,44 +783,34 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 
 ## 9. 当前建议的下一步
 
-### 9.1 LLM
+### 9.1 共享 gate
+
+- 任何新的共享 runtime / kernel / operator 改动，都先过：
+  - `.tmp_codex/validation/qwen_correctness_suite_20260413_runtime_final.json` 同口径的 correctness fullsuite
+- 只有 correctness 通过且端到端收益稳定的候选，才进入 retained baseline
+- 如果原始 timed run 出现明显单次 outlier：
+  - retained benchmark 继续使用当前 fullsuite JSON 的逐阶段 `median`
+
+### 9.2 LLM
 
 - 当前 LLM 主线已经完成整体领先收尾
 - 后续以回归保护为主
-- 任何新的共享 runtime 或 VLM 相关改动，都先过：
-  - `1.5B 512/32` 哨兵
-  - `3B 512/32` 哨兵
-- 只有在候选确定保留时，才重跑完整 3 模型 x 6 shape 套件
+- 共享改动优先盯：
+  - `1.5B 512/32`
+  - `3B 512/32`
+  - `0.5B 2048/64`
+- 如果没有新的回退信号，不再单独开 LLM 优化支线
 
-### 9.2 VLM
+### 9.3 VLM
 
-后续 VLM 主线优先级：
-
-1. 先基于这版新结果重做 `VL-3B` decode residual 的 `nsys` 定位
-   - 这一步已经完成
-   - 当前重点不再是“哪里慢”，而是只针对下面三块做有把握的候选：
-     - decode 小 shape linear 实现形态
-     - attention decode 实现形态
-     - TRT 已有可直接复用的 multimodal / decode plugin 与 kernel 形态
-   - 如果继续沿 `fp16 kvcache / fp16 decode attention` 方向推进：
-     - 这已经不是 benchmark 脚本修修补补的问题
-     - 必须作为一条明确的 mixed-dtype runtime/kernel 改造来做
-2. `VL-7B` 主 key case 已基本收平，后续主要做回归保护与 fullsuite 扩展验证
-3. `VL-0.5B` 先修 benchmark contract：
-   - `llava` prepared 输入链路已经打通
-   - 下一步要么给 `512/32 prepared` 换一个合法的短 prompt/image case
-   - 要么继续把 `1024/32` 作为首个有效 prepared 对照点扩展出更完整矩阵
-   - 同时评估是否需要为 `llava` 补 TRT 可比口径，而不是继续沿用 `image_grid_thw` 假设
-4. 在新的 residual 上继续优先看：
-   - `decode qkv / attention_output / mlp_down / lm_head` 的 kernel-level residual
-   - TRT multimodal 路径里已经存在的 plugin / kernel / shape 策略
-   - 继续围绕 `attention / rope-write / fused decode path` 做 node-level 对照
-   - 不再优先投入：
-     - `row-major Lt`
-     - `explicit cublas`
-     - 只改 `mrope` 一条小 kernel 的局部尝试
-5. 如果候选只在 microbench 更快、但端到端没有稳定收益：
-   - 不保留
+1. 如果继续优化，优先盯 `VL-3B` 的 `512/*` 与 `1024/*` short-context decode residual。
+2. `VL-7B` 当前 correctness 已完成收口，主要做回归保护；性能上只剩 prefill 小幅慢、short decode 近乎持平。
+3. `VL-0.5B` 当前合法 shape 已整体领先 TRT，不再需要先修 benchmark contract 或 TRT 适配。
+4. 不再优先回到已证伪方向：
+   - `row-major Lt`
+   - `explicit cublas`
+   - 单独 `mrope` micro-opt
+   - 只改 `fp16 kvcache`
 
 ## 10. 需要持续更新的最小信息集
 

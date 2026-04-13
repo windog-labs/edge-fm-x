@@ -6,6 +6,8 @@
 #include "utils/device/memory.h"
 
 #include <cublasLt.h>
+#include <cuda_bf16.h>
+#include <cuda_fp16.h>
 
 namespace edge_fm {
 
@@ -36,6 +38,110 @@ std::string model_name_for_operator_resolution(const EngineConfig& engine_config
     }
 }
 
+template <typename T>
+__device__ __forceinline__ float scalar_to_float(T value);
+
+template <>
+__device__ __forceinline__ float scalar_to_float<float>(float value) {
+    return value;
+}
+
+template <>
+__device__ __forceinline__ float scalar_to_float<half>(half value) {
+    return __half2float(value);
+}
+
+template <>
+__device__ __forceinline__ float scalar_to_float<__nv_bfloat16>(__nv_bfloat16 value) {
+    return __bfloat162float(value);
+}
+
+template <typename T>
+__device__ __forceinline__ T float_to_scalar(float value);
+
+template <>
+__device__ __forceinline__ float float_to_scalar<float>(float value) {
+    return value;
+}
+
+template <>
+__device__ __forceinline__ half float_to_scalar<half>(float value) {
+    return __float2half(value);
+}
+
+template <>
+__device__ __forceinline__ __nv_bfloat16 float_to_scalar<__nv_bfloat16>(float value) {
+    return __float2bfloat16(value);
+}
+
+template <typename OutT, typename BiasT>
+__global__ void add_bias_inplace_kernel(
+    OutT* __restrict__ output,
+    const BiasT* __restrict__ bias,
+    int32_t rows,
+    int32_t cols)
+{
+    int64_t idx = static_cast<int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    int64_t total = static_cast<int64_t>(rows) * cols;
+    if (idx >= total) {
+        return;
+    }
+    int32_t col = static_cast<int32_t>(idx % cols);
+    float out_val = scalar_to_float(output[idx]);
+    float bias_val = scalar_to_float(bias[col]);
+    output[idx] = float_to_scalar<OutT>(out_val + bias_val);
+}
+
+void add_bias_inplace(
+    Tensor& output,
+    const Tensor& bias,
+    cudaStream_t stream)
+{
+    check<InvalidRequestError>(
+        output.shape().size() == 2,
+        "LinearLayer: add_bias_inplace expects output shape [m, n]");
+    check<InvalidRequestError>(
+        bias.shape().size() == 1 && bias.shape()[0] == output.shape()[1],
+        "LinearLayer: add_bias_inplace expects bias shape [n]");
+
+    const int32_t rows = static_cast<int32_t>(output.shape()[0]);
+    const int32_t cols = static_cast<int32_t>(output.shape()[1]);
+    const int64_t total = static_cast<int64_t>(rows) * cols;
+    constexpr int32_t kBlockSize = 256;
+    const int32_t grid = static_cast<int32_t>((total + kBlockSize - 1) / kBlockSize);
+
+    if (output.dtype() == DType::Float16 && bias.dtype() == DType::Float16) {
+        add_bias_inplace_kernel<half, half><<<grid, kBlockSize, 0, stream>>>(
+            static_cast<half*>(output.data_ptr()),
+            static_cast<const half*>(bias.data_ptr()),
+            rows,
+            cols);
+    } else if (output.dtype() == DType::BFloat16 && bias.dtype() == DType::BFloat16) {
+        add_bias_inplace_kernel<__nv_bfloat16, __nv_bfloat16><<<grid, kBlockSize, 0, stream>>>(
+            static_cast<__nv_bfloat16*>(output.data_ptr()),
+            static_cast<const __nv_bfloat16*>(bias.data_ptr()),
+            rows,
+            cols);
+    } else if (output.dtype() == DType::Float32 && bias.dtype() == DType::Float16) {
+        add_bias_inplace_kernel<float, half><<<grid, kBlockSize, 0, stream>>>(
+            static_cast<float*>(output.data_ptr()),
+            static_cast<const half*>(bias.data_ptr()),
+            rows,
+            cols);
+    } else if (output.dtype() == DType::Float32 && bias.dtype() == DType::BFloat16) {
+        add_bias_inplace_kernel<float, __nv_bfloat16><<<grid, kBlockSize, 0, stream>>>(
+            static_cast<float*>(output.data_ptr()),
+            static_cast<const __nv_bfloat16*>(bias.data_ptr()),
+            rows,
+            cols);
+    } else {
+        throw ConfigurationError(
+            "LinearLayer: unsupported output/bias dtype combination for add_bias_inplace");
+    }
+
+    CUDA_CHECK_THROW(cudaGetLastError(), "LinearLayer: add bias kernel launch failed");
+}
+
 } // namespace
 
 class LinearCublasLtImpl final : public LinearLayer::LinearImpl {
@@ -51,6 +157,19 @@ public:
             (ctx.shape.output_dtype == DType::Float16 ||
              ctx.shape.output_dtype == DType::BFloat16 ||
              ctx.shape.output_dtype == DType::Float32);
+    }
+
+    static bool use_external_bias(
+        LinearLayer& owner,
+        const LinearLayer::LinearOpContext& ctx,
+        const LinearLayer::WeightSet& weight_set)
+    {
+        if (weight_set.bias_ == nullptr) {
+            return false;
+        }
+        const auto model_config = owner.engine_config_.prefill_model_config();
+        const std::string model_type = model_config.value("model_type", std::string{});
+        return ctx.layer_role == "fused_qkv" && model_type == "qwen2_5_vl";
     }
 
     void prepare(
@@ -70,7 +189,9 @@ public:
             owner.cublaslt_handle_ != nullptr,
             "LinearLayer: CUBLASLt handle is null. Cannot perform FP16/BF16 forward.");
 
-        const void* bias_ptr = weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr;
+        const bool external_bias = use_external_bias(owner, ctx, weight_set);
+        const void* bias_ptr = external_bias ? nullptr :
+            (weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr);
         cublasLtMatmulDesc_t matmul_desc = nullptr;
         cublasLtMatrixLayout_t Adesc = nullptr;
         cublasLtMatrixLayout_t Bdesc = nullptr;
@@ -123,7 +244,9 @@ public:
         const void* input_ptr = input.data_ptr();
         const void* weight_ptr = weight_set.weight_->data_ptr();
         void* output_ptr = output.data_ptr();
-        const void* bias_ptr = weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr;
+        const bool external_bias = use_external_bias(owner, ctx, weight_set);
+        const void* bias_ptr = external_bias ? nullptr :
+            (weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr);
 
         cublasLtMatmulDesc_t matmul_desc = nullptr;
         cublasLtMatrixLayout_t Adesc = nullptr;
@@ -174,6 +297,10 @@ public:
             status == CUBLAS_STATUS_SUCCESS,
             "LinearLayer: cuBLASLt matmul failed with status " +
             std::to_string(static_cast<int>(status)));
+
+        if (external_bias) {
+            add_bias_inplace(output, *weight_set.bias_, stream);
+        }
     }
 };
 

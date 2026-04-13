@@ -87,6 +87,12 @@ public:
     /// 默认 false，允许 Engine 直接将 Q 视图 alias 到 fused QKV 首段。
     virtual bool needs_separate_prefill_q_buffer() const;
 
+    /// 为带有 3D position_ids 的请求推导 decode 起始位置。
+    /// 默认行为是取三个轴的全局最大位置，并复制到三个维度上。
+    virtual std::vector<int32_t> derive_mrope_last_pos(
+        const int32_t* position_ids,
+        int64_t total_len) const;
+
     int32_t num_layers() const { return num_layers_; }
     int32_t hidden_size() const { return hidden_size_; }
     int32_t vocab_size() const { return vocab_size_; }

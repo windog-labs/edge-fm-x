@@ -48,9 +48,8 @@ __global__ void mrope_kernel(
 
     const int32_t d_lo = d;
     const int32_t d_hi = d + half_dim;
-
     const int32_t section_lo = get_section(d_lo);
-    const int32_t section_hi = get_section(d_hi);
+    const int32_t section_hi = section_lo;
 
     const int32_t pos_lo = position_ids[section_lo * seq_len + token];
     const int32_t pos_hi = position_ids[section_hi * seq_len + token];
