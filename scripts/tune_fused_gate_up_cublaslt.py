@@ -3,7 +3,6 @@ import argparse
 import json
 import statistics
 import sys
-import tempfile
 from pathlib import Path
 
 import torch
@@ -15,6 +14,8 @@ for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "inst
         sys.path.insert(0, str(build_python))
 
 import edge_fm
+from _repo_temp import make_temp_dir
+from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
 
 
 MODEL_CONFIG = {
@@ -24,7 +25,7 @@ MODEL_CONFIG = {
 
 
 def write_json_file(prefix: str, name: str, payload: dict) -> Path:
-    temp_dir = Path(tempfile.mkdtemp(prefix=prefix))
+    temp_dir = make_temp_dir(prefix)
     path = temp_dir / name
     path.write_text(json.dumps(payload))
     return path
@@ -47,7 +48,7 @@ def write_operator_impl_table(records: list[dict]) -> Path:
 
 def make_engine_config(model_path: Path, device_id: int, operator_impl_table_path: Path) -> Path:
     config = {
-        "model_name": "Qwen2.5",
+        "model_name": resolve_engine_model_name(model_path),
         "runtime": {
             "device": "cuda",
             "device_id": device_id,
@@ -199,11 +200,11 @@ def parse_args() -> argparse.Namespace:
         "--model-path",
         default=str(REPO_ROOT / "examples" / "qwen2.5-1.5b-instruct" / "qwen2.5-1.5b-instruct"),
     )
-    parser.add_argument("--device-id", type=int, default=1)
+    parser.add_argument("--device-id", type=int, default=0)
     parser.add_argument("--seq-lens", default="1,512,1024,2048")
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iters", type=int, default=120)
-    parser.add_argument("--operator-table", default=str(REPO_ROOT / "examples" / "config" / "operator_impl_table.json"))
+    parser.add_argument("--operator-table", default="")
     return parser.parse_args()
 
 
@@ -211,7 +212,11 @@ def main() -> None:
     args = parse_args()
     torch.cuda.set_device(args.device_id)
     model_path = Path(args.model_path).resolve()
-    base_table = load_operator_impl_table(Path(args.operator_table))
+    operator_table_path = resolve_operator_table_path(
+        Path(args.operator_table).resolve() if args.operator_table else None,
+        model_path=model_path,
+    )
+    base_table = load_operator_impl_table(operator_table_path)
     base_records = base_table["records"]
     seq_lens = [int(item.strip()) for item in args.seq_lens.split(",") if item.strip()]
 

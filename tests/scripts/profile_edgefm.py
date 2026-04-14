@@ -6,13 +6,13 @@ Usage:
       -o nsys_reports/edgefm python tests/scripts/profile_edgefm.py
 
 Env vars:
-  EDGE_FM_DEVICE_ID      – GPU device id (default 1)
+  EDGE_FM_DEVICE_ID      – GPU device id (default 0)
   PROFILE_PREFILL_LEN    – prefill length to profile (default 512)
   PROFILE_NUM_STEPS      – decode steps to profile (default 20)
   EDGE_FM_USE_CUDA_GRAPH – whether to profile cuda-graph mode (default 1)
 """
 
-import json, os, sys, tempfile
+import json, os, sys
 from pathlib import Path
 
 import numpy as np
@@ -20,14 +20,17 @@ import torch
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "scripts"))
 for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
     if _p.exists():
         sys.path.insert(0, str(_p))
         break
 
 import edge_fm
+from _repo_temp import make_temp_dir
+from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
 
-DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
+DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))
 PREFILL_LEN = int(os.environ.get("PROFILE_PREFILL_LEN", "512"))
 NUM_STEPS = int(os.environ.get("PROFILE_NUM_STEPS", "20"))
 WARMUP_RUNS = 3
@@ -58,16 +61,21 @@ def create_engine_config(model_path: str) -> str:
     nkv = text_cfg.get("num_key_value_heads", nh)
     att = "gqa" if nkv < nh else "mha"
     max_tok = PREFILL_LEN + NUM_STEPS - 1
-    d = tempfile.mkdtemp()
+    d = make_temp_dir("efm_profile_legacy_")
     p = Path(d) / "engine_config.json"
     runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda_sm80"}
     if USE_CUDA_GRAPH:
         runtime["use_cuda_graph"] = True
     with open(p, "w") as f:
         json.dump({
-            "model_name": "Qwen2.5",
+            "model_name": resolve_engine_model_name(Path(model_path).resolve(), config=cfg),
             "runtime": runtime,
-            "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
+            "operator_impl_table_path": str(
+                resolve_operator_table_path(
+                    model_path=Path(model_path).resolve(),
+                    config=cfg,
+                )
+            ),
             "prefill_model_path": model_path,
             "kvcache": {
                 "dtype": kvcache_dtype,

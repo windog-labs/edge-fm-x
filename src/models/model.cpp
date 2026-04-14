@@ -27,6 +27,19 @@ bool Model::needs_separate_prefill_q_buffer() const {
     return false;
 }
 
+std::vector<int32_t> Model::derive_mrope_last_pos(
+    const int32_t* position_ids,
+    int64_t total_len) const
+{
+    int32_t global_max = 0;
+    for (int64_t i = 0; i < 3 * total_len; ++i) {
+        if (position_ids[i] > global_max) {
+            global_max = position_ids[i];
+        }
+    }
+    return std::vector<int32_t>(3, global_max);
+}
+
 Model::Model(const EngineConfig& config)
     : engine_config_(config)
     , num_layers_(0)

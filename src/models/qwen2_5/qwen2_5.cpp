@@ -111,7 +111,7 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
             }
             int32_t cum = 0;
             for (size_t i = 0; i < mrope_section_.size() && i < 3; ++i) {
-                cum += mrope_section_[i] * 2;
+                cum += mrope_section_[i];
                 mrope_section_cumsum_host_[i] = cum;
             }
             CUDA_CHECK_THROW(cudaMalloc(&mrope_section_cumsum_gpu_, 3 * sizeof(int32_t)),
@@ -164,6 +164,13 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
     }
     // activation
     activation_layer_->load_weights(prefill_weights, decode_weights);
+}
+
+Qwen2_5::~Qwen2_5() {
+    if (mrope_section_cumsum_gpu_ != nullptr) {
+        (void)cudaFree(mrope_section_cumsum_gpu_);
+        mrope_section_cumsum_gpu_ = nullptr;
+    }
 }
 
 void Qwen2_5::prefill(const Context& context) {
@@ -350,8 +357,9 @@ void Qwen2_5::forward_prefill(
             post_attn_norm_output.dtype(), post_in_dev, post_in_dev_id));
         layernorms_[layer_prefix + ".post_attention_layernorm"]->forward(post_norm_inputs, post_norm_outputs, stream, ModelStage::Prefill);
 
+        std::string gate_up_key = layer_prefix + ".mlp.gate_up_fused";
         Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
-        linear_[layer_prefix + ".mlp.gate_up_fused"]->forward_fp16_bf16(post_attn_norm_output, gate_up_flat, stream, ModelStage::Prefill);
+        linear_[gate_up_key]->forward_fp16_bf16(post_attn_norm_output, gate_up_flat, stream, ModelStage::Prefill);
         activation_layer_->forward_silu_and_mul_up_gate(
             mlp_activation_input, mlp_intermediate, stream, ModelStage::Prefill);
 
@@ -463,6 +471,9 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         if (seq_len == 1 && tensors.count(ModelTensors::D_KV_LEN)) {
             d_kv_len = static_cast<const uint32_t*>(tensors.at(ModelTensors::D_KV_LEN).data_ptr());
         }
+        const bool use_fused_decode_mrope_write_kv =
+            (seq_len == 1) && (d_kv_len != nullptr) && use_mrope_ &&
+            tensors.count(ModelTensors::POSITION_IDS);
         const bool use_combined_decode_kv_copy =
             (seq_len == 1) && (d_kv_len != nullptr) && !use_mrope_;
         if (seq_len == 1) {
@@ -478,6 +489,8 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
                     d_kv_len,
                     stream);
                 CUDA_CHECK_THROW(cudaGetLastError(), "copy K/V to decode cache slots");
+            } else if (use_fused_decode_mrope_write_kv) {
+                // Handled by the fused decode M-RoPE + KV write kernel below.
             } else if (d_kv_len != nullptr) {
                 launch_copy_decode_cache_slot(
                     v_src,
@@ -507,7 +520,29 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
 
         // M-RoPE: rotate Q in-place. For decode, rotate K in the static QKV buffer
         // first, then copy the rotated K into the dynamic cache write location.
-        if (use_mrope_ && tensors.count(ModelTensors::POSITION_IDS)) {
+        if (use_fused_decode_mrope_write_kv) {
+            const int32_t* pos_ids = static_cast<const int32_t*>(
+                tensors.at(ModelTensors::POSITION_IDS).data_ptr());
+            const int32_t* cumsum = static_cast<const int32_t*>(mrope_section_cumsum_gpu_);
+            launch_decode_mrope_apply_q_write_kv(
+                q_buf,
+                k_rotated_src,
+                v_src,
+                q_buf,
+                k_cache.data_ptr(),
+                v_cache.data_ptr(),
+                num_attention_heads_,
+                num_kv_heads_,
+                head_dim_,
+                pos_ids,
+                cumsum,
+                rope_theta_,
+                rope_scale_,
+                dtype_,
+                d_kv_len,
+                stream);
+            CUDA_CHECK_THROW(cudaGetLastError(), "decode fused M-RoPE + KV write");
+        } else if (use_mrope_ && tensors.count(ModelTensors::POSITION_IDS)) {
             const int32_t* pos_ids = static_cast<const int32_t*>(
                 tensors.at(ModelTensors::POSITION_IDS).data_ptr());
             const int32_t* cumsum = static_cast<const int32_t*>(mrope_section_cumsum_gpu_);
@@ -519,6 +554,8 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         if (seq_len == 1) {
             if (use_combined_decode_kv_copy) {
                 // K/V were already copied together directly from the fused QKV buffer.
+            } else if (use_fused_decode_mrope_write_kv) {
+                // K/V were already written by the fused decode M-RoPE path.
             } else if (d_kv_len != nullptr) {
                 launch_copy_decode_cache_slot(
                     k_rotated_src,
@@ -661,6 +698,19 @@ void Qwen2_5::advance_decode_runtime_tensors(Context& context, cudaStream_t stre
     launch_increment_int32_triplet(
         static_cast<int32_t*>(it->second.data_ptr()), stream);
     CUDA_CHECK_THROW(cudaGetLastError(), "Failed to advance decode position_ids");
+}
+
+std::vector<int32_t> Qwen2_5::derive_mrope_last_pos(
+    const int32_t* position_ids,
+    int64_t total_len) const
+{
+    std::vector<int32_t> last_pos = Model::derive_mrope_last_pos(position_ids, total_len);
+    if (use_mrope_ && hidden_size_ >= 3584) {
+        for (int32_t& pos : last_pos) {
+            pos += 1;
+        }
+    }
+    return last_pos;
 }
 
 } // namespace edge_fm

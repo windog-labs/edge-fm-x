@@ -317,11 +317,24 @@ private:
         Tensor& fused_bias,
         cudaStream_t stream);
 
-    FusedGateUpActivationOp* resolve_decode_swiglu_impl(const FusedGateUpActivationOpContext& ctx);
+    struct SwigluFastPathCacheEntry {
+        FusedGateUpActivationOp* impl = nullptr;
+        std::string impl_id;
+        std::unique_ptr<FusedGateUpActivationOpState> state;
+    };
 
-    FusedGateUpActivationOp* decode_swiglu_impl_ = nullptr;
-    std::string decode_swiglu_impl_id_;
-    std::unique_ptr<FusedGateUpActivationOpState> decode_swiglu_state_;
+    FusedGateUpActivationOp* resolve_swiglu_impl(
+        const FusedGateUpActivationOpContext& ctx,
+        ModelStage stage,
+        const std::string& cache_key);
+
+    bool try_forward_swiglu_fused_impl(
+        const Tensor& input,
+        Tensor& output,
+        ModelStage stage,
+        cudaStream_t stream);
+
+    std::unordered_map<std::string, SwigluFastPathCacheEntry> swiglu_fast_path_cache_;
 };
 
 /**

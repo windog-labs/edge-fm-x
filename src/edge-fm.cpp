@@ -690,11 +690,22 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
 
     if (is_vlm) {
         auto vlm_filter = [](const std::string& name) {
-            return name.rfind("model.", 0) == 0;
+            // Prepared multimodal path only needs the text tower weights. Keep
+            // the filter narrow so vision/projector tensors are not loaded into
+            // the shared cache. Some VLM checkpoints (for example Qwen2.5-VL-7B)
+            // also expose an untied top-level lm_head.weight, which must be kept
+            // or the runtime will silently fall back to model.embed_tokens.weight
+            // and produce incorrect logits.
+            return name.rfind("model.", 0) == 0 ||
+                   name.rfind("language_model.", 0) == 0 ||
+                   name.rfind("lm_head.", 0) == 0;
         };
         auto vlm_key_mapper = [](const std::string& name) {
             if (name.rfind("model.model.", 0) == 0) {
                 return name.substr(6);  // "model.model.xxx" -> "model.xxx"
+            }
+            if (name.rfind("language_model.", 0) == 0) {
+                return name.substr(std::string("language_model.").size());
             }
             return name;
         };

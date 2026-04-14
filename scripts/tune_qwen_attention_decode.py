@@ -15,6 +15,11 @@ for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "inst
 
 import edge_fm
 from _repo_temp import make_temp_dir
+from operator_table_utils import (
+    resolve_engine_model_name,
+    resolve_operator_model_name,
+    resolve_operator_table_path,
+)
 
 
 def write_json_file(prefix: str, name: str, payload: dict) -> Path:
@@ -44,7 +49,7 @@ def make_engine_config(model_path: Path, device_id: int, operator_impl_table_pat
         "efm_qwen_attn_cfg_",
         "engine_config.json",
         {
-            "model_name": "Qwen2.5",
+            "model_name": resolve_engine_model_name(model_path),
             "runtime": {
                 "device": "cuda",
                 "device_id": device_id,
@@ -56,8 +61,44 @@ def make_engine_config(model_path: Path, device_id: int, operator_impl_table_pat
     )
 
 
+def _edge_fm_dtype(torch_dtype: torch.dtype) -> edge_fm.DType:
+    if torch_dtype == torch.bfloat16:
+        return edge_fm.DType.BFloat16
+    if torch_dtype == torch.float16:
+        return edge_fm.DType.Float16
+    if torch_dtype == torch.float32:
+        return edge_fm.DType.Float32
+    if torch_dtype == torch.int32:
+        return edge_fm.DType.Int32
+    if torch_dtype == torch.int64:
+        return edge_fm.DType.Int64
+    if torch_dtype == torch.int8:
+        return edge_fm.DType.Int8
+    if torch_dtype == torch.uint8:
+        return edge_fm.DType.UInt8
+    raise TypeError(f"Unsupported torch dtype for edge_fm.Tensor view: {torch_dtype}")
+
+
+def _edge_fm_device(torch_tensor: torch.Tensor) -> tuple[edge_fm.Device, int]:
+    if torch_tensor.device.type == "cuda":
+        return edge_fm.Device.GPU, torch_tensor.device.index or 0
+    if torch_tensor.device.type == "cpu":
+        return edge_fm.Device.CPU, 0
+    raise TypeError(f"Unsupported torch device for edge_fm.Tensor view: {torch_tensor.device}")
+
+
 def tensor_to_edge_fm_tensor(torch_tensor: torch.Tensor) -> edge_fm.Tensor:
-    return edge_fm.Tensor.from_dlpack(torch_tensor.contiguous().__dlpack__())
+    if not torch_tensor.is_contiguous():
+        raise ValueError("tensor_to_edge_fm_tensor expects a contiguous torch.Tensor")
+    device, device_id = _edge_fm_device(torch_tensor)
+    return edge_fm.Tensor(
+        torch_tensor.data_ptr(),
+        list(torch_tensor.shape),
+        _edge_fm_dtype(torch_tensor.dtype),
+        device,
+        device_id,
+        False,
+    )
 
 
 def bench_cuda_ms(fn, *, warmup: int, iters: int) -> list[float]:
@@ -107,6 +148,7 @@ def attention_shape_sig(dims: dict) -> str:
 def build_tuned_records(
     base_records: list[dict],
     *,
+    operator_model_name: str,
     dims: dict,
     impl_params: dict,
 ) -> list[dict]:
@@ -114,7 +156,7 @@ def build_tuned_records(
     kept = []
     for record in base_records:
         if (
-            record.get("model_name") == "qwen2_5"
+            record.get("model_name") == operator_model_name
             and record.get("hw_profile") == "cuda_sm80"
             and record.get("op_kind") == "attention"
             and record.get("stage") == "decode"
@@ -125,7 +167,7 @@ def build_tuned_records(
 
     kept.append(
         {
-            "model_name": "qwen2_5",
+            "model_name": operator_model_name,
             "hw_profile": "cuda_sm80",
             "op_kind": "attention",
             "layer_role": "",
@@ -142,6 +184,7 @@ def build_tuned_records(
 def benchmark_candidate(
     *,
     model_path: Path,
+    operator_model_name: str,
     dims: dict,
     base_records: list[dict],
     impl_params: dict,
@@ -151,7 +194,12 @@ def benchmark_candidate(
     iters: int,
 ) -> dict:
     table_path = write_operator_impl_table(
-        build_tuned_records(base_records, dims=dims, impl_params=impl_params)
+        build_tuned_records(
+            base_records,
+            operator_model_name=operator_model_name,
+            dims=dims,
+            impl_params=impl_params,
+        )
     )
     engine_config_path = make_engine_config(model_path, device_id, table_path)
     layer = edge_fm.AttentionLayer(str(engine_config_path))
@@ -230,7 +278,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kv-lens", type=parse_kv_lens, default=[512, 1024, 2048])
     parser.add_argument(
         "--operator-table",
-        default=str(REPO_ROOT / "examples" / "config" / "operator_impl_table.json"),
+        default="",
     )
     parser.add_argument("--short-seq-bdz", type=int, default=3)
     parser.add_argument("--long-seq-bdz", type=int, default=4)
@@ -246,11 +294,17 @@ def main() -> None:
     args = parse_args()
     torch.cuda.set_device(args.device_id)
     model_path = Path(args.model_path).resolve()
+    operator_table_path = resolve_operator_table_path(
+        Path(args.operator_table).resolve() if args.operator_table else None,
+        model_path=model_path,
+    )
     dims = load_model_attention_dims(model_path)
-    base_records = load_operator_impl_table(Path(args.operator_table))["records"]
+    operator_model_name = resolve_operator_model_name(model_path=model_path)
+    base_records = load_operator_impl_table(operator_table_path)["records"]
 
     report = benchmark_candidate(
         model_path=model_path,
+        operator_model_name=operator_model_name,
         dims=dims,
         base_records=base_records,
         impl_params={

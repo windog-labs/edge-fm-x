@@ -233,7 +233,7 @@ struct InvalidRequestError : public Error { using Error::Error; };
 
 struct Request {
     Request(int32_t request_id, const std::vector<int32_t>& token_ids) noexcept
-        : request_id_(request_id), token_ids_(token_ids) {}
+        : request_id_(request_id), token_ids_(token_ids), embed_token_id_(-1) {}
     
     Request(int32_t request_id, 
             const std::vector<int32_t>& token_ids, 
@@ -264,6 +264,7 @@ struct Request {
             const Tensor& embedding,
             int32_t embed_token_id,
             const Tensor& position_ids,
+            const std::vector<int32_t>& mrope_last_pos,
             Device device=Device::GPU,
             int32_t device_id = 0,
             MemoryOwnership ownership = MemoryOwnership::OwnCudaMalloc,
@@ -287,7 +288,30 @@ struct Request {
                                                 std::get<1>(position_ids.device()),
                                                 device, device_id,
                                                 ownership, stream_handle);
+        mrope_last_pos_ = mrope_last_pos;
     }
+
+    Request(int32_t request_id,
+            const std::vector<int32_t>& token_ids,
+            const Tensor& embedding,
+            int32_t embed_token_id,
+            const Tensor& position_ids,
+            Device device=Device::GPU,
+            int32_t device_id = 0,
+            MemoryOwnership ownership = MemoryOwnership::OwnCudaMalloc,
+            void* stream_handle = nullptr
+        ) :
+            Request(
+                request_id,
+                token_ids,
+                embedding,
+                embed_token_id,
+                position_ids,
+                std::vector<int32_t>{},
+                device,
+                device_id,
+                ownership,
+                stream_handle) {}
     
     Request(Request&& other) noexcept = default;
     Request& operator=(Request&& other) noexcept = default;
@@ -301,6 +325,8 @@ struct Request {
     bool has_embedding() const noexcept { return !embedding_.empty(); }
     const Tensor& position_ids() const noexcept { return position_ids_; }
     bool has_position_ids() const noexcept { return !position_ids_.empty(); }
+    const std::vector<int32_t>& mrope_last_pos() const noexcept { return mrope_last_pos_; }
+    bool has_mrope_last_pos() const noexcept { return !mrope_last_pos_.empty(); }
 
     void set_stop_token_ids(const std::vector<int32_t>& ids) { stop_token_ids_ = ids; }
     const std::vector<int32_t>& stop_token_ids() const noexcept { return stop_token_ids_; }
@@ -314,6 +340,7 @@ private:
     int32_t embed_token_id_;
     Tensor embedding_;
     Tensor position_ids_;
+    std::vector<int32_t> mrope_last_pos_;
     std::vector<int32_t> stop_token_ids_;
     bool ignore_stop_tokens_ = false;
 };

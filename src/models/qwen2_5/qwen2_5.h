@@ -13,7 +13,7 @@ namespace edge_fm {
 class Qwen2_5 : public Model {
 public:
     explicit Qwen2_5(const EngineConfig& config);
-    ~Qwen2_5() = default;
+    ~Qwen2_5() override;
 
     void prefill(const Context& context) override;
     void decode_step(const Context& context) override;
@@ -21,6 +21,9 @@ public:
     void advance_decode_runtime_tensors(Context& context, cudaStream_t stream) override;
     bool has_static_decode_runtime_tensors() const override { return true; }
     bool needs_separate_prefill_q_buffer() const override { return use_mrope_; }
+    std::vector<int32_t> derive_mrope_last_pos(
+        const int32_t* position_ids,
+        int64_t total_len) const override;
 
     /**
      * @brief 完整 prefill 接口（大规模对齐测试用）
@@ -64,7 +67,7 @@ private:
     float rope_theta_ = 1000000.0f;
     float rope_scale_ = 1.0f;
     std::vector<int32_t> mrope_section_;          // e.g. [16, 24, 24]
-    int32_t mrope_section_cumsum_host_[3] = {};   // cumsum of section*2
+    int32_t mrope_section_cumsum_host_[3] = {};   // cumsum of mrope_section over one half-dim
     void* mrope_section_cumsum_gpu_ = nullptr;    // [3] Int32 on GPU
 };
 

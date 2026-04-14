@@ -20,6 +20,29 @@ public:
     void prepare_tensors(ModelStage stage, Context& context) override;
 
 private:
+    struct PrefillReplayState {
+        void* token_ids_ptr = nullptr;
+        size_t token_ids_size_bytes = 0;
+        void* response_tokens_ptr = nullptr;
+        int32_t max_generated_tokens = 0;
+        int32_t seq_len = 0;
+        bool has_embedding = false;
+        void* embedding_ptr = nullptr;
+        size_t embedding_size_bytes = 0;
+        int32_t embed_token_id = -1;
+        bool has_position_ids = false;
+        void* position_ids_ptr = nullptr;
+        size_t position_ids_size_bytes = 0;
+        std::vector<int32_t> mrope_last_pos;
+        std::vector<void*> kv_read_ptrs;
+        std::vector<void*> kv_write_ptrs;
+    };
+
+    static uint64_t prefill_graph_key(int32_t request_id, int32_t seq_len) {
+        return (static_cast<uint64_t>(static_cast<uint32_t>(request_id)) << 32)
+             | static_cast<uint64_t>(static_cast<uint32_t>(seq_len));
+    }
+
     int32_t embed_token_id_buf_ = -1;
 
     void run_sampler(const Tensor& logits,
@@ -53,6 +76,7 @@ private:
     void sync_decode_graph(Context& context);
 
     std::unordered_map<std::string, double> last_generate_metrics_{};
+    std::unordered_map<uint64_t, PrefillReplayState> prefill_replay_states_{};
 };
 
 } // namespace edge_fm

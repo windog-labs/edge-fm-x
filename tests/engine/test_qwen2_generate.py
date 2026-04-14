@@ -4,7 +4,7 @@ Qwen2.5 generate 对齐测试（pytest）
 验证 edge_fm.EdgeFM.generate() 的 greedy 解码输出与 Transformers 参考 dump 一致。
 dump 数据位于 tests/data/decode_dump/，首次运行时自动通过 Transformers 生成。
 
-默认使用 GPU device 1（可通过环境变量 EDGE_FM_DEVICE_ID 覆盖，如 EDGE_FM_DEVICE_ID=0）。
+默认使用 GPU device 0（可通过环境变量 EDGE_FM_DEVICE_ID 覆盖）。
 
 运行（建议在项目根目录 /xs-train-nas/zzm/repos/edge-fm 下）:
   pytest -s tests/engine/test_qwen2_generate.py
@@ -16,7 +16,6 @@ import json
 import os
 import statistics as stats
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -24,12 +23,19 @@ import numpy as np
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
+sys.path.insert(0, str(project_root / "scripts"))
+for _p in [
+    project_root / "build_trt_pybind" / "python",
+    project_root / "build" / "python",
+    project_root / "build" / "install" / "python",
+]:
     if _p.exists():
         sys.path.insert(0, str(_p))
         break
 
 import edge_fm
+from _repo_temp import make_temp_dir
+from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
 
 # Optional: TRT-Edge-LLM in-process runtime (built with BUILD_TRT_EDGELLM_PYBIND=ON)
 try:
@@ -49,7 +55,7 @@ DEFAULT_SEED = 42
 DEFAULT_BENCH_PREFILL_LENGTHS = [512, 1024, 2048]
 DEFAULT_BENCH_DECODE_LENGTHS = [32, 64]
 DEFAULT_BENCH_LLM_MODEL_SIZES = ["0.5b", "1.5b", "3b"]
-DEFAULT_BENCH_VLM_MODEL_SIZES = ["3b", "7b"]
+DEFAULT_BENCH_VLM_MODEL_SIZES = ["0.5b", "3b", "7b"]
 
 LLM_MODEL_SPECS = {
     "0.5b": {
@@ -76,6 +82,17 @@ LLM_MODEL_SPECS = {
 }
 
 VLM_MODEL_SPECS = {
+    "0.5b": {
+        "label": "Qwen2.5-VL-0.5B",
+        "dir_name": "qwen2.5-vl-0.5b",
+        "env_keys": ["EDGE_FM_QWEN_VL_0_5B_MODEL_PATH", "EDGE_FM_QWEN_VL_MODEL_PATH"],
+        "trt_workspace_name": "qwen2.5-vl-0.5b",
+        "trt_engine_env_keys": ["TRT_EDGELLM_VLM_ENGINE_DIR_0_5B", "TRT_EDGELLM_VLM_ENGINE_DIR"],
+        "trt_multimodal_engine_env_keys": [
+            "TRT_EDGELLM_VLM_MULTIMODAL_ENGINE_DIR_0_5B",
+            "TRT_EDGELLM_VLM_MULTIMODAL_ENGINE_DIR",
+        ],
+    },
     "3b": {
         "label": "Qwen2.5-VL-3B-Instruct",
         "dir_name": "qwen2.5-vl-3b-instruct",
@@ -105,8 +122,8 @@ BENCH_MODEL_SPECS = {
     "vlm": VLM_MODEL_SPECS,
 }
 
-# GPU device：默认 1，避免占用 device 0；可通过环境变量 EDGE_FM_DEVICE_ID 覆盖
-DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
+# GPU device：性能 benchmark / profiling 默认走 device 0；可通过环境变量覆盖
+DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))
 CUDA_DEVICE = f"cuda:{DEVICE_ID}"
 
 
@@ -314,9 +331,10 @@ def _create_engine_config(
     use_cuda_graph: bool = False,
     prefix_token_ids: list | None = None,
     generated_tokens_total: int | None = None,
-    model_name: str = "Qwen2.5",
+    model_name: str | None = None,
 ) -> str:
-    config = _load_model_config_for_engine(model_path)
+    model_path_obj = Path(model_path).resolve()
+    config = _load_model_config_for_engine(str(model_path_obj))
     torch_dtype = str(config.get("torch_dtype", "float16")).lower()
     kvcache_dtype = "bf16" if ("bfloat" in torch_dtype or "bf16" in torch_dtype) else "fp16"
     num_heads = config.get("num_attention_heads", 8)
@@ -327,7 +345,17 @@ def _create_engine_config(
         # prefill sample, so the engine must allow one extra generated token.
         generated_tokens_total = num_steps + 1
     max_tokens = seq_len + generated_tokens_total - 1
-    engine_config_dir = tempfile.mkdtemp()
+    resolved_model_name = resolve_engine_model_name(
+        model_path_obj,
+        explicit_model_name=model_name,
+        config=config,
+    )
+    operator_table_path = resolve_operator_table_path(
+        model_path=model_path_obj,
+        model_name=resolved_model_name,
+        config=config,
+    )
+    engine_config_dir = make_temp_dir("efm_qwen2_generate_cfg_")
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
     runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda_sm80"}
     if use_cuda_graph:
@@ -335,10 +363,10 @@ def _create_engine_config(
     prefix = prefix_token_ids if prefix_token_ids is not None else []
     with open(engine_config_path, "w", encoding="utf-8") as f:
         json.dump({
-            "model_name": model_name,
+            "model_name": resolved_model_name,
             "runtime": runtime,
-            "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
-            "prefill_model_path": str(Path(model_path).resolve()),
+            "operator_impl_table_path": str(operator_table_path),
+            "prefill_model_path": str(model_path_obj),
             "kvcache": {
                 "dtype": kvcache_dtype,
                 "attention_type": attention_type,
@@ -519,9 +547,7 @@ def _make_vl_request_factory(
     def make_request():
         _ = keepalive
         if position_ids_tensor is not None:
-            request = edge_fm.Request(
-                0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor
-            )
+            request = edge_fm.Request(0, token_ids_list, embedding_tensor, embed_token_id, position_ids_tensor)
         else:
             request = edge_fm.Request(0, token_ids_list, embedding_tensor, embed_token_id)
         request.set_ignore_stop_tokens(ignore_stop_tokens)
@@ -979,10 +1005,23 @@ def _resolve_trt_engine_dir(
 def _resolve_trt_vlm_multimodal_engine_dir(
     workspace_dir: Path,
     requested_multimodal_engine_dir: Path | None = None,
+    fallback_model_dir: Path | None = None,
 ) -> Path:
+    def _config_only_llava_dir(path: Path) -> bool:
+        config_path = path / "config.json"
+        if not config_path.exists():
+            return False
+        try:
+            config = json.loads(config_path.read_text())
+        except Exception:
+            return False
+        return str(config.get("model_type", "")).lower() == "llava"
+
     if requested_multimodal_engine_dir is not None:
         engine_dir = requested_multimodal_engine_dir.resolve()
-        if not engine_dir.exists() or not (engine_dir / "visual.engine").exists():
+        if not engine_dir.exists() or (
+            not (engine_dir / "visual.engine").exists() and not _config_only_llava_dir(engine_dir)
+        ):
             raise FileNotFoundError(f"TRT-Edge-LLM multimodal engine not found at {engine_dir}")
         return engine_dir
 
@@ -997,7 +1036,15 @@ def _resolve_trt_vlm_multimodal_engine_dir(
         if engine_dir.exists() and (engine_dir / "visual.engine").exists():
             candidate_dirs.append(engine_dir.resolve())
 
+    onnx_dir = workspace_dir / "onnx"
+    if onnx_dir.exists() and _config_only_llava_dir(onnx_dir):
+        candidate_dirs.append(onnx_dir.resolve())
+
     if not candidate_dirs:
+        if fallback_model_dir is not None:
+            fallback_model_dir = fallback_model_dir.resolve()
+            if fallback_model_dir.exists() and _config_only_llava_dir(fallback_model_dir):
+                return fallback_model_dir
         raise FileNotFoundError(f"No TRT-Edge-LLM multimodal engine directory found under {workspace_dir}")
 
     return candidate_dirs[0]
@@ -1008,6 +1055,7 @@ def _resolve_trt_vlm_engine_dirs(
     requested_engine_dir: Path | None = None,
     requested_multimodal_engine_dir: Path | None = None,
     model_size: str = "3b",
+    model_path: str | None = None,
 ) -> tuple[Path, Path]:
     workspace_dir = _default_trt_vlm_workspace_dir(model_size)
     if requested_engine_dir is not None:
@@ -1046,7 +1094,9 @@ def _resolve_trt_vlm_engine_dirs(
         engine_dir = supported_dirs[0][1]
 
     multimodal_engine_dir = _resolve_trt_vlm_multimodal_engine_dir(
-        workspace_dir, requested_multimodal_engine_dir=requested_multimodal_engine_dir
+        workspace_dir,
+        requested_multimodal_engine_dir=requested_multimodal_engine_dir,
+        fallback_model_dir=Path(model_path).resolve() if model_path else None,
     )
     return engine_dir, multimodal_engine_dir
 
@@ -1127,18 +1177,50 @@ def _bench_transformers_llm(model_path: str, token_ids_list: list[int], num_step
 
 def _load_transformers_vlm_model(model_path: str):
     import torch
-    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+    from transformers import AutoConfig, AutoProcessor
 
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_path,
-        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-        low_cpu_mem_usage=False,
-    )
+    config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+    torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+    if getattr(config, "model_type", "") == "llava":
+        from transformers import LlavaForConditionalGeneration
+
+        model = LlavaForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=False,
+        )
+    else:
+        from transformers import Qwen2_5_VLForConditionalGeneration
+
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=False,
+        )
     model = model.to(CUDA_DEVICE if torch.cuda.is_available() else "cpu")
     model.eval()
     processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-    processor.image_processor.min_pixels = 3136
-    processor.image_processor.max_pixels = 50176
+    image_processor = getattr(processor, "image_processor", None)
+    if image_processor is not None:
+        if hasattr(image_processor, "min_pixels"):
+            image_processor.min_pixels = 3136
+        if hasattr(image_processor, "max_pixels"):
+            image_processor.max_pixels = 50176
+    if getattr(config, "model_type", "") == "llava":
+        vision_config = getattr(config, "vision_config", None)
+        if vision_config is not None and hasattr(processor, "patch_size"):
+            processor.patch_size = getattr(vision_config, "patch_size", processor.patch_size)
+        if hasattr(processor, "vision_feature_select_strategy"):
+            processor.vision_feature_select_strategy = getattr(
+                config,
+                "vision_feature_select_strategy",
+                processor.vision_feature_select_strategy,
+            )
+        if hasattr(processor, "num_additional_image_tokens"):
+            processor.num_additional_image_tokens = max(
+                int(getattr(processor, "num_additional_image_tokens", 0)),
+                1,
+            )
     return model, processor
 
 
@@ -1146,16 +1228,27 @@ def _extend_vlm_input_ids(input_ids, image_token_id: int, target_prefill_len: in
     import torch
 
     base_ids = input_ids[0].tolist()
-    if len(base_ids) > target_prefill_len:
-        raise ValueError(
-            f"Base VLM prefill length {len(base_ids)} exceeds target prefill length {target_prefill_len}"
-        )
-    if len(base_ids) == target_prefill_len:
-        return input_ids.clone()
-
     image_positions = [i for i, token_id in enumerate(base_ids) if token_id == image_token_id]
     if not image_positions:
         raise RuntimeError(f"Image token id {image_token_id} not found in VLM input_ids")
+
+    if len(base_ids) > target_prefill_len:
+        # Some VLM variants, especially smaller checkpoints, can build a longer
+        # multimodal prompt than the requested benchmark prefill length. In
+        # that case we only allow trimming text tail tokens after the image
+        # token span; cutting through the image token region would change the
+        # multimodal workload semantics and is therefore rejected.
+        if image_positions[-1] >= target_prefill_len:
+            raise ValueError(
+                "Base VLM prefill length "
+                f"{len(base_ids)} exceeds target prefill length {target_prefill_len}, "
+                f"and image token span reaches position {image_positions[-1]}. "
+                "This benchmark case cannot be safely truncated."
+            )
+        return torch.tensor([base_ids[:target_prefill_len]], dtype=input_ids.dtype)
+
+    if len(base_ids) == target_prefill_len:
+        return input_ids.clone()
 
     tail_tokens = [tok for tok in base_ids[image_positions[-1] + 1:] if tok != image_token_id]
     if not tail_tokens:
@@ -1185,21 +1278,69 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         {"type": "image", "image": image},
         {"type": "text", "text": prompt},
     ]}]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
+    try:
+        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    except ValueError as exc:
+        if "does not have a chat template" not in str(exc):
+            raise
+        tokenizer = getattr(processor, "tokenizer", None)
+        if tokenizer is None or not getattr(tokenizer, "chat_template", None):
+            raise
+
+        image_token = getattr(processor, "image_token", None)
+        if not image_token:
+            image_token = getattr(getattr(processor, "image_processor", None), "image_token", None)
+        if not image_token:
+            image_token = "<image>"
+
+        fallback_messages = [
+            {
+                "role": "user",
+                "content": f"{image_token}\n{prompt}",
+            }
+        ]
+        text = tokenizer.apply_chat_template(
+            fallback_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
     inputs = processor(text=[text], images=[image], return_tensors="pt", padding=True)
 
-    vocab_size = model.config.text_config.vocab_size
-    embed_token_id = getattr(
-        model.config,
-        "image_token_id",
-        getattr(model.config.text_config, "image_token_id", vocab_size),
-    )
+    text_config = getattr(model.config, "text_config", None)
+    vocab_size = getattr(text_config, "vocab_size", None)
+    if vocab_size is None:
+        vocab_size = getattr(model.config, "vocab_size", None)
+    if vocab_size is None:
+        raise RuntimeError("Unable to resolve VLM vocab size from model config")
+    processor_image_token_id = None
+    tokenizer = getattr(processor, "tokenizer", None)
+    if tokenizer is not None:
+        processor_image_token = getattr(processor, "image_token", None)
+        if not processor_image_token:
+            processor_image_token = "<image>"
+        token_id = tokenizer.convert_tokens_to_ids(processor_image_token)
+        if isinstance(token_id, int) and token_id >= 0:
+            processor_image_token_id = token_id
+
+    embed_token_id = processor_image_token_id
+    if embed_token_id is None:
+        text_image_token_id = getattr(text_config, "image_token_id", vocab_size)
+        embed_token_id = getattr(
+            model.config,
+            "image_token_id",
+            text_image_token_id,
+        )
 
     input_ids = _extend_vlm_input_ids(inputs["input_ids"], embed_token_id, prefill_len).to(CUDA_DEVICE)
     attention_mask = torch.ones_like(input_ids, dtype=torch.long, device=input_ids.device)
     pixel_values = inputs.get("pixel_values")
     if pixel_values is not None:
         pixel_values = pixel_values.to(input_ids.device)
+    image_sizes = inputs.get("image_sizes")
+    if image_sizes is not None:
+        image_sizes = image_sizes.to(input_ids.device)
     image_grid_thw = inputs.get("image_grid_thw")
     if image_grid_thw is not None:
         image_grid_thw = image_grid_thw.to(input_ids.device)
@@ -1218,15 +1359,27 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         mm_token_type_ids = torch.zeros_like(input_ids, dtype=torch.int32, device=input_ids.device)
         mm_token_type_ids[input_ids == embed_token_id] = 1
 
-    with torch.no_grad():
-        outputs = model(
-            input_ids=input_ids,
-            pixel_values=pixel_values,
-            image_grid_thw=image_grid_thw,
-            output_hidden_states=True,
-            use_cache=True,
-            return_dict=True,
+    model_type = getattr(model.config, "model_type", "")
+    model_forward_kwargs = {
+        "input_ids": input_ids,
+        "pixel_values": pixel_values,
+        "output_hidden_states": True,
+        "use_cache": True,
+        "return_dict": True,
+    }
+    if image_grid_thw is not None:
+        model_forward_kwargs["image_grid_thw"] = image_grid_thw
+    elif model_type == "llava":
+        if image_sizes is not None:
+            model_forward_kwargs["image_sizes"] = image_sizes
+    else:
+        raise NotImplementedError(
+            "Current prepared-multimodal benchmark path requires image_grid_thw for this model type, "
+            f"but the processor outputs do not provide it (model_type={model_type})."
         )
+
+    with torch.no_grad():
+        outputs = model(**model_forward_kwargs)
 
     hidden_states = outputs.hidden_states
     embed_output = hidden_states[0]
@@ -1235,17 +1388,20 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         raise RuntimeError(f"Unable to locate image token positions for embed_token_id={embed_token_id}")
     image_embeddings = embed_output[0, positions, :].float().cpu().numpy()
 
-    rope_sig = inspect.signature(model.model.get_rope_index)
-    rope_kwargs = {
-        "input_ids": input_ids,
-        "image_grid_thw": image_grid_thw,
-    }
-    if "mm_token_type_ids" in rope_sig.parameters:
-        rope_kwargs["mm_token_type_ids"] = mm_token_type_ids
-    if "attention_mask" in rope_sig.parameters:
-        rope_kwargs["attention_mask"] = attention_mask
-    position_ids_3d, rope_deltas = model.model.get_rope_index(**rope_kwargs)
-    position_ids_np = position_ids_3d[:, 0, :].cpu().numpy().astype(np.int32)
+    position_ids_np = None
+    rope_deltas = None
+    if image_grid_thw is not None:
+        rope_sig = inspect.signature(model.model.get_rope_index)
+        rope_kwargs = {
+            "input_ids": input_ids,
+            "image_grid_thw": image_grid_thw,
+        }
+        if "mm_token_type_ids" in rope_sig.parameters:
+            rope_kwargs["mm_token_type_ids"] = mm_token_type_ids
+        if "attention_mask" in rope_sig.parameters:
+            rope_kwargs["attention_mask"] = attention_mask
+        position_ids_3d, rope_deltas = model.model.get_rope_index(**rope_kwargs)
+        position_ids_np = position_ids_3d[:, 0, :].cpu().numpy().astype(np.int32)
 
     edgefm_token_ids = input_ids[0].cpu().numpy().astype(np.int32)
     embed_counter = 0
@@ -1260,12 +1416,14 @@ def _prepare_vlm_bench_case(model, processor, prefill_len: int,
         "prefill_tokens": int(input_ids.shape[1]),
         "input_ids": input_ids.detach().cpu(),
         "pixel_values": pixel_values.detach().cpu() if pixel_values is not None else None,
+        "image_sizes": image_sizes.detach().cpu() if image_sizes is not None else None,
         "image_grid_thw": image_grid_thw.detach().cpu() if image_grid_thw is not None else None,
         "edgefm_token_ids": edgefm_token_ids.tolist(),
         "image_embeddings": image_embeddings.astype(np.float32),
         "embed_token_id": int(embed_token_id),
+        "model_type": model_type,
         "position_ids": position_ids_np,
-        "rope_deltas": rope_deltas.detach().cpu(),
+        "rope_deltas": rope_deltas.detach().cpu() if rope_deltas is not None else None,
     }
 
 
@@ -1305,12 +1463,18 @@ def _bench_transformers_vlm_loaded(model, prepared_inputs: dict,
 
     input_ids = prepared_inputs["input_ids"].to(CUDA_DEVICE)
     attention_mask = torch.ones_like(input_ids, dtype=torch.long, device=CUDA_DEVICE)
-    image_grid_thw = prepared_inputs["image_grid_thw"].to(CUDA_DEVICE)
+    image_grid_thw = prepared_inputs.get("image_grid_thw")
+    if image_grid_thw is not None:
+        image_grid_thw = image_grid_thw.to(CUDA_DEVICE)
+    image_sizes = prepared_inputs.get("image_sizes")
+    if image_sizes is not None:
+        image_sizes = image_sizes.to(CUDA_DEVICE)
     image_embeddings = torch.from_numpy(prepared_inputs["image_embeddings"]).to(
         device=CUDA_DEVICE, dtype=model.dtype
     )
     embed_token_id = int(prepared_inputs["embed_token_id"])
     prefill_len = input_ids.shape[1]
+    model_type = prepared_inputs.get("model_type", getattr(model.config, "model_type", ""))
 
     with torch.no_grad():
         inputs_embeds = model.get_input_embeddings()(input_ids)
@@ -1322,36 +1486,82 @@ def _bench_transformers_vlm_loaded(model, prepared_inputs: dict,
         )
     inputs_embeds[0, image_positions, :] = image_embeddings
 
-    prefill_position_ids = torch.from_numpy(prepared_inputs["position_ids"]).to(
-        device=CUDA_DEVICE, dtype=torch.long
-    ).unsqueeze(1)
-    rope_deltas = prepared_inputs["rope_deltas"].to(device=CUDA_DEVICE, dtype=torch.long)
-
     def run_once():
+        if image_grid_thw is not None:
+            prefill_position_ids = torch.from_numpy(prepared_inputs["position_ids"]).to(
+                device=CUDA_DEVICE, dtype=torch.long
+            ).unsqueeze(1)
+            rope_deltas = prepared_inputs["rope_deltas"].to(device=CUDA_DEVICE, dtype=torch.long)
+
+            with torch.no_grad():
+                out = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    inputs_embeds=inputs_embeds,
+                    position_ids=prefill_position_ids,
+                    use_cache=True,
+                    return_dict=True,
+                )
+            past_kv = out.past_key_values
+            tok = out.logits[0, -1].argmax().item()
+            decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
+            cl = prefill_len
+            for _ in range(num_steps - 1):
+                cache_position = torch.arange(cl, cl + 1, dtype=torch.long, device=CUDA_DEVICE)
+                mrope_pos = (cache_position + rope_deltas).view(1, 1, 1).expand(3, 1, 1).to(torch.long)
+                text_pos = cache_position.view(1, 1, 1)
+                position_ids = torch.cat([text_pos, mrope_pos], dim=0)
+                with torch.no_grad():
+                    out = model(
+                        input_ids=decode_input,
+                        past_key_values=past_kv,
+                        position_ids=position_ids,
+                        cache_position=cache_position,
+                        use_cache=True,
+                        return_dict=True,
+                    )
+                past_kv = out.past_key_values
+                tok = out.logits[0, -1].argmax().item()
+                decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
+                cl += 1
+            return
+
+        if model_type != "llava":
+            raise NotImplementedError(
+                f"Prepared Transformers VLM benchmark does not support model_type={model_type} without image_grid_thw"
+            )
+
+        prefill_kwargs = {
+            "attention_mask": attention_mask,
+            "inputs_embeds": inputs_embeds,
+            "use_cache": True,
+            "return_dict": True,
+        }
+        if image_sizes is not None:
+            prefill_kwargs["image_sizes"] = image_sizes
         with torch.no_grad():
-            out = model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                inputs_embeds=inputs_embeds,
-                position_ids=prefill_position_ids,
-                use_cache=True, return_dict=True)
+            out = model(**prefill_kwargs)
         past_kv = out.past_key_values
         tok = out.logits[0, -1].argmax().item()
         decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
         cl = prefill_len
+        decode_attention_mask = attention_mask
         for _ in range(num_steps - 1):
-            cache_position = torch.arange(cl, cl + 1, dtype=torch.long, device=CUDA_DEVICE)
-            mrope_pos = (cache_position + rope_deltas).view(1, 1, 1).expand(3, 1, 1).to(torch.long)
-            text_pos = cache_position.view(1, 1, 1)
-            position_ids = torch.cat([text_pos, mrope_pos], dim=0)
+            cl += 1
+            decode_attention_mask = torch.ones((1, cl), dtype=torch.long, device=CUDA_DEVICE)
+            cache_position = torch.arange(cl - 1, cl, dtype=torch.long, device=CUDA_DEVICE)
             with torch.no_grad():
-                out = model(input_ids=decode_input, past_key_values=past_kv,
-                            position_ids=position_ids, cache_position=cache_position,
-                            use_cache=True, return_dict=True)
+                out = model(
+                    input_ids=decode_input,
+                    attention_mask=decode_attention_mask,
+                    past_key_values=past_kv,
+                    cache_position=cache_position,
+                    use_cache=True,
+                    return_dict=True,
+                )
             past_kv = out.past_key_values
             tok = out.logits[0, -1].argmax().item()
             decode_input = torch.tensor([[tok]], dtype=torch.long, device=CUDA_DEVICE)
-            cl += 1
 
     for _ in range(warmup):
         run_once()
@@ -1398,7 +1608,13 @@ def _bench_transformers_vlm(model_path: str, token_ids_list: list[int],
         torch.cuda.empty_cache()
 
 
-def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
+def _resolve_edgefm_request(request_or_factory):
+    if callable(request_or_factory):
+        return request_or_factory()
+    return request_or_factory
+
+
+def _bench_edgefm(engine, request_or_factory, num_steps: int, prefill_len: int,
                   warmup: int, runs: int) -> dict:
     """Benchmark EdgeFM engine.generate().
 
@@ -1411,7 +1627,7 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
 
     warmup_counts = []
     for _ in range(warmup):
-        response = engine.generate(request_fn())
+        response = engine.generate(_resolve_edgefm_request(request_or_factory))
         warmup_counts.append(len(response.token_ids()))
     torch.cuda.synchronize()
 
@@ -1432,7 +1648,7 @@ def _bench_edgefm(engine, request_fn, num_steps: int, prefill_len: int,
     for _ in range(runs):
         torch.cuda.synchronize()
         t0 = time.perf_counter()
-        response = engine.generate(request_fn())
+        response = engine.generate(_resolve_edgefm_request(request_or_factory))
         torch.cuda.synchronize()
         times.append(time.perf_counter() - t0)
         generated_counts.append(len(response.token_ids()))
@@ -1629,13 +1845,14 @@ def _bench_trt_edgellm_vlm_prepared(
     import time
 
     image_grid_thw = prepared_inputs.get("image_grid_thw")
-    if image_grid_thw is None:
+    model_type = str(prepared_inputs.get("model_type", "")).lower()
+    if image_grid_thw is None and model_type != "llava":
         raise RuntimeError("prepared_inputs.image_grid_thw is required for TRT VLM benchmarking")
 
     runtime.prepare_multimodal_from_token_ids(
         token_ids_list,
         prepared_inputs["image_embeddings"],
-        image_grid_thw.tolist(),
+        image_grid_thw.tolist() if image_grid_thw is not None else [],
     )
 
     warmup_counts = []
@@ -1899,6 +2116,7 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
                 requested_engine_dir=requested_engine_dir,
                 requested_multimodal_engine_dir=requested_multimodal_engine_dir,
                 model_size=model_spec["model_size"],
+                model_path=model_path,
             )
         except (FileNotFoundError, RuntimeError) as exc:
             print(f"\n[benchmark] skipping TRT for {model_spec['label']}: {exc}")
@@ -1927,7 +2145,13 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
     reports = []
     try:
         for prefill_len, num_steps in bench_cases:
-            prepared_inputs = _prepare_vlm_bench_case(tf_model, processor, prefill_len)
+            try:
+                prepared_inputs = _prepare_vlm_bench_case(tf_model, processor, prefill_len)
+            except (ValueError, NotImplementedError) as exc:
+                print(
+                    f"[benchmark] skipping {model_spec['label']} prefill={prefill_len} decode={num_steps}: {exc}"
+                )
+                continue
             token_ids_list = prepared_inputs["edgefm_token_ids"]
             image_embeddings = prepared_inputs["image_embeddings"]
             embed_token_id = prepared_inputs["embed_token_id"]
@@ -1948,6 +2172,7 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
                 position_ids,
                 ignore_stop_tokens=True,
             )
+            prepared_request = make_request()
             cfg_graph = _create_engine_config(
                 model_path,
                 prefill_len,
@@ -1959,7 +2184,7 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
             engine_graph = edge_fm.EdgeFM(cfg_graph)
             try:
                 efm_graph_result = _bench_edgefm(
-                    engine_graph, make_request, num_steps, prefill_len,
+                    engine_graph, prepared_request, num_steps, prefill_len,
                     warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
             finally:
                 del engine_graph

@@ -66,7 +66,7 @@ public:
     /// @param q           [seq_len, num_qo_heads, head_dim], modified in-place
     /// @param k           [seq_len, num_kv_heads, head_dim], modified in-place
     /// @param position_ids [3, seq_len] Int32, device memory
-    /// @param mrope_section_cumsum [3] Int32, device memory, cumsum of mrope_section*2
+    /// @param mrope_section_cumsum [3] Int32, device memory, cumsum of mrope_section over one half-dim
     static void apply_mrope(
         void* q, void* k,
         const int32_t* position_ids,

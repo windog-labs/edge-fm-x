@@ -131,15 +131,24 @@ Context Scheduler::create_context(const Request& request, Response* response) {
         }
     }
     
-    return Context(&request, 
-                   kv_cache_read_ptrs, 
-                   kv_cache_write_ptrs, 
-                   response,
-                   max_generated_tokens,
-                   matched_slot->prefix_size,
-                   matched_slot->max_tokens,
-                   static_cast<int32_t>(k_cache_token_stride),
-                   stream_);
+    Context context(&request,
+                    kv_cache_read_ptrs,
+                    kv_cache_write_ptrs,
+                    response,
+                    max_generated_tokens,
+                    matched_slot->prefix_size,
+                    matched_slot->max_tokens,
+                    static_cast<int32_t>(k_cache_token_stride),
+                    stream_);
+
+    // Context::tensors_ is populated with dozens of string-keyed entries during
+    // prefill/decode. Reserve upfront to avoid repeated rehash on the hot path.
+    const size_t per_layer_tensor_count =
+        (kv_manager_->get_attention_type() == AttentionType::MLA) ? 2u : 4u;
+    const size_t base_tensor_count = 24u;
+    context.tensors().reserve(base_tensor_count + per_layer_tensor_count * kv_cache_read_ptrs.size());
+
+    return context;
 }
 
 Scheduler::~Scheduler() {
