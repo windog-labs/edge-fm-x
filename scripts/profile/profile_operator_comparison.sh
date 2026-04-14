@@ -22,6 +22,7 @@ if [ -z "$BUILD_DIR" ]; then
     exit 1
 fi
 export EDGE_FM_BUILD_DIR="${BUILD_DIR}"
+TRT_BUILD_DIR="${EDGE_FM_TRT_BUILD_DIR:-${BUILD_DIR}/trt-edgellm}"
 if [ -z "${NSYS:-}" ]; then
     if command -v nsys >/dev/null 2>&1; then
         NSYS="$(command -v nsys)"
@@ -60,7 +61,8 @@ fi
 if [ -d "${BUILD_DIR}/python" ] || [ -d "${BUILD_DIR}/install/python" ]; then
     export PYTHONPATH="${BUILD_DIR}/python:${BUILD_DIR}/install/python:${PYTHONPATH:-}"
 fi
-export EDGELLM_PLUGIN_PATH="${PROJECT_ROOT}/third_party/TensorRT-Edge-LLM/build/libNvInfer_edgellm_plugin.so"
+export EDGE_FM_TRT_BUILD_DIR="${TRT_BUILD_DIR}"
+export EDGELLM_PLUGIN_PATH="${TRT_BUILD_DIR}/libNvInfer_edgellm_plugin.so"
 export TRT_EDGELLM_ENGINE_DIR="${PROJECT_ROOT}/tests/data/trt_edgellm_workspace/qwen2.5-1.5b/engines"
 export EDGE_FM_DEVICE_ID="${EDGE_FM_DEVICE_ID:-1}"
 export EDGE_FM_PROFILE_PREFILL_LEN="${EDGE_FM_PROFILE_PREFILL_LEN:-2048}"

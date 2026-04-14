@@ -401,7 +401,7 @@ endif()
 # ============================================================================
 if(BUILD_TRT_EDGELLM_PYBIND)
     set(TRT_EDGELLM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/third_party/TensorRT-Edge-LLM)
-    set(TRT_EDGELLM_BUILD_DIR "${TRT_EDGELLM_ROOT}/build" CACHE PATH "TensorRT-Edge-LLM build directory")
+    set(TRT_EDGELLM_BUILD_DIR "${CMAKE_BINARY_DIR}/trt-edgellm" CACHE PATH "TensorRT-Edge-LLM build directory")
 
     set(_trt_core "${TRT_EDGELLM_BUILD_DIR}/cpp/libedgellmCore.a")
     set(_trt_tokenizer "${TRT_EDGELLM_BUILD_DIR}/cpp/libedgellmTokenizer.a")

@@ -78,7 +78,12 @@ case "$(uname -m)" in
         ;;
 esac
 CUDA_ARCHS="${EDGE_FM_TRT_CMAKE_CUDA_ARCHITECTURES:-${CUDA_ARCHS_DEFAULT}}"
-TRT_BUILD_DIR="${EDGE_FM_TRT_BUILD_DIR:-$TRT_EDGELLM/build}"
+if [[ -n "${EDGE_FM_BUILD_DIR:-}" ]]; then
+    TRT_BUILD_DIR_DEFAULT="${EDGE_FM_BUILD_DIR}/trt-edgellm"
+else
+    TRT_BUILD_DIR_DEFAULT="${PROJECT_ROOT}/build-trt-edgellm"
+fi
+TRT_BUILD_DIR="${EDGE_FM_TRT_BUILD_DIR:-$TRT_BUILD_DIR_DEFAULT}"
 TRT_BUILD_LLM_BINARY="${TRT_BUILD_DIR}/examples/llm/llm_build"
 if [[ -n "${EDGE_FM_TRT_BUILD_JOBS:-}" ]]; then
     TRT_BUILD_JOBS="${EDGE_FM_TRT_BUILD_JOBS}"
@@ -134,10 +139,10 @@ PY
 
 cd "$PROJECT_ROOT"
 
-# 1. 初始化子模块与 nlohmann json
+# 1. 初始化构建所需子模块，避免递归拉起不需要的 googletest
 echo "[1/4] Initializing TensorRT-Edge-LLM submodules..."
 cd "$TRT_EDGELLM"
-git submodule update --init --recursive 2>/dev/null || true
+git submodule update --init 3rdParty/NVTX 3rdParty/nlohmannJson 2>/dev/null || true
 # nlohmannJson 子模块可能为空，使用 edge-fm 的 json 作为后备
 if [[ ! -f "$TRT_EDGELLM/3rdParty/nlohmannJson/include/nlohmann/json.hpp" ]]; then
     mkdir -p "$TRT_EDGELLM/3rdParty/nlohmannJson/include"

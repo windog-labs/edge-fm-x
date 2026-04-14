@@ -52,6 +52,13 @@ PROFILE_PREFILL_LEN = int(os.environ.get("EDGE_FM_PROFILE_PREFILL_LEN", "2048"))
 PROFILE_DECODE_LEN = int(os.environ.get("EDGE_FM_PROFILE_DECODE_LEN", "64"))
 
 
+def _default_trt_build_dir() -> Path:
+    edge_fm_build_dir = os.environ.get("EDGE_FM_BUILD_DIR")
+    if edge_fm_build_dir:
+        return Path(edge_fm_build_dir) / "trt-edgellm"
+    return project_root / "build-trt-edgellm"
+
+
 def _load_dump():
     dump_dir = project_root / "tests" / "data" / "decode_dump"
     manifest_path = dump_dir / "manifest.json"
@@ -176,7 +183,7 @@ def run_trt():
             f"TRT engine not found at {engine_dir}. Run: bash tests/scripts/setup_trt_edgellm_benchmark.sh"
         )
 
-    plugin_path = project_root / "third_party" / "TensorRT-Edge-LLM" / "build" / "libNvInfer_edgellm_plugin.so"
+    plugin_path = Path(os.environ.get("EDGE_FM_TRT_BUILD_DIR", str(_default_trt_build_dir()))) / "libNvInfer_edgellm_plugin.so"
     if plugin_path.exists():
         os.environ["EDGELLM_PLUGIN_PATH"] = str(plugin_path)
 
