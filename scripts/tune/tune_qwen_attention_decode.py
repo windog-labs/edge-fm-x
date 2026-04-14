@@ -8,18 +8,22 @@ from pathlib import Path
 import torch
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPTS_ROOT = SCRIPT_DIR.parent
+REPO_ROOT = SCRIPTS_ROOT.parent
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
 for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "install" / "python"]:
     if build_python.exists() and str(build_python) not in sys.path:
         sys.path.insert(0, str(build_python))
 
 import edge_fm
-from _repo_temp import make_temp_dir
-from operator_table_utils import (
+from operator_table.utils import (
     resolve_engine_model_name,
     resolve_operator_model_name,
     resolve_operator_table_path,
 )
+from temp_paths import make_temp_dir
 
 
 def write_json_file(prefix: str, name: str, payload: dict) -> Path:
@@ -35,7 +39,7 @@ def load_operator_impl_table(path: Path) -> dict:
 
 def write_operator_impl_table(records: list[dict]) -> Path:
     return write_json_file(
-        "efm_qwen_attn_prefill_tune_",
+        "efm_qwen_attn_tune_",
         "operator_impl_table.json",
         {
             "schema": "edgefm_operator_impl_table_v1",
@@ -46,7 +50,7 @@ def write_operator_impl_table(records: list[dict]) -> Path:
 
 def make_engine_config(model_path: Path, device_id: int, operator_impl_table_path: Path) -> Path:
     return write_json_file(
-        "efm_qwen_attn_prefill_cfg_",
+        "efm_qwen_attn_cfg_",
         "engine_config.json",
         {
             "model_name": resolve_engine_model_name(model_path),
@@ -159,27 +163,25 @@ def build_tuned_records(
             record.get("model_name") == operator_model_name
             and record.get("hw_profile") == "cuda_sm80"
             and record.get("op_kind") == "attention"
-            and record.get("stage") == "prefill"
+            and record.get("stage") == "decode"
             and record.get("shape_sig") == shape_sig
         ):
             continue
         kept.append(record)
 
-    if impl_params:
-        kept.append(
-            {
-                "model_name": operator_model_name,
-                "hw_profile": "cuda_sm80",
-                "op_kind": "attention",
-                "layer_role": "",
-                "op_name": "",
-                "stage": "prefill",
-                "shape_sig": shape_sig,
-                "impl_id": "flashinfer_attention",
-                "impl_params": impl_params,
-            }
-        )
-
+    kept.append(
+        {
+            "model_name": operator_model_name,
+            "hw_profile": "cuda_sm80",
+            "op_kind": "attention",
+            "layer_role": "",
+            "op_name": "",
+            "stage": "decode",
+            "shape_sig": shape_sig,
+            "impl_id": "flashinfer_attention_decode_sm80_tuned",
+            "impl_params": impl_params,
+        }
+    )
     return kept
 
 
@@ -190,7 +192,7 @@ def benchmark_candidate(
     dims: dict,
     base_records: list[dict],
     impl_params: dict,
-    seq_lens: list[int],
+    kv_lens: list[int],
     device_id: int,
     warmup: int,
     iters: int,
@@ -207,38 +209,40 @@ def benchmark_candidate(
     layer = edge_fm.AttentionLayer(str(engine_config_path))
 
     results = []
-    for seq_len in seq_lens:
+    for kv_len in kv_lens:
         q = torch.randn(
-            (seq_len, dims["num_qo_heads"], dims["head_dim"]),
+            (1, dims["num_qo_heads"], dims["head_dim"]),
             device=f"cuda:{device_id}",
             dtype=torch.bfloat16,
         )
         k = torch.randn(
-            (seq_len, dims["num_kv_heads"], dims["head_dim"]),
+            (kv_len, dims["num_kv_heads"], dims["head_dim"]),
             device=f"cuda:{device_id}",
             dtype=torch.bfloat16,
         )
         v = torch.randn(
-            (seq_len, dims["num_kv_heads"], dims["head_dim"]),
+            (kv_len, dims["num_kv_heads"], dims["head_dim"]),
             device=f"cuda:{device_id}",
             dtype=torch.bfloat16,
         )
         o = torch.empty_like(q)
+        d_kv_len = torch.tensor([kv_len], device=f"cuda:{device_id}", dtype=torch.int32)
 
         q_efm = tensor_to_edge_fm_tensor(q)
         k_efm = tensor_to_edge_fm_tensor(k)
         v_efm = tensor_to_edge_fm_tensor(v)
         o_efm = tensor_to_edge_fm_tensor(o)
+        d_kv_len_efm = tensor_to_edge_fm_tensor(d_kv_len)
 
         def run() -> None:
-            layer.forward_prefill(q_efm, k_efm, v_efm, o_efm, True, 0)
+            layer.forward_decode(q_efm, k_efm, v_efm, o_efm, 0, kv_len, d_kv_len_efm)
 
         run()
         torch.cuda.synchronize()
         median_ms = median_cuda_ms(run, warmup=warmup, iters=iters)
         results.append(
             {
-                "seq_len": seq_len,
+                "kv_len": kv_len,
                 "median_ms": median_ms,
                 "checksum_abs_mean": float(o.float().abs().mean().item()),
             }
@@ -247,100 +251,46 @@ def benchmark_candidate(
     total_ms = sum(item["median_ms"] for item in results)
     avg_ms = total_ms / len(results)
     return {
-        "candidate_label": candidate_label(impl_params),
         "impl_params": impl_params,
         "shape_sig": attention_shape_sig(dims),
-        "seq_results": results,
+        "kv_results": results,
         "total_median_ms": total_ms,
         "avg_median_ms": avg_ms,
     }
 
 
-def parse_u32_list(text: str) -> list[int]:
+def parse_chunk_candidates(text: str) -> list[int]:
     values = [int(item.strip()) for item in text.split(",") if item.strip()]
-    if not values:
-        raise argparse.ArgumentTypeError("list must not be empty")
+    if len(values) != 4:
+        raise argparse.ArgumentTypeError("chunk-candidates must contain exactly 4 comma-separated integers")
     return values
 
 
-def candidate_label(impl_params: dict) -> str:
-    if not impl_params:
-        return "baseline"
-    if "prefill_cta_tile_q" in impl_params:
-        return f"global_cta_tile_q={impl_params['prefill_cta_tile_q']}"
-    if (
-        "prefill_short_qo_len_threshold" in impl_params
-        and "prefill_short_cta_tile_q" in impl_params
-        and "prefill_long_cta_tile_q" in impl_params
-    ):
-        return (
-            "split_cta_tile_q"
-            f"(threshold={impl_params['prefill_short_qo_len_threshold']},"
-            f"short={impl_params['prefill_short_cta_tile_q']},"
-            f"long={impl_params['prefill_long_cta_tile_q']})"
-        )
-    return json.dumps(impl_params, sort_keys=True)
-
-
-def unique_impl_param_candidates(candidates: list[dict]) -> list[dict]:
-    unique = []
-    seen = set()
-    for impl_params in candidates:
-        key = json.dumps(impl_params, sort_keys=True)
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(impl_params)
-    return unique
+def parse_kv_lens(text: str) -> list[int]:
+    values = [int(item.strip()) for item in text.split(",") if item.strip()]
+    if not values:
+        raise argparse.ArgumentTypeError("kv-lens must not be empty")
+    return values
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Tune Qwen prefill attention impl_params for a single attention shape"
-    )
+    parser = argparse.ArgumentParser(description="Tune Qwen decode attention impl_params for a single attention shape")
     parser.add_argument("--model-path", required=True)
-    parser.add_argument("--device-id", type=int, default=1)
+    parser.add_argument("--device-id", type=int, default=0)
     parser.add_argument("--warmup", type=int, default=40)
     parser.add_argument("--iters", type=int, default=200)
-    parser.add_argument("--seq-lens", type=parse_u32_list, default=[512, 1024, 2048])
+    parser.add_argument("--kv-lens", type=parse_kv_lens, default=[512, 1024, 2048])
     parser.add_argument(
         "--operator-table",
         default="",
     )
-    parser.add_argument(
-        "--cta-tile-q-list",
-        type=parse_u32_list,
-        default=[16, 64, 128],
-        help="Comma separated candidate prefill_cta_tile_q values",
-    )
-    parser.add_argument(
-        "--skip-global-cta-sweep",
-        action="store_true",
-        help="Skip the global prefill_cta_tile_q sweep and only run baseline/split candidates",
-    )
-    parser.add_argument(
-        "--include-short-long-sweep",
-        action="store_true",
-        help="Also sweep prefill_short_qo_len_threshold + short/long cta_tile_q combinations",
-    )
-    parser.add_argument(
-        "--short-threshold-list",
-        type=parse_u32_list,
-        default=[512, 1024],
-        help="Comma separated candidate prefill_short_qo_len_threshold values",
-    )
-    parser.add_argument(
-        "--short-cta-tile-q-list",
-        type=parse_u32_list,
-        default=[64, 128],
-        help="Comma separated candidate prefill_short_cta_tile_q values",
-    )
-    parser.add_argument(
-        "--long-cta-tile-q-list",
-        type=parse_u32_list,
-        default=[64, 128],
-        help="Comma separated candidate prefill_long_cta_tile_q values",
-    )
+    parser.add_argument("--short-seq-bdz", type=int, default=3)
+    parser.add_argument("--long-seq-bdz", type=int, default=4)
+    parser.add_argument("--long-seq-threshold", type=int, default=1536)
+    parser.add_argument("--no-split-kv-threshold", type=int, default=384)
+    parser.add_argument("--min-chunk-size", type=int, default=128)
+    parser.add_argument("--chunk-alignment", type=int, default=128)
+    parser.add_argument("--chunk-candidates", type=parse_chunk_candidates, default=[128, 256, 512, 1024])
     return parser.parse_args()
 
 
@@ -353,50 +303,28 @@ def main() -> None:
         model_path=model_path,
     )
     dims = load_model_attention_dims(model_path)
-    base_records = load_operator_impl_table(operator_table_path)["records"]
     operator_model_name = resolve_operator_model_name(model_path=model_path)
+    base_records = load_operator_impl_table(operator_table_path)["records"]
 
-    impl_param_candidates = [{}]
-    if not args.skip_global_cta_sweep:
-        for cta_tile_q in args.cta_tile_q_list:
-            impl_param_candidates.append({"prefill_cta_tile_q": cta_tile_q})
-
-    if args.include_short_long_sweep:
-        for short_threshold in args.short_threshold_list:
-            for short_cta_tile_q in args.short_cta_tile_q_list:
-                for long_cta_tile_q in args.long_cta_tile_q_list:
-                    impl_param_candidates.append(
-                        {
-                            "prefill_short_qo_len_threshold": short_threshold,
-                            "prefill_short_cta_tile_q": short_cta_tile_q,
-                            "prefill_long_cta_tile_q": long_cta_tile_q,
-                        }
-                    )
-
-    candidates = []
-    for impl_params in unique_impl_param_candidates(impl_param_candidates):
-        candidates.append(
-            benchmark_candidate(
-                model_path=model_path,
-                operator_model_name=operator_model_name,
-                dims=dims,
-                base_records=base_records,
-                impl_params=impl_params,
-                seq_lens=args.seq_lens,
-                device_id=args.device_id,
-                warmup=args.warmup,
-                iters=args.iters,
-            )
-        )
-
-    best = min(candidates, key=lambda item: item["total_median_ms"])
-    report = {
-        "model_path": str(model_path),
-        "shape_sig": attention_shape_sig(dims),
-        "seq_lens": args.seq_lens,
-        "candidates": candidates,
-        "best": best,
-    }
+    report = benchmark_candidate(
+        model_path=model_path,
+        operator_model_name=operator_model_name,
+        dims=dims,
+        base_records=base_records,
+        impl_params={
+            "short_seq_bdz": args.short_seq_bdz,
+            "long_seq_bdz": args.long_seq_bdz,
+            "long_seq_threshold": args.long_seq_threshold,
+            "no_split_kv_threshold": args.no_split_kv_threshold,
+            "min_chunk_size": args.min_chunk_size,
+            "chunk_alignment": args.chunk_alignment,
+            "chunk_candidates": args.chunk_candidates,
+        },
+        kv_lens=args.kv_lens,
+        device_id=args.device_id,
+        warmup=args.warmup,
+        iters=args.iters,
+    )
     print(json.dumps(report, indent=2))
 
 

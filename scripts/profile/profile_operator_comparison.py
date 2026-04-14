@@ -12,15 +12,15 @@ Edge-FM(cuda graph) vs TRT-Edge-LLM 算子耗时对比
 
 用法（在项目根目录）:
   # 1. 采集
-  bash scripts/profile_operator_comparison.sh
+  bash scripts/profile/profile_operator_comparison.sh
 
   # 2. 或手动采集
   nsys profile -o ncu_reports/edgefm_profile --stats=true \
       --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
-      python scripts/profile_operator_comparison.py edgefm
+      python scripts/profile/profile_operator_comparison.py edgefm
   nsys profile -o ncu_reports/trt_profile --stats=true \
       --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
-      python scripts/profile_operator_comparison.py trt
+      python scripts/profile/profile_operator_comparison.py trt
 
   # 3. 提取 kernel 汇总
   nsys stats --report cuda_gpu_kern_sum --format csv --output ncu_reports/edgefm_kernels ncu_reports/edgefm_profile.nsys-rep
@@ -33,12 +33,16 @@ import sys
 import tempfile
 from pathlib import Path
 
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
-    if _p.exists():
-        sys.path.insert(0, str(_p))
-        break
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPTS_ROOT = SCRIPT_DIR.parent
+project_root = SCRIPTS_ROOT.parent
+for build_python in [
+    project_root / "build" / "python",
+    project_root / "build" / "install" / "python",
+]:
+    build_python_str = str(build_python)
+    if build_python.is_dir() and build_python_str not in sys.path:
+        sys.path.insert(0, build_python_str)
 
 # 与当前主 benchmark 默认口径保持一致
 DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
@@ -263,7 +267,7 @@ def analyze():
     trt_csv = find_kernel_csv("trt_kernels")
 
     if efm_csv is None or trt_csv is None:
-        print("Run profile first: bash scripts/profile_operator_comparison.sh")
+        print("Run profile first: bash scripts/profile/profile_operator_comparison.sh")
         return
 
     import csv
@@ -393,14 +397,17 @@ def analyze():
         f.write("2. **GEMM/Linear**：CUTLASS 小 tile 较多。可评估统一为大 tile 的收益。\n\n")
         f.write("3. **Attention**：FlashInfer decode。可对比 fmha 等实现。\n\n")
         f.write("### 下一步\n\n")
-        f.write("- `ncu --set full -o ncu_reports/edgefm_gemv --kernel-name gemv2T python scripts/profile_operator_comparison.py edgefm` 深入分析 GEMV\n")
+        f.write(
+            "- `ncu --set full -o ncu_reports/edgefm_gemv --kernel-name gemv2T "
+            "python scripts/profile/profile_operator_comparison.py edgefm` 深入分析 GEMV\n"
+        )
 
     print(f"Report written to {out}")
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python profile_operator_comparison.py <edgefm|trt|analyze>")
+        print("Usage: python scripts/profile/profile_operator_comparison.py <edgefm|trt|analyze>")
         sys.exit(1)
     mode = sys.argv[1]
     if mode == "edgefm":
@@ -410,7 +417,7 @@ def main():
     elif mode == "analyze":
         analyze()
     else:
-        print("Usage: python profile_operator_comparison.py <edgefm|trt|analyze>")
+        print("Usage: python scripts/profile/profile_operator_comparison.py <edgefm|trt|analyze>")
         sys.exit(1)
 
 

@@ -54,7 +54,27 @@ if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABL
         DEPENDS ${TRT_EDGELLM_CORE_LIB} ${TRT_EDGELLM_TOKENIZER_LIB} ${TRT_EDGELLM_UTILS_LIB}
     )
 
-    find_library(CUDA_DRIVER_LIB cuda HINTS ${CUDAToolkit_LIBRARY_DIR} /usr/lib/aarch64-linux-gnu /usr/lib/x86_64-linux-gnu PATH_SUFFIXES lib lib64 lib/stubs)
+    set(_edge_fm_cuda_driver_hints
+        ${CUDAToolkit_LIBRARY_DIR}
+        ${CUDAToolkit_LIBRARY_ROOT}
+        ${CUDAToolkit_TARGET_DIR}
+        /usr/local/cuda
+        /usr/local/cuda-${CUDAToolkit_VERSION}
+        /usr/lib/aarch64-linux-gnu
+        /usr/lib/x86_64-linux-gnu
+    )
+    find_library(
+        CUDA_DRIVER_LIB
+        cuda
+        HINTS ${_edge_fm_cuda_driver_hints}
+        PATH_SUFFIXES
+            lib
+            lib64
+            lib/stubs
+            targets/aarch64-linux/lib/stubs
+            targets/x86_64-linux/lib/stubs
+            compat
+    )
     if(NOT CUDA_DRIVER_LIB)
         set(CUDA_DRIVER_LIB "cuda")  # Let linker find it
     endif()
@@ -89,6 +109,16 @@ if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABL
     elseif(CUDAToolkit_LIBRARY_DIR)
         list(APPEND _trt_rpath "${CUDAToolkit_LIBRARY_DIR}")
     endif()
+    foreach(_cuda_driver_dir
+        "/usr/local/cuda-${CUDAToolkit_VERSION}/compat"
+        "/usr/local/cuda/compat"
+        "/usr/local/cuda/targets/aarch64-linux/lib/stubs"
+        "/usr/local/cuda/targets/x86_64-linux/lib/stubs")
+        if(EXISTS "${_cuda_driver_dir}")
+            list(APPEND _trt_rpath "${_cuda_driver_dir}")
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES _trt_rpath)
     set_target_properties(edge_fm_trt_python PROPERTIES
         OUTPUT_NAME "edge_fm_trt"
         PREFIX ""

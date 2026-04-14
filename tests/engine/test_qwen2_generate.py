@@ -23,15 +23,14 @@ import numpy as np
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "scripts"))
 
-from edge_fm_build_paths import prepend_built_python_paths
+from scripts.edge_fm_build_paths import prepend_built_python_paths
 
 prepend_built_python_paths(project_root)
 
 import edge_fm
-from _repo_temp import make_temp_dir
-from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
+from scripts.operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from tests._support.temp_paths import make_temp_dir
 
 # Optional: TRT-Edge-LLM in-process runtime (built with BUILD_TRT_EDGELLM_PYBIND=ON)
 try:

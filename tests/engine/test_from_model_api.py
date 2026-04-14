@@ -8,10 +8,13 @@ from pathlib import Path
 import pytest
 
 project_root = Path(__file__).resolve().parent.parent.parent
-for _p in [project_root / "build" / "install" / "python", project_root / "build" / "python"]:
-    if _p.exists():
-        sys.path.insert(0, str(_p))
-        break
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+from scripts.operator_table.utils import resolve_operator_table_path
+
+prepend_built_python_paths(project_root)
 
 import edge_fm
 
@@ -65,7 +68,12 @@ def _create_engine_config(
             "device_id": int(os.environ.get("EDGE_FM_DEVICE_ID", "0")),
             "hw_profile": "cuda_sm80" if runtime_device == "cuda" else runtime_device,
         },
-        "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
+        "operator_impl_table_path": str(
+            resolve_operator_table_path(
+                model_path=Path(model_path).resolve(),
+                model_name=model_name,
+            )
+        ),
         "prefill_model_path": str(Path(model_path).resolve()),
         "kvcache": {
             "dtype": kvcache_dtype,
@@ -136,4 +144,4 @@ def test_horizon_tune_emits_compile_spec_v2(hf_model_path: str):
     assert "linear_operator_table" in compile_spec["graph_tuning"]
     assert "linear_impl_overrides" not in compile_spec["graph_tuning"]
     assert compile_spec["generated_module"]["factory_function"] == "build_model"
-    assert compile_spec["helper_script"] == "scripts/compile_horizon_from_spec.py"
+    assert compile_spec["helper_script"] == "scripts/horizon/compile_horizon_from_spec.py"

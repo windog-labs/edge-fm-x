@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-from operator_table_utils import (
-    LLM_OPERATOR_TABLE_PATH,
-    SHARED_OPERATOR_TABLE_PATH,
-    VLM_OPERATOR_TABLE_PATH,
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.operator_table.utils import (
+    all_operator_table_paths,
     build_operator_impl_table_payload,
 )
 
@@ -29,8 +32,7 @@ def candidate_paths(args: argparse.Namespace) -> list[Path]:
     if args.paths:
         return [Path(item).expanduser().resolve() for item in args.paths]
 
-    ordered = [SHARED_OPERATOR_TABLE_PATH, LLM_OPERATOR_TABLE_PATH, VLM_OPERATOR_TABLE_PATH]
-    return [path.resolve() for path in ordered if path.exists()]
+    return [path.resolve() for path in all_operator_table_paths()]
 
 
 def refresh_table(path: Path) -> None:

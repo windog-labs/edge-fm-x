@@ -9,14 +9,18 @@ from pathlib import Path
 import torch
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPTS_ROOT = SCRIPT_DIR.parent
+REPO_ROOT = SCRIPTS_ROOT.parent
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
 for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "install" / "python"]:
     if build_python.exists() and str(build_python) not in sys.path:
         sys.path.insert(0, str(build_python))
 
 import edge_fm
-from _repo_temp import make_temp_dir
-from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
+from operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from temp_paths import make_temp_dir
 
 
 ALL_CONFIG_NAMES = [

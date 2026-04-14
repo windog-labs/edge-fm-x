@@ -82,11 +82,11 @@
   - `Release`
   - 如果要做 TRT 3-way benchmark，需带上 `BUILD_TRT_EDGELLM_PYBIND=ON`
 - 默认构建脚本：
-  - `scripts/build_cuda_fast.sh`
+  - `scripts/docker/build_cuda.sh`
 - 默认 repo-local temp root：
   - `.tmp_codex/`
 - prepared-case profiling 约束：
-  - `build/python` 必须排在 `build/install/python` 前面，避免误加载旧模块
+  - `build-a800/python` 必须排在 `build-a800/install/python` 前面，避免误加载旧模块
 
 推荐环境变量：
 
@@ -95,23 +95,23 @@ export TMPDIR=/xs-train-nas/zzm/repos/edge-fm-x/.tmp_codex/tmp
 export CUDA_HOME=/usr/local/cuda-12.6
 export PATH=/xs-train-nas/zzm/conda/e2e_zk/bin:$PATH
 export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
-export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/zzm/repos/edge-fm-x/build/install/python${PYTHONPATH:+:$PYTHONPATH}
+export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build-a800/python:/xs-train-nas/zzm/repos/edge-fm-x/build-a800/install/python${PYTHONPATH:+:$PYTHONPATH}
 ```
 
 ## 4. 当前 tuning 表与分流规则
 
 - LLM 主线 tuning 表：
-  - `examples/config/operator_impl_table_llm.json`
+  - `examples/config/base/operator_impl_table_llm.json`
 - VLM 主线 tuning 表：
-  - `examples/config/operator_impl_table_vlm.json`
+  - `examples/config/base/operator_impl_table_vlm.json`
 - 共享表：
-  - `examples/config/operator_impl_table.json`
+  - `examples/config/base/operator_impl_table.json`
   - 仅保留兼容用途，不再作为主线结果落点
 
 当前分流规则已确认正确：
 
-- `Qwen2.5-*` 默认命中 `examples/config/operator_impl_table_llm.json`
-- `Qwen2.5-VL-*` 默认命中 `examples/config/operator_impl_table_vlm.json`
+- `Qwen2.5-*` 默认命中 `examples/config/base/operator_impl_table_llm.json`，再物化到 `examples/config/platform/<PLATFORM>/`
+- `Qwen2.5-VL-*` 默认命中 `examples/config/base/operator_impl_table_vlm.json`，再物化到 `examples/config/platform/<PLATFORM>/`
 
 当前算子匹配按以下维度综合打分：
 
@@ -361,7 +361,7 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 
 `2026-04-12` 当前最新保留变更：
 
-- `examples/config/operator_impl_table_vlm.json`
+- `examples/config/base/operator_impl_table_vlm.json`
   - `num_qo_heads=28|num_kv_heads=4|head_dim=128`
   - `flashinfer_attention_decode_sm80_tuned`
   - 从
@@ -645,7 +645,7 @@ export PYTHONPATH=/xs-train-nas/zzm/repos/edge-fm-x/build/python:/xs-train-nas/z
 
 先确认的结构性问题：
 
-- `examples/config/operator_impl_table_vlm.json` 之前没有 `0.5B` 对应的 `hidden_size=896` decode 线性记录
+- `examples/config/base/operator_impl_table_vlm.json` 之前没有 `0.5B` 对应的 `hidden_size=896` decode 线性记录
 - 也没有 `num_qo_heads=14|num_kv_heads=2|head_dim=64` 的 decode attention tuned record
 - 因此 `0.5B` decode 之前大概率一直在吃 generic fallback / 默认 heuristic
 

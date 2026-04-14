@@ -1,13 +1,13 @@
 # ============================================================================
-# Platform Configuration: NVIDIA RTX 4050 (x86)
+# Platform Configuration: NVIDIA A800 (x86)
 # ============================================================================
 
-set(PLATFORM_NAME "NVIDIA RTX 4050")
+set(PLATFORM_NAME "NVIDIA A800")
 set(PLATFORM_ARCH "x86_64")
-set(PLATFORM_GPU "RTX 4050")
+set(PLATFORM_GPU "A800")
 
-# CUDA 架构设置（Ada Lovelace 架构，Compute Capability 8.9）
-set(CMAKE_CUDA_ARCHITECTURES "89" CACHE STRING "CUDA architectures")
+# CUDA 架构设置（Ampere 架构，Compute Capability 8.0）
+set(CMAKE_CUDA_ARCHITECTURES "80" CACHE STRING "CUDA architectures")
 
 # CUDA 编译选项
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -18,7 +18,7 @@ endif()
 
 # 平台特定的编译定义
 add_compile_definitions(
-    PLATFORM_RTX4050=1
+    PLATFORM_A800=1
     PLATFORM_X86=1
 )
 
@@ -26,4 +26,3 @@ message(STATUS "Platform: ${PLATFORM_NAME}")
 message(STATUS "  Architecture: ${PLATFORM_ARCH}")
 message(STATUS "  GPU: ${PLATFORM_GPU}")
 message(STATUS "  CUDA Architectures: ${CMAKE_CUDA_ARCHITECTURES}")
-

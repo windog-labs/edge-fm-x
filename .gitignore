@@ -2,6 +2,7 @@
 .tmp*
 build*
 build/*
+**/__pycache__/
 *.pyc
 
 # ignore model files in examples directory

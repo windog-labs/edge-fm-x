@@ -3,18 +3,88 @@ from __future__ import annotations
 import copy
 import json
 import os
-import platform
+import platform as py_platform
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from scripts.edge_fm_build_paths import DEFAULT_PLATFORM, SUPPORTED_PLATFORMS, resolve_platform
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_CONFIG_DIR = REPO_ROOT / "examples" / "config"
-SHARED_OPERATOR_TABLE_PATH = EXAMPLES_CONFIG_DIR / "operator_impl_table.json"
-LLM_OPERATOR_TABLE_PATH = EXAMPLES_CONFIG_DIR / "operator_impl_table_llm.json"
-VLM_OPERATOR_TABLE_PATH = EXAMPLES_CONFIG_DIR / "operator_impl_table_vlm.json"
-DEFAULT_TRT_PACKAGE_DIR = Path("/xs-train-nas/zzm/packages/TensorRT-10.16.0.72")
+BASE_CONFIG_DIR = EXAMPLES_CONFIG_DIR / "base"
+PLATFORM_CONFIG_DIR = EXAMPLES_CONFIG_DIR / "platform"
+PLATFORM_HW_PROFILE_MAP = {
+    "3060": "cuda_sm86",
+    "a800": "cuda_sm80",
+    "orin": "cuda_sm87",
+    "j6m": "horizon",
+}
+
+
+def normalize_platform_name(platform_name: str | None) -> str:
+    normalized = (platform_name or "").strip().lower()
+    if normalized not in SUPPORTED_PLATFORMS:
+        return DEFAULT_PLATFORM
+    return normalized
+
+
+def resolve_platform_name(platform_name: str | None = None) -> str:
+    return normalize_platform_name(resolve_platform(REPO_ROOT, explicit_platform=platform_name))
+
+
+def platform_hw_profile(platform_name: str | None = None) -> str:
+    return PLATFORM_HW_PROFILE_MAP[resolve_platform_name(platform_name)]
+
+
+def platform_config_path(platform_name: str | None = None) -> Path:
+    return PLATFORM_CONFIG_DIR / resolve_platform_name(platform_name)
+
+
+def base_engine_default_path() -> Path:
+    return BASE_CONFIG_DIR / "engine_default.json"
+
+
+def platform_engine_default_path(platform_name: str | None = None) -> Path:
+    return platform_config_path(platform_name) / "engine_default.json"
+
+
+def base_operator_table_path(family: str | None = None) -> Path:
+    if family == "llm":
+        return BASE_CONFIG_DIR / "operator_impl_table_llm.json"
+    if family == "vlm":
+        return BASE_CONFIG_DIR / "operator_impl_table_vlm.json"
+    return BASE_CONFIG_DIR / "operator_impl_table.json"
+
+
+def platform_operator_table_path(platform_name: str | None = None, family: str | None = None) -> Path:
+    config_dir = platform_config_path(platform_name)
+    if family == "llm":
+        return config_dir / "operator_impl_table_llm.json"
+    if family == "vlm":
+        return config_dir / "operator_impl_table_vlm.json"
+    return config_dir / "operator_impl_table.json"
+
+
+def all_supported_platforms() -> tuple[str, ...]:
+    return tuple(SUPPORTED_PLATFORMS)
+
+
+def all_operator_table_paths() -> list[Path]:
+    paths = [
+        base_operator_table_path("llm"),
+        base_operator_table_path("vlm"),
+    ]
+    for platform_name in SUPPORTED_PLATFORMS:
+        paths.extend(
+            [
+                platform_operator_table_path(platform_name, "llm"),
+                platform_operator_table_path(platform_name, "vlm"),
+                platform_operator_table_path(platform_name, None),
+            ]
+        )
+    return [path for path in paths if path.exists()]
 
 
 def load_model_config(model_path: Path) -> dict:
@@ -73,10 +143,14 @@ def resolve_operator_model_name(
     return "qwen2_5_vl" if family == "vlm" else "qwen2_5"
 
 
-def default_operator_table_path_for_family(family: str) -> Path:
+def default_operator_table_path_for_family(family: str, platform_name: str | None = None) -> Path:
+    platform_path = platform_operator_table_path(platform_name, family)
+    if platform_path.exists():
+        return platform_path
+
     if family == "vlm":
-        return VLM_OPERATOR_TABLE_PATH if VLM_OPERATOR_TABLE_PATH.exists() else SHARED_OPERATOR_TABLE_PATH
-    return LLM_OPERATOR_TABLE_PATH if LLM_OPERATOR_TABLE_PATH.exists() else SHARED_OPERATOR_TABLE_PATH
+        return base_operator_table_path("vlm")
+    return base_operator_table_path("llm")
 
 
 def resolve_operator_table_path(
@@ -85,6 +159,7 @@ def resolve_operator_table_path(
     model_path: Path | None = None,
     model_name: str | None = None,
     config: dict | None = None,
+    platform_name: str | None = None,
 ) -> Path:
     if operator_table_path is not None:
         return operator_table_path.resolve()
@@ -99,7 +174,7 @@ def resolve_operator_table_path(
     if generic_env_value:
         return Path(generic_env_value).expanduser().resolve()
 
-    return default_operator_table_path_for_family(family).resolve()
+    return default_operator_table_path_for_family(family, platform_name).resolve()
 
 
 def _utc_now_str() -> str:
@@ -152,7 +227,7 @@ def _git_metadata(path: Path) -> dict:
         return {}
     git_commit = _run_text(["git", "rev-parse", "HEAD"], cwd=path)
     git_describe = _run_text(["git", "describe", "--always", "--dirty"], cwd=path)
-    payload = {"path": str(path.resolve())}
+    payload: dict[str, str] = {}
     if git_commit:
         payload["git_commit"] = git_commit
     if git_describe:
@@ -179,13 +254,28 @@ def _detect_dependencies(cuda_release: str) -> dict:
     if tensorrt_edgellm:
         deps["tensorrt_edgellm"] = tensorrt_edgellm
 
-    trt_package_dir = os.environ.get("TRT_PACKAGE_DIR", "").strip()
-    if trt_package_dir:
-        deps["tensorrt_package_dir"] = trt_package_dir
-    elif DEFAULT_TRT_PACKAGE_DIR.exists():
-        deps["tensorrt_package_dir"] = str(DEFAULT_TRT_PACKAGE_DIR)
-
     return deps
+
+
+def _sanitize_dependencies_metadata(table_metadata: dict) -> None:
+    dependencies = table_metadata.get("dependencies")
+    if not isinstance(dependencies, dict):
+        return
+
+    for dep_name in ("flashinfer", "cutlass", "tensorrt_edgellm"):
+        dep_metadata = dependencies.get(dep_name)
+        if isinstance(dep_metadata, dict):
+            dep_metadata.pop("path", None)
+
+    dependencies.pop("tensorrt_package_dir", None)
+
+
+def _sanitize_generator_metadata(table_metadata: dict) -> None:
+    generator = table_metadata.get("generator")
+    if isinstance(generator, dict):
+        generator.pop("repo_root", None)
+
+    table_metadata.pop("source_operator_table_path", None)
 
 
 def _deep_merge(base: dict, extra: dict) -> dict:
@@ -217,13 +307,9 @@ def build_operator_impl_table_payload(
         "generated_at_utc": _utc_now_str(),
         "generator": {
             "script": str(Path(generator).resolve()) if generator else "",
-            "repo_root": str(REPO_ROOT.resolve()),
         },
-        "source_operator_table_path": (
-            str(Path(source_table_path).resolve()) if source_table_path is not None else ""
-        ),
         "toolchain": {
-            "python_version": platform.python_version(),
+            "python_version": py_platform.python_version(),
             "cuda": cuda,
         },
         "dependencies": _detect_dependencies(cuda.get("cuda_release", "")),
@@ -241,6 +327,8 @@ def build_operator_impl_table_payload(
         table_metadata = _deep_merge(existing_metadata, table_metadata)
     if extra_metadata:
         table_metadata = _deep_merge(table_metadata, extra_metadata)
+    _sanitize_generator_metadata(table_metadata)
+    _sanitize_dependencies_metadata(table_metadata)
 
     payload["table_metadata"] = table_metadata
     return payload

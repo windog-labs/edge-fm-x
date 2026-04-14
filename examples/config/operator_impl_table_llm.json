@@ -731,10 +731,8 @@
   "table_metadata": {
     "generated_at_utc": "2026-04-09T16:21:44Z",
     "generator": {
-      "script": "/xs-train-nas/zzm/repos/edge-fm-x/scripts/refresh_operator_table_metadata.py",
-      "repo_root": "/xs-train-nas/zzm/repos/edge-fm-x"
+      "script": "/xs-train-nas/zzm/repos/edge-fm-x/scripts/refresh_operator_table_metadata.py"
     },
-    "source_operator_table_path": "/xs-train-nas/zzm/repos/edge-fm-x/examples/config/operator_impl_table_llm.json",
     "toolchain": {
       "python_version": "3.10.18",
       "cuda": {
@@ -750,21 +748,17 @@
         "bundled_with_cuda_release": "12.6"
       },
       "flashinfer": {
-        "path": "/xs-train-nas/zzm/repos/edge-fm-x/third_party/flashinfer",
         "git_commit": "a9ffab19cca31e8e387f59321946dfecedaac83d",
         "git_describe": "a9ffab19"
       },
       "cutlass": {
-        "path": "/xs-train-nas/zzm/repos/edge-fm-x/third_party/cutlass",
         "git_commit": "418d38a5de245373d5bac809c06d1ecd1a196c63",
         "git_describe": "v4.4.0-23-g418d38a5"
       },
       "tensorrt_edgellm": {
-        "path": "/xs-train-nas/zzm/repos/edge-fm-x/third_party/TensorRT-Edge-LLM",
         "git_commit": "e75b510aed18bb60b21de1f617b438b2761902b8",
         "git_describe": "e75b510"
-      },
-      "tensorrt_package_dir": "/xs-train-nas/zzm/packages/TensorRT-10.16.0.72"
+      }
     },
     "compatibility_hints": {
       "cuda_release_major_minor_should_match": true,

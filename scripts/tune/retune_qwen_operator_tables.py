@@ -12,26 +12,29 @@ from pathlib import Path
 import torch
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+SCRIPTS_ROOT = SCRIPT_DIR.parent
+REPO_ROOT = SCRIPTS_ROOT.parent
+for script_path in [SCRIPT_DIR, SCRIPTS_ROOT]:
+    if str(script_path) not in sys.path:
+        sys.path.insert(0, str(script_path))
 for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "install" / "python"]:
     if build_python.exists() and str(build_python) not in sys.path:
         sys.path.insert(0, str(build_python))
 
-from _repo_temp import make_temp_dir
-from operator_table_utils import (
+from operator_table.utils import (
+    BASE_CONFIG_DIR,
     build_operator_impl_table_payload,
     resolve_operator_model_name,
 )
+from temp_paths import make_temp_dir
 import tune_qwen_attention_decode as tune_attention_decode
 import tune_qwen_attention_prefill as tune_attention_prefill
 import tune_qwen_cublaslt as tune_cublaslt
 
 
-LLM_TABLE_PATH = REPO_ROOT / "examples" / "config" / "operator_impl_table_llm.json"
-VLM_TABLE_PATH = REPO_ROOT / "examples" / "config" / "operator_impl_table_vlm.json"
+LLM_TABLE_PATH = BASE_CONFIG_DIR / "operator_impl_table_llm.json"
+VLM_TABLE_PATH = BASE_CONFIG_DIR / "operator_impl_table_vlm.json"
 
 MODEL_SPECS = {
     "llm": OrderedDict(
@@ -513,7 +516,7 @@ def run_family(
 
     extra_metadata = {
         "retune_session": {
-            "generator": "scripts/retune_qwen_operator_tables.py",
+            "generator": "scripts/tune/retune_qwen_operator_tables.py",
             "device_id": device_id,
             "families": [family],
             "prefill_list": prefill_list,

@@ -7,14 +7,21 @@
 # 可通过 EDGE_FM_PROFILE_PREFILL_LEN / EDGE_FM_PROFILE_DECODE_LEN 覆盖。
 #
 # 用法（在项目根目录）:
-#   bash scripts/profile_operator_comparison.sh
+#   bash scripts/profile/profile_operator_comparison.sh
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-source "$PROJECT_ROOT/scripts/edge_fm_env.sh"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REPORT_DIR="${PROJECT_ROOT}/ncu_reports"
+TRT_PKG="${TRT_PACKAGE_DIR:-/usr/local/TensorRT}"
+CUDA_HOME_RESOLVED="${CUDA_HOME:-/usr/local/cuda}"
 PYTHON="${HORIZON_PYTHON:-$(which python)}"
+BUILD_DIR="$("$PYTHON" "$PROJECT_ROOT/scripts/edge_fm_build_paths.py" --print-build-dir --project-root "$PROJECT_ROOT" --strict)"
+if [ -z "$BUILD_DIR" ]; then
+    echo "ERROR: no resolved build directory. Set EDGE_FM_BUILD_DIR or build one preset first." >&2
+    exit 1
+fi
+export EDGE_FM_BUILD_DIR="${BUILD_DIR}"
 if [ -z "${NSYS:-}" ]; then
     if command -v nsys >/dev/null 2>&1; then
         NSYS="$(command -v nsys)"
@@ -22,13 +29,16 @@ if [ -z "${NSYS:-}" ]; then
         NSYS="$(ls -1d /opt/nvidia/nsight-systems/*/bin/nsys 2>/dev/null | sort -V | tail -1)"
     fi
 fi
-CUDA_HOME="$(edgefm_resolve_cuda_home || true)"
 CUDA_LIB_DIR=""
-if [ -n "$CUDA_HOME" ]; then
-    CUDA_LIB_DIR="$(edgefm_resolve_cuda_library_dir "$CUDA_HOME" || true)"
+if [ -x "${CUDA_HOME_RESOLVED}/bin/nvcc" ]; then
+    if [ -d "${CUDA_HOME_RESOLVED}/lib64" ]; then
+        CUDA_LIB_DIR="${CUDA_HOME_RESOLVED}/lib64"
+    elif [[ "$(uname -m)" =~ ^(aarch64|arm64)$ ]] && [ -d "${CUDA_HOME_RESOLVED}/targets/aarch64-linux/lib" ]; then
+        CUDA_LIB_DIR="${CUDA_HOME_RESOLVED}/targets/aarch64-linux/lib"
+    elif [[ "$(uname -m)" =~ ^(x86_64|amd64)$ ]] && [ -d "${CUDA_HOME_RESOLVED}/targets/x86_64-linux/lib" ]; then
+        CUDA_LIB_DIR="${CUDA_HOME_RESOLVED}/targets/x86_64-linux/lib"
+    fi
 fi
-TRT_PKG="$(edgefm_resolve_tensorrt_package_dir "$PROJECT_ROOT" "$PROJECT_ROOT/tests/data/trt_edgellm_workspace" || true)"
-EDGE_FM_BUILD_DIR_RESOLVED="$(edgefm_resolve_build_dir "$PROJECT_ROOT" || true)"
 
 if [ -z "${NSYS:-}" ] || [ ! -x "${NSYS}" ]; then
     echo "ERROR: nsys not found. Set NSYS=/path/to/nsys and retry." >&2
@@ -41,13 +51,14 @@ mkdir -p "$REPORT_DIR"
 if [ -n "$CUDA_LIB_DIR" ]; then
     export LD_LIBRARY_PATH="${CUDA_LIB_DIR}:${LD_LIBRARY_PATH:-}"
 fi
-if [ -n "$TRT_PKG" ]; then
+if [ -d "${TRT_PKG}/lib" ]; then
     export LD_LIBRARY_PATH="${TRT_PKG}/lib:${LD_LIBRARY_PATH:-}"
 fi
-if [ -n "$EDGE_FM_BUILD_DIR_RESOLVED" ]; then
-    export EDGE_FM_BUILD_DIR="${EDGE_FM_BUILD_DIR_RESOLVED}"
-    export LD_LIBRARY_PATH="${EDGE_FM_BUILD_DIR_RESOLVED}/lib:${LD_LIBRARY_PATH:-}"
-    export PYTHONPATH="${EDGE_FM_BUILD_DIR_RESOLVED}/python:${EDGE_FM_BUILD_DIR_RESOLVED}/install/python:${PYTHONPATH:-}"
+if [ -d "${BUILD_DIR}/lib" ]; then
+    export LD_LIBRARY_PATH="${BUILD_DIR}/lib:${LD_LIBRARY_PATH:-}"
+fi
+if [ -d "${BUILD_DIR}/python" ] || [ -d "${BUILD_DIR}/install/python" ]; then
+    export PYTHONPATH="${BUILD_DIR}/python:${BUILD_DIR}/install/python:${PYTHONPATH:-}"
 fi
 export EDGELLM_PLUGIN_PATH="${PROJECT_ROOT}/third_party/TensorRT-Edge-LLM/build/libNvInfer_edgellm_plugin.so"
 export TRT_EDGELLM_ENGINE_DIR="${PROJECT_ROOT}/tests/data/trt_edgellm_workspace/qwen2.5-1.5b/engines"
@@ -58,13 +69,13 @@ export EDGE_FM_PROFILE_DECODE_LEN="${EDGE_FM_PROFILE_DECODE_LEN:-64}"
 echo "[1/4] Profiling Edge-FM..."
 "$NSYS" profile -o "${REPORT_DIR}/edgefm_profile" --stats=true --force-overwrite=true \
     --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
-    "$PYTHON" scripts/profile_operator_comparison.py edgefm 2>&1 | tail -5
+    "$PYTHON" "$PROJECT_ROOT/scripts/profile/profile_operator_comparison.py" edgefm 2>&1 | tail -5
 
 echo ""
 echo "[2/4] Profiling TRT-Edge-LLM..."
 "$NSYS" profile -o "${REPORT_DIR}/trt_profile" --stats=true --force-overwrite=true \
     --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
-    "$PYTHON" scripts/profile_operator_comparison.py trt 2>&1 | tail -5
+    "$PYTHON" "$PROJECT_ROOT/scripts/profile/profile_operator_comparison.py" trt 2>&1 | tail -5
 
 echo ""
 echo "[3/4] Extracting kernel summaries..."
@@ -75,7 +86,7 @@ echo "[3/4] Extracting kernel summaries..."
 
 echo ""
 echo "[4/4] Generating comparison report..."
-"$PYTHON" scripts/profile_operator_comparison.py analyze
+"$PYTHON" "$PROJECT_ROOT/scripts/profile/profile_operator_comparison.py" analyze
 
 echo ""
 echo "Done. Reports:"

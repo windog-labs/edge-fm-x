@@ -2,10 +2,11 @@
 # Engine 模块
 # ============================================================================
 
-file(GLOB_RECURSE ENGINE_SOURCES
-    "*.cpp"
-    "*.cu"
-)
+file(GLOB_RECURSE ENGINE_SOURCES "*.cpp")
+if(ENABLE_CUDA)
+    file(GLOB_RECURSE ENGINE_CUDA_SOURCES "*.cu")
+    list(APPEND ENGINE_SOURCES ${ENGINE_CUDA_SOURCES})
+endif()
 
 add_library(edge_fm_engine STATIC
     ${ENGINE_SOURCES}
@@ -33,7 +34,7 @@ target_compile_definitions(edge_fm_engine PRIVATE
     EDGE_FM_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
 )
 
-if(CUDAToolkit_FOUND)
+if(ENABLE_CUDA)
     target_link_libraries(edge_fm_engine PUBLIC
         CUDA::cudart
         CUDA::cublas

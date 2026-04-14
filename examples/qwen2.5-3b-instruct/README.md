@@ -34,7 +34,7 @@ bash download.sh
 
 ```bash
 mkdir -p build && cd build
-cmake .. -DPLATFORM=a100 -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.6/bin/nvcc
+cmake .. -DPLATFORM=a800 -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.6/bin/nvcc
 make -j && make install
 ```
 
@@ -46,7 +46,7 @@ make -j && make install
 cd examples/qwen2.5-3b-instruct
 
 export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
-export LD_LIBRARY_PATH=/path/to/edge-fm/build/install/lib:/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/path/to/edge-fm/build-a800/install/lib:/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH
 
 python3 generate.py
 ```

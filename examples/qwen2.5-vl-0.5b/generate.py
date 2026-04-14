@@ -11,15 +11,17 @@ from pathlib import Path
 
 
 project_root = Path(__file__).resolve().parents[2]
-build_python = project_root / "build" / "install" / "python"
-if build_python.exists():
-    sys.path.insert(0, str(build_python))
+sys.path.insert(0, str(project_root))
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 try:
     import edge_fm
 except ImportError:
     print("错误: 无法导入 edge_fm，请先 build 并 make install")
-    print("同时确认当前 Python 版本与 build/install/python 下 edge_fm 扩展模块的 ABI 一致。")
+    print("同时确认当前 Python 版本与 build-<platform>/install/python 下 edge_fm 扩展模块的 ABI 一致。")
     sys.exit(1)
 
 

@@ -114,7 +114,7 @@ void HorizonEngine::tune() {
         {"model_config", config_.prefill_model_config()},
         {"graph_tuning", graph_tuning},
         {"generated_module", module_export.to_json()},
-        {"helper_script", "scripts/compile_horizon_from_spec.py"},
+        {"helper_script", "scripts/horizon/compile_horizon_from_spec.py"},
         {"engine_config", {
             {"model_name", config_.model_name()},
             {"operator_impl_table_path", config_.operator_impl_table_path()},
@@ -151,13 +151,13 @@ Response HorizonEngine::generate(const Request& /*request*/) {
     if (!artifact.has_value()) {
         throw ConfigurationError(
             "Horizon backend requires tune() to generate a compile spec before generate(). "
-            "Then run: python scripts/compile_horizon_from_spec.py <generated spec>");
+            "Then run: python scripts/horizon/compile_horizon_from_spec.py <generated spec>");
     }
 
     if (!std::filesystem::exists(artifact->artifact_path)) {
         throw ConfigurationError(
             "Horizon HBM artifact not found: " + artifact->artifact_path +
-            ". Compile it with helper script scripts/compile_horizon_from_spec.py. "
+            ". Compile it with helper script scripts/horizon/compile_horizon_from_spec.py. "
             "generated spec: " + artifact->manifest_path);
     }
 

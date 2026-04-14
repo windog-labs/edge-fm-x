@@ -16,14 +16,22 @@ import torch
 from transformers import AutoTokenizer
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-for build_python in [PROJECT_ROOT / "build" / "python", PROJECT_ROOT / "build" / "install" / "python"]:
-    if build_python.exists() and str(build_python) not in sys.path:
-        sys.path.insert(0, str(build_python))
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPTS_ROOT = SCRIPT_DIR.parent
+PROJECT_ROOT = SCRIPTS_ROOT.parent
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
+for build_python in [
+    PROJECT_ROOT / "build" / "python",
+    PROJECT_ROOT / "build" / "install" / "python",
+]:
+    build_python_str = str(build_python)
+    if build_python.is_dir() and build_python_str not in sys.path:
+        sys.path.insert(0, build_python_str)
 
 import edge_fm
-from _repo_temp import make_temp_dir
-from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
+from operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from temp_paths import make_temp_dir
 
 
 def parse_args() -> argparse.Namespace:

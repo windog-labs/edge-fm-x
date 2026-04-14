@@ -13,7 +13,7 @@ Typical usage under nsys:
   nsys profile -o .tmp_codex/nsys/vlm7b_51232_edgefm_prepared \
     --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
     --capture-range=cudaProfilerApi --capture-range-end=stop \
-    /xs-train-nas/zzm/conda/e2e_zk/bin/python scripts/profile_vlm_prepared_case.py \
+    /xs-train-nas/zzm/conda/e2e_zk/bin/python scripts/profile/profile_vlm_prepared_case.py \
       --framework edgefm \
       --model-path examples/qwen2.5-vl-7b-instruct/qwen2.5-vl-7b-instruct \
       --model-name Qwen2.5-VL \
@@ -26,7 +26,7 @@ Typical usage under nsys:
   nsys profile -o .tmp_codex/nsys/vlm7b_51232_trt_prepared \
     --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
     --capture-range=cudaProfilerApi --capture-range-end=stop \
-    /xs-train-nas/zzm/conda/e2e_zk/bin/python scripts/profile_vlm_prepared_case.py \
+    /xs-train-nas/zzm/conda/e2e_zk/bin/python scripts/profile/profile_vlm_prepared_case.py \
       --framework trt \
       --model-path examples/qwen2.5-vl-7b-instruct/qwen2.5-vl-7b-instruct \
       --model-size 7b \
@@ -47,27 +47,24 @@ from pathlib import Path
 import torch
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPTS_ROOT = SCRIPT_DIR.parent
+PROJECT_ROOT = SCRIPTS_ROOT.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-build_python_paths = [
-    PROJECT_ROOT / "build" / "install" / "python",
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
+for build_python in [
     PROJECT_ROOT / "build" / "python",
-]
-for build_python in build_python_paths:
+    PROJECT_ROOT / "build" / "install" / "python",
+]:
     build_python_str = str(build_python)
-    while build_python_str in sys.path:
-        sys.path.remove(build_python_str)
-for build_python in build_python_paths:
-    if build_python.exists():
-        sys.path.insert(0, str(build_python))
+    if build_python.is_dir() and build_python_str not in sys.path:
+        sys.path.insert(0, build_python_str)
 
 import edge_fm
-from _repo_temp import make_temp_dir
-from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
+from operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from temp_paths import make_temp_dir
 from tests.engine import test_qwen2_generate as qbench
 
 try:

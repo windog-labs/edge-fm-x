@@ -23,7 +23,7 @@ from ._test_utils import (
     torch_device,
     write_operator_impl_table,
 )
-from scripts.operator_table_utils import resolve_operator_table_path
+from scripts.operator_table.utils import resolve_operator_table_path
 
 MODEL_CONFIG = {
     "hidden_size": 1536,
