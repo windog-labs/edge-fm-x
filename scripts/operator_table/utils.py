@@ -21,6 +21,7 @@ PLATFORM_HW_PROFILE_MAP = {
     "orin": "cuda_sm87",
     "j6m": "horizon",
 }
+PLATFORMS_WITH_MATERIALIZED_OPERATOR_TABLES = ("3060", "a800", "orin")
 
 
 def normalize_platform_name(platform_name: str | None) -> str:
@@ -36,6 +37,10 @@ def resolve_platform_name(platform_name: str | None = None) -> str:
 
 def platform_hw_profile(platform_name: str | None = None) -> str:
     return PLATFORM_HW_PROFILE_MAP[resolve_platform_name(platform_name)]
+
+
+def platform_uses_materialized_operator_tables(platform_name: str | None = None) -> bool:
+    return resolve_platform_name(platform_name) in PLATFORMS_WITH_MATERIALIZED_OPERATOR_TABLES
 
 
 def platform_config_path(platform_name: str | None = None) -> Path:
@@ -77,6 +82,8 @@ def all_operator_table_paths() -> list[Path]:
         base_operator_table_path("vlm"),
     ]
     for platform_name in SUPPORTED_PLATFORMS:
+        if not platform_uses_materialized_operator_tables(platform_name):
+            continue
         paths.extend(
             [
                 platform_operator_table_path(platform_name, "llm"),
@@ -144,6 +151,11 @@ def resolve_operator_model_name(
 
 
 def default_operator_table_path_for_family(family: str, platform_name: str | None = None) -> Path:
+    if not platform_uses_materialized_operator_tables(platform_name):
+        if family == "vlm":
+            return base_operator_table_path("vlm")
+        return base_operator_table_path("llm")
+
     platform_path = platform_operator_table_path(platform_name, family)
     if platform_path.exists():
         return platform_path

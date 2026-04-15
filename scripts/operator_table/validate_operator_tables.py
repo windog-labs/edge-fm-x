@@ -15,6 +15,7 @@ from scripts.operator_table.utils import (
     base_engine_default_path,
     base_operator_table_path,
     platform_config_path,
+    platform_uses_materialized_operator_tables,
 )
 
 
@@ -62,9 +63,10 @@ def main() -> None:
     for platform_name in platforms:
         platform_dir = platform_config_path(platform_name)
         validate_engine_default(platform_dir / "engine_default.json")
-        validate_operator_table(platform_dir / "operator_impl_table_llm.json")
-        validate_operator_table(platform_dir / "operator_impl_table_vlm.json")
-        validate_operator_table(platform_dir / "operator_impl_table.json")
+        if platform_uses_materialized_operator_tables(platform_name):
+            validate_operator_table(platform_dir / "operator_impl_table_llm.json")
+            validate_operator_table(platform_dir / "operator_impl_table_vlm.json")
+            validate_operator_table(platform_dir / "operator_impl_table.json")
         print(platform_dir)
 
 

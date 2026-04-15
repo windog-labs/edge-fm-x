@@ -71,10 +71,18 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dlpack/include/dlpa
 )
 
 # 安装默认配置文件
-install(FILES
+set(EDGE_FM_INSTALL_CONFIG_FILES
     ${EDGE_FM_ACTIVE_CONFIG_DIR}/engine_default.json
-    ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table.json
-    ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table_llm.json
-    ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table_vlm.json
+)
+
+if(NOT PLATFORM STREQUAL "j6m")
+    list(APPEND EDGE_FM_INSTALL_CONFIG_FILES
+        ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table.json
+        ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table_llm.json
+        ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table_vlm.json
+    )
+endif()
+
+install(FILES ${EDGE_FM_INSTALL_CONFIG_FILES}
     DESTINATION config
 )

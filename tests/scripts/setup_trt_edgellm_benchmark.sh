@@ -139,10 +139,11 @@ PY
 
 cd "$PROJECT_ROOT"
 
-# 1. 初始化构建所需子模块，避免递归拉起不需要的 googletest
+# 1. 初始化构建所需子模块，避免递归拉起不需要的 googletest / NVTX
 echo "[1/4] Initializing TensorRT-Edge-LLM submodules..."
 cd "$TRT_EDGELLM"
-git submodule update --init 3rdParty/NVTX 3rdParty/nlohmannJson 2>/dev/null || true
+# NVTX profiling 默认为关闭，当前 EdgeFM benchmark 路径不依赖 3rdParty/NVTX。
+git submodule update --init 3rdParty/nlohmannJson 2>/dev/null || true
 # nlohmannJson 子模块可能为空，使用 edge-fm 的 json 作为后备
 if [[ ! -f "$TRT_EDGELLM/3rdParty/nlohmannJson/include/nlohmann/json.hpp" ]]; then
     mkdir -p "$TRT_EDGELLM/3rdParty/nlohmannJson/include"

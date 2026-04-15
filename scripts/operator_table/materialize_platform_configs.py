@@ -19,6 +19,7 @@ from scripts.operator_table.utils import (
     base_operator_table_path,
     build_operator_impl_table_payload,
     platform_config_path,
+    platform_uses_materialized_operator_tables,
 )
 
 
@@ -70,15 +71,26 @@ def materialize_platform(platform_name: str) -> None:
     platform_dir = platform_config_path(platform_name)
     platform_dir.mkdir(parents=True, exist_ok=True)
 
+    engine_default = build_engine_default(platform_name)
+    dump_json(platform_dir / "engine_default.json", engine_default)
+
+    if not platform_uses_materialized_operator_tables(platform_name):
+        for stale_name in (
+            "operator_impl_table.json",
+            "operator_impl_table_llm.json",
+            "operator_impl_table_vlm.json",
+        ):
+            stale_path = platform_dir / stale_name
+            if stale_path.exists():
+                stale_path.unlink()
+        return
+
     base_llm = load_json(base_operator_table_path("llm"))
     base_vlm = load_json(base_operator_table_path("vlm"))
     base_merged = load_json(base_operator_table_path()) if base_operator_table_path().exists() else {
         "schema": "edgefm_operator_impl_table_v1",
         "records": [],
     }
-
-    engine_default = build_engine_default(platform_name)
-    dump_json(platform_dir / "engine_default.json", engine_default)
 
     llm_payload = build_operator_impl_table_payload(
         list(base_llm.get("records", [])),

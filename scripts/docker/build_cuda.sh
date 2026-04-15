@@ -21,6 +21,80 @@ EDGE_FM_DOCKER_CONTEXT="${EDGE_FM_DOCKER_CONTEXT:-${EDGE_FM_PROJECT_ROOT}}"
 EDGE_FM_BOOTSTRAP_PACKAGES="${EDGE_FM_BOOTSTRAP_PACKAGES:-0}"
 EDGE_FM_BUILD_TRT_EDGELLM_PYBIND="${EDGE_FM_BUILD_TRT_EDGELLM_PYBIND:-1}"
 EDGE_FM_HOST_TRT_DIR="${EDGE_FM_HOST_TRT_DIR:-/usr/local/TensorRT-10.15.1.29}"
+EDGE_FM_CUDA_TRT_MIN_VERSION_MAJOR=10
+EDGE_FM_CUDA_TRT_MIN_VERSION_MINOR=15
+EDGE_FM_CUDA_TRT_MIN_VERSION="${EDGE_FM_CUDA_TRT_MIN_VERSION_MAJOR}.${EDGE_FM_CUDA_TRT_MIN_VERSION_MINOR}"
+
+EDGE_FM_HOST_TRT_VERSION_HEADER=""
+EDGE_FM_HOST_TRT_VERSION_MAJOR=""
+EDGE_FM_HOST_TRT_VERSION_MINOR=""
+EDGE_FM_HOST_TRT_VERSION_PATCH=""
+EDGE_FM_HOST_TRT_VERSION_BUILD=""
+EDGE_FM_HOST_TRT_VERSION_STRING=""
+
+edge_fm_read_trt_version_macro() {
+    local version_header="${1:?version header is required}"
+    local macro_regex="${2:?macro regex is required}"
+
+    sed -n -E "s/^#define (${macro_regex})[[:space:]]+([0-9]+).*/\\2/p" "${version_header}" | head -n 1
+}
+
+edge_fm_detect_host_trt_version() {
+    local version_header=""
+    local version_header_candidates=(
+        "${EDGE_FM_HOST_TRT_DIR}/include/NvInferVersion.h"
+        "${EDGE_FM_HOST_TRT_DIR}/NvInferVersion.h"
+    )
+
+    EDGE_FM_HOST_TRT_VERSION_HEADER=""
+    EDGE_FM_HOST_TRT_VERSION_MAJOR=""
+    EDGE_FM_HOST_TRT_VERSION_MINOR=""
+    EDGE_FM_HOST_TRT_VERSION_PATCH=""
+    EDGE_FM_HOST_TRT_VERSION_BUILD=""
+    EDGE_FM_HOST_TRT_VERSION_STRING=""
+
+    for version_header in "${version_header_candidates[@]}"; do
+        if [[ ! -f "${version_header}" ]]; then
+            continue
+        fi
+
+        EDGE_FM_HOST_TRT_VERSION_MAJOR="$(edge_fm_read_trt_version_macro "${version_header}" 'NV_TENSORRT_MAJOR|TRT_MAJOR_ENTERPRISE')"
+        EDGE_FM_HOST_TRT_VERSION_MINOR="$(edge_fm_read_trt_version_macro "${version_header}" 'NV_TENSORRT_MINOR|TRT_MINOR_ENTERPRISE')"
+        EDGE_FM_HOST_TRT_VERSION_PATCH="$(edge_fm_read_trt_version_macro "${version_header}" 'NV_TENSORRT_PATCH|TRT_PATCH_ENTERPRISE')"
+        EDGE_FM_HOST_TRT_VERSION_BUILD="$(edge_fm_read_trt_version_macro "${version_header}" 'NV_TENSORRT_BUILD|TRT_BUILD_ENTERPRISE')"
+
+        if [[ -n "${EDGE_FM_HOST_TRT_VERSION_MAJOR}" && -n "${EDGE_FM_HOST_TRT_VERSION_MINOR}" && -n "${EDGE_FM_HOST_TRT_VERSION_PATCH}" && -n "${EDGE_FM_HOST_TRT_VERSION_BUILD}" ]]; then
+            EDGE_FM_HOST_TRT_VERSION_HEADER="${version_header}"
+            EDGE_FM_HOST_TRT_VERSION_STRING="${EDGE_FM_HOST_TRT_VERSION_MAJOR}.${EDGE_FM_HOST_TRT_VERSION_MINOR}.${EDGE_FM_HOST_TRT_VERSION_PATCH}.${EDGE_FM_HOST_TRT_VERSION_BUILD}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+edge_fm_require_host_trt_version() {
+    if ! edge_fm_detect_host_trt_version; then
+        echo "ERROR: failed to determine TensorRT version from ${EDGE_FM_HOST_TRT_DIR}." >&2
+        echo "       Expected version header under ${EDGE_FM_HOST_TRT_DIR}/include/NvInferVersion.h." >&2
+        echo "       TensorRT-Edge-LLM on CUDA/x86 requires TensorRT >= ${EDGE_FM_CUDA_TRT_MIN_VERSION}." >&2
+        exit 1
+    fi
+
+    if (( EDGE_FM_HOST_TRT_VERSION_MAJOR < EDGE_FM_CUDA_TRT_MIN_VERSION_MAJOR )) || \
+       (( EDGE_FM_HOST_TRT_VERSION_MAJOR == EDGE_FM_CUDA_TRT_MIN_VERSION_MAJOR && EDGE_FM_HOST_TRT_VERSION_MINOR < EDGE_FM_CUDA_TRT_MIN_VERSION_MINOR )); then
+        echo "ERROR: TensorRT ${EDGE_FM_HOST_TRT_VERSION_STRING} found in ${EDGE_FM_HOST_TRT_DIR}," >&2
+        echo "       but CUDA/x86 build_cuda.sh requires TensorRT >= ${EDGE_FM_CUDA_TRT_MIN_VERSION}." >&2
+        echo "       Update EDGE_FM_HOST_TRT_DIR to a newer TensorRT package and retry." >&2
+        exit 1
+    fi
+}
+
+edge_fm_print_host_trt_info() {
+    echo "[cuda] Host TensorRT package: ${EDGE_FM_HOST_TRT_DIR}"
+    echo "[cuda] Host TensorRT version: ${EDGE_FM_HOST_TRT_VERSION_STRING} (from ${EDGE_FM_HOST_TRT_VERSION_HEADER})"
+    echo "[cuda] Required minimum version for CUDA/x86 TRT-Edge-LLM: ${EDGE_FM_CUDA_TRT_MIN_VERSION}"
+}
 
 edge_fm_validate_host_trt_dir() {
     if [[ ! -d "${EDGE_FM_HOST_TRT_DIR}" ]]; then
@@ -43,6 +117,8 @@ edge_fm_validate_host_trt_dir() {
         echo "ERROR: TensorRT ONNX parser library missing from ${EDGE_FM_HOST_TRT_DIR}/lib/libnvonnxparser.so*" >&2
         exit 1
     fi
+
+    edge_fm_require_host_trt_version
 }
 
 edge_fm_cuda_arch() {
@@ -171,4 +247,14 @@ env EDGE_FM_BENCH_LLM_MODELS=1.5b EDGE_FM_BENCH_PREFILL_LIST=${bench_prefill_lis
 EOF
 }
 
-edge_fm_docker_main "${1:-all}"
+edge_fm_action="${1:-all}"
+case "${edge_fm_action}" in
+    -h|--help|help)
+        ;;
+    *)
+        edge_fm_validate_host_trt_dir
+        edge_fm_print_host_trt_info
+        ;;
+esac
+
+edge_fm_docker_main "${edge_fm_action}"
