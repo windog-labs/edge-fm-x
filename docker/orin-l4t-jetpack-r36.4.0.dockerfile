@@ -9,4 +9,5 @@ RUN apt-get update && \
         ninja-build \
         python3-pip \
         python3-pytest && \
+    python3 -m pip install --upgrade 'pytest>=8.3,<9' && \
     rm -rf /var/lib/apt/lists/*

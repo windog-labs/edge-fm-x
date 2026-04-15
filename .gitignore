@@ -1,6 +1,7 @@
 *.DS_Store
 .tmp*
-build*
+build-*
+build_*
 build/*
 !scripts/docker/build_cuda.sh
 !scripts/docker/build_hrz.sh

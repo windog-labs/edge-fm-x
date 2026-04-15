@@ -112,6 +112,9 @@ if(BUILD_TRT_EDGELLM_PYBIND AND TARGET pybind11::module AND TRT_EDGELLM_AVAILABL
     foreach(_cuda_driver_dir
         "/usr/local/cuda-${CUDAToolkit_VERSION}/compat"
         "/usr/local/cuda/compat"
+        "/usr/lib/aarch64-linux-gnu/nvidia"
+        "/usr/lib/aarch64-linux-gnu/tegra"
+        "/usr/lib/aarch64-linux-gnu"
         "/usr/local/cuda/targets/aarch64-linux/lib/stubs"
         "/usr/local/cuda/targets/x86_64-linux/lib/stubs")
         if(EXISTS "${_cuda_driver_dir}")

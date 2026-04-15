@@ -35,7 +35,7 @@ Actions:
   configure  Run `cmake --preset <platform>` in the container.
   build      Configure + build.
   install    Configure + build + install.
-  verify     Configure + build + install + import edge_fm + pytest collect-only.
+  verify     Configure + build + install + run family-specific validation.
   all        Same as verify.
 
 Important env vars:
@@ -51,6 +51,7 @@ Important env vars:
   EDGE_FM_BUILD_JOBS
   EDGE_FM_BOOTSTRAP_PACKAGES
   EDGE_FM_PYTHON_EXECUTABLE
+  EDGE_FM_HOST_TRT_DIR
 EOF
 }
 
@@ -92,6 +93,9 @@ edge_fm_build_image() {
         while IFS= read -r token; do
             [[ -n "${token}" ]] && build_args+=("${token}")
         done < <(edge_fm_split_words "${EDGE_FM_DOCKER_EXTRA_BUILD_ARGS:-}")
+        while IFS= read -r token; do
+            [[ -n "${token}" ]] && build_args+=("${token}")
+        done < <(edge_fm_emit_function_output edge_fm_image_build_args)
 
         echo "[image] Building ${image_tag} from ${dockerfile_path}"
         local -a docker_cmd=(docker build)
@@ -120,6 +124,7 @@ edge_fm_run_action() {
     local -a run_args=()
     local -a configure_args=()
     local pre_configure_script=""
+    local post_install_script=""
     local verify_script=""
 
     build_dir="$(edge_fm_build_dir_for_platform "${platform_name}")"
@@ -127,12 +132,16 @@ edge_fm_run_action() {
     while IFS= read -r token; do
         [[ -n "${token}" ]] && run_args+=("${token}")
     done < <(edge_fm_split_words "${EDGE_FM_DOCKER_EXTRA_RUN_ARGS:-}")
+    while IFS= read -r token; do
+        [[ -n "${token}" ]] && run_args+=("${token}")
+    done < <(edge_fm_emit_function_output edge_fm_run_args)
 
     while IFS= read -r token; do
         [[ -n "${token}" ]] && configure_args+=("${token}")
     done < <(edge_fm_emit_function_output edge_fm_configure_args)
 
     pre_configure_script="$(edge_fm_emit_function_output edge_fm_pre_configure_commands)"
+    post_install_script="$(edge_fm_emit_function_output edge_fm_post_install_commands)"
     verify_script="$(edge_fm_emit_function_output edge_fm_verify_commands)"
 
     local container_script
@@ -217,19 +226,27 @@ EOF
             container_script+=$'\n'
             container_script+="cmake --build --preset \"${platform_name}\" --parallel \"${build_jobs}\""$'\n'
             container_script+="cmake --install \"\${BUILD_DIR}\""
+            if [[ -n "${post_install_script}" ]]; then
+                container_script+=$'\n'
+                container_script+="${post_install_script}"
+            fi
             ;;
         verify|all)
             container_script+=$'\n'
             container_script+="cmake --build --preset \"${platform_name}\" --parallel \"${build_jobs}\""$'\n'
             container_script+="cmake --install \"\${BUILD_DIR}\""$'\n'
+            if [[ -n "${post_install_script}" ]]; then
+                container_script+="${post_install_script}"$'\n'
+            fi
             container_script+="PYTHONPATH=\"\${BUILD_DIR}/install/python:\${PYTHONPATH:-}\" EDGE_FM_BUILD_DIR=\"\${BUILD_DIR}\" \"\${PYTHON_EXECUTABLE}\" - <<'PY'"$'\n'
             container_script+="import edge_fm"$'\n'
             container_script+="print(edge_fm.__file__)"$'\n'
             container_script+="PY"$'\n'
             if [[ -n "${verify_script}" ]]; then
                 container_script+="${verify_script}"$'\n'
+            else
+                container_script+="EDGE_FM_BUILD_DIR=\"\${BUILD_DIR}\" \"\${PYTHON_EXECUTABLE}\" -m pytest --collect-only tests/engine/test_qwen2_generate.py -q"
             fi
-            container_script+="EDGE_FM_BUILD_DIR=\"\${BUILD_DIR}\" \"\${PYTHON_EXECUTABLE}\" -m pytest --collect-only tests/engine/test_qwen2_generate.py -q"
             ;;
         *)
             echo "ERROR: unsupported action: ${action}" >&2
