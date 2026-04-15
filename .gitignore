@@ -2,11 +2,18 @@
 .tmp*
 build*
 build/*
+!scripts/docker/build_cuda.sh
+!scripts/docker/build_hrz.sh
+!scripts/docker/build_orin.sh
 **/__pycache__/
 *.pyc
 
 # ignore model files in examples directory
 examples/*/*/
+!examples/config/base/
+!examples/config/base/**
+!examples/config/platform/
+!examples/config/platform/**
 
 .cache/
 **.pytest_cache/
