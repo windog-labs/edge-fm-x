@@ -35,6 +35,8 @@ public:
         const std::unordered_map<std::string, Tensor>& decode_weights
     ) override;
 
+    void reset_operator_impl_cache() override;
+
     void forward(
         const std::unordered_map<std::string, Tensor>& inputs,
         std::unordered_map<std::string, Tensor>& outputs,
@@ -268,6 +270,8 @@ public:
         const std::unordered_map<std::string, Tensor>& decode_weights
     ) override;
 
+    void reset_operator_impl_cache() override;
+
 private:
     // Input and output dimensions
     uint32_t in_features_;  // Store in_features since base class member is private
@@ -319,6 +323,8 @@ public:
         const std::unordered_map<std::string, Tensor>& prefill_weights,
         const std::unordered_map<std::string, Tensor>& decode_weights
     ) override;
+
+    void reset_operator_impl_cache() override;
 
     bool try_forward_decode_swiglu_fused(
         const Tensor& input,

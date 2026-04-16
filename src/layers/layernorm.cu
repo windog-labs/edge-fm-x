@@ -88,6 +88,13 @@ RMSNormLayer::RMSNormLayer(
 
 RMSNormLayer::~RMSNormLayer() = default;
 
+void RMSNormLayer::reset_operator_impl_cache() {
+    selected_impl_ids_.fill(std::string());
+    selected_impls_.fill(nullptr);
+    selected_rms_norm_fns_.fill(nullptr);
+    selected_fused_add_rms_norm_fns_.fill(nullptr);
+}
+
 NormOp* RMSNormLayer::resolve_impl(const RMSNormOpContext& ctx, ModelStage stage) {
     const size_t slot = stage_slot(stage);
     if (NormOp* impl = selected_impls_[slot]; impl != nullptr) {

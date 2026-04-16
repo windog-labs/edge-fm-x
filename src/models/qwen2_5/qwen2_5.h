@@ -21,9 +21,19 @@ public:
     void advance_decode_runtime_tensors(Context& context, cudaStream_t stream) override;
     bool has_static_decode_runtime_tensors() const override { return true; }
     bool needs_separate_prefill_q_buffer() const override { return use_mrope_; }
+    void reset_operator_impl_caches() override;
     std::vector<int32_t> derive_mrope_last_pos(
         const int32_t* position_ids,
         int64_t total_len) const override;
+
+    int32_t intermediate_size() const { return intermediate_size_; }
+    int32_t num_attention_heads() const { return num_attention_heads_; }
+    int32_t num_kv_heads() const { return num_kv_heads_; }
+    int32_t head_dim() const { return head_dim_; }
+    AttentionLayer* attention_layer(int32_t layer_id) const;
+    LinearLayer* linear_layer(const std::string& key) const;
+    FusedGateUpLinearLayer* fused_gate_up_layer(int32_t layer_id) const;
+    LMHeadLinearLayer* lm_head_layer() const { return lm_head_.get(); }
 
     /**
      * @brief 完整 prefill 接口（大规模对齐测试用）

@@ -49,6 +49,9 @@ public:
         const std::string& table_path,
         const std::string& op_kind = std::string());
 
+    std::vector<OperatorImplRecord> all_records(const std::string& table_path);
+    void invalidate(const std::string& table_path);
+
 private:
     OperatorImplTable() = default;
 

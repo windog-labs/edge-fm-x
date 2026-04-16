@@ -54,6 +54,11 @@ ActivationLayer::ActivationLayer(const EngineConfig& engine_config, std::string 
 
 ActivationLayer::~ActivationLayer() = default;
 
+void ActivationLayer::reset_operator_impl_cache() {
+    selected_impl_ids_.fill(std::string());
+    selected_impls_.fill(nullptr);
+}
+
 ActivationOp* ActivationLayer::resolve_impl(const ActivationOpContext& ctx, ModelStage stage) {
     const size_t slot = stage_slot(stage);
     if (ActivationOp* impl = selected_impls_[slot]; impl != nullptr) {

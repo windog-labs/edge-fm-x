@@ -663,6 +663,11 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
         throw std::runtime_error("Speculative decoding (EagleEngine) not yet supported in EdgeFM facade");
     }
     const std::string backend_target = config.backend_target();
+    if (config.tuning_enabled() && backend_target != "cuda") {
+        throw ConfigurationError(
+            "Config-driven tuning.enabled currently supports CUDA only. "
+            "Horizon continues to use explicit engine.tune().");
+    }
     if (backend_target == "horizon") {
         impl_->engine = std::make_unique<HorizonEngine>(config);
         impl_->engine->warmup();
@@ -738,6 +743,9 @@ EdgeFM::EdgeFM(const std::string& config_path) : impl_(std::make_unique<Impl>())
         }
     }
     impl_->engine = std::make_unique<StandardEngine>(config);
+    if (config.tuning_enabled()) {
+        impl_->engine->tune();
+    }
     impl_->engine->warmup();
 }
 

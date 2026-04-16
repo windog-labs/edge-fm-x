@@ -48,7 +48,13 @@ public:
     nlohmann::json kvcache() const;
     nlohmann::json sampling() const;
     nlohmann::json metrics() const;
+    nlohmann::json tuning() const;
+    std::string configured_operator_impl_table_path() const;
     std::string operator_impl_table_path() const;
+    bool has_operator_impl_table_override() const;
+    void set_operator_impl_table_override(const std::string& path);
+    void clear_operator_impl_table_override();
+    bool tuning_enabled() const;
 
     // 安全访问器：当值为 null 或缺失时返回默认值，避免 type_error.306
     std::string runtime_device() const;
@@ -70,8 +76,13 @@ public:
     const nlohmann::json& raw() const noexcept { return config_; }
 
 private:
+    struct SharedState {
+        std::string operator_impl_table_override_path;
+    };
+
     std::filesystem::path config_dir_;
     nlohmann::json config_;
+    std::shared_ptr<SharedState> shared_state_;
 };
 
 /**

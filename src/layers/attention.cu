@@ -202,6 +202,12 @@ AttentionLayer::AttentionLayer(const EngineConfig& engine_config, std::string la
 
 AttentionLayer::~AttentionLayer() = default;
 
+void AttentionLayer::reset_operator_impl_cache() {
+    selected_impl_ids_.fill(std::string());
+    selected_impl_params_.fill(nlohmann::json::object());
+    selected_impls_.fill(nullptr);
+}
+
 AttentionOp* AttentionLayer::resolve_impl(ModelStage stage) const {
     const size_t slot = stage_slot(stage);
     if (AttentionOp* impl = selected_impls_[slot]; impl != nullptr) {

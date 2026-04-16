@@ -173,6 +173,45 @@ Qwen2_5::~Qwen2_5() {
     }
 }
 
+void Qwen2_5::reset_operator_impl_caches() {
+    if (activation_layer_ != nullptr) {
+        activation_layer_->reset_operator_impl_cache();
+    }
+    if (lm_head_ != nullptr) {
+        lm_head_->reset_operator_impl_cache();
+    }
+
+    for (auto& [key, layer] : attentions_) {
+        (void)key;
+        layer->reset_operator_impl_cache();
+    }
+    for (auto& [key, layer] : linear_) {
+        (void)key;
+        layer->reset_operator_impl_cache();
+    }
+    for (auto& [key, layer] : layernorms_) {
+        (void)key;
+        layer->reset_operator_impl_cache();
+    }
+}
+
+AttentionLayer* Qwen2_5::attention_layer(int32_t layer_id) const {
+    const std::string key = "layers." + std::to_string(layer_id) + ".attn";
+    auto it = attentions_.find(key);
+    return it != attentions_.end() ? it->second.get() : nullptr;
+}
+
+LinearLayer* Qwen2_5::linear_layer(const std::string& key) const {
+    auto it = linear_.find(key);
+    return it != linear_.end() ? it->second.get() : nullptr;
+}
+
+FusedGateUpLinearLayer* Qwen2_5::fused_gate_up_layer(int32_t layer_id) const {
+    const std::string key = "layers." + std::to_string(layer_id) + ".mlp.gate_up_fused";
+    auto it = linear_.find(key);
+    return it != linear_.end() ? dynamic_cast<FusedGateUpLinearLayer*>(it->second.get()) : nullptr;
+}
+
 void Qwen2_5::prefill(const Context& context) {
     // Use actual prefill seq_len from TOKEN_IDS (with prefix, engine passes only non-prefix tokens)
     const auto& token_ids = context.tensors().at(ModelTensors::TOKEN_IDS);

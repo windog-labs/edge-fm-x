@@ -446,6 +446,15 @@ void LinearLayer::load_weights(
     weights_loaded_ = true;
 }
 
+void LinearLayer::reset_operator_impl_cache() {
+    for (auto& [m, cached] : prefill_descriptors_map_) {
+        (void)m;
+        cleanup_cached_descriptors(cached);
+    }
+    prefill_descriptors_map_.clear();
+    cleanup_cached_descriptors(decode_descriptors_);
+}
+
 void LinearLayer::cleanup_cached_descriptors(CachedDescriptors& cached)
 {
     if (cached.matmul_desc_ != nullptr) {
@@ -1613,6 +1622,10 @@ void FusedQKVLinearLayer::load_weights(
     weights_loaded_ = true;
 }
 
+void FusedQKVLinearLayer::reset_operator_impl_cache() {
+    LinearLayer::reset_operator_impl_cache();
+}
+
 // ============================================================================
 // FusedGateUpLinearLayer implementation
 // ============================================================================
@@ -1815,6 +1828,11 @@ void FusedGateUpLinearLayer::load_weights(
     LinearLayer::load_weights(mutable_prefill, mutable_decode);
     
     weights_loaded_ = true;
+}
+
+void FusedGateUpLinearLayer::reset_operator_impl_cache() {
+    LinearLayer::reset_operator_impl_cache();
+    swiglu_fast_path_cache_.clear();
 }
 
 FusedGateUpActivationOp* FusedGateUpLinearLayer::resolve_swiglu_impl(

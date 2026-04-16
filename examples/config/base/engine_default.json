@@ -42,6 +42,10 @@
     "stop_token_ids": []
   },
 
+  "tuning": {
+    "enabled": false
+  },
+
   "metrics": {
     "enabled": false,
     "log_path": null
