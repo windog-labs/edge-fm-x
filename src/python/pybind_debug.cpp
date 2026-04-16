@@ -906,7 +906,47 @@ PYBIND11_MODULE(edge_fm, m) {
             "返回当前 layer 最近一次命中的缓存 impl / algo 调试信息（JSON 字符串）。\n\n"
             "参数:\n"
             "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n"
-            "    m: Prefill 阶段对应 batch/seq 维度；Decode 阶段通常固定为 1\n");
+            "    m: Prefill 阶段对应 batch/seq 维度；Decode 阶段通常固定为 1\n")
+        .def("debug_enumerate_cublaslt_candidates", [](LinearLayer& self,
+                                                       const Tensor& input,
+                                                       Tensor& output,
+                                                       const std::string& stage_str = "Prefill",
+                                                       int32_t max_algo_ids = 64,
+                                                       int32_t top_k = 128) {
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                return self.debug_enumerate_cublaslt_candidates(
+                    input, output, stage, max_algo_ids, top_k).dump();
+            },
+            py::arg("input"),
+            py::arg("output"),
+            py::arg("stage") = "Prefill",
+            py::arg("max_algo_ids") = 64,
+            py::arg("top_k") = 128,
+            "枚举当前 linear shape 可用的 cublasLt low-level algo config（JSON 字符串）。\n\n"
+            "参数:\n"
+            "    input: 输入张量\n"
+            "    output: 输出张量\n"
+            "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n"
+            "    max_algo_ids: 最多枚举多少个 algo_id\n"
+            "    top_k: 最多返回多少个基于 algo_id 受限 heuristic 的候选\n")
+        .def("debug_describe_cublaslt_algo", [](LinearLayer& self,
+                                                const Tensor& input,
+                                                Tensor& output,
+                                                int32_t algo_id,
+                                                const std::string& stage_str = "Prefill") {
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                return self.debug_describe_cublaslt_algo(input, output, algo_id, stage).dump();
+            },
+            py::arg("input"),
+            py::arg("output"),
+            py::arg("algo_id"),
+            py::arg("stage") = "Prefill",
+            "返回给定 algo_id 的 cublasLt config 与 capability 信息（JSON 字符串）。\n\n"
+            "参数:\n"
+            "    input: 输入张量\n"
+            "    output: 输出张量\n"
+            "    algo_id: 目标 cublasLt algo id\n"
+            "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n");
 
     // ============================================================================
     // FusedQKVLinearLayer 类绑定

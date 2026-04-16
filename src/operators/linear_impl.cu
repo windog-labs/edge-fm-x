@@ -5,9 +5,21 @@
 #include "utils/device/cuda_utils.h"
 #include "utils/device/memory.h"
 
+#include "cutlass/arch/arch.h"
+#include "cutlass/bfloat16.h"
+#include "cutlass/cutlass.h"
+#include "cutlass/epilogue/thread/linear_combination_bias_elementwise.h"
+#include "cutlass/epilogue/thread/linear_combination.h"
+#include "cutlass/gemm/device/gemm.h"
+#include "cutlass/gemm/device/gemm_universal_with_broadcast.h"
+#include "cutlass/half.h"
+#include "cutlass/layout/matrix.h"
+
 #include <cublasLt.h>
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
+
+#include <array>
 
 namespace edge_fm {
 
@@ -142,6 +154,161 @@ void add_bias_inplace(
     CUDA_CHECK_THROW(cudaGetLastError(), "LinearLayer: add bias kernel launch failed");
 }
 
+int sm_version_for_device(int device_id) {
+    int major = 0;
+    int minor = 0;
+    CUDA_CHECK_THROW(
+        cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device_id),
+        "LinearLayer: failed to query compute capability major");
+    CUDA_CHECK_THROW(
+        cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device_id),
+        "LinearLayer: failed to query compute capability minor");
+    return major * 10 + minor;
+}
+
+template <typename T>
+struct CutlassScalarType;
+
+template <>
+struct CutlassScalarType<half> {
+    using type = cutlass::half_t;
+};
+
+template <>
+struct CutlassScalarType<__nv_bfloat16> {
+    using type = cutlass::bfloat16_t;
+};
+
+template <typename CutlassT>
+struct CutlassLinearKernelTraits;
+
+template <>
+struct CutlassLinearKernelTraits<cutlass::half_t> {
+    using InstructionShape = cutlass::gemm::GemmShape<16, 8, 16>;
+    static constexpr int kAlignment = 8;
+};
+
+template <>
+struct CutlassLinearKernelTraits<cutlass::bfloat16_t> {
+    using InstructionShape = cutlass::gemm::GemmShape<16, 8, 8>;
+    static constexpr int kAlignment = 8;
+};
+
+enum class LinearCutlassKernelConfigId : uint8_t {
+    Tile128x128x32Stage3 = 0,
+    Tile128x256x32Stage3,
+    Tile256x128x32Stage3,
+};
+
+struct LinearCutlassKernelCandidate {
+    LinearCutlassKernelConfigId id;
+    const char* name;
+};
+
+constexpr std::array<LinearCutlassKernelCandidate, 3> kLinearCutlassKernelCandidates = {{
+    {LinearCutlassKernelConfigId::Tile128x128x32Stage3, "128x128x32_s3"},
+    {LinearCutlassKernelConfigId::Tile128x256x32Stage3, "128x256x32_s3"},
+    {LinearCutlassKernelConfigId::Tile256x128x32Stage3, "256x128x32_s3"},
+}};
+
+const char* linear_cutlass_kernel_config_name(LinearCutlassKernelConfigId config_id) {
+    for (const auto& candidate : kLinearCutlassKernelCandidates) {
+        if (candidate.id == config_id) {
+            return candidate.name;
+        }
+    }
+    return "unknown";
+}
+
+bool try_get_linear_cutlass_kernel_override(
+    const nlohmann::json& impl_params,
+    LinearCutlassKernelConfigId* config_id)
+{
+    if (config_id == nullptr || !impl_params.is_object()) {
+        return false;
+    }
+
+    const auto it = impl_params.find("kernel_config");
+    if (it == impl_params.end() || it->is_null()) {
+        return false;
+    }
+
+    if (it->is_string()) {
+        const std::string name = it->get<std::string>();
+        for (const auto& candidate : kLinearCutlassKernelCandidates) {
+            if (name == candidate.name) {
+                *config_id = candidate.id;
+                return true;
+            }
+        }
+        throw ConfigurationError("LinearLayer: unknown CUTLASS kernel_config='" + name + "'");
+    }
+
+    if (it->is_number_integer()) {
+        const int raw_id = it->get<int>();
+        for (const auto& candidate : kLinearCutlassKernelCandidates) {
+            if (raw_id == static_cast<int>(candidate.id)) {
+                *config_id = candidate.id;
+                return true;
+            }
+        }
+        throw ConfigurationError(
+            "LinearLayer: unknown CUTLASS kernel_config id=" + std::to_string(raw_id));
+    }
+
+    throw ConfigurationError("LinearLayer: CUTLASS kernel_config must be string or integer");
+}
+
+template <typename CutlassT, int ThreadblockM, int ThreadblockN, int ThreadblockK, int WarpM, int WarpN, int WarpK, int Stages>
+using LinearCutlassGemm = cutlass::gemm::device::Gemm<
+    CutlassT,
+    cutlass::layout::RowMajor,
+    CutlassT,
+    cutlass::layout::ColumnMajor,
+    CutlassT,
+    cutlass::layout::RowMajor,
+    float,
+    cutlass::arch::OpClassTensorOp,
+    cutlass::arch::Sm80,
+    cutlass::gemm::GemmShape<ThreadblockM, ThreadblockN, ThreadblockK>,
+    cutlass::gemm::GemmShape<WarpM, WarpN, WarpK>,
+    typename CutlassLinearKernelTraits<CutlassT>::InstructionShape,
+    cutlass::epilogue::thread::LinearCombination<
+        CutlassT,
+        128 / cutlass::sizeof_bits<CutlassT>::value,
+        float,
+        float>,
+    cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
+    Stages,
+    CutlassLinearKernelTraits<CutlassT>::kAlignment,
+    CutlassLinearKernelTraits<CutlassT>::kAlignment>;
+
+template <typename CutlassT, int ThreadblockM, int ThreadblockN, int ThreadblockK, int WarpM, int WarpN, int WarpK, int Stages>
+using LinearCutlassGemmWithBias = cutlass::gemm::device::GemmUniversalWithBroadcast<
+    CutlassT,
+    cutlass::layout::RowMajor,
+    CutlassT,
+    cutlass::layout::ColumnMajor,
+    CutlassT,
+    cutlass::layout::RowMajor,
+    float,
+    cutlass::arch::OpClassTensorOp,
+    cutlass::arch::Sm80,
+    cutlass::gemm::GemmShape<ThreadblockM, ThreadblockN, ThreadblockK>,
+    cutlass::gemm::GemmShape<WarpM, WarpN, WarpK>,
+    typename CutlassLinearKernelTraits<CutlassT>::InstructionShape,
+    cutlass::epilogue::thread::LinearCombinationBiasElementwise<
+        CutlassT,
+        float,
+        float,
+        CutlassT,
+        CutlassT,
+        128 / cutlass::sizeof_bits<CutlassT>::value>,
+    cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>,
+    Stages,
+    CutlassLinearKernelTraits<CutlassT>::kAlignment,
+    CutlassLinearKernelTraits<CutlassT>::kAlignment>;
+
 } // namespace
 
 class LinearCublasLtImpl final : public LinearLayer::LinearImpl {
@@ -210,7 +377,14 @@ public:
             Cdesc,
             Ddesc);
 
-        if (cached.has_algo_ && cached.best_algo_index_ < 0) {
+        std::string explicit_algo_error;
+        if (owner.try_select_explicit_cublaslt_algo(ctx, cached, &explicit_algo_error)) {
+            cached.heuristic_candidates_.clear();
+        } else if (owner.has_explicit_cublaslt_algo_config(cached.selected_impl_params_)) {
+            throw ConfigurationError(
+                "LinearLayer: failed to select explicit cublasLt algo for layer '" + owner.layer_prefix_ +
+                "' stage='" + stage_key(ctx.stage) + "': " + explicit_algo_error);
+        } else if (cached.has_algo_ && cached.best_algo_index_ < 0) {
             const int32_t algo_index = cached.selected_impl_params_.value("algo_index", -1);
             if (algo_index >= 0 &&
                 algo_index < static_cast<int32_t>(cached.heuristic_candidates_.size()))
@@ -307,7 +481,39 @@ public:
 class LinearCutlassImpl final : public LinearLayer::LinearImpl {
 public:
     std::string impl_id() const override { return "cutlass"; }
-    bool supports(const LinearLayer::LinearOpContext&, const LinearLayer::WeightSet&) const override { return false; }
+
+    bool supports(
+        const LinearLayer::LinearOpContext& ctx,
+        const LinearLayer::WeightSet& weight_set) const override
+    {
+        if (ctx.stage != ModelStage::Prefill) {
+            return false;
+        }
+        if (weight_set.quant_type_ != LinearLayer::QuantType::FP16_BF16) {
+            return false;
+        }
+        if (ctx.layer_role != "fused_qkv" &&
+            ctx.layer_role != "attention_output" &&
+            ctx.layer_role != "fused_gate_up" &&
+            ctx.layer_role != "mlp_down")
+        {
+            return false;
+        }
+        if ((ctx.shape.input_dtype != DType::Float16 && ctx.shape.input_dtype != DType::BFloat16) ||
+            ctx.shape.weight_dtype != ctx.shape.input_dtype ||
+            ctx.shape.output_dtype != ctx.shape.input_dtype)
+        {
+            return false;
+        }
+        if (ctx.shape.m < 64 ||
+            ctx.shape.in_features <= 0 ||
+            ctx.shape.out_features <= 0)
+        {
+            return false;
+        }
+        return (ctx.shape.in_features % 8 == 0) && (ctx.shape.out_features % 8 == 0);
+    }
+
     void prepare(
         LinearLayer&,
         const LinearLayer::LinearOpContext&,
@@ -315,17 +521,186 @@ public:
         const Tensor&,
         Tensor&,
         cudaStream_t,
-        LinearLayer::CachedDescriptors&) override {}
-    void forward(
-        LinearLayer&,
-        const LinearLayer::LinearOpContext&,
-        const LinearLayer::WeightSet&,
-        const Tensor&,
-        Tensor&,
-        cudaStream_t,
-        LinearLayer::CachedDescriptors&) override
+        LinearLayer::CachedDescriptors& cached) override
     {
-        throw InternalError("CUTLASS linear impl is not implemented in this build");
+        cached.selected_impl_id_ = impl_id();
+    }
+
+    void forward(
+        LinearLayer& owner,
+        const LinearLayer::LinearOpContext& ctx,
+        const LinearLayer::WeightSet& weight_set,
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream,
+        LinearLayer::CachedDescriptors& cached) override
+    {
+        const int sm_version = sm_version_for_device(owner.device_id_);
+        check<ConfigurationError>(
+            sm_version >= 80,
+            "LinearLayer: CUTLASS linear impl requires sm80+, got sm" + std::to_string(sm_version));
+
+        const LinearCutlassKernelConfigId config_id =
+            select_kernel_config(ctx, cached.selected_impl_params_);
+
+        if (ctx.shape.input_dtype == DType::Float16) {
+            dispatch_kernel<half>(ctx, weight_set, input, output, stream, config_id);
+        } else if (ctx.shape.input_dtype == DType::BFloat16) {
+            dispatch_kernel<__nv_bfloat16>(ctx, weight_set, input, output, stream, config_id);
+        } else {
+            throw ConfigurationError("LinearLayer: CUTLASS linear impl only supports FP16/BF16 tensors");
+        }
+    }
+
+private:
+    static LinearCutlassKernelConfigId select_kernel_config(
+        const LinearLayer::LinearOpContext& ctx,
+        const nlohmann::json& impl_params)
+    {
+        LinearCutlassKernelConfigId config_id = LinearCutlassKernelConfigId::Tile128x128x32Stage3;
+        if (try_get_linear_cutlass_kernel_override(impl_params, &config_id)) {
+            return config_id;
+        }
+
+        if (ctx.layer_role == "fused_gate_up") {
+            return LinearCutlassKernelConfigId::Tile128x256x32Stage3;
+        }
+        if (ctx.layer_role == "mlp_down") {
+            return LinearCutlassKernelConfigId::Tile256x128x32Stage3;
+        }
+        return LinearCutlassKernelConfigId::Tile128x128x32Stage3;
+    }
+
+    template <typename ScalarT, typename Gemm, typename GemmWithBias>
+    static void run_kernel(
+        const LinearLayer::LinearOpContext& ctx,
+        const LinearLayer::WeightSet& weight_set,
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream)
+    {
+        using CutlassT = typename CutlassScalarType<ScalarT>::type;
+
+        cutlass::Status status = cutlass::Status::kErrorInternal;
+        if (weight_set.bias_ != nullptr) {
+            GemmWithBias gemm_op;
+            typename GemmWithBias::Arguments args(
+                cutlass::gemm::GemmUniversalMode::kGemm,
+                {ctx.shape.m, static_cast<int>(ctx.shape.out_features), static_cast<int>(ctx.shape.in_features)},
+                1,
+                typename GemmWithBias::EpilogueOutputOp::Params{1.0f, 0.0f},
+                reinterpret_cast<const CutlassT*>(input.data_ptr()),
+                reinterpret_cast<const CutlassT*>(weight_set.weight_->data_ptr()),
+                reinterpret_cast<const CutlassT*>(output.data_ptr()),
+                reinterpret_cast<CutlassT*>(output.data_ptr()),
+                const_cast<CutlassT*>(reinterpret_cast<const CutlassT*>(weight_set.bias_->data_ptr())),
+                nullptr,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                static_cast<int>(ctx.shape.in_features),
+                static_cast<int>(ctx.shape.in_features),
+                static_cast<int>(ctx.shape.out_features),
+                static_cast<int>(ctx.shape.out_features),
+                static_cast<int>(ctx.shape.out_features),
+                0);
+
+            status = GemmWithBias::can_implement(args);
+            check<DeviceError>(
+                status == cutlass::Status::kSuccess,
+                "LinearLayer: CUTLASS broadcast GEMM can_implement failed with status '" +
+                    std::string(cutlassGetStatusString(status)) + "'");
+
+            status = gemm_op(args, nullptr, stream);
+            check<DeviceError>(
+                status == cutlass::Status::kSuccess,
+                "LinearLayer: CUTLASS broadcast GEMM failed with status '" +
+                    std::string(cutlassGetStatusString(status)) + "'");
+            return;
+        }
+
+        Gemm gemm_op;
+        typename Gemm::Arguments args(
+            {ctx.shape.m, static_cast<int>(ctx.shape.out_features), static_cast<int>(ctx.shape.in_features)},
+            {reinterpret_cast<const CutlassT*>(input.data_ptr()), static_cast<int>(ctx.shape.in_features)},
+            {reinterpret_cast<const CutlassT*>(weight_set.weight_->data_ptr()), static_cast<int>(ctx.shape.in_features)},
+            {reinterpret_cast<CutlassT*>(output.data_ptr()), static_cast<int>(ctx.shape.out_features)},
+            {reinterpret_cast<CutlassT*>(output.data_ptr()), static_cast<int>(ctx.shape.out_features)},
+            {1.0f, 0.0f});
+
+        status = Gemm::can_implement(args);
+        check<DeviceError>(
+            status == cutlass::Status::kSuccess,
+            "LinearLayer: CUTLASS can_implement failed with status '" +
+                std::string(cutlassGetStatusString(status)) + "'");
+
+        status = gemm_op(args, nullptr, stream);
+        check<DeviceError>(
+            status == cutlass::Status::kSuccess,
+            "LinearLayer: CUTLASS GEMM failed with status '" +
+                std::string(cutlassGetStatusString(status)) + "'");
+    }
+
+    template <typename ScalarT>
+    static void dispatch_kernel(
+        const LinearLayer::LinearOpContext& ctx,
+        const LinearLayer::WeightSet& weight_set,
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream,
+        LinearCutlassKernelConfigId config_id)
+    {
+        switch (config_id) {
+            case LinearCutlassKernelConfigId::Tile128x128x32Stage3: {
+                using Gemm = LinearCutlassGemm<
+                    typename CutlassScalarType<ScalarT>::type,
+                    128, 128, 32,
+                    64, 64, 32,
+                    3>;
+                using GemmWithBias = LinearCutlassGemmWithBias<
+                    typename CutlassScalarType<ScalarT>::type,
+                    128, 128, 32,
+                    64, 64, 32,
+                    3>;
+                run_kernel<ScalarT, Gemm, GemmWithBias>(ctx, weight_set, input, output, stream);
+                return;
+            }
+            case LinearCutlassKernelConfigId::Tile128x256x32Stage3: {
+                using Gemm = LinearCutlassGemm<
+                    typename CutlassScalarType<ScalarT>::type,
+                    128, 256, 32,
+                    64, 64, 32,
+                    3>;
+                using GemmWithBias = LinearCutlassGemmWithBias<
+                    typename CutlassScalarType<ScalarT>::type,
+                    128, 256, 32,
+                    64, 64, 32,
+                    3>;
+                run_kernel<ScalarT, Gemm, GemmWithBias>(ctx, weight_set, input, output, stream);
+                return;
+            }
+            case LinearCutlassKernelConfigId::Tile256x128x32Stage3: {
+                using Gemm = LinearCutlassGemm<
+                    typename CutlassScalarType<ScalarT>::type,
+                    256, 128, 32,
+                    64, 64, 32,
+                    3>;
+                using GemmWithBias = LinearCutlassGemmWithBias<
+                    typename CutlassScalarType<ScalarT>::type,
+                    256, 128, 32,
+                    64, 64, 32,
+                    3>;
+                run_kernel<ScalarT, Gemm, GemmWithBias>(ctx, weight_set, input, output, stream);
+                return;
+            }
+        }
+
+        throw ConfigurationError(
+            "LinearLayer: unsupported CUTLASS kernel config id=" +
+            std::to_string(static_cast<int>(config_id)));
     }
 };
 

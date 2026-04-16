@@ -11,17 +11,20 @@ import torch
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 REPO_ROOT = SCRIPTS_ROOT.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
-for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "install" / "python"]:
-    if build_python.exists() and str(build_python) not in sys.path:
-        sys.path.insert(0, str(build_python))
+from edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(REPO_ROOT)
 
 import edge_fm
 from operator_table.utils import (
     resolve_engine_model_name,
     resolve_operator_model_name,
     resolve_operator_table_path,
+    resolve_target_hw_profile,
 )
 from temp_paths import make_temp_dir
 
@@ -48,7 +51,13 @@ def write_operator_impl_table(records: list[dict]) -> Path:
     )
 
 
-def make_engine_config(model_path: Path, device_id: int, operator_impl_table_path: Path) -> Path:
+def make_engine_config(
+    model_path: Path,
+    device_id: int,
+    operator_impl_table_path: Path,
+    *,
+    hw_profile: str,
+) -> Path:
     return write_json_file(
         "efm_qwen_attn_prefill_cfg_",
         "engine_config.json",
@@ -57,7 +66,7 @@ def make_engine_config(model_path: Path, device_id: int, operator_impl_table_pat
             "runtime": {
                 "device": "cuda",
                 "device_id": device_id,
-                "hw_profile": "cuda_sm80",
+                "hw_profile": hw_profile,
             },
             "prefill_model_path": str(model_path),
             "operator_impl_table_path": str(operator_impl_table_path),
@@ -153,6 +162,7 @@ def build_tuned_records(
     base_records: list[dict],
     *,
     operator_model_name: str,
+    hw_profile: str,
     dims: dict,
     impl_params: dict,
 ) -> list[dict]:
@@ -161,7 +171,7 @@ def build_tuned_records(
     for record in base_records:
         if (
             record.get("model_name") == operator_model_name
-            and record.get("hw_profile") == "cuda_sm80"
+            and record.get("hw_profile") == hw_profile
             and record.get("op_kind") == "attention"
             and record.get("stage") == "prefill"
             and record.get("shape_sig") == shape_sig
@@ -173,7 +183,7 @@ def build_tuned_records(
         kept.append(
             {
                 "model_name": operator_model_name,
-                "hw_profile": "cuda_sm80",
+                "hw_profile": hw_profile,
                 "op_kind": "attention",
                 "layer_role": "",
                 "op_name": "",
@@ -198,16 +208,18 @@ def benchmark_candidate(
     device_id: int,
     warmup: int,
     iters: int,
+    hw_profile: str,
 ) -> dict:
     table_path = write_operator_impl_table(
         build_tuned_records(
             base_records,
             operator_model_name=operator_model_name,
+            hw_profile=hw_profile,
             dims=dims,
             impl_params=impl_params,
         )
     )
-    engine_config_path = make_engine_config(model_path, device_id, table_path)
+    engine_config_path = make_engine_config(model_path, device_id, table_path, hw_profile=hw_profile)
     layer = edge_fm.AttentionLayer(str(engine_config_path))
 
     results = []
@@ -303,7 +315,7 @@ def parse_args() -> argparse.Namespace:
         description="Tune Qwen prefill attention impl_params for a single attention shape"
     )
     parser.add_argument("--model-path", required=True)
-    parser.add_argument("--device-id", type=int, default=1)
+    parser.add_argument("--device-id", type=int, default=0)
     parser.add_argument("--warmup", type=int, default=40)
     parser.add_argument("--iters", type=int, default=200)
     parser.add_argument("--seq-lens", type=parse_u32_list, default=[512, 1024, 2048])
@@ -345,6 +357,7 @@ def parse_args() -> argparse.Namespace:
         default=[64, 128],
         help="Comma separated candidate prefill_long_cta_tile_q values",
     )
+    parser.add_argument("--hw-profile", default="", help="Target runtime hw_profile, defaults to current platform")
     return parser.parse_args()
 
 
@@ -352,6 +365,7 @@ def main() -> None:
     args = parse_args()
     torch.cuda.set_device(args.device_id)
     model_path = Path(args.model_path).resolve()
+    hw_profile = resolve_target_hw_profile(args.hw_profile)
     operator_table_path = resolve_operator_table_path(
         Path(args.operator_table).resolve() if args.operator_table else None,
         model_path=model_path,
@@ -390,6 +404,7 @@ def main() -> None:
                 device_id=args.device_id,
                 warmup=args.warmup,
                 iters=args.iters,
+                hw_profile=hw_profile,
             )
         )
 
@@ -397,6 +412,7 @@ def main() -> None:
     report = {
         "model_path": str(model_path),
         "shape_sig": attention_shape_sig(dims),
+        "hw_profile": hw_profile,
         "seq_lens": args.seq_lens,
         "candidates": candidates,
         "best": best,

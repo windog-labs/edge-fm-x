@@ -15,17 +15,20 @@ import torch
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 REPO_ROOT = SCRIPTS_ROOT.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 for script_path in [SCRIPT_DIR, SCRIPTS_ROOT]:
     if str(script_path) not in sys.path:
         sys.path.insert(0, str(script_path))
-for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "install" / "python"]:
-    if build_python.exists() and str(build_python) not in sys.path:
-        sys.path.insert(0, str(build_python))
+from edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(REPO_ROOT)
 
 from operator_table.utils import (
     BASE_CONFIG_DIR,
     build_operator_impl_table_payload,
     resolve_operator_model_name,
+    resolve_target_hw_profile,
 )
 from temp_paths import make_temp_dir
 import tune_qwen_attention_decode as tune_attention_decode
@@ -103,13 +106,14 @@ def find_existing_attention_impl_params(
     records: list[dict],
     *,
     model_name: str,
+    hw_profile: str,
     stage: str,
     shape_sig: str,
 ) -> dict | None:
     for record in records:
         if (
             record.get("model_name") == model_name
-            and record.get("hw_profile") == "cuda_sm80"
+            and record.get("hw_profile") == hw_profile
             and record.get("op_kind") == "attention"
             and record.get("stage") == stage
             and record.get("shape_sig") == shape_sig
@@ -118,12 +122,17 @@ def find_existing_attention_impl_params(
     return None
 
 
-def remove_generic_decode_attention_fallback(records: list[dict], *, model_name: str) -> list[dict]:
+def remove_generic_decode_attention_fallback(
+    records: list[dict],
+    *,
+    model_name: str,
+    hw_profile: str,
+) -> list[dict]:
     cleaned = []
     for record in records:
         if (
             record.get("model_name") == model_name
-            and record.get("hw_profile") == "cuda_sm80"
+            and record.get("hw_profile") == hw_profile
             and record.get("op_kind") == "attention"
             and record.get("stage") == "decode"
             and record.get("shape_sig", "") == ""
@@ -185,6 +194,7 @@ def tune_attention_prefill_for_model(
     *,
     model_path: Path,
     device_id: int,
+    hw_profile: str,
     base_table: dict,
     source_table_path: Path,
     records: list[dict],
@@ -196,7 +206,7 @@ def tune_attention_prefill_for_model(
     operator_model_name = resolve_operator_model_name(model_path=model_path)
     shape_sig = tune_attention_prefill.attention_shape_sig(dims)
     existing = find_existing_attention_impl_params(
-        records, model_name=operator_model_name, stage="prefill", shape_sig=shape_sig
+        records, model_name=operator_model_name, hw_profile=hw_profile, stage="prefill", shape_sig=shape_sig
     )
 
     candidates = []
@@ -211,6 +221,7 @@ def tune_attention_prefill_for_model(
             device_id=device_id,
             warmup=warmup,
             iters=iters,
+            hw_profile=hw_profile,
         )
         candidates.append(report)
 
@@ -218,6 +229,7 @@ def tune_attention_prefill_for_model(
     new_records = tune_attention_prefill.build_tuned_records(
         records,
         operator_model_name=operator_model_name,
+        hw_profile=hw_profile,
         dims=dims,
         impl_params=best["impl_params"],
     )
@@ -236,6 +248,7 @@ def tune_attention_decode_for_model(
     *,
     model_path: Path,
     device_id: int,
+    hw_profile: str,
     base_table: dict,
     source_table_path: Path,
     records: list[dict],
@@ -247,7 +260,7 @@ def tune_attention_decode_for_model(
     operator_model_name = resolve_operator_model_name(model_path=model_path)
     shape_sig = tune_attention_decode.attention_shape_sig(dims)
     existing = find_existing_attention_impl_params(
-        records, model_name=operator_model_name, stage="decode", shape_sig=shape_sig
+        records, model_name=operator_model_name, hw_profile=hw_profile, stage="decode", shape_sig=shape_sig
     )
 
     candidates = []
@@ -262,6 +275,7 @@ def tune_attention_decode_for_model(
             device_id=device_id,
             warmup=warmup,
             iters=iters,
+            hw_profile=hw_profile,
         )
         candidates.append(report)
 
@@ -269,10 +283,15 @@ def tune_attention_decode_for_model(
     new_records = tune_attention_decode.build_tuned_records(
         records,
         operator_model_name=operator_model_name,
+        hw_profile=hw_profile,
         dims=dims,
         impl_params=best["impl_params"],
     )
-    new_records = remove_generic_decode_attention_fallback(new_records, model_name=operator_model_name)
+    new_records = remove_generic_decode_attention_fallback(
+        new_records,
+        model_name=operator_model_name,
+        hw_profile=hw_profile,
+    )
     return new_records, {
         "op_kind": "attention",
         "stage": "decode",
@@ -288,6 +307,7 @@ def current_linear_record(
     records: list[dict],
     *,
     operator_model_name: str,
+    hw_profile: str,
     kind: str,
     stage: str,
     shape_sig: str,
@@ -295,7 +315,7 @@ def current_linear_record(
     for record in records:
         if (
             record.get("model_name") == operator_model_name
-            and record.get("hw_profile") == "cuda_sm80"
+            and record.get("hw_profile") == hw_profile
             and record.get("op_kind") == "linear"
             and record.get("layer_role") == tune_cublaslt.LAYER_ROLE_BY_KIND[kind]
             and record.get("stage") == stage
@@ -309,6 +329,7 @@ def tune_linear_shape(
     *,
     model_path: Path,
     device_id: int,
+    hw_profile: str,
     base_table: dict,
     source_table_path: Path,
     records: list[dict],
@@ -324,6 +345,7 @@ def tune_linear_shape(
     existing = current_linear_record(
         records,
         operator_model_name=operator_model_name,
+        hw_profile=hw_profile,
         kind=kind,
         stage=stage,
         shape_sig=shape_sig,
@@ -334,10 +356,11 @@ def tune_linear_shape(
         dims=dims,
         base_records=records,
         operator_model_name=operator_model_name,
+        hw_profile=hw_profile,
         kind=kind,
         stage=stage,
         m=m,
-        algo_index=None,
+        impl_params=None,
         device_id=device_id,
         warmup=warmup,
         iters=iters,
@@ -352,10 +375,11 @@ def tune_linear_shape(
                 dims=dims,
                 base_records=records,
                 operator_model_name=operator_model_name,
+                hw_profile=hw_profile,
                 kind=kind,
                 stage=stage,
                 m=m,
-                algo_index=algo_index,
+                impl_params={"algo_index": algo_index},
                 device_id=device_id,
                 warmup=warmup,
                 iters=iters,
@@ -366,11 +390,12 @@ def tune_linear_shape(
     new_records = tune_cublaslt.build_tuned_records(
         records,
         operator_model_name=operator_model_name,
+        hw_profile=hw_profile,
         kind=kind,
         stage=stage,
         m=m,
         dims=dims,
-        algo_index=best["algo_index"],
+        impl_params=best["impl_params"],
     )
     return new_records, {
         "op_kind": "linear",
@@ -398,6 +423,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--linear-warmup", type=int, default=10)
     parser.add_argument("--linear-iters", type=int, default=60)
     parser.add_argument("--output-dir", default="")
+    parser.add_argument("--hw-profile", default="", help="Target runtime hw_profile, defaults to current platform")
     parser.add_argument("--skip-attention-prefill", action="store_true")
     parser.add_argument("--skip-attention-decode", action="store_true")
     parser.add_argument("--skip-linear", action="store_true")
@@ -411,6 +437,7 @@ def run_family(
     family: str,
     model_keys: list[str],
     device_id: int,
+    hw_profile: str,
     prefill_list: list[int],
     kv_lens: list[int],
     attention_warmup: int,
@@ -448,6 +475,7 @@ def run_family(
             records, step_report = tune_attention_prefill_for_model(
                 model_path=model_path,
                 device_id=device_id,
+                hw_profile=hw_profile,
                 base_table=base_table,
                 source_table_path=source_table_path,
                 records=records,
@@ -466,6 +494,7 @@ def run_family(
             records, step_report = tune_attention_decode_for_model(
                 model_path=model_path,
                 device_id=device_id,
+                hw_profile=hw_profile,
                 base_table=base_table,
                 source_table_path=source_table_path,
                 records=records,
@@ -492,6 +521,7 @@ def run_family(
                 records, step_report = tune_linear_shape(
                     model_path=model_path,
                     device_id=device_id,
+                    hw_profile=hw_profile,
                     base_table=base_table,
                     source_table_path=source_table_path,
                     records=records,
@@ -518,6 +548,7 @@ def run_family(
         "retune_session": {
             "generator": "scripts/tune/retune_qwen_operator_tables.py",
             "device_id": device_id,
+            "hw_profile": hw_profile,
             "families": [family],
             "prefill_list": prefill_list,
             "kv_lens": kv_lens,
@@ -539,6 +570,7 @@ def run_family(
 def main() -> None:
     args = parse_args()
     torch.cuda.set_device(args.device_id)
+    hw_profile = resolve_target_hw_profile(args.hw_profile)
 
     families = parse_csv(args.families)
     prefill_list = [int(item) for item in parse_csv(args.prefill_list)]
@@ -554,6 +586,7 @@ def main() -> None:
     report = {
         "started_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "device_id": args.device_id,
+        "hw_profile": hw_profile,
         "families": {},
     }
     for family in families:
@@ -567,6 +600,7 @@ def main() -> None:
             family=family,
             model_keys=selected_models,
             device_id=args.device_id,
+            hw_profile=hw_profile,
             prefill_list=prefill_list,
             kv_lens=kv_lens,
             attention_warmup=args.attention_warmup,

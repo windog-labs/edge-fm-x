@@ -22,6 +22,7 @@ PLATFORM_HW_PROFILE_MAP = {
     "j6m": "horizon",
 }
 PLATFORMS_WITH_MATERIALIZED_OPERATOR_TABLES = ("3060", "a800", "orin")
+VALID_HW_PROFILES = frozenset(PLATFORM_HW_PROFILE_MAP.values()) | {"cuda", "cpu"}
 
 
 def normalize_platform_name(platform_name: str | None) -> str:
@@ -37,6 +38,29 @@ def resolve_platform_name(platform_name: str | None = None) -> str:
 
 def platform_hw_profile(platform_name: str | None = None) -> str:
     return PLATFORM_HW_PROFILE_MAP[resolve_platform_name(platform_name)]
+
+
+def normalize_hw_profile(hw_profile: str | None) -> str:
+    normalized = (hw_profile or "").strip().lower()
+    if normalized in VALID_HW_PROFILES:
+        return normalized
+    return ""
+
+
+def resolve_target_hw_profile(
+    hw_profile: str | None = None,
+    *,
+    platform_name: str | None = None,
+) -> str:
+    explicit = normalize_hw_profile(hw_profile)
+    if explicit:
+        return explicit
+
+    env_value = normalize_hw_profile(os.environ.get("EDGE_FM_HW_PROFILE"))
+    if env_value:
+        return env_value
+
+    return platform_hw_profile(platform_name)
 
 
 def platform_uses_materialized_operator_tables(platform_name: str | None = None) -> bool:

@@ -15,7 +15,10 @@
 #include "operators/kernels/int4_groupwise_gemm/int4GroupwiseGemm.h"
 
 #include <cstdlib>
+#include <algorithm>
+#include <array>
 #include <limits>
+#include <set>
 
 using namespace trt_edgellm::kernel;
 
@@ -95,6 +98,144 @@ size_t cublaslt_max_workspace_bytes() {
         return static_cast<size_t>(parsed) * static_cast<size_t>(1024ULL) * static_cast<size_t>(1024ULL);
     }();
     return value;
+}
+
+template <typename T>
+bool get_cublaslt_algo_config_attr(
+    const cublasLtMatmulAlgo_t& algo,
+    cublasLtMatmulAlgoConfigAttributes_t attr,
+    T* value)
+{
+    size_t written = 0;
+    const cublasStatus_t status = cublasLtMatmulAlgoConfigGetAttribute(
+        &algo, attr, value, sizeof(T), &written);
+    return status == CUBLAS_STATUS_SUCCESS && written == sizeof(T);
+}
+
+template <typename T>
+bool set_cublaslt_algo_config_attr(
+    cublasLtMatmulAlgo_t* algo,
+    cublasLtMatmulAlgoConfigAttributes_t attr,
+    T value)
+{
+    return cublasLtMatmulAlgoConfigSetAttribute(algo, attr, &value, sizeof(T)) == CUBLAS_STATUS_SUCCESS;
+}
+
+template <typename T>
+bool get_cublaslt_algo_cap_attr(
+    const cublasLtMatmulAlgo_t& algo,
+    cublasLtMatmulAlgoCapAttributes_t attr,
+    T* value)
+{
+    size_t written = 0;
+    const cublasStatus_t status = cublasLtMatmulAlgoCapGetAttribute(
+        &algo, attr, value, sizeof(T), &written);
+    return status == CUBLAS_STATUS_SUCCESS && written == sizeof(T);
+}
+
+template <typename T>
+std::vector<T> get_cublaslt_algo_cap_vector(
+    const cublasLtMatmulAlgo_t& algo,
+    cublasLtMatmulAlgoCapAttributes_t attr)
+{
+    size_t bytes = 0;
+    if (cublasLtMatmulAlgoCapGetAttribute(&algo, attr, nullptr, 0, &bytes) != CUBLAS_STATUS_SUCCESS || bytes == 0) {
+        return {};
+    }
+    std::vector<T> values(bytes / sizeof(T));
+    size_t written = 0;
+    if (values.empty() || cublasLtMatmulAlgoCapGetAttribute(&algo, attr, values.data(), bytes, &written) != CUBLAS_STATUS_SUCCESS) {
+        return {};
+    }
+    values.resize(written / sizeof(T));
+    return values;
+}
+
+void maybe_add_algo_config_attr(
+    nlohmann::json& out,
+    const cublasLtMatmulAlgo_t& algo,
+    cublasLtMatmulAlgoConfigAttributes_t attr,
+    const char* key)
+{
+    switch (attr) {
+        case CUBLASLT_ALGO_CONFIG_ID:
+        case CUBLASLT_ALGO_CONFIG_SPLITK_NUM: {
+            int32_t value = 0;
+            if (get_cublaslt_algo_config_attr(algo, attr, &value)) {
+                out[key] = value;
+            }
+            return;
+        }
+        case CUBLASLT_ALGO_CONFIG_TILE_ID:
+        case CUBLASLT_ALGO_CONFIG_REDUCTION_SCHEME:
+        case CUBLASLT_ALGO_CONFIG_CTA_SWIZZLING:
+        case CUBLASLT_ALGO_CONFIG_CUSTOM_OPTION:
+        case CUBLASLT_ALGO_CONFIG_STAGES_ID: {
+            uint32_t value = 0;
+            if (get_cublaslt_algo_config_attr(algo, attr, &value)) {
+                out[key] = value;
+            }
+            return;
+        }
+        case CUBLASLT_ALGO_CONFIG_INNER_SHAPE_ID:
+        case CUBLASLT_ALGO_CONFIG_CLUSTER_SHAPE_ID: {
+            uint16_t value = 0;
+            if (get_cublaslt_algo_config_attr(algo, attr, &value)) {
+                out[key] = value;
+            }
+            return;
+        }
+        default:
+            return;
+    }
+}
+
+nlohmann::json cublaslt_algo_to_json(const cublasLtMatmulAlgo_t& algo) {
+    nlohmann::json out = nlohmann::json::object();
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_ID, "algo_id");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_TILE_ID, "tile_id");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_SPLITK_NUM, "splitk_num");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_REDUCTION_SCHEME, "reduction_scheme");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_CTA_SWIZZLING, "cta_swizzling");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_CUSTOM_OPTION, "custom_option");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_STAGES_ID, "stages_id");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_INNER_SHAPE_ID, "inner_shape_id");
+    maybe_add_algo_config_attr(out, algo, CUBLASLT_ALGO_CONFIG_CLUSTER_SHAPE_ID, "cluster_shape_id");
+    return out;
+}
+
+int64_t json_i64_or(const nlohmann::json& value, const char* key, int64_t default_value) {
+    if (!value.is_object()) {
+        return default_value;
+    }
+    const auto it = value.find(key);
+    if (it == value.end() || it->is_null()) {
+        return default_value;
+    }
+    return it->get<int64_t>();
+}
+
+bool json_has_explicit_cublaslt_key(const nlohmann::json& value) {
+    if (!value.is_object()) {
+        return false;
+    }
+    static const std::array<const char*, 9> kKeys = {{
+        "algo_id",
+        "tile_id",
+        "splitk_num",
+        "reduction_scheme",
+        "cta_swizzling",
+        "custom_option",
+        "stages_id",
+        "inner_shape_id",
+        "cluster_shape_id",
+    }};
+    for (const char* key : kKeys) {
+        if (value.contains(key)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace
@@ -329,6 +470,7 @@ void LinearLayer::cleanup_cached_descriptors(CachedDescriptors& cached)
     cached.best_algo_index_ = -1;
     cached.heuristic_candidates_.clear();
     cached.selected_impl_id_.clear();
+    cached.selected_impl_params_ = nlohmann::json::object();
 }
 
 void LinearLayer::get_or_create_descriptors(
@@ -486,6 +628,535 @@ void LinearLayer::get_or_create_descriptors(
     Bdesc = cached.Bdesc_;
     Cdesc = cached.Cdesc_;
     Ddesc = cached.Ddesc_;
+}
+
+bool LinearLayer::has_explicit_cublaslt_algo_config(const nlohmann::json& impl_params) const
+{
+    return json_has_explicit_cublaslt_key(impl_params);
+}
+
+nlohmann::json LinearLayer::describe_cublaslt_algo_config(const cublasLtMatmulAlgo_t& algo) const
+{
+    return cublaslt_algo_to_json(algo);
+}
+
+bool LinearLayer::get_best_cublaslt_heuristic_for_algo_id(
+    const CachedDescriptors& cached,
+    int32_t algo_id,
+    cublasLtMatmulHeuristicResult_t* result,
+    std::string* error_message) const
+{
+    check<InvalidRequestError>(result != nullptr, "LinearLayer: result must not be null");
+
+    if (cublaslt_handle_ == nullptr || cached.matmul_desc_ == nullptr || cached.Adesc_ == nullptr ||
+        cached.Bdesc_ == nullptr || cached.Cdesc_ == nullptr || cached.Ddesc_ == nullptr)
+    {
+        if (error_message != nullptr) {
+            *error_message = "cublasLt limited-by-algo-id heuristic requires initialized descriptors";
+        }
+        return false;
+    }
+
+    if (algo_id < 0) {
+        if (error_message != nullptr) {
+            *error_message = "algo_id must be non-negative";
+        }
+        return false;
+    }
+
+    *result = {};
+    cublasStatus_t status = cublasLtMatmulAlgoInit(
+        cublaslt_handle_,
+        CUBLAS_COMPUTE_32F,
+        CUDA_R_32F,
+        cached.cached_weight_type_,
+        cached.cached_input_type_,
+        cached.cached_output_type_,
+        cached.cached_output_type_,
+        algo_id,
+        &result->algo);
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        if (error_message != nullptr) {
+            *error_message =
+                "cublasLtMatmulAlgoInit failed for algo_id=" + std::to_string(algo_id) +
+                " status=" + std::to_string(static_cast<int>(status));
+        }
+        return false;
+    }
+
+    cublasLtMatmulPreference_t pref = nullptr;
+    status = cublasLtMatmulPreferenceCreate(&pref);
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        if (error_message != nullptr) {
+            *error_message =
+                "cublasLtMatmulPreferenceCreate failed with status=" + std::to_string(static_cast<int>(status));
+        }
+        return false;
+    }
+
+    const auto cleanup_pref = [&]() {
+        if (pref != nullptr) {
+            (void)cublasLtMatmulPreferenceDestroy(pref);
+            pref = nullptr;
+        }
+    };
+
+    const uint32_t search_mode = static_cast<uint32_t>(CUBLASLT_SEARCH_LIMITED_BY_ALGO_ID);
+    status = cublasLtMatmulPreferenceSetAttribute(
+        pref,
+        CUBLASLT_MATMUL_PREF_SEARCH_MODE,
+        &search_mode,
+        sizeof(search_mode));
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        cleanup_pref();
+        if (error_message != nullptr) {
+            *error_message =
+                "failed to set CUBLASLT_MATMUL_PREF_SEARCH_MODE, status=" +
+                std::to_string(static_cast<int>(status));
+        }
+        return false;
+    }
+
+    const uint64_t max_workspace_bytes = static_cast<uint64_t>(cublaslt_max_workspace_bytes());
+    status = cublasLtMatmulPreferenceSetAttribute(
+        pref,
+        CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES,
+        &max_workspace_bytes,
+        sizeof(max_workspace_bytes));
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        cleanup_pref();
+        if (error_message != nullptr) {
+            *error_message =
+                "failed to set CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, status=" +
+                std::to_string(static_cast<int>(status));
+        }
+        return false;
+    }
+
+    int returned = 0;
+    status = cublasLtMatmulAlgoGetHeuristic(
+        cublaslt_handle_,
+        cached.matmul_desc_,
+        cached.Bdesc_,
+        cached.Adesc_,
+        cached.Cdesc_,
+        cached.Ddesc_,
+        pref,
+        1,
+        result,
+        &returned);
+    cleanup_pref();
+
+    if (status != CUBLAS_STATUS_SUCCESS || returned <= 0 || result->state != CUBLAS_STATUS_SUCCESS) {
+        if (error_message != nullptr) {
+            *error_message =
+                "cublasLtMatmulAlgoGetHeuristic limited-by-algo-id failed for algo_id=" +
+                std::to_string(algo_id) +
+                " status=" + std::to_string(static_cast<int>(status)) +
+                " returned=" + std::to_string(returned) +
+                " result_state=" + std::to_string(static_cast<int>(result->state));
+        }
+        return false;
+    }
+
+    if (result->workspaceSize > static_cast<size_t>(max_workspace_bytes)) {
+        if (error_message != nullptr) {
+            *error_message =
+                "limited-by-algo-id heuristic returned workspace=" + std::to_string(result->workspaceSize) +
+                " bytes, exceeds limit=" + std::to_string(max_workspace_bytes);
+        }
+        return false;
+    }
+
+    return true;
+}
+
+bool LinearLayer::try_select_explicit_cublaslt_algo(
+    const LinearOpContext& ctx,
+    CachedDescriptors& cached,
+    std::string* error_message)
+{
+    if (!has_explicit_cublaslt_algo_config(cached.selected_impl_params_)) {
+        return false;
+    }
+    if (cublaslt_handle_ == nullptr || cached.matmul_desc_ == nullptr || cached.Adesc_ == nullptr ||
+        cached.Bdesc_ == nullptr || cached.Cdesc_ == nullptr || cached.Ddesc_ == nullptr)
+    {
+        if (error_message != nullptr) {
+            *error_message = "cublasLt explicit algo selection requires initialized descriptors";
+        }
+        return false;
+    }
+
+    const int64_t algo_id = json_i64_or(cached.selected_impl_params_, "algo_id", -1);
+    if (algo_id < 0 || algo_id > std::numeric_limits<int32_t>::max()) {
+        if (error_message != nullptr) {
+            *error_message =
+                "cublasLt explicit algo selection requires a non-negative algo_id, got impl_params=" +
+                cached.selected_impl_params_.dump();
+        }
+        return false;
+    }
+
+    cublasLtMatmulAlgo_t algo = {};
+    cublasStatus_t status = cublasLtMatmulAlgoInit(
+        cublaslt_handle_,
+        CUBLAS_COMPUTE_32F,
+        CUDA_R_32F,
+        cached.cached_weight_type_,
+        cached.cached_input_type_,
+        cached.cached_output_type_,
+        cached.cached_output_type_,
+        static_cast<int32_t>(algo_id),
+        &algo);
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        if (error_message != nullptr) {
+            *error_message =
+                "cublasLtMatmulAlgoInit failed for explicit algo_id=" + std::to_string(algo_id) +
+                " status=" + std::to_string(static_cast<int>(status));
+        }
+        return false;
+    }
+
+    const auto try_set_attr_i32 = [&](const char* key, cublasLtMatmulAlgoConfigAttributes_t attr) {
+        const auto it = cached.selected_impl_params_.find(key);
+        if (it == cached.selected_impl_params_.end()) {
+            return true;
+        }
+        const int64_t raw = it->get<int64_t>();
+        if (raw < std::numeric_limits<int32_t>::min() || raw > std::numeric_limits<int32_t>::max()) {
+            if (error_message != nullptr) {
+                *error_message = std::string("cublasLt explicit attr out of range for ") + key;
+            }
+            return false;
+        }
+        return set_cublaslt_algo_config_attr(&algo, attr, static_cast<int32_t>(raw));
+    };
+    const auto try_set_attr_u32 = [&](const char* key, cublasLtMatmulAlgoConfigAttributes_t attr) {
+        const auto it = cached.selected_impl_params_.find(key);
+        if (it == cached.selected_impl_params_.end()) {
+            return true;
+        }
+        const uint64_t raw = it->get<uint64_t>();
+        if (raw > std::numeric_limits<uint32_t>::max()) {
+            if (error_message != nullptr) {
+                *error_message = std::string("cublasLt explicit attr out of range for ") + key;
+            }
+            return false;
+        }
+        return set_cublaslt_algo_config_attr(&algo, attr, static_cast<uint32_t>(raw));
+    };
+    const auto try_set_attr_u16 = [&](const char* key, cublasLtMatmulAlgoConfigAttributes_t attr) {
+        const auto it = cached.selected_impl_params_.find(key);
+        if (it == cached.selected_impl_params_.end()) {
+            return true;
+        }
+        const uint64_t raw = it->get<uint64_t>();
+        if (raw > std::numeric_limits<uint16_t>::max()) {
+            if (error_message != nullptr) {
+                *error_message = std::string("cublasLt explicit attr out of range for ") + key;
+            }
+            return false;
+        }
+        return set_cublaslt_algo_config_attr(&algo, attr, static_cast<uint16_t>(raw));
+    };
+
+    if (!try_set_attr_u32("tile_id", CUBLASLT_ALGO_CONFIG_TILE_ID) ||
+        !try_set_attr_i32("splitk_num", CUBLASLT_ALGO_CONFIG_SPLITK_NUM) ||
+        !try_set_attr_u32("reduction_scheme", CUBLASLT_ALGO_CONFIG_REDUCTION_SCHEME) ||
+        !try_set_attr_u32("cta_swizzling", CUBLASLT_ALGO_CONFIG_CTA_SWIZZLING) ||
+        !try_set_attr_u32("custom_option", CUBLASLT_ALGO_CONFIG_CUSTOM_OPTION) ||
+        !try_set_attr_u32("stages_id", CUBLASLT_ALGO_CONFIG_STAGES_ID) ||
+        !try_set_attr_u16("inner_shape_id", CUBLASLT_ALGO_CONFIG_INNER_SHAPE_ID) ||
+        !try_set_attr_u16("cluster_shape_id", CUBLASLT_ALGO_CONFIG_CLUSTER_SHAPE_ID))
+    {
+        if (error_message != nullptr && error_message->empty()) {
+            *error_message =
+                "cublasLtMatmulAlgoConfigSetAttribute failed for impl_params=" + cached.selected_impl_params_.dump();
+        }
+        return false;
+    }
+
+    cublasLtMatmulHeuristicResult_t explicit_result = {};
+    status = cublasLtMatmulAlgoCheck(
+        cublaslt_handle_,
+        cached.matmul_desc_,
+        cached.Bdesc_,
+        cached.Adesc_,
+        cached.Cdesc_,
+        cached.Ddesc_,
+        &algo,
+        &explicit_result);
+    if (status != CUBLAS_STATUS_SUCCESS || explicit_result.state != CUBLAS_STATUS_SUCCESS) {
+        if (error_message != nullptr) {
+            *error_message =
+                "cublasLtMatmulAlgoCheck failed for layer=" + layer_prefix_ +
+                " stage=" + stage_key(ctx.stage) +
+                " impl_params=" + cached.selected_impl_params_.dump() +
+                " status=" + std::to_string(static_cast<int>(status)) +
+                " result_state=" + std::to_string(static_cast<int>(explicit_result.state));
+        }
+        return false;
+    }
+
+    const size_t max_workspace_bytes = cublaslt_max_workspace_bytes();
+    if (explicit_result.workspaceSize > max_workspace_bytes) {
+        if (error_message != nullptr) {
+            *error_message =
+                "cublasLt explicit algo requires workspace=" + std::to_string(explicit_result.workspaceSize) +
+                " bytes, exceeds limit=" + std::to_string(max_workspace_bytes);
+        }
+        return false;
+    }
+
+    cached.heuristic_ = explicit_result;
+    cached.has_algo_ = true;
+    cached.best_algo_index_ = -1;
+    return true;
+}
+
+nlohmann::json LinearLayer::debug_enumerate_cublaslt_candidates(
+    const Tensor& input,
+    Tensor& output,
+    ModelStage stage,
+    int32_t max_algo_ids,
+    int32_t top_k)
+{
+    check<InvalidRequestError>(cublaslt_handle_ != nullptr, "LinearLayer: CUBLASLt handle is null");
+
+    const WeightSet& weight_set = (stage == ModelStage::Prefill) ? prefill_weights_ : decode_weights_;
+    check<InvalidRequestError>(
+        weight_set.quant_type_ == QuantType::FP16_BF16 && weight_set.weight_ != nullptr,
+        "LinearLayer: debug_enumerate_cublaslt_candidates requires FP16/BF16 weights");
+
+    const auto& input_shape = input.shape();
+    const auto& output_shape = output.shape();
+    check<InvalidRequestError>(
+        input_shape.size() == 2 && output_shape.size() == 2,
+        "LinearLayer: debug_enumerate_cublaslt_candidates expects 2D input/output");
+    check<InvalidRequestError>(
+        input_shape[0] == output_shape[0] &&
+            input_shape[1] == static_cast<int64_t>(in_features_) &&
+            output_shape[1] == static_cast<int64_t>(out_features_),
+        "LinearLayer: debug_enumerate_cublaslt_candidates shape mismatch");
+
+    const DType input_dtype = input.dtype();
+    const DType weight_dtype = weight_set.weight_->dtype();
+    const DType output_dtype = output.dtype();
+    check<InvalidRequestError>(
+        (input_dtype == DType::Float16 || input_dtype == DType::BFloat16) &&
+            (weight_dtype == DType::Float16 || weight_dtype == DType::BFloat16) &&
+            (output_dtype == DType::Float16 || output_dtype == DType::BFloat16 || output_dtype == DType::Float32),
+        "LinearLayer: debug_enumerate_cublaslt_candidates only supports FP16/BF16 paths");
+
+    const int m = static_cast<int>(input_shape[0]);
+    const void* bias_ptr = weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr;
+    CachedDescriptors& cached = (stage == ModelStage::Prefill)
+        ? prefill_descriptors_map_[m]
+        : decode_descriptors_;
+
+    cublasLtMatmulDesc_t matmul_desc = nullptr;
+    cublasLtMatrixLayout_t Adesc = nullptr;
+    cublasLtMatrixLayout_t Bdesc = nullptr;
+    cublasLtMatrixLayout_t Cdesc = nullptr;
+    cublasLtMatrixLayout_t Ddesc = nullptr;
+    get_or_create_descriptors(
+        m,
+        input_dtype == DType::BFloat16 ? CUDA_R_16BF : CUDA_R_16F,
+        weight_dtype == DType::BFloat16 ? CUDA_R_16BF : CUDA_R_16F,
+        output_dtype == DType::BFloat16 ? CUDA_R_16BF : (output_dtype == DType::Float32 ? CUDA_R_32F : CUDA_R_16F),
+        bias_ptr,
+        cached,
+        matmul_desc,
+        Adesc,
+        Bdesc,
+        Cdesc,
+        Ddesc);
+    (void)matmul_desc;
+    (void)Adesc;
+    (void)Bdesc;
+    (void)Cdesc;
+    (void)Ddesc;
+
+    const int requested_algo_ids = std::max(1, max_algo_ids);
+    std::vector<int> algo_ids(static_cast<size_t>(requested_algo_ids));
+    int returned_algo_ids = 0;
+    const cublasStatus_t get_ids_status = cublasLtMatmulAlgoGetIds(
+        cublaslt_handle_,
+        CUBLAS_COMPUTE_32F,
+        CUDA_R_32F,
+        cached.cached_weight_type_,
+        cached.cached_input_type_,
+        cached.cached_output_type_,
+        cached.cached_output_type_,
+        requested_algo_ids,
+        algo_ids.data(),
+        &returned_algo_ids);
+    check<DeviceError>(
+        get_ids_status == CUBLAS_STATUS_SUCCESS,
+        "LinearLayer: cublasLtMatmulAlgoGetIds failed with status " +
+            std::to_string(static_cast<int>(get_ids_status)));
+
+    const size_t max_workspace_bytes = cublaslt_max_workspace_bytes();
+    std::set<std::string> seen_configs;
+    std::vector<nlohmann::json> candidates;
+
+    const auto maybe_push_candidate = [&](const cublasLtMatmulHeuristicResult_t& result, const char* source) {
+        nlohmann::json config = cublaslt_algo_to_json(result.algo);
+        const std::string key = config.dump();
+        if (!seen_configs.insert(key).second) {
+            return;
+        }
+        candidates.push_back({
+            {"source", source},
+            {"config", config},
+            {"workspace_bytes", result.workspaceSize},
+            {"waves_count", result.wavesCount},
+        });
+    };
+
+    for (int idx = 0; idx < returned_algo_ids; ++idx) {
+        cublasLtMatmulHeuristicResult_t result = {};
+        std::string error_message;
+        if (!get_best_cublaslt_heuristic_for_algo_id(cached, algo_ids[idx], &result, &error_message)) {
+            continue;
+        }
+        maybe_push_candidate(result, "limited_by_algo_id");
+    }
+
+    if (top_k > 0 && static_cast<int32_t>(candidates.size()) > top_k) {
+        candidates.resize(static_cast<size_t>(top_k));
+    }
+
+    return {
+        {"layer_prefix", layer_prefix_},
+        {"layer_role", layer_role_},
+        {"stage", stage == ModelStage::Decode ? "decode" : "prefill"},
+        {"m", m},
+        {"max_workspace_bytes", max_workspace_bytes},
+        {"requested_algo_ids", requested_algo_ids},
+        {"returned_algo_ids", returned_algo_ids},
+        {"search_mode", "limited_by_algo_id"},
+        {"candidates", candidates},
+    };
+}
+
+nlohmann::json LinearLayer::debug_describe_cublaslt_algo(
+    const Tensor& input,
+    Tensor& output,
+    int32_t algo_id,
+    ModelStage stage)
+{
+    check<InvalidRequestError>(algo_id >= 0, "LinearLayer: algo_id must be non-negative");
+    check<InvalidRequestError>(cublaslt_handle_ != nullptr, "LinearLayer: CUBLASLt handle is null");
+
+    const WeightSet& weight_set = (stage == ModelStage::Prefill) ? prefill_weights_ : decode_weights_;
+    check<InvalidRequestError>(
+        weight_set.quant_type_ == QuantType::FP16_BF16 && weight_set.weight_ != nullptr,
+        "LinearLayer: debug_describe_cublaslt_algo requires FP16/BF16 weights");
+
+    const auto& input_shape = input.shape();
+    const auto& output_shape = output.shape();
+    check<InvalidRequestError>(
+        input_shape.size() == 2 && output_shape.size() == 2,
+        "LinearLayer: debug_describe_cublaslt_algo expects 2D input/output");
+    check<InvalidRequestError>(
+        input_shape[0] == output_shape[0] &&
+            input_shape[1] == static_cast<int64_t>(in_features_) &&
+            output_shape[1] == static_cast<int64_t>(out_features_),
+        "LinearLayer: debug_describe_cublaslt_algo shape mismatch");
+
+    const DType input_dtype = input.dtype();
+    const DType weight_dtype = weight_set.weight_->dtype();
+    const DType output_dtype = output.dtype();
+    check<InvalidRequestError>(
+        (input_dtype == DType::Float16 || input_dtype == DType::BFloat16) &&
+            (weight_dtype == DType::Float16 || weight_dtype == DType::BFloat16) &&
+            (output_dtype == DType::Float16 || output_dtype == DType::BFloat16 || output_dtype == DType::Float32),
+        "LinearLayer: debug_describe_cublaslt_algo only supports FP16/BF16 paths");
+
+    const int m = static_cast<int>(input_shape[0]);
+    const void* bias_ptr = weight_set.bias_ ? weight_set.bias_->data_ptr() : nullptr;
+    CachedDescriptors& cached = (stage == ModelStage::Prefill)
+        ? prefill_descriptors_map_[m]
+        : decode_descriptors_;
+
+    cublasLtMatmulDesc_t matmul_desc = nullptr;
+    cublasLtMatrixLayout_t Adesc = nullptr;
+    cublasLtMatrixLayout_t Bdesc = nullptr;
+    cublasLtMatrixLayout_t Cdesc = nullptr;
+    cublasLtMatrixLayout_t Ddesc = nullptr;
+    get_or_create_descriptors(
+        m,
+        input_dtype == DType::BFloat16 ? CUDA_R_16BF : CUDA_R_16F,
+        weight_dtype == DType::BFloat16 ? CUDA_R_16BF : CUDA_R_16F,
+        output_dtype == DType::BFloat16 ? CUDA_R_16BF : (output_dtype == DType::Float32 ? CUDA_R_32F : CUDA_R_16F),
+        bias_ptr,
+        cached,
+        matmul_desc,
+        Adesc,
+        Bdesc,
+        Cdesc,
+        Ddesc);
+    (void)matmul_desc;
+    (void)Adesc;
+    (void)Bdesc;
+    (void)Cdesc;
+    (void)Ddesc;
+
+    cublasLtMatmulAlgo_t algo = {};
+    const cublasStatus_t init_status = cublasLtMatmulAlgoInit(
+        cublaslt_handle_,
+        CUBLAS_COMPUTE_32F,
+        CUDA_R_32F,
+        cached.cached_weight_type_,
+        cached.cached_input_type_,
+        cached.cached_output_type_,
+        cached.cached_output_type_,
+        algo_id,
+        &algo);
+    check<DeviceError>(
+        init_status == CUBLAS_STATUS_SUCCESS,
+        "LinearLayer: cublasLtMatmulAlgoInit failed for algo_id=" + std::to_string(algo_id) +
+            " status=" + std::to_string(static_cast<int>(init_status)));
+
+    cublasLtMatmulHeuristicResult_t limited_result = {};
+    std::string limited_error;
+    const bool has_limited_result = get_best_cublaslt_heuristic_for_algo_id(
+        cached, algo_id, &limited_result, &limited_error);
+
+    int32_t splitk_support = 0;
+    uint32_t reduction_mask = 0;
+    uint32_t cta_swizzling_support = 0;
+    int32_t custom_option_max = 0;
+    (void)get_cublaslt_algo_cap_attr(algo, CUBLASLT_ALGO_CAP_SPLITK_SUPPORT, &splitk_support);
+    (void)get_cublaslt_algo_cap_attr(algo, CUBLASLT_ALGO_CAP_REDUCTION_SCHEME_MASK, &reduction_mask);
+    (void)get_cublaslt_algo_cap_attr(algo, CUBLASLT_ALGO_CAP_CTA_SWIZZLING_SUPPORT, &cta_swizzling_support);
+    (void)get_cublaslt_algo_cap_attr(algo, CUBLASLT_ALGO_CAP_CUSTOM_OPTION_MAX, &custom_option_max);
+
+    nlohmann::json out = {
+        {"layer_prefix", layer_prefix_},
+        {"layer_role", layer_role_},
+        {"stage", stage == ModelStage::Decode ? "decode" : "prefill"},
+        {"m", m},
+        {"algo_id", algo_id},
+        {"default_config", cublaslt_algo_to_json(algo)},
+        {"tile_ids", get_cublaslt_algo_cap_vector<uint32_t>(algo, CUBLASLT_ALGO_CAP_TILE_IDS)},
+        {"stage_ids", get_cublaslt_algo_cap_vector<uint32_t>(algo, CUBLASLT_ALGO_CAP_STAGES_IDS)},
+        {"splitk_support", splitk_support},
+        {"reduction_scheme_mask", reduction_mask},
+        {"cta_swizzling_support", cta_swizzling_support},
+        {"custom_option_max", custom_option_max},
+        {"has_limited_result", has_limited_result},
+    };
+    if (has_limited_result) {
+        out["limited_config"] = cublaslt_algo_to_json(limited_result.algo);
+        out["limited_workspace_bytes"] = limited_result.workspaceSize;
+        out["limited_waves_count"] = limited_result.wavesCount;
+    } else {
+        out["limited_error"] = limited_error;
+    }
+    return out;
 }
 
 void LinearLayer::forward_fp16_bf16(
@@ -707,6 +1378,23 @@ nlohmann::json LinearLayer::debug_cached_impl_info(ModelStage stage, int32_t m) 
     info["heuristic_candidate_count"] = cached->heuristic_candidate_count_;
     info["best_algo_index"] = cached->best_algo_index_;
     info["workspace_bytes"] = cached->has_algo_ ? cached->heuristic_.workspaceSize : 0;
+    info["waves_count"] = cached->has_algo_ ? cached->heuristic_.wavesCount : 0.0;
+    info["selected_algo_config"] = cached->has_algo_
+        ? describe_cublaslt_algo_config(cached->heuristic_.algo)
+        : nlohmann::json::object();
+    if (!cached->heuristic_candidates_.empty()) {
+        nlohmann::json candidates = nlohmann::json::array();
+        for (size_t idx = 0; idx < cached->heuristic_candidates_.size(); ++idx) {
+            const auto& candidate = cached->heuristic_candidates_[idx];
+            candidates.push_back({
+                {"algo_index", idx},
+                {"workspace_bytes", candidate.workspaceSize},
+                {"waves_count", candidate.wavesCount},
+                {"config", describe_cublaslt_algo_config(candidate.algo)},
+            });
+        }
+        info["heuristic_candidates"] = std::move(candidates);
+    }
     return info;
 }
 
