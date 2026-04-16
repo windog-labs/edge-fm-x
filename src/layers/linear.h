@@ -61,6 +61,18 @@ public:
         ModelStage stage = ModelStage::Decode,
         int32_t m = 1) const;
 
+    nlohmann::json debug_enumerate_cublaslt_candidates(
+        const Tensor& input,
+        Tensor& output,
+        ModelStage stage = ModelStage::Prefill,
+        int32_t max_algo_ids = 64,
+        int32_t top_k = 128);
+    nlohmann::json debug_describe_cublaslt_algo(
+        const Tensor& input,
+        Tensor& output,
+        int32_t algo_id,
+        ModelStage stage = ModelStage::Prefill);
+
 protected:
     friend class LinearOpRegistry;
     friend class LinearCublasLtImpl;
@@ -177,6 +189,18 @@ protected:
     
     // Helper function to cleanup cached descriptors
     void cleanup_cached_descriptors(CachedDescriptors& cached);
+
+    bool has_explicit_cublaslt_algo_config(const nlohmann::json& impl_params) const;
+    bool get_best_cublaslt_heuristic_for_algo_id(
+        const CachedDescriptors& cached,
+        int32_t algo_id,
+        cublasLtMatmulHeuristicResult_t* result,
+        std::string* error_message = nullptr) const;
+    bool try_select_explicit_cublaslt_algo(
+        const LinearOpContext& ctx,
+        CachedDescriptors& cached,
+        std::string* error_message = nullptr);
+    nlohmann::json describe_cublaslt_algo_config(const cublasLtMatmulAlgo_t& algo) const;
 
     LinearImpl* find_impl_by_id(const std::string& impl_id) const;
     LinearImpl* resolve_impl(

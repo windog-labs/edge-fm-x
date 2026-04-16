@@ -7,7 +7,7 @@
     "device_id": 0,
     "hw_profile": "cuda_sm80"
   },
-  "operator_impl_table_path": "../config/operator_impl_table_vlm.json",
+  "operator_impl_table_path": "",
   "prefill_model_path": "qwen2.5-vl-3b-instruct",
   "decode_model_path": null,
   "speculative": {

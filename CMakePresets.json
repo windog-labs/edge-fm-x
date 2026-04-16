@@ -1,0 +1,70 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 15,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TRT_EDGELLM_PYBIND": "OFF"
+      }
+    },
+    {
+      "name": "3060",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-3060",
+      "cacheVariables": {
+        "PLATFORM": "3060"
+      }
+    },
+    {
+      "name": "a800",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-a800",
+      "cacheVariables": {
+        "PLATFORM": "a800"
+      }
+    },
+    {
+      "name": "orin",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-orin",
+      "cacheVariables": {
+        "PLATFORM": "orin"
+      }
+    },
+    {
+      "name": "j6m",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-j6m",
+      "cacheVariables": {
+        "PLATFORM": "j6m",
+        "BUILD_PYTHON": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "3060",
+      "configurePreset": "3060"
+    },
+    {
+      "name": "a800",
+      "configurePreset": "a800"
+    },
+    {
+      "name": "orin",
+      "configurePreset": "orin"
+    },
+    {
+      "name": "j6m",
+      "configurePreset": "j6m"
+    }
+  ]
+}

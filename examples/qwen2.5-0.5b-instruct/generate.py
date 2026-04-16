@@ -11,18 +11,21 @@ import json
 import torch
 from pathlib import Path
 
-# 添加项目根目录到路径（如果 edge_fm 模块不在系统路径中）
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "build" / "python"))
+project_root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(project_root))
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 try:
     import edge_fm
 except ImportError:
     print("错误: 无法导入 edge_fm 模块")
     print("请确保:")
-    print("1. 已构建项目 (cmake && make)")
+    print("1. 已完成对应平台的 configure/build/install")
     print("2. Python 模块路径已添加到 PYTHONPATH")
-    print("   例如: export PYTHONPATH=$PYTHONPATH:/path/to/edge-fm/build/python")
+    print("   例如: export PYTHONPATH=$PYTHONPATH:/path/to/edge-fm/build-a800/install/python")
     sys.exit(1)
 
 

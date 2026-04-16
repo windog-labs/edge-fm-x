@@ -20,15 +20,14 @@ import torch
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "scripts"))
-for _p in [project_root / "build" / "python", project_root / "build" / "install" / "python"]:
-    if _p.exists():
-        sys.path.insert(0, str(_p))
-        break
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 import edge_fm
-from _repo_temp import make_temp_dir
-from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
+from scripts.operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from tests._support.temp_paths import make_temp_dir
 
 DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))
 PREFILL_LEN = int(os.environ.get("PROFILE_PREFILL_LEN", "512"))

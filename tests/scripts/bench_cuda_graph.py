@@ -17,10 +17,13 @@ import torch
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-for _p in [project_root / "build" / "install" / "python", project_root / "build" / "python"]:
-    if _p.exists():
-        sys.path.insert(0, str(_p))
-        break
+for build_python in [
+    project_root / "build" / "python",
+    project_root / "build" / "install" / "python",
+]:
+    build_python_str = str(build_python)
+    if build_python.is_dir() and build_python_str not in sys.path:
+        sys.path.insert(0, build_python_str)
 
 import edge_fm
 

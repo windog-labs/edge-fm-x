@@ -22,7 +22,7 @@ qwen2.5-vl-0.5b/
 
 ```bash
 mkdir -p build && cd build
-cmake .. -DPLATFORM=a100 -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.6/bin/nvcc
+cmake .. -DPLATFORM=a800 -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.6/bin/nvcc
 make -j && make install
 ```
 
@@ -33,8 +33,8 @@ cd examples/qwen2.5-vl-0.5b
 python3 generate.py
 ```
 
-如果 `edge_fm` 无法导入，请先确认你运行脚本的 Python 版本与 `build/install/python/edge_fm*.so` 的 ABI 一致。例如当前环境若默认是 Python 3.12，而扩展是 `cpython-310`，则需要切到对应 Python 版本重新执行，或重新编译 pybind。
+如果 `edge_fm` 无法导入，请先确认你运行脚本的 Python 版本与 `build-<platform>/install/python/edge_fm*.so` 的 ABI 一致。例如当前环境若默认是 Python 3.12，而扩展是 `cpython-310`，则需要切到对应 Python 版本重新执行，或重新编译 pybind。
 
 ## 配置说明
 
-- `engine_config.json` 复用了现有 VLM 示例的配置形式，`model_name` 为 `Qwen2.5-VL`，算子表使用 `../config/operator_impl_table_vlm.json`。
+- `engine_config.json` 复用了现有 VLM 示例的配置形式，`model_name` 为 `Qwen2.5-VL`，默认算子表由安装目录中的平台配置提供。

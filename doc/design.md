@@ -1,68 +1,97 @@
 # EdgeFM Design
 
-## 1. Design Goals
+This document describes the current codebase as it exists today. It is intentionally biased toward what is already implemented under `src/`, not older planned abstractions.
 
-EdgeFM is now intentionally biased toward a simpler model-specific runtime:
+All architecture diagrams below use Mermaid. No external `png` or `jpeg` assets are required.
 
-1. `engine.json` explicitly declares `model_name`. We do not infer model family from model files.
-2. We do not introduce a generic IR for the main execution path.
-3. We do not do runtime operator tuning in CUDA anymore.
-4. Operator selection is driven by a per-hardware operator implementation table.
-5. The codebase is organized around five layers:
-   - `engine/`: execution entry and request lifecycle
+## 1. Scope and Current Status
+
+Current `EdgeFM` facade behavior:
+
+- CUDA inference is served by `StandardEngine`.
+- Horizon is served by `HorizonEngine`, but only for compile-spec / artifact generation.
+- Supported model names are `qwen2_5` and `qwen2_5_vl`.
+- `qwen2_5` and `qwen2_5_vl` currently share the same `Qwen2_5` runtime.
+- `src/engine/speculative/` still contains `EagleEngine` prototype code, but `EdgeFM(config_path)` rejects `speculative.enabled=true` today.
+
+This means the codebase is already split into two real paths:
+
+- CUDA runtime path: loads weights, allocates KV cache, runs prefill + decode, optionally captures CUDA graphs.
+- Horizon backend path: derives graph metadata, emits a Python lowering module, writes compile spec and artifact cache entries, but does not execute runtime inference in this build.
+
+## 2. Design Principles
+
+The current design follows these constraints:
+
+1. `engine.json` must declare `model_name` explicitly. The runtime does not infer the model family from checkpoint structure.
+2. The main CUDA execution path does not build or execute a generic IR.
+3. Runtime tuning is no longer benchmark-driven. Operator selection is table-driven with registry fallback.
+4. The source tree is split by responsibility:
+   - `engine/`: request lifecycle, scheduling, KV cache, CUDA graph management
    - `models/`: model-specific runtime
-   - `layers/`: model layer semantics
-   - `operators/`: concrete operator implementations, lightweight dispatch, and low-level kernels
-   - `backends/`: backend-specific compilation / artifact helpers
+   - `layers/`: model-layer semantics and fused weight organization
+   - `operators/`: implementation lookup, operator registries, concrete operator entrypoints, low-level kernels
+   - `backends/`: backend-specific artifact emission and cache
+5. Request-time multimodal data is injected through the request contract, rather than via a separate model graph IR.
 
-Current supported model family:
-
-- `qwen2_5`
-- `qwen2_5_vl`
-
-## 2. High-Level Architecture
+## 3. System Architecture
 
 ```mermaid
-graph TD
-    A[EdgeFM(config_path)] --> B[EngineConfig]
-    B --> C{backend_target}
+flowchart TD
+    A["EdgeFM(config_path)"] --> B["EngineConfig"]
+    B --> C{"backend_target"}
 
-    C -->|cuda| D[StandardEngine]
-    C -->|horizon| E[HorizonEngine]
+    subgraph CUDA_Path["CUDA Runtime Path"]
+        D["StandardEngine"]
+        D --> D1["WeightLoader"]
+        D --> D2["KVManager"]
+        D --> D3["Scheduler"]
+        D --> D4["SamplerLayer"]
+        D --> D5["CudaGraphManager"]
+        D --> E["Model::create"]
+        E --> F["Qwen2_5 runtime"]
+        F --> G["layers/"]
+        G --> H["operators/"]
+        H --> I["cuBLASLt / FlashInfer / custom kernels"]
+    end
 
-    D --> F[Model::create(model_name)]
-    F --> G[Qwen2_5 Runtime]
-    G --> H[layers/]
-    H --> I[operators/\nLinear impl table + direct attention/norm/activation ops + kernels/]
+    subgraph Horizon_Path["Horizon Backend Path"]
+        J["HorizonEngine"]
+        J --> K["build graph_tuning"]
+        J --> L["emit_horizon_module"]
+        J --> M["BackendArtifactCache"]
+        L --> N["compile_spec.json"]
+        M --> O["artifact.json"]
+    end
 
-    E --> J[backends/\nHorizon emitter + artifact cache]
-    J --> K[compile spec v2 + generated module]
+    C -->|cuda| D
+    C -->|horizon| J
 ```
 
-核心方向是：
+Key points:
 
-- `models/` 负责模型拓扑和张量流。
-- `layers/` 负责层级语义，比如 `LinearLayer`、`AttentionLayer`。
-- `operators/` 负责“这层到底选哪个实现”，以及承接具体算子入口与底层 kernel。
-- `backends/` 负责 Horizon 这种后端专属的 compile spec、artifact metadata 等逻辑。
+- `EdgeFM` chooses the engine from `EngineConfig::backend_target()`.
+- The CUDA path eagerly loads model weights before constructing `StandardEngine`.
+- The Horizon path does not load CUDA runtime state; it produces backend artifacts.
+- `Model::create()` currently resolves both `qwen2_5` and `qwen2_5_vl` to the same `Qwen2_5` implementation.
 
-## 3. Configuration Model
+## 4. Configuration and Dispatch
 
-### 3.1 Required fields
+### 4.1 Required configuration
 
-主入口统一为：
+The public entry remains:
 
 ```python
 engine = edge_fm.EdgeFM("/path/to/engine.json")
 ```
 
-`engine.json` 至少需要：
+At minimum, `engine.json` needs:
 
 - `model_name`
 - `prefill_model_path`
 - `runtime.device`
 
-### 3.2 Key runtime fields
+Relevant default structure from `examples/config/base/engine_default.json`:
 
 ```json
 {
@@ -70,281 +99,365 @@ engine = edge_fm.EdgeFM("/path/to/engine.json")
   "runtime": {
     "device": "cuda",
     "device_id": 0,
-    "hw_profile": "cuda"
+    "use_cuda_graph": false,
+    "hw_profile": ""
   },
-  "operator_impl_table_path": "../config/operator_impl_table.json"
+  "operator_impl_table_path": "",
+  "prefill_model_path": "/models/qwen_prefill",
+  "decode_model_path": null
 }
 ```
 
-说明：
+### 4.2 Normalization rules
+
+`EngineConfig` normalizes:
 
 - `model_name`
-  - 当前必须显式指定。
-  - 支持轻量归一化，例如 `Qwen2.5 -> qwen2_5`。
+  - `Qwen2.5`, `qwen2_5`, `qwen25`, `qwen2` -> `qwen2_5`
+  - `Qwen2.5-VL`, `qwen2_5_vl`, `qwen25vl` -> `qwen2_5_vl`
 - `runtime.hw_profile`
-  - 表示当前硬件档位 / 目标 profile。
-  - 若未显式提供，CUDA 会退化为 `cuda_smXX` 或 `cuda`，Horizon 会退化为 `horizon`。
-- `operator_impl_table_path`
-  - 可选。
-  - 若提供，会在 builtin defaults 之上叠加外部表。
-  - 相对路径按 `engine.json` 所在目录解析。
+  - if explicitly set, use the normalized value
+  - if omitted on CUDA, derive `cuda_smXX` from device properties, with `cuda` fallback
+  - if omitted on Horizon, use `horizon`
 
-## 4. Model Dispatch
+### 4.3 Model config loading
 
-`Model::create` 只根据 `engine.json` 中的 `model_name` 做分派：
+Checkpoint-side `config.json` is still read, but only for model-local metadata such as:
 
-- `qwen2_5` -> `Qwen2_5`
-- `qwen2_5_vl` -> `Qwen2_5`
+- `num_hidden_layers`
+- `hidden_size`
+- `vocab_size`
+- `torch_dtype`
+- attention head layout
+- `rope_theta`
+- VLM `text_config`
 
-这里明确不再做：
+For VLM checkpoints, `prefill_model_config()` and `decode_model_config()` unwrap `text_config` so the runtime still sees the text tower layout.
 
-- 从 HF `config.json` 推断模型族
-- 生成通用 `model_description`
-- 构造通用 `execution_plan`
+### 4.4 Backend dispatch and current limitations
 
-模型文件里的 `config.json` 仍然会被读取，但用途只剩下：
+Current `EdgeFM` facade behavior in `src/edge-fm.cpp`:
 
-- 获取静态维度信息
-- 获取模型 dtype
-- 对 VL 模型读取 `text_config`
-- 获取 M-RoPE 等模型内部参数
+- if `backend_target == "horizon"`, build `HorizonEngine`
+- else `backend_target` must be `cuda`
+- if `speculative.enabled == true`, throw immediately
 
-## 5. Text / VL Unified Runtime
+So speculative decoding is not a supported public runtime mode yet, even though the prototype code exists in the tree.
 
-`Qwen2_5` 是当前共享 runtime：
+## 5. CUDA Runtime Path
 
-- 文本模型走标准 token path。
-- VL 模型仍通过请求侧注入多模态信息。
+### 5.1 Runtime objects
 
-VL 请求契约保持不变：
+`StandardEngine` owns or coordinates:
 
-- `Request(..., embedding=...)`
-- `Request(..., embed_token_id=...)`
-- `Request(..., position_ids=...)`
+- `Model`
+- `KVManager`
+- `Scheduler`
+- `SamplerLayer`
+- `CudaGraphManager`
 
-因此：
+`Scheduler::create_context()` builds a `Context` for each request. `Context` carries:
 
-- `qwen2_5` 和 `qwen2_5_vl` 共用一套 CUDA runtime
-- 区别主要体现在请求输入和模型配置约束上
+- request pointer
+- response buffer
+- per-layer KV read/write pointers
+- tensor map used by the model runtime
+- model-specific state such as cached `mrope_last_pos`
 
-## 6. Layers vs Operators
+### 5.2 Warmup behavior
 
-这次重构的核心边界是把“层语义”和“具体实现”拆开。
+`StandardEngine::warmup()` does two things:
 
-### 6.1 `layers/`
+1. For slots with configured prefix tokens, it runs a prefill pass to materialize prefix KV cache.
+2. If CUDA graph is enabled and decode graph is not yet captured, it uses a warmed-up slot to capture the decode graph.
 
-`layers/` 表示模型图里的语义层，例如：
+So warmup is not only a performance nicety; it is also the moment when prefix KV state and optional decode graph state are prepared.
 
-- `EmbedHeadLayer`
-- `RMSNormLayer`
-- `AttentionLayer`
-- `LinearLayer`
-- `FusedQKVLinearLayer`
-- `FusedGateUpLinearLayer`
-- `LMHeadLinearLayer`
+### 5.3 Generate flow
 
-这些类负责：
+```mermaid
+flowchart TD
+    A[Request] --> B["Scheduler::create_context"]
+    B --> C[Context]
 
-- 输入 / 输出 tensor 约定
-- 权重组织方式
-- 融合权重布局
-- 层级 forward 语义
+    C --> D[prepare_prefill_tensors]
+    D --> E{prefill CUDA graph usable}
+    E -->|yes| F[replay prefill graph]
+    E -->|no| G[model.prefill]
+    F --> H[sampler on last-token logits]
+    G --> H
+    H --> I[context.advance_after_prefill]
 
-### 6.2 `operators/`
+    I --> J{finished after prefill}
+    J -->|yes| K[copy response tokens to host]
+    J -->|no| L[decode loop]
 
-`operators/` 表示具体算子实现与选择策略，例如：
-
-- `OperatorImplTable`
-- `linear_impl.cu`
-- `attention_op.cu`
-- `norm_op.cu`
-- `activation_op.cu`
-- `operators/kernels/int4_groupwise_gemm/*`
-
-这些模块负责：
-
-- 按 `model_name + hw_profile + op_kind + layer_role + op_name + stage + shape_sig` 选择实现
-- 管理具体后端实现入口
-- 让后续新增 CUTLASS 或 agent kernel 时尽量不碰模型层代码
-
-当前边界进一步明确为：
-
-- `LinearLayer`
-  - 保留 layer 语义和融合权重组织
-  - 通过 `OperatorImplTable` 选择具体实现
-- `AttentionLayer`
-  - 保留 attention 语义、张量约束、KV cache 交互
-  - `apply_mrope(...)` 仍保留在 layer
-  - prefill / decode 计算直接调用 `operators/attention_op.*`
-- `RMSNormLayer`
-  - 保留权重选择和 fused/plain 语义
-  - 具体 norm kernel 直接调用 `operators/norm_op.*`
-- `ActivationLayer`
-  - 保留 `hidden_act` 校验和张量约束
-  - 具体 `silu_and_mul` 直接调用 `operators/activation_op.*`
-
-### 6.3 Why `operators/` with `kernels/`
-
-当前更适合叫 `operators/`，并在其下保留 `kernels/`，因为这里承载的不只是自写 CUDA kernel，还包括：
-
-- cuBLASLt
-- CUTLASS
-- cutile-python generated kernels
-- agent-generated kernel
-
-它们都属于“算子实现”，但不一定都是 repo 内部手写 kernel。现在把真正底层的 CUDA 资产放进 `operators/kernels/`，其余算子入口继续保留在 `operators/` 根下，结构更直接，也避免在 `layers/` 下再叠一层实现目录。
-
-## 7. Operator Implementation Table
-
-### 7.1 Intent
-
-之前的思路是 runtime tuning。现在改成：
-
-- 用户或系统维护一张“按硬件选择最优实现”的表
-- Engine 读取这张表
-- Model runtime 按表把 layer 对应到 operator impl
-
-换句话说，现在是“查表搭积木”，而不是“运行时 benchmark 再决定”。
-
-### 7.2 Schema
-
-```json
-{
-  "schema": "edgefm_operator_impl_table_v1",
-  "records": [
-    {
-      "model_name": "qwen2_5",
-      "hw_profile": "cuda",
-      "op_kind": "linear",
-      "layer_role": "",
-      "op_name": "",
-      "stage": "",
-      "shape_sig": "",
-      "impl_id": "cublasLt",
-      "impl_params": {}
-    }
-  ]
-}
+    L --> M{reuse static decode tensors?}
+    M -->|no| N[prepare_decode_tensors]
+    M -->|yes| O[skip tensor rebuild]
+    N --> P{use CUDA graph}
+    O --> P
+    P -->|yes| Q[ensure decode graph captured and replay]
+    P -->|no| R[model.decode_step]
+    Q --> S[sampler]
+    R --> S
+    S --> T[flush sampled token]
+    T --> U[stop check and ++context]
+    U --> V{finished}
+    V -->|no| L
+    V -->|yes| K
 ```
 
-字段含义：
+Important current behaviors:
 
-- `model_name`: 模型族
-- `hw_profile`: 硬件 profile，例如 `cuda`、`cuda_sm80`
-- `op_kind`: 当前主要是 `linear`
-- `layer_role`: 语义角色，例如 `fused_qkv`、`fused_gate_up`、`lm_head`
-- `op_name`: 更具体的层名
-- `stage`: `prefill` / `decode`
-- `shape_sig`: 更细粒度形状签名
-- `impl_id`: 选中的实现，例如 `cublasLt`、`cutlass`、`cutile`
-- `impl_params`: 实现参数，例如：
-  - `algo_index` for `cublasLt`
-  - `artifact_path` / `kernel_name` / `launcher` for generated `cutile` kernels
+- Prefill samples only the last prompt token's logits.
+- Decode runs token-by-token.
+- When CUDA graph is active and the model exposes static decode runtime tensors, the engine can skip repeated decode tensor setup.
+- Decode graph replay updates dynamic KV write destinations while keeping stable device buffers for token ids, KV length, and model-managed decode state.
 
-### 7.3 Matching strategy
+### 5.4 Tensor preparation responsibilities
 
-当前实现采用“越具体越优先”的匹配：
+`prepare_prefill_tensors()` is responsible for:
 
-- `op_name` 精确匹配优先于 wildcard
-- `layer_role` 精确匹配优先于 wildcard
-- `shape_sig` 精确匹配优先于 wildcard
-- `stage` 精确匹配优先于 wildcard
-- `hw_profile` 精确匹配优先于泛化 profile
-  - 例如 `cuda_sm80` 优先于 `cuda`
+- prompt token tensor
+- optional multimodal embedding tensor
+- optional `embed_token_id`
+- optional `position_ids`
+- model workspace tensors
+- sampler output buffer
+- per-layer KV cache write/read views
 
-如果外部表没有命中：
+`prepare_decode_tensors()` is responsible for:
 
-- 先回退到 builtin defaults
-- 再回退到第一个 `supports(...)` 的实现
+- stable single-token decode input buffer
+- stable device-side KV length buffer
+- stable decode `position_ids` buffer for models that need it
+- per-layer decode KV read/write views
 
-## 8. Linear Multi-Implementation Path
+This split is important because CUDA graph replay depends on stable decode-side addresses.
 
-`Linear` 是当前唯一正式接入 operator table 的算子族。
+### 5.5 `tune()` semantics on CUDA
 
-涉及的 layer：
+On the CUDA path, `StandardEngine::tune()` is now a lightweight validation/preparation step:
 
-- `LinearLayer`
-- `FusedQKVLinearLayer`
-- `FusedGateUpLinearLayer`
-- `LMHeadLinearLayer`
+- it resolves model name and hardware profile through `EngineConfig`
+- it forces operator table loading/parsing
+- it does not benchmark kernels
+- it does not generate a CUDA-specific tuning cache
 
-执行流程：
+So `tune()` remains part of the API surface, but its meaning is now "static preparation" rather than "online autotuning".
 
-1. `LinearLayer` 根据当前输入构造 `LinearOpContext`
-2. 提供 `layer_prefix + layer_role + stage + shape_sig`
-3. `operators/OperatorImplTable` 解析最优实现
-4. `LinearImpl` 执行实际 forward
+## 6. Qwen2.5 Runtime and Model Architecture
 
-当前实现状态：
+### 6.1 Runtime scope
 
-- `cublasLt`: 完整可用
-- `cutlass`: 预留接入点
-- `cutile`: 预留生成型 kernel 接入点
-- `agent`: 预留接入点
+`Qwen2_5` is the only production model runtime today. It is shared by:
 
-对于 `cublasLt`：
+- text-only `qwen2_5`
+- multimodal `qwen2_5_vl`
 
-- 仍然保留 descriptor cache 和 heuristic 逻辑
-- 但不再做 runtime benchmark tuning
-- 如果 operator table 给了 `impl_params.algo_index`，则直接使用
-- 否则回退到 heuristic 首选算法
+The difference is primarily request-side data:
 
-对于 `cutile`：
+- text-only requests provide only `token_ids`
+- VLM requests may additionally provide `embedding`, `embed_token_id`, and `position_ids`
 
-- 当前把它视为 Python DSL 生成的 kernel 来源，而不是直接链接的 vendor library
-- `operator_impl_table` 可以记录对应 artifact metadata
-- 当前 runtime 只保留 `impl_id` 和 `impl_params` 的接入点，还没有实现 launcher / artifact loader
+### 6.2 Layer inventory
 
-## 9. `tune()` Semantics
+Current layer building blocks inside `Qwen2_5`:
 
-### 9.1 CUDA
+| Component | Role |
+| --- | --- |
+| `EmbedHeadLayer` | token embedding and optional embedding injection |
+| `RMSNormLayer` | input norm, post-attention norm, final norm |
+| `AttentionLayer` | prefill/decode attention, with M-RoPE cooperation |
+| `FusedQKVLinearLayer` | fused Q/K/V projection |
+| `LinearLayer` | `o_proj`, `down_proj`, and other plain linear paths |
+| `FusedGateUpLinearLayer` | fused SwiGLU gate/up projection |
+| `ActivationLayer` | `silu_and_mul` |
+| `LMHeadLinearLayer` | final logits projection, tied to embedding table when applicable |
 
-`StandardEngine::tune()` 现在不再做 benchmark。
+### 6.3 Model structure
 
-它的职责退化为：
+```mermaid
+flowchart TD
+    A[token_ids] --> B[EmbedHeadLayer]
+    A1[optional embedding] --> B
+    A2[optional embed_token_id] --> B
+    B --> C[hidden_states]
 
-- 校验 `model_name`
-- 校验 `hw_profile`
-- 校验并加载 `operator_impl_table`
+    subgraph Decoder["Decoder Layer x N"]
+        C0[input residual] --> D[RMSNorm input_layernorm]
+        D --> E[FusedQKVLinearLayer]
+        E --> Q[Q]
+        E --> K[K]
+        E --> V[V]
 
-也就是说，`tune()` 还保留 API，但语义已经从“现场调优”变成“静态准备 / 校验”。
+        P[optional position_ids] --> M[optional M-RoPE]
+        Q --> M
+        K --> M
+        M --> Q2[rotated Q]
+        M --> K2[rotated K]
+        V --> V2[V]
 
-### 9.2 Horizon
+        K2 --> KVC["KV cache write/read view"]
+        V2 --> KVC
+        Q2 --> F[AttentionLayer]
+        KVC --> F
+        F --> G[o_proj]
 
-`HorizonEngine::tune()` 仍然保留，因为它代表：
+        C0 --> H[residual add]
+        G --> H
+        H --> I[RMSNorm post_attention_layernorm]
+        I --> J[FusedGateUpLinearLayer]
+        J --> K3[ActivationLayer or fused gate_up_activation fast path]
+        K3 --> L[down_proj]
+        H --> M2[MLP residual add]
+        L --> M2
+    end
 
-- 生成 compile spec
-- 生成 Python module
-- 写入 artifact metadata
+    M2 --> N[final RMSNorm]
+    N --> O[LMHeadLinearLayer]
+    O --> P2[logits]
+```
 
-这部分属于 backend-specific compile flow，不属于 CUDA runtime tuning。
+### 6.4 Prefill vs decode behavior
 
-## 10. Horizon Backend Path
+Prefill path:
 
-`HorizonEngine::tune()` 直接基于：
+- input is the full non-prefix prompt span
+- fused QKV projection writes a whole prompt segment into KV cache
+- attention runs in prefill mode
+- LM head only projects the final token needed for the first sampling step
+
+Decode path:
+
+- input length is always `1`
+- attention reads the accumulated KV cache and appends one more K/V slot
+- model-managed decode state such as M-RoPE `position_ids` is advanced in-place
+- CUDA graph replay can reuse the same decode graph across steps
+
+### 6.5 Multimodal and M-RoPE notes
+
+For VLM requests:
+
+- custom embeddings are injected by `EmbedHeadLayer`
+- injection is keyed by `embed_token_id`
+- M-RoPE `position_ids` can be carried on the request
+
+For M-RoPE models:
+
+- prefill rotates `Q/K` using request-provided `position_ids`
+- decode derives the starting 3D position from request state and increments it on device after each step
+
+## 7. Layers vs Operators
+
+### 7.1 Boundary
+
+`layers/` owns model semantics:
+
+- tensor contracts
+- residual structure
+- fused HF weight organization
+- forward structure at the model-layer level
+
+`operators/` owns implementation dispatch:
+
+- operator registries
+- implementation lookup
+- table-driven selection
+- vendor library entrypoints
+- repo-local kernels under `operators/kernels/`
+
+This means the layer code answers "what operation happens here", while operator code answers "which implementation actually runs".
+
+### 7.2 Operator kinds currently routed through the table
+
+Today the operator table is not limited to linear anymore. It is consulted by:
+
+- `linear`
+- `attention`
+- `norm`
+- `activation`
+- `fused_gate_up_activation`
+
+### 7.3 Selection flow
+
+```mermaid
+flowchart TD
+    A[Layer forward] --> B[Build OperatorQuery]
+    B --> C[OperatorImplTable.resolve]
+    C --> D{matched record}
+    D -->|yes| E[find_impl_by_id in registry]
+    D -->|no| F[registry default_impl]
+    E --> G{supports current context}
+    G -->|yes| H[selected implementation]
+    G -->|no| F
+    F --> H
+```
+
+The query key space is:
 
 - `model_name`
-- `model_config`
-- `graph_tuning`
-- `operator_impl_table`
-- `prefill / decode model path`
+- `hw_profile`
+- `op_kind`
+- `layer_role`
+- `op_name`
+- `stage`
+- `shape_sig`
 
-生成 compile spec v2。
+Matching prefers more specific records:
 
-### 10.1 Compile spec v2 core fields
+- `op_name` exact match over wildcard
+- `layer_role` exact match over wildcard
+- `shape_sig` exact match over wildcard
+- `stage` exact match over wildcard
+- `hw_profile` exact match over generic profile
 
-- `schema`
-- `backend`
-- `model_name`
-- `model_variant`
-- `model_config`
-- `graph_tuning`
-- `generated_module`
-- `artifact`
+### 7.4 Builtin defaults and external overlay
 
-### 10.2 `graph_tuning`
+`OperatorImplTable` always loads builtin defaults first, then appends records from `operator_impl_table_path`.
 
-当前最小字段：
+Current builtin defaults include:
+
+- `linear -> cublasLt`
+- `attention -> flashinfer_attention`
+- `norm -> flashinfer_norm`
+- `activation -> flashinfer_silu_and_mul`
+
+Because external records are appended after builtin records and the resolver keeps the last best-scoring match, external tables naturally override builtin defaults when they are equally specific or more specific.
+
+### 7.5 Practical meaning
+
+This design allows:
+
+- per-hardware linear algorithm selection
+- shape-specific attention tuning records
+- future generated kernels such as `cutile`
+- optional fused decode fast paths such as `fused_gate_up_activation`
+
+without forcing model-layer code to know about vendor-specific kernels.
+
+## 8. Horizon Backend Path
+
+`HorizonEngine` is a compile-preparation backend, not an execution backend in this build.
+
+### 8.1 Tune flow
+
+```mermaid
+flowchart TD
+    A["HorizonEngine::tune"] --> B[resolve model and hw profile]
+    B --> C[build graph_tuning]
+    C --> D[emit_horizon_module]
+    D --> E[generated Python module]
+    C --> F[compile_spec.json]
+    E --> F
+    F --> G["BackendArtifactCache::set_artifact"]
+    G --> H[artifact.json]
+    F --> I[external compile script]
+    I --> J[model.hbm]
+```
+
+`graph_tuning` currently includes:
 
 - `attention_type`
 - `kv_cache.dtype`
@@ -354,103 +467,59 @@ VL 请求契约保持不变：
 - `linear_operator_table`
 - `target_hw_constraints`
 
-这里明确不再出现：
+The generated compile spec uses schema `edgefm_horizon_compile_spec_v2`.
 
-- `model_description`
-- `execution_plan`
-- `linear_impl_overrides` from runtime tuning cache
+### 8.2 Current behavior of `generate()`
 
-## 11. Source Tree Boundaries
+`HorizonEngine::generate()` currently:
 
-### 11.1 `src/engine/`
+1. checks whether a backend artifact is already cached or injected internally
+2. checks whether the expected `model.hbm` exists
+3. throws because runtime execution is not implemented in this build
 
-负责：
+So the Horizon path is currently a lowering / artifact pipeline only.
 
-- `EngineConfig`
-- `StandardEngine`
-- `HorizonEngine`
-- `KVManager`
-- `Scheduler`
+## 9. Source Tree Boundaries
 
-### 11.2 `src/models/`
+Current source layout:
 
-负责：
-
-- 模型专用 runtime
-- 当前主实现：`qwen2_5/`
-
-### 11.3 `src/layers/`
-
-负责：
-
-- 模型层语义
-- 融合层权重组织
-- 与模型 forward 直接相关的 tensor contract
-
-### 11.4 `src/operators/`
-
-负责：
-
-- operator impl table
-- 具体 operator backend 实现
-- layer 到 operator 的选择逻辑
-
-### 11.5 `src/backends/`
-
-负责：
-
-- `BackendArtifactCache`
-- `HorizonModuleEmitter`
-- 其他后端专属编译 / 产物逻辑
-
-### 11.6 `src/utils/`
-
-负责：
-
-- 日志
-- 设备内存工具
-- 权重装载
-- CUDA graph
-- 其他真正通用的小型工具
-
-## 12. Current Boundaries
-
-- 当前只正式支持 `Qwen2.5` 家族
-- 当前只有 `Linear` 接入了多实现选择和 operator impl table
-- `Attention / RMSNorm / Activation` 已经完成 `layers -> operators` 边界收口，但当前只有默认单实现
-- 当前没有通用 IR
-- 当前没有 CUDA runtime tuning benchmark
-- 当前 Horizon 仍然只生成 compile spec / artifact metadata，不执行实际推理
-
-## 13. Reading Guide
-
-- `src/engine/engine.*`
-  - config parsing, backend dispatch inputs
-- `src/models/model.*`
-  - model dispatch
+- `src/edge-fm.cpp`
+  - public facade, backend selection, CUDA weight loading
+- `src/engine/`
+  - `EngineConfig`, `StandardEngine`, `HorizonEngine`, `KVManager`, `Scheduler`
+- `src/engine/speculative/`
+  - prototype speculative engine code, not wired into public facade
+- `src/models/`
+  - model dispatch and model runtimes
 - `src/models/qwen2_5/`
-  - current model runtime
-- `src/layers/linear.*`
-  - linear layer semantics and fused weight organization
-- `src/layers/attention.*`
-  - attention semantics plus in-layer M-RoPE helper
-- `src/layers/layernorm.*`
-  - RMSNorm semantics and weight routing
-- `src/layers/activation.*`
-  - activation semantics and tensor contract
-- `src/operators/operator_impl_table.*`
-  - implementation table schema and matching
-- `src/operators/linear_impl.cu`
-  - concrete linear operator implementations
-- `src/operators/attention_op.cu`
-  - direct FlashInfer attention operator entry
-- `src/operators/norm_op.cu`
-  - direct FlashInfer RMSNorm operator entry
-- `src/operators/activation_op.cu`
-  - direct FlashInfer activation operator entry
-- `src/operators/kernels/int4_groupwise_gemm/`
-  - low-level CUDA kernels used by operator-side linear paths
-- `src/backends/horizon_module_emitter.*`
-  - Horizon compile-spec / module generation
-- `src/backends/backend_artifact_cache.*`
-  - backend artifact persistence
+  - current production runtime for both text and VL
+- `src/layers/`
+  - semantic layer building blocks
+- `src/operators/`
+  - operator registries, table lookup, concrete operator entrypoints
+- `src/operators/kernels/`
+  - low-level CUDA kernels used by operator implementations
+- `src/backends/`
+  - backend artifact cache and Horizon module emitter
+- `src/utils/`
+  - memory, CUDA graph helpers, weight loading, logging, device utilities
+
+## 10. Current Non-Goals and Limitations
+
+The current code intentionally does not do the following:
+
+- no generic runtime IR on the CUDA path
+- no benchmark-based runtime tuning
+- no public speculative decoding through `EdgeFM`
+- no Horizon runtime execution in this build
+- no model-family inference from checkpoint naming or file layout
+
+In exchange, the code keeps a much tighter mapping between:
+
+- engine config
+- concrete model runtime
+- layer semantics
+- operator implementation selection
+- backend-specific lowering artifacts
+
+That is the main design direction of the current repository.

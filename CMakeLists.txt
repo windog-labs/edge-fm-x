@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.15)
 project(edge-fm
     VERSION 0.1.0
-    LANGUAGES CXX CUDA
+    LANGUAGES CXX
 )
+
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR
+        "In-source builds are not supported. "
+        "Use `cmake --preset <platform>` or `cmake -S . -B build-<platform>` instead.")
+endif()
+
+include(CheckLanguage)
 
 # ============================================================================
 # 构建类型配置
@@ -71,11 +79,29 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # ============================================================================
 # 平台选择
 # ============================================================================
-set(PLATFORM_OPTIONS "5090" "4050" "3060" "a100" "orin" "thor" "j6m")
-set(PLATFORM "a100" CACHE STRING "Target platform")
+set(PLATFORM_OPTIONS "3060" "a800" "orin" "j6m")
+set(PLATFORM "a800" CACHE STRING "Target platform")
 set_property(CACHE PLATFORM PROPERTY STRINGS ${PLATFORM_OPTIONS})
 
 message(STATUS "Target platform: ${PLATFORM}")
+
+set(EDGE_FM_MULTIARCH_TRIPLET "")
+if(CMAKE_LIBRARY_ARCHITECTURE)
+    set(EDGE_FM_MULTIARCH_TRIPLET "${CMAKE_LIBRARY_ARCHITECTURE}")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    set(EDGE_FM_MULTIARCH_TRIPLET "aarch64-linux-gnu")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    set(EDGE_FM_MULTIARCH_TRIPLET "x86_64-linux-gnu")
+endif()
+
+set(_edge_fm_cuda_target_candidates "")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    list(APPEND _edge_fm_cuda_target_candidates "aarch64-linux")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    list(APPEND _edge_fm_cuda_target_candidates "x86_64-linux")
+endif()
+list(APPEND _edge_fm_cuda_target_candidates "aarch64-linux" "x86_64-linux")
+list(REMOVE_DUPLICATES _edge_fm_cuda_target_candidates)
 
 # 加载平台特定配置
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform_${PLATFORM}.cmake)
@@ -86,12 +112,9 @@ else()
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release"
-   AND (PLATFORM STREQUAL "5090"
-        OR PLATFORM STREQUAL "4050"
-        OR PLATFORM STREQUAL "3060"
-        OR PLATFORM STREQUAL "a100"
-        OR PLATFORM STREQUAL "orin"
-        OR PLATFORM STREQUAL "thor"))
+   AND (PLATFORM STREQUAL "3060"
+        OR PLATFORM STREQUAL "a800"
+        OR PLATFORM STREQUAL "orin"))
     set(_edge_fm_cuda_release_flags "${CMAKE_CUDA_FLAGS_RELEASE}")
     if(NOT _edge_fm_cuda_release_flags MATCHES "(^| )-use_fast_math($| )")
         string(APPEND _edge_fm_cuda_release_flags " -use_fast_math")
@@ -105,19 +128,23 @@ endif()
 # CUDA 和 cuDNN 检查和配置（仅适用于 NVIDIA 平台）
 # ============================================================================
 set(ENABLE_CUDA OFF)
-if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "3060" OR PLATFORM STREQUAL "a100" OR PLATFORM STREQUAL "orin" OR PLATFORM STREQUAL "thor")
-    # 查找 CUDA
+if(PLATFORM STREQUAL "3060" OR PLATFORM STREQUAL "a800" OR PLATFORM STREQUAL "orin")
+    check_language(CUDA)
+    if(NOT CMAKE_CUDA_COMPILER)
+        message(FATAL_ERROR "CUDA compiler not found. Please install CUDA toolkit or set CMAKE_CUDA_COMPILER.")
+    endif()
+
+    enable_language(CUDA)
     find_package(CUDAToolkit QUIET)
     if(CUDAToolkit_FOUND)
         message(STATUS "CUDA found: ${CUDAToolkit_VERSION}")
         message(STATUS "CUDA toolkit root: ${CUDAToolkit_ROOT_DIR}")
-        enable_language(CUDA)
         # CUDA 找到后，启用 CUDA device utilities
         set(ENABLE_CUDA ON)
         # FlashInfer sampling.cuh 需要 libcu++ (cuda/functional)。
         set(CUDA_LIBCPP_INCLUDE_DIR "")
         foreach(_base "${CUDAToolkit_ROOT_DIR}" "$ENV{CUDA_PATH}" "/usr/local/cuda" "/usr/local/cuda-12.6" "/usr/local/cuda-12")
-            foreach(_cuda_target "aarch64-linux" "x86_64-linux")
+            foreach(_cuda_target IN LISTS _edge_fm_cuda_target_candidates)
                 if(_base AND EXISTS "${_base}/targets/${_cuda_target}/include/cuda/functional")
                     set(CUDA_LIBCPP_INCLUDE_DIR "${_base}/targets/${_cuda_target}/include" CACHE INTERNAL "libcu++ include for FlashInfer")
                     break()
@@ -144,6 +171,7 @@ if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "30
             /usr/local/cuda/targets/aarch64-linux/include
             /usr/local/cuda/targets/x86_64-linux/include
             /usr/include
+            /usr/include/${EDGE_FM_MULTIARCH_TRIPLET}
             /usr/include/aarch64-linux-gnu
             /usr/include/x86_64-linux-gnu
         PATH_SUFFIXES cudnn
@@ -156,6 +184,10 @@ if(PLATFORM STREQUAL "5090" OR PLATFORM STREQUAL "4050" OR PLATFORM STREQUAL "30
             /usr/local/cuda/lib64
             /usr/local/cuda/targets/aarch64-linux/lib
             /usr/local/cuda/targets/x86_64-linux/lib
+            /lib/${EDGE_FM_MULTIARCH_TRIPLET}
+            /lib/aarch64-linux-gnu
+            /lib/x86_64-linux-gnu
+            /usr/lib/${EDGE_FM_MULTIARCH_TRIPLET}
             /usr/lib/aarch64-linux-gnu
             /usr/lib/x86_64-linux-gnu
     )
@@ -181,6 +213,17 @@ endif()
 # ============================================================================
 # 第三方依赖
 # ============================================================================
+set(EDGE_FM_ACTIVE_CONFIG_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples/config/platform/${PLATFORM}")
+if(NOT EXISTS "${EDGE_FM_ACTIVE_CONFIG_DIR}/engine_default.json")
+    message(FATAL_ERROR "Platform config directory is incomplete: ${EDGE_FM_ACTIVE_CONFIG_DIR}")
+endif()
+
+# ============================================================================
+# 构建选项
+# ============================================================================
+option(BUILD_PYTHON "Build Python bindings" ON)
+option(BUILD_TRT_EDGELLM_PYBIND "Build Python bindings for TRT-Edge-LLM runtime (in-process benchmark)" OFF)
+
 # nlohmann/json
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/CMakeLists.txt)
     add_subdirectory(third_party/json)
@@ -200,10 +243,12 @@ else()
 endif()
 
 # pybind11
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pybind11/CMakeLists.txt)
-    add_subdirectory(third_party/pybind11)
-else()
-    message(WARNING "pybind11 not found in third_party/pybind11. Please add it manually.")
+if(BUILD_PYTHON OR BUILD_TRT_EDGELLM_PYBIND)
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pybind11/CMakeLists.txt)
+        add_subdirectory(third_party/pybind11)
+    else()
+        message(WARNING "pybind11 not found in third_party/pybind11. Please add it manually.")
+    endif()
 endif()
 
 # spdlog
@@ -244,12 +289,99 @@ else()
     message(WARNING "You can clone it with: git clone https://github.com/syoyo/safetensors-cpp.git third_party/safetensors-cpp")
 endif()
 
+set(EDGE_FM_TRT_MIN_VERSION_MAJOR 10)
+# JetPack r36.4.0 ships TensorRT 10.3 in /usr on Orin, while the x86 benchmark
+# path currently expects newer TensorRT 10.15 builds.
+if(PLATFORM STREQUAL "orin")
+    set(EDGE_FM_TRT_MIN_VERSION_MINOR 3)
+else()
+    set(EDGE_FM_TRT_MIN_VERSION_MINOR 15)
+endif()
+set(EDGE_FM_TRT_MIN_VERSION "${EDGE_FM_TRT_MIN_VERSION_MAJOR}.${EDGE_FM_TRT_MIN_VERSION_MINOR}")
+set(EDGE_FM_DEFAULT_TRT_PACKAGE_DIR "/usr/local/TensorRT")
 
-# ============================================================================
-# 构建选项
-# ============================================================================
-option(BUILD_PYTHON "Build Python bindings" ON)
-option(BUILD_TRT_EDGELLM_PYBIND "Build Python bindings for TRT-Edge-LLM runtime (in-process benchmark)" OFF)
+function(edge_fm_read_tensorrt_version include_dir out_major out_minor out_patch out_build)
+    set(_version_header_candidates
+        "${include_dir}/NvInferVersion.h"
+        "${include_dir}/include/NvInferVersion.h"
+    )
+
+    foreach(_version_header IN LISTS _version_header_candidates)
+        if(NOT EXISTS "${_version_header}")
+            continue()
+        endif()
+
+        file(STRINGS "${_version_header}" _major_line REGEX "^#define (NV_TENSORRT_MAJOR|TRT_MAJOR_ENTERPRISE) +[0-9]+")
+        file(STRINGS "${_version_header}" _minor_line REGEX "^#define (NV_TENSORRT_MINOR|TRT_MINOR_ENTERPRISE) +[0-9]+")
+        file(STRINGS "${_version_header}" _patch_line REGEX "^#define (NV_TENSORRT_PATCH|TRT_PATCH_ENTERPRISE) +[0-9]+")
+        file(STRINGS "${_version_header}" _build_line REGEX "^#define (NV_TENSORRT_BUILD|TRT_BUILD_ENTERPRISE) +[0-9]+")
+
+        if(_major_line AND _minor_line AND _patch_line AND _build_line)
+            string(REGEX REPLACE ".* ([0-9]+).*" "\\1" _major "${_major_line}")
+            string(REGEX REPLACE ".* ([0-9]+).*" "\\1" _minor "${_minor_line}")
+            string(REGEX REPLACE ".* ([0-9]+).*" "\\1" _patch "${_patch_line}")
+            string(REGEX REPLACE ".* ([0-9]+).*" "\\1" _build "${_build_line}")
+            set(${out_major} "${_major}" PARENT_SCOPE)
+            set(${out_minor} "${_minor}" PARENT_SCOPE)
+            set(${out_patch} "${_patch}" PARENT_SCOPE)
+            set(${out_build} "${_build}" PARENT_SCOPE)
+            return()
+        endif()
+    endforeach()
+
+    set(${out_major} "" PARENT_SCOPE)
+    set(${out_minor} "" PARENT_SCOPE)
+    set(${out_patch} "" PARENT_SCOPE)
+    set(${out_build} "" PARENT_SCOPE)
+endfunction()
+
+set(TRT_PACKAGE_DIR "${EDGE_FM_DEFAULT_TRT_PACKAGE_DIR}" CACHE PATH "TensorRT package directory")
+if(TRT_PACKAGE_DIR STREQUAL "")
+    set(TRT_PACKAGE_DIR "${EDGE_FM_DEFAULT_TRT_PACKAGE_DIR}" CACHE PATH "TensorRT package directory" FORCE)
+endif()
+
+set(_edge_fm_trt_root_hints "")
+if(TRT_PACKAGE_DIR)
+    list(APPEND _edge_fm_trt_root_hints "${TRT_PACKAGE_DIR}")
+endif()
+file(GLOB _edge_fm_trt_root_globs "/usr/local/TensorRT-*")
+list(APPEND _edge_fm_trt_root_hints
+    ${_edge_fm_trt_root_globs}
+    "/usr"
+)
+list(REMOVE_DUPLICATES _edge_fm_trt_root_hints)
+
+find_path(TRT_INCLUDE_DIR
+    NAMES NvInfer.h
+    HINTS ${_edge_fm_trt_root_hints}
+    PATHS /usr/include /usr/local/include
+    PATH_SUFFIXES include include/${EDGE_FM_MULTIARCH_TRIPLET} ${EDGE_FM_MULTIARCH_TRIPLET}
+)
+
+find_library(TRT_NVINFER_LIBRARY
+    NAMES nvinfer
+    HINTS ${_edge_fm_trt_root_hints}
+    PATHS /usr/lib /usr/lib64 /usr/local/lib /usr/local/lib64
+    PATH_SUFFIXES lib lib64 lib/${EDGE_FM_MULTIARCH_TRIPLET} ${EDGE_FM_MULTIARCH_TRIPLET}
+)
+
+if(TRT_NVINFER_LIBRARY)
+    get_filename_component(TRT_LIBRARY_DIR "${TRT_NVINFER_LIBRARY}" DIRECTORY)
+else()
+    set(TRT_LIBRARY_DIR "")
+endif()
+
+set(TRT_VERSION_MAJOR "")
+set(TRT_VERSION_MINOR "")
+set(TRT_VERSION_PATCH "")
+set(TRT_VERSION_BUILD "")
+set(TRT_VERSION_STRING "")
+if(TRT_INCLUDE_DIR)
+    edge_fm_read_tensorrt_version("${TRT_INCLUDE_DIR}" TRT_VERSION_MAJOR TRT_VERSION_MINOR TRT_VERSION_PATCH TRT_VERSION_BUILD)
+    if(TRT_VERSION_MAJOR AND TRT_VERSION_MINOR)
+        set(TRT_VERSION_STRING "${TRT_VERSION_MAJOR}.${TRT_VERSION_MINOR}.${TRT_VERSION_PATCH}.${TRT_VERSION_BUILD}")
+    endif()
+endif()
 
 if(BUILD_PYTHON)
     message(STATUS "Python bindings: ENABLED")
@@ -269,23 +401,44 @@ endif()
 # ============================================================================
 if(BUILD_TRT_EDGELLM_PYBIND)
     set(TRT_EDGELLM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/third_party/TensorRT-Edge-LLM)
-    set(TRT_EDGELLM_BUILD_DIR "${TRT_EDGELLM_ROOT}/build" CACHE PATH "TensorRT-Edge-LLM build directory")
-    set(TRT_PACKAGE_DIR "${TRT_PACKAGE_DIR}" CACHE PATH "TensorRT package directory (e.g. /usr/local/TensorRT-10.15.1.29)")
-    if(NOT TRT_PACKAGE_DIR)
-        set(TRT_PACKAGE_DIR "/usr/local/TensorRT-10.15.1.29" CACHE PATH "TensorRT package directory" FORCE)
-    endif()
+    set(TRT_EDGELLM_BUILD_DIR "${CMAKE_BINARY_DIR}/trt-edgellm" CACHE PATH "TensorRT-Edge-LLM build directory")
 
     set(_trt_core "${TRT_EDGELLM_BUILD_DIR}/cpp/libedgellmCore.a")
     set(_trt_tokenizer "${TRT_EDGELLM_BUILD_DIR}/cpp/libedgellmTokenizer.a")
     set(_trt_utils "${TRT_EDGELLM_BUILD_DIR}/examples/utils/libexampleUtils.a")
 
-    if(EXISTS "${_trt_core}" AND EXISTS "${_trt_tokenizer}" AND EXISTS "${_trt_utils}" AND EXISTS "${TRT_PACKAGE_DIR}/include/NvInfer.h")
+    if(TRT_INCLUDE_DIR AND TRT_NVINFER_LIBRARY)
+        if(NOT TRT_VERSION_STRING)
+            message(FATAL_ERROR
+                "Failed to determine TensorRT version from ${TRT_INCLUDE_DIR}. "
+                "TensorRT-Edge-LLM requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}.")
+        endif()
+        if(TRT_VERSION_MAJOR LESS EDGE_FM_TRT_MIN_VERSION_MAJOR
+           OR (TRT_VERSION_MAJOR EQUAL EDGE_FM_TRT_MIN_VERSION_MAJOR
+               AND TRT_VERSION_MINOR LESS EDGE_FM_TRT_MIN_VERSION_MINOR))
+            message(FATAL_ERROR
+                "TensorRT ${TRT_VERSION_STRING} found in ${TRT_INCLUDE_DIR}, "
+                "but TensorRT-Edge-LLM requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}. "
+                "Set TRT_PACKAGE_DIR to a newer TensorRT installation.")
+        endif()
+        message(STATUS "TensorRT version: ${TRT_VERSION_STRING}")
+    endif()
+
+    if(EXISTS "${_trt_core}" AND EXISTS "${_trt_tokenizer}" AND EXISTS "${_trt_utils}" AND TRT_INCLUDE_DIR AND TRT_NVINFER_LIBRARY)
         set(TRT_EDGELLM_AVAILABLE TRUE)
         set(TRT_EDGELLM_CORE_LIB "${_trt_core}")
         set(TRT_EDGELLM_TOKENIZER_LIB "${_trt_tokenizer}")
         set(TRT_EDGELLM_UTILS_LIB "${_trt_utils}")
         message(STATUS "Using pre-built TensorRT-Edge-LLM from ${TRT_EDGELLM_BUILD_DIR}")
+        message(STATUS "TensorRT include: ${TRT_INCLUDE_DIR}")
+        message(STATUS "TensorRT library: ${TRT_NVINFER_LIBRARY}")
     else()
+        if(NOT TRT_INCLUDE_DIR OR NOT TRT_NVINFER_LIBRARY)
+            message(WARNING
+                "TensorRT headers/libraries were not found. "
+                "Set TRT_PACKAGE_DIR (default: ${EDGE_FM_DEFAULT_TRT_PACKAGE_DIR}) "
+                "or install TensorRT system-wide.")
+        endif()
         message(WARNING "TensorRT-Edge-LLM not built. Run: bash tests/scripts/setup_trt_edgellm_benchmark.sh")
         set(BUILD_TRT_EDGELLM_PYBIND OFF)
     endif()

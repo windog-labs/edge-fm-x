@@ -10,16 +10,20 @@ import sys
 import json
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "build" / "install" / "python"))
+project_root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(project_root))
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 try:
     import edge_fm
 except ImportError:
     print("错误: 无法导入 edge_fm 模块")
     print("请确保:")
-    print("1. 已构建并安装项目 (cd build && make -j && make install)")
-    print("2. 或将 Python 模块路径加入: build/install/python")
+    print("1. 已完成对应平台的 configure/build/install")
+    print("2. 或将 Python 模块路径加入: build-a800/install/python")
     sys.exit(1)
 
 

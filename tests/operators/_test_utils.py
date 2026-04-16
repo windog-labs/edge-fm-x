@@ -7,18 +7,15 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-BUILD_PYTHON_CANDIDATES = [
-    PROJECT_ROOT / "build" / "install" / "python",
-    PROJECT_ROOT / "build" / "python",
-]
-for build_python in reversed(BUILD_PYTHON_CANDIDATES):
-    if build_python.exists() and str(build_python) not in sys.path:
-        sys.path.insert(0, str(build_python))
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(PROJECT_ROOT)
 
 import edge_fm
 import torch
-from scripts._repo_temp import make_temp_dir
-from scripts.operator_table_utils import resolve_operator_table_path
+from scripts.operator_table.utils import resolve_operator_table_path
+from tests._support.temp_paths import make_temp_dir
 
 QWEN_1P5B_MODEL_PATH = (
     PROJECT_ROOT / "examples" / "qwen2.5-1.5b-instruct" / "qwen2.5-1.5b-instruct"

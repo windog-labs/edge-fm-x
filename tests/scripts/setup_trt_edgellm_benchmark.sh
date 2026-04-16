@@ -24,6 +24,19 @@ else
     PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE:-python3}"
 fi
 TRT_EXPORT_DEVICE="${EDGE_FM_TRT_EXPORT_DEVICE:-cuda}"
+TRT_PKG="${TRT_PACKAGE_DIR:-/usr/local/TensorRT}"
+CUDA_HOME_RESOLVED="${CUDA_HOME:-/usr/local/cuda}"
+
+if [[ ! -f "${TRT_PKG}/include/NvInfer.h" ]]; then
+    echo "ERROR: TensorRT headers/libraries not found in ${TRT_PKG}. Set TRT_PACKAGE_DIR and retry."
+    exit 1
+fi
+
+if [[ ! -x "${CUDA_HOME_RESOLVED}/bin/nvcc" ]]; then
+    echo "ERROR: CUDA toolkit not found in ${CUDA_HOME_RESOLVED}. Set CUDA_HOME and retry."
+    exit 1
+fi
+
 case "$MODEL_SIZE" in
     0.5b)
         MODEL_NAME="qwen2.5-0.5b"
@@ -44,7 +57,48 @@ case "$MODEL_SIZE" in
 esac
 ONNX_DIR="$WORKSPACE/$MODEL_NAME/onnx"
 ENGINE_DIR="$WORKSPACE/$MODEL_NAME/engines_mxil${MAX_INPUT_LEN}"
-TRT_PKG="${TRT_PACKAGE_DIR:-/xs-train-nas/zzm/packages/TensorRT-10.16.0.72}"
+CUDA_VERSION_RESOLVED="${EDGE_FM_TRT_CUDA_VERSION:-$("${CUDA_HOME_RESOLVED}/bin/nvcc" --version | sed -n 's/.*release \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -n 1)}"
+if [[ -z "$CUDA_VERSION_RESOLVED" ]]; then
+    echo "ERROR: unable to determine CUDA version from ${CUDA_HOME_RESOLVED}. Set EDGE_FM_TRT_CUDA_VERSION and retry."
+    exit 1
+fi
+CUDA_NVCC="${EDGE_FM_TRT_CMAKE_CUDA_COMPILER:-${CUDA_HOME_RESOLVED}/bin/nvcc}"
+case "$(uname -m)" in
+    aarch64|arm64)
+        CUDA_ARCHS_DEFAULT="87"
+        CUDA_TARGET_TRIPLE="aarch64-linux"
+        ;;
+    x86_64|amd64)
+        CUDA_ARCHS_DEFAULT="80;86;89"
+        CUDA_TARGET_TRIPLE="x86_64-linux"
+        ;;
+    *)
+        CUDA_ARCHS_DEFAULT=""
+        CUDA_TARGET_TRIPLE=""
+        ;;
+esac
+CUDA_ARCHS="${EDGE_FM_TRT_CMAKE_CUDA_ARCHITECTURES:-${CUDA_ARCHS_DEFAULT}}"
+if [[ -n "${EDGE_FM_BUILD_DIR:-}" ]]; then
+    TRT_BUILD_DIR_DEFAULT="${EDGE_FM_BUILD_DIR}/trt-edgellm"
+else
+    TRT_BUILD_DIR_DEFAULT="${PROJECT_ROOT}/build-trt-edgellm"
+fi
+TRT_BUILD_DIR="${EDGE_FM_TRT_BUILD_DIR:-$TRT_BUILD_DIR_DEFAULT}"
+TRT_BUILD_LLM_BINARY="${TRT_BUILD_DIR}/examples/llm/llm_build"
+if [[ -n "${EDGE_FM_TRT_BUILD_JOBS:-}" ]]; then
+    TRT_BUILD_JOBS="${EDGE_FM_TRT_BUILD_JOBS}"
+elif [[ "$(uname -m)" =~ ^(aarch64|arm64)$ ]]; then
+    TRT_BUILD_JOBS=1
+else
+    TRT_BUILD_JOBS="$(nproc)"
+fi
+
+if [[ "$(uname -m)" =~ ^(aarch64|arm64)$ ]]; then
+    TRT_CUDA_DIR_DEFAULT="${CUDA_HOME_RESOLVED}/targets/${CUDA_TARGET_TRIPLE}"
+else
+    TRT_CUDA_DIR_DEFAULT="${CUDA_HOME_RESOLVED}"
+fi
+TRT_CUDA_DIR="${EDGE_FM_TRT_CUDA_DIR:-$TRT_CUDA_DIR_DEFAULT}"
 
 resolve_export_llm_cmd() {
     if [[ -n "$CONDA_ENV_PREFIX" && -x "$PYTHON_EXECUTABLE" ]]; then
@@ -85,10 +139,11 @@ PY
 
 cd "$PROJECT_ROOT"
 
-# 1. 初始化子模块与 nlohmann json
+# 1. 初始化构建所需子模块，避免递归拉起不需要的 googletest / NVTX
 echo "[1/4] Initializing TensorRT-Edge-LLM submodules..."
 cd "$TRT_EDGELLM"
-git submodule update --init --recursive 2>/dev/null || true
+# NVTX profiling 默认为关闭，当前 EdgeFM benchmark 路径不依赖 3rdParty/NVTX。
+git submodule update --init 3rdParty/nlohmannJson 2>/dev/null || true
 # nlohmannJson 子模块可能为空，使用 edge-fm 的 json 作为后备
 if [[ ! -f "$TRT_EDGELLM/3rdParty/nlohmannJson/include/nlohmann/json.hpp" ]]; then
     mkdir -p "$TRT_EDGELLM/3rdParty/nlohmannJson/include"
@@ -116,18 +171,21 @@ else
 fi
 
 # 3. 构建 C++ 运行时
-if [[ ! -f "$TRT_EDGELLM/build/examples/llm/llm_build" ]]; then
+if [[ ! -f "$TRT_BUILD_LLM_BINARY" ]]; then
     echo "[3/4] Building TensorRT-Edge-LLM C++ runtime..."
-    mkdir -p "$TRT_EDGELLM/build"
-    cd "$TRT_EDGELLM/build"
-    cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DTRT_PACKAGE_DIR="$TRT_PKG" \
-        -DCUDA_VERSION=12.8 \
-        -DCMAKE_CUDA_COMPILER="${CUDA_HOME:-/usr/local/cuda-12.8}/bin/nvcc" \
-        -DCMAKE_CUDA_ARCHITECTURES="80;86;89"
-    make -j$(nproc)
-    cd "$PROJECT_ROOT"
+    mkdir -p "$TRT_BUILD_DIR"
+    cmake_args=(
+        -DCMAKE_BUILD_TYPE=Release
+        -DTRT_PACKAGE_DIR="$TRT_PKG"
+        -DCUDA_VERSION="$CUDA_VERSION_RESOLVED"
+        -DCUDA_DIR="$TRT_CUDA_DIR"
+        -DCMAKE_CUDA_COMPILER="$CUDA_NVCC"
+    )
+    if [[ -n "$CUDA_ARCHS" ]]; then
+        cmake_args+=(-DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCHS")
+    fi
+    cmake -S "$TRT_EDGELLM" -B "$TRT_BUILD_DIR" "${cmake_args[@]}"
+    cmake --build "$TRT_BUILD_DIR" --parallel "$TRT_BUILD_JOBS"
 else
     echo "[3/4] C++ runtime already built, skipping."
 fi
@@ -135,9 +193,9 @@ fi
 # 4. 构建 Engine
 echo "[4/4] Building TensorRT engine..."
 mkdir -p "$ENGINE_DIR"
-export EDGELLM_PLUGIN_PATH="$TRT_EDGELLM/build/libNvInfer_edgellm_plugin.so"
+export EDGELLM_PLUGIN_PATH="$TRT_BUILD_DIR/libNvInfer_edgellm_plugin.so"
 export LD_LIBRARY_PATH="${TRT_PKG}/lib:${LD_LIBRARY_PATH:-}"
-"$TRT_EDGELLM/build/examples/llm/llm_build" \
+"$TRT_BUILD_LLM_BINARY" \
     --onnxDir "$ONNX_DIR" \
     --engineDir "$ENGINE_DIR" \
     --maxBatchSize 1 \

@@ -23,19 +23,14 @@ import numpy as np
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "scripts"))
-for _p in [
-    project_root / "build_trt_pybind" / "python",
-    project_root / "build" / "python",
-    project_root / "build" / "install" / "python",
-]:
-    if _p.exists():
-        sys.path.insert(0, str(_p))
-        break
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 import edge_fm
-from _repo_temp import make_temp_dir
-from operator_table_utils import resolve_engine_model_name, resolve_operator_table_path
+from scripts.operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from tests._support.temp_paths import make_temp_dir
 
 # Optional: TRT-Edge-LLM in-process runtime (built with BUILD_TRT_EDGELLM_PYBIND=ON)
 try:
@@ -776,6 +771,29 @@ def test_generate_vl_token_alignment_cuda_graph(engine_and_dump_vl_cuda_graph):
 BENCH_NUM_STEPS = DEFAULT_BENCH_DECODE_LENGTHS[0]
 BENCH_WARMUP_RUNS = 3
 BENCH_TIMED_RUNS = 5
+
+
+def _require_benchmark_runtime(kind: str) -> None:
+    missing = []
+    try:
+        import torch
+    except ImportError:
+        torch = None
+        missing.append("torch")
+
+    try:
+        import transformers  # noqa: F401
+    except ImportError:
+        missing.append("transformers")
+
+    if missing:
+        pytest.skip(
+            f"{kind} benchmark requires {', '.join(missing)}. "
+            "Install tests/requirements.txt or use HORIZON_PYTHON/EDGE_FM_TRT_CONDA_PREFIX."
+        )
+
+    if torch is not None and not torch.cuda.is_available():
+        pytest.skip(f"{kind} benchmark requires a CUDA-capable PyTorch runtime")
 
 
 def _summarize_times_ms(times_ms: list[float]) -> dict:
@@ -2247,6 +2265,7 @@ def _benchmark_vlm_model(model_spec: dict, include_trt: bool = False) -> list[di
 
 def test_benchmark_llm():
     """LLM 性能基准：按模型矩阵比较 Transformers vs EdgeFM(cuda graph)。"""
+    _require_benchmark_runtime("LLM")
     models, missing = _resolve_bench_model_specs("llm")
     _print_missing_bench_models("llm", missing)
     if not models:
@@ -2260,6 +2279,7 @@ def test_benchmark_llm():
 
 def test_benchmark_trt_edgellm():
     """LLM 性能基准：按模型矩阵比较 Transformers vs EdgeFM(cuda graph) vs TRT-Edge-LLM。"""
+    _require_benchmark_runtime("TRT LLM")
     models, missing = _resolve_bench_model_specs("llm")
     _print_missing_bench_models("llm", missing)
     if not models:
@@ -2274,6 +2294,7 @@ def test_benchmark_trt_edgellm():
 
 def test_benchmark_vlm():
     """VLM 性能基准：优先比较 Transformers vs EdgeFM(cuda graph) vs TRT-Edge-LLM。"""
+    _require_benchmark_runtime("VLM")
     models, missing = _resolve_bench_model_specs("vlm")
     _print_missing_bench_models("vlm", missing)
     if not models:

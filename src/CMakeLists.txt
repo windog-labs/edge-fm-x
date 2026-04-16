@@ -28,7 +28,7 @@ target_link_libraries(edge_fm PUBLIC
 )
 
 # 显式链接 CUDA 运行时，避免 libedge_fm.so 出现 undefined symbol: __cudaLaunchKernel
-if(CUDAToolkit_FOUND)
+if(ENABLE_CUDA)
     target_link_libraries(edge_fm PUBLIC CUDA::cudart CUDA::cublas CUDA::curand)
 endif()
 
@@ -71,8 +71,18 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/dlpack/include/dlpa
 )
 
 # 安装默认配置文件
-install(FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/../examples/config/engine_default.json
-    ${CMAKE_CURRENT_SOURCE_DIR}/../examples/config/operator_impl_table.json
+set(EDGE_FM_INSTALL_CONFIG_FILES
+    ${EDGE_FM_ACTIVE_CONFIG_DIR}/engine_default.json
+)
+
+if(NOT PLATFORM STREQUAL "j6m")
+    list(APPEND EDGE_FM_INSTALL_CONFIG_FILES
+        ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table.json
+        ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table_llm.json
+        ${EDGE_FM_ACTIVE_CONFIG_DIR}/operator_impl_table_vlm.json
+    )
+endif()
+
+install(FILES ${EDGE_FM_INSTALL_CONFIG_FILES}
     DESTINATION config
 )
