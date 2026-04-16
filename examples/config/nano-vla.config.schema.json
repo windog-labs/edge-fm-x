@@ -70,6 +70,13 @@
       },
       "additionalProperties": true
     },
+    "tuning": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
     "metrics": {
       "type": "object",
       "required": ["enabled", "log_path"],
@@ -91,5 +98,4 @@
     }
   }
 }
-
 

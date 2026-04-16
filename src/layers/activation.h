@@ -23,6 +23,8 @@ public:
         weights_loaded_ = true;
     }
 
+    void reset_operator_impl_cache() override;
+
     void forward(
         const std::unordered_map<std::string, Tensor>& inputs,
         std::unordered_map<std::string, Tensor>& outputs,

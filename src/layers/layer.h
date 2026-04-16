@@ -93,6 +93,8 @@ public:
         ModelStage stage = ModelStage::Prefill
     ) = 0;
 
+    virtual void reset_operator_impl_cache() {}
+
 protected:
     EngineConfig engine_config_;
     Device device_;     ///< 设备类型

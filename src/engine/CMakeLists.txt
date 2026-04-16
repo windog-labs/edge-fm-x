@@ -3,10 +3,12 @@
 # ============================================================================
 
 file(GLOB_RECURSE ENGINE_SOURCES "*.cpp")
+file(GLOB_RECURSE ENGINE_TUNING_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../tuning/*.cpp")
 if(ENABLE_CUDA)
     file(GLOB_RECURSE ENGINE_CUDA_SOURCES "*.cu")
     list(APPEND ENGINE_SOURCES ${ENGINE_CUDA_SOURCES})
 endif()
+list(APPEND ENGINE_SOURCES ${ENGINE_TUNING_SOURCES})
 
 add_library(edge_fm_engine STATIC
     ${ENGINE_SOURCES}

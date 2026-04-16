@@ -23,6 +23,10 @@ bool Model::has_static_decode_runtime_tensors() const {
     return false;
 }
 
+void Model::reset_operator_impl_caches() {
+    // Default: no operator-specific cache to clear.
+}
+
 bool Model::needs_separate_prefill_q_buffer() const {
     return false;
 }

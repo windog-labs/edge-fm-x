@@ -2,6 +2,7 @@
 #include "layers/sampler.h"
 #include "models/model.h"
 #include "operators/operator_impl_table.h"
+#include "tuning/cuda_operator_tuner.h"
 #include "utils/device/memory.h"
 #include "engine/kv_manager.h"
 #include "utils/device/decode_runtime_kernels.h"
@@ -677,12 +678,12 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
 }
 
 void StandardEngine::tune() {
-
-    (void)OperatorImplTable::instance().records_for_model(
-        config_.resolved_model_name(),
-        config_.resolved_hw_profile(),
-        config_.operator_impl_table_path(),
-        "linear");
+    CudaOperatorTuningResult result = tune_cuda_operator_table(config_, *model_);
+    config_.set_operator_impl_table_override(result.operator_table_path.string());
+    OperatorImplTable::instance().invalidate(result.operator_table_path.string());
+    model_->reset_operator_impl_caches();
+    cuda_graph_manager_.reset();
+    prefill_replay_states_.clear();
 }
 
 

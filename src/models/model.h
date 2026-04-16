@@ -82,6 +82,7 @@ public:
     /// 当 decode graph steady-state 完全依赖稳定设备端 buffer 且不需要每步
     /// 重新构建 tensor 视图时返回 true，Engine 可跳过重复 prepare_decode_tensors。
     virtual bool has_static_decode_runtime_tensors() const;
+    virtual void reset_operator_impl_caches();
 
     /// 某些模型（例如 VLM 的 M-RoPE 路径）要求 prefill 阶段的 Q 使用独立连续缓冲。
     /// 默认 false，允许 Engine 直接将 Q 视图 alias 到 fused QKV 首段。

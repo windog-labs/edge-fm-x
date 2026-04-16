@@ -37,6 +37,8 @@ public:
         weights_loaded_ = true;
     }
 
+    void reset_operator_impl_cache() override;
+
     RoPEMode rope_mode() const { return rope_mode_; }
 
 public:

@@ -243,6 +243,17 @@ std::vector<OperatorImplRecord> OperatorImplTable::records_for_model(
     return matched;
 }
 
+std::vector<OperatorImplRecord> OperatorImplTable::all_records(const std::string& table_path) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const LoadedTable& table = load_table_locked(table_path);
+    return table.records;
+}
+
+void OperatorImplTable::invalidate(const std::string& table_path) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    tables_.erase(table_cache_key(table_path));
+}
+
 const OperatorImplTable::LoadedTable& OperatorImplTable::load_table_locked(const std::string& table_path) {
     const std::string key = table_cache_key(table_path);
     auto it = tables_.find(key);

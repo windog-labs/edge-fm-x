@@ -158,6 +158,7 @@ namespace {
 }
 
 EngineConfig::EngineConfig(const std::string& config_path) {
+    shared_state_ = std::make_shared<SharedState>();
     config_dir_ = std::filesystem::absolute(std::filesystem::path(config_path)).parent_path();
 
     // Load default configuration first
@@ -231,7 +232,8 @@ nlohmann::json EngineConfig::speculative() const { return get_object_or_empty(co
 nlohmann::json EngineConfig::kvcache() const { return get_object_or_empty(config_, "kvcache"); }
 nlohmann::json EngineConfig::sampling() const { return get_object_or_empty(config_, "sampling"); }
 nlohmann::json EngineConfig::metrics() const { return get_object_or_empty(config_, "metrics"); }
-std::string EngineConfig::operator_impl_table_path() const {
+nlohmann::json EngineConfig::tuning() const { return get_object_or_empty(config_, "tuning"); }
+std::string EngineConfig::configured_operator_impl_table_path() const {
     const std::string raw_path = config_.value("operator_impl_table_path", std::string(""));
     if (raw_path.empty()) {
         return raw_path;
@@ -242,6 +244,30 @@ std::string EngineConfig::operator_impl_table_path() const {
         return path.string();
     }
     return (config_dir_ / path).lexically_normal().string();
+}
+std::string EngineConfig::operator_impl_table_path() const {
+    if (shared_state_ != nullptr && !shared_state_->operator_impl_table_override_path.empty()) {
+        return shared_state_->operator_impl_table_override_path;
+    }
+    return configured_operator_impl_table_path();
+}
+bool EngineConfig::has_operator_impl_table_override() const {
+    return shared_state_ != nullptr && !shared_state_->operator_impl_table_override_path.empty();
+}
+void EngineConfig::set_operator_impl_table_override(const std::string& path) {
+    if (shared_state_ == nullptr) {
+        shared_state_ = std::make_shared<SharedState>();
+    }
+    shared_state_->operator_impl_table_override_path = path;
+}
+void EngineConfig::clear_operator_impl_table_override() {
+    if (shared_state_ == nullptr) {
+        return;
+    }
+    shared_state_->operator_impl_table_override_path.clear();
+}
+bool EngineConfig::tuning_enabled() const {
+    return safe_value(tuning(), "enabled", false);
 }
 std::string EngineConfig::backend_target() const {
     if (config_.contains("_edgefm_internal") && config_["_edgefm_internal"].is_object()) {

@@ -38,6 +38,22 @@ def _find_hf_model_path() -> str | None:
     return None
 
 
+def _find_small_hf_model_path() -> str | None:
+    candidates = [
+        str(project_root / "examples" / "qwen2.5-0.5b-instruct" / "qwen2.5-0.5b-instruct"),
+        str(project_root / "examples" / "qwen2.5-0.5b-instruct"),
+        _find_hf_model_path(),
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(candidate)
+        if path.exists() and (path / "config.json").exists():
+            if (path / "model.safetensors").exists() or list(path.glob("model-*.safetensors")):
+                return str(path.resolve())
+    return None
+
+
 def _load_model_config(model_path: str) -> dict:
     with open(Path(model_path) / "config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
@@ -98,6 +114,14 @@ def hf_model_path() -> str:
     return model_path
 
 
+@pytest.fixture(scope="module")
+def small_hf_model_path() -> str:
+    model_path = _find_small_hf_model_path()
+    if model_path is None:
+        pytest.skip("Small model path not found for tuning smoke tests")
+    return model_path
+
+
 def test_from_model_is_deprecated(hf_model_path: str):
     engine_json = _create_engine_config(hf_model_path)
     with pytest.raises(Exception, match="deprecated"):
@@ -145,3 +169,58 @@ def test_horizon_tune_emits_compile_spec_v2(hf_model_path: str):
     assert "linear_impl_overrides" not in compile_spec["graph_tuning"]
     assert compile_spec["generated_module"]["factory_function"] == "build_model"
     assert compile_spec["helper_script"] == "scripts/horizon/compile_horizon_from_spec.py"
+
+
+def test_config_driven_cuda_tuning_smoke(
+    small_hf_model_path: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capfd: pytest.CaptureFixture[str],
+):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("EDGE_FM_TUNING_REDUCED_CANDIDATES", "1")
+    monkeypatch.setenv("EDGE_FM_TUNING_PREFILL_LIST", "128")
+    monkeypatch.setenv("EDGE_FM_TUNING_KV_LENS", "128")
+    monkeypatch.setenv("EDGE_FM_TUNING_ATTENTION_WARMUP", "2")
+    monkeypatch.setenv("EDGE_FM_TUNING_ATTENTION_ITERS", "5")
+    monkeypatch.setenv("EDGE_FM_TUNING_LINEAR_WARMUP", "1")
+    monkeypatch.setenv("EDGE_FM_TUNING_LINEAR_ITERS", "3")
+
+    engine_json = Path(_create_engine_config(small_hf_model_path, model_name="Qwen2.5"))
+    config = json.loads(engine_json.read_text(encoding="utf-8"))
+    config["runtime"]["hw_profile"] = "cuda_sm86"
+    config["tuning"] = {"enabled": True}
+    engine_json.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+    capfd.readouterr()
+
+    engine = edge_fm.EdgeFM(str(engine_json))
+    response = engine.generate(edge_fm.Request(request_id=0, token_ids=[151644, 198, 151645]))
+    assert isinstance(list(response.token_ids()), list)
+
+    first_logs = "".join(capfd.readouterr())
+    assert "[tuning] start" in first_logs
+    assert "[tuning] completed" in first_logs
+
+    cache_root = Path(os.environ["HOME"]) / ".cache" / "edge-fm" / "backend_artifacts"
+    tuned_tables = list(cache_root.glob("*/cuda_operator_tuning/operator_impl_table.json"))
+    tuning_reports = list(cache_root.glob("*/cuda_operator_tuning/tuning_report.json"))
+    assert tuned_tables
+    assert tuning_reports
+
+    engine = edge_fm.EdgeFM(str(engine_json))
+    response = engine.generate(edge_fm.Request(request_id=0, token_ids=[151644, 198, 151645]))
+    assert isinstance(list(response.token_ids()), list)
+
+    second_logs = "".join(capfd.readouterr())
+    assert "[tuning] cache hit" in second_logs or "[tuning] reusing active tuned operator table" in second_logs
+
+
+def test_config_driven_tuning_rejects_horizon(hf_model_path: str):
+    engine_json = Path(_create_engine_config(hf_model_path, runtime_device="horizon", model_name="Qwen2.5"))
+    config = json.loads(engine_json.read_text(encoding="utf-8"))
+    config["tuning"] = {"enabled": True}
+    engine_json.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+    with pytest.raises(Exception, match="supports CUDA only|Horizon continues to use explicit engine.tune"):
+        edge_fm.EdgeFM(str(engine_json))
