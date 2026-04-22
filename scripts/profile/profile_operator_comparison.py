@@ -36,6 +36,8 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCRIPTS_ROOT = SCRIPT_DIR.parent
 project_root = SCRIPTS_ROOT.parent
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
 for build_python in [
     project_root / "build" / "python",
     project_root / "build" / "install" / "python",
@@ -44,12 +46,15 @@ for build_python in [
     if build_python.is_dir() and build_python_str not in sys.path:
         sys.path.insert(0, build_python_str)
 
+from operator_table.utils import resolve_target_hw_profile
+
 # 与当前主 benchmark 默认口径保持一致
 DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "1"))
 PROFILE_WARMUP = 2
 PROFILE_RUNS = 3  # 少量 run 便于 nsys 采集
 PROFILE_PREFILL_LEN = int(os.environ.get("EDGE_FM_PROFILE_PREFILL_LEN", "2048"))
 PROFILE_DECODE_LEN = int(os.environ.get("EDGE_FM_PROFILE_DECODE_LEN", "64"))
+CUDA_HW_PROFILE = resolve_target_hw_profile()
 
 
 def _default_trt_build_dir() -> Path:
@@ -111,7 +116,7 @@ def _create_engine_config(model_path: str, prefill_len: int, num_steps: int) -> 
             "runtime": {
                 "device": "cuda",
                 "device_id": DEVICE_ID,
-                "hw_profile": "cuda_sm80",
+                "hw_profile": CUDA_HW_PROFILE,
                 "use_cuda_graph": True,
             },
             "prefill_model_path": str(Path(model_path).resolve()),

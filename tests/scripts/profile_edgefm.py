@@ -26,7 +26,11 @@ from scripts.edge_fm_build_paths import prepend_built_python_paths
 prepend_built_python_paths(project_root)
 
 import edge_fm
-from scripts.operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from scripts.operator_table.utils import (
+    resolve_engine_model_name,
+    resolve_operator_table_path,
+    resolve_target_hw_profile,
+)
 from tests._support.temp_paths import make_temp_dir
 
 DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))
@@ -34,6 +38,7 @@ PREFILL_LEN = int(os.environ.get("PROFILE_PREFILL_LEN", "512"))
 NUM_STEPS = int(os.environ.get("PROFILE_NUM_STEPS", "20"))
 WARMUP_RUNS = 3
 USE_CUDA_GRAPH = os.environ.get("EDGE_FM_USE_CUDA_GRAPH", "1").strip() not in {"0", "false", "False"}
+CUDA_HW_PROFILE = resolve_target_hw_profile()
 
 PROMPT = "Hello, how are you today?"
 BASE_SEQ_LEN = 6
@@ -62,7 +67,7 @@ def create_engine_config(model_path: str) -> str:
     max_tok = PREFILL_LEN + NUM_STEPS - 1
     d = make_temp_dir("efm_profile_legacy_")
     p = Path(d) / "engine_config.json"
-    runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda_sm80"}
+    runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": CUDA_HW_PROFILE}
     if USE_CUDA_GRAPH:
         runtime["use_cuda_graph"] = True
     with open(p, "w") as f:
