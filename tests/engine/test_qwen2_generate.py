@@ -29,7 +29,11 @@ from scripts.edge_fm_build_paths import prepend_built_python_paths
 prepend_built_python_paths(project_root)
 
 import edge_fm
-from scripts.operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from scripts.operator_table.utils import (
+    resolve_engine_model_name,
+    resolve_operator_table_path,
+    resolve_target_hw_profile,
+)
 from tests._support.temp_paths import make_temp_dir
 
 # Optional: TRT-Edge-LLM in-process runtime (built with BUILD_TRT_EDGELLM_PYBIND=ON)
@@ -120,6 +124,7 @@ BENCH_MODEL_SPECS = {
 # GPU device：性能 benchmark / profiling 默认走 device 0；可通过环境变量覆盖
 DEVICE_ID = int(os.environ.get("EDGE_FM_DEVICE_ID", "0"))
 CUDA_DEVICE = f"cuda:{DEVICE_ID}"
+CUDA_HW_PROFILE = resolve_target_hw_profile()
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +357,7 @@ def _create_engine_config(
     )
     engine_config_dir = make_temp_dir("efm_qwen2_generate_cfg_")
     engine_config_path = Path(engine_config_dir) / "engine_config.json"
-    runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": "cuda_sm80"}
+    runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": CUDA_HW_PROFILE}
     if use_cuda_graph:
         runtime["use_cuda_graph"] = True
     prefix = prefix_token_ids if prefix_token_ids is not None else []

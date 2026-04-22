@@ -30,8 +30,15 @@ for build_python in [
         sys.path.insert(0, build_python_str)
 
 import edge_fm
-from operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from operator_table.utils import (
+    resolve_engine_model_name,
+    resolve_operator_table_path,
+    resolve_target_hw_profile,
+)
 from temp_paths import make_temp_dir
+
+
+CUDA_HW_PROFILE = resolve_target_hw_profile()
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,7 +109,7 @@ def make_engine_config(
         "runtime": {
             "device": "cuda",
             "device_id": device_id,
-            "hw_profile": "cuda_sm80",
+            "hw_profile": CUDA_HW_PROFILE,
             "use_cuda_graph": use_cuda_graph,
         },
         "operator_impl_table_path": str(
