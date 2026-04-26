@@ -1,6 +1,6 @@
 #include "models/model.h"
 #include "engine/engine.h"
-#include "engine/scheduler.h"
+#include "engine/cuda/scheduler.h"
 #include "utils/check.h"
 #include <edge-fm/core.h>
 #include <nlohmann/json.hpp>

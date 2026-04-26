@@ -1,5 +1,5 @@
-#include "engine/scheduler.h"
-#include "engine/kv_manager.h"
+#include "engine/cuda/scheduler.h"
+#include "engine/cuda/kv_manager.h"
 #include "utils/check.h"
 #include <algorithm>
 #include <cassert>

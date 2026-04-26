@@ -26,6 +26,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scripts.horizon.j6m_rewrite import (
+    prepare_j6m_rewrite_artifacts,
+    should_enable_j6m_rewrite,
+)
+
 
 def _load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
@@ -93,6 +102,7 @@ def _write_preparation_manifest(
     stage: str,
     artifact_path: Path,
     compiler_command: str | None,
+    horizon_rewrite: dict[str, Any] | None,
 ) -> Path:
     manifest = {
         "schema": "edgefm_horizon_compile_prep_v1",
@@ -104,13 +114,16 @@ def _write_preparation_manifest(
         "generated_module": compile_spec.get("generated_module", {}),
         "example_inputs": _build_example_inputs(compile_spec, stage),
         "compiler_command_template": compiler_command or "",
+        "horizon_rewrite": horizon_rewrite or {"enabled": False},
     }
     prep_path = prep_dir / "compile_prep.json"
     prep_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return prep_path
 
 
-def _instantiate_model(module_path: Path, factory_name: str, stage: str):
+def _instantiate_model(module_path: Path, factory_name: str, stage: str, skip_model_init: bool = False):
+    if skip_model_init:
+        return None
     module = _import_module_from_path(module_path)
     if not hasattr(module, factory_name):
         raise AttributeError(f"Factory '{factory_name}' not found in {module_path}")
@@ -169,6 +182,22 @@ def main() -> int:
         action="store_true",
         help="Prepare module and manifest but do not invoke external compiler",
     )
+    parser.add_argument(
+        "--horizon-rewrite",
+        default="auto",
+        choices=["auto", "on", "off"],
+        help="Prepare J6M-safe rewrite diagnostics before invoking the compiler",
+    )
+    parser.add_argument(
+        "--lerobot-root",
+        default=None,
+        help="Override LeRobot checkout root used by SmolVLA J6M rewrite diagnostics",
+    )
+    parser.add_argument(
+        "--skip-model-init",
+        action="store_true",
+        help="Do not instantiate the generated model; useful for rewrite dry-runs without model weights",
+    )
     args = parser.parse_args()
 
     compile_spec_path = Path(args.compile_spec).resolve()
@@ -184,8 +213,33 @@ def main() -> int:
     ).resolve()
     artifact_path.parent.mkdir(parents=True, exist_ok=True)
 
-    model = _instantiate_model(module_path, factory_function, args.stage)
     prep_dir = artifact_path.parent
+    rewrite_result: dict[str, Any] | None = None
+    if should_enable_j6m_rewrite(compile_spec, args.horizon_rewrite):
+        rewrite_result = prepare_j6m_rewrite_artifacts(
+            compile_spec_path=compile_spec_path,
+            compile_spec=compile_spec,
+            output_dir=prep_dir,
+            stage=args.stage,
+            lerobot_root=args.lerobot_root,
+        )
+
+    model = _instantiate_model(
+        module_path,
+        factory_function,
+        args.stage,
+        skip_model_init=args.skip_model_init,
+    )
+    if model is not None and rewrite_result is not None:
+        rewrite_result = prepare_j6m_rewrite_artifacts(
+            compile_spec_path=compile_spec_path,
+            compile_spec=compile_spec,
+            output_dir=prep_dir,
+            stage=args.stage,
+            lerobot_root=args.lerobot_root,
+            model=model,
+        )
+
     prep_manifest_path = _write_preparation_manifest(
         prep_dir=prep_dir,
         compile_spec_path=compile_spec_path,
@@ -197,14 +251,16 @@ def main() -> int:
             args.compiler_command,
             os.environ.get("EDGE_FM_HORIZON_COMPILER_CMD"),
         ),
+        horizon_rewrite=rewrite_result,
     )
 
     model_summary = {
-        "class": model.__class__.__name__,
-        "module": model.__class__.__module__,
+        "class": model.__class__.__name__ if model is not None else "",
+        "module": model.__class__.__module__ if model is not None else "",
         "stage": args.stage,
         "artifact_path": str(artifact_path),
         "prep_manifest_path": str(prep_manifest_path),
+        "model_init_skipped": model is None,
     }
     (prep_dir / "model_summary.json").write_text(
         json.dumps(model_summary, indent=2), encoding="utf-8"
@@ -223,6 +279,7 @@ def main() -> int:
                 "prep_manifest": str(prep_manifest_path),
                 "artifact_path": str(artifact_path),
                 "compiler_command_configured": bool(compiler_command),
+                "horizon_rewrite": rewrite_result or {"enabled": False},
             },
             indent=2,
         ))
@@ -250,6 +307,7 @@ def main() -> int:
             "compile_spec": str(compile_spec_path),
             "artifact_path": str(artifact_path),
             "prep_manifest": str(prep_manifest_path),
+            "horizon_rewrite": rewrite_result or {"enabled": False},
         },
         indent=2,
     ))

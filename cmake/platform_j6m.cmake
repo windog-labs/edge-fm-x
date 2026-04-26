@@ -3,7 +3,7 @@
 # ============================================================================
 
 set(PLATFORM_NAME "Horizon J6M")
-set(PLATFORM_ARCH "x86_64")
+set(PLATFORM_ARCH "aarch64")
 set(PLATFORM_GPU "J6M")
 
 add_compile_definitions(

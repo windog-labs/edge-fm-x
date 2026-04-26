@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include "utils/non_copyable.h"
-#include "engine/kv_manager.h"
+#include "engine/cuda/kv_manager.h"
 #include "utils/device/cuda_utils.h"
 #include <cuda_runtime.h>
 

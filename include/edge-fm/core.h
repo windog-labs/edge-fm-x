@@ -412,10 +412,10 @@ struct InternalError : public Error { using Error::Error; };
 inline Device device_from_string(const std::string& device_str) {
     if (device_str == "cpu") {
         return Device::CPU;
-    } else if (device_str == "cuda") {
+    } else if (device_str == "cuda" || device_str == "gpu") {
         return Device::GPU;
     } else {
-        throw ConfigurationError("Unsupported device: " + device_str + ". Expected 'cuda' or 'cpu'");
+        throw ConfigurationError("Unsupported device: " + device_str + ". Expected 'cuda', 'gpu', or 'cpu'");
     }
 }
 

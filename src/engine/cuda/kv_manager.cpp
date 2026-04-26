@@ -1,4 +1,4 @@
-#include "engine/kv_manager.h"
+#include "engine/cuda/kv_manager.h"
 #include "engine/engine.h"
 #include "utils/check.h"
 #include <edge-fm/core.h>

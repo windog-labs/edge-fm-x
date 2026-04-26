@@ -1,11 +1,11 @@
-#include "engine/stardard_engine.h"
+#include "engine/cuda/standard_engine.h"
 #include "layers/sampler.h"
 #include "models/model.h"
 #include "operators/operator_impl_table.h"
 #include "tuning/cuda_operator_tuner.h"
 #include "utils/device/memory.h"
-#include "engine/kv_manager.h"
-#include "utils/device/decode_runtime_kernels.h"
+#include "engine/cuda/kv_manager.h"
+#include "engine/cuda/kernels/decode_runtime_kernels.h"
 #include "utils/device/cuda_utils.h"
 #include "utils/device/nvtx.h"
 #include "utils/check.h"
@@ -22,6 +22,23 @@
 
 namespace edge_fm {
 
+StandardEngine::StandardEngine(const EngineConfig& config)
+    : Engine(config)
+{
+    initialize_standard_runtime();
+}
+
+void StandardEngine::initialize_standard_runtime() {
+    device_ = device_from_string(config_.runtime_device());
+    device_id_ = config_.runtime_device_id();
+    CUDA_CHECK_THROW(cudaSetDevice(device_id_), "Failed to set device for engine init");
+
+    model_ = Model::create(config_);
+    kv_manager_ = std::make_shared<KVManager>(config_);
+    scheduler_ = std::make_unique<Scheduler>(kv_manager_);
+    sampler_ = std::make_unique<SamplerLayer>(config_);
+    sampler_->load_weights({}, {});
+}
 
 namespace {
 
