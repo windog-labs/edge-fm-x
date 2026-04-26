@@ -5,12 +5,13 @@
 set(ENGINE_SOURCES
     engine.cpp
     engine_factory.cpp
+    kv_manager.cpp
+    scheduler.cpp
     horizon/engine.cpp
 )
 
 if(ENABLE_CUDA)
     list(APPEND ENGINE_SOURCES
-        cuda/kv_manager.cpp
         cuda/scheduler.cpp
         cuda/standard_engine.cpp
         speculative/eagle_engine.cpp

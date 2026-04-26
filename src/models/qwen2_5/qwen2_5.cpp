@@ -438,7 +438,7 @@ void Qwen2_5::forward_prefill(
 
 void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage stage) {
     auto& tensors = const_cast<std::unordered_map<std::string, Tensor>&>(context.tensors());
-    cudaStream_t stream = context.stream();
+    cudaStream_t stream = cuda_stream(context);
     const Request* request = context.request();
     size_t dtype_size = get_dtype_size(dtype_);
     int32_t device_id = engine_config_.runtime_device_id();
@@ -712,7 +712,7 @@ void Qwen2_5::prepare_decode_position_ids(Context& context, Device device, int32
     for (int d = 0; d < 3; ++d) {
         decode_pos[d] = (*last_pos)[d] + gen;
     }
-    cudaStream_t stream = context.stream();
+    cudaStream_t stream = cuda_stream(context);
     auto& tensors = context.tensors();
     void* pos_ptr = nullptr;
     auto pos_it = tensors.find(ModelTensors::POSITION_IDS);

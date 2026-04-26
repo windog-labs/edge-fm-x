@@ -17,7 +17,7 @@
 #include "layers/linear.h"
 #include "engine/engine.h"
 #include "models/model.h"
-#include "engine/cuda/kv_manager.h"
+#include "engine/kv_manager.h"
 #include "utils/device/weight_loader.h"
 #include <nlohmann/json.hpp>
 #include <cuda_runtime.h>

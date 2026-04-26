@@ -1,8 +1,8 @@
 #pragma once
 
 #include "engine.h"
-#include "engine/cuda/kv_manager.h"
-#include "engine/cuda/scheduler.h"
+#include "engine/kv_manager.h"
+#include "engine/scheduler.h"
 #include "layers/sampler.h"
 #include "models/model.h"
 #include "utils/device/cuda_graph.h"
