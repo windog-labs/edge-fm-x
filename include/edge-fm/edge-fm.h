@@ -41,6 +41,24 @@ public:
     Response generate(const Request& request) const;
 
     /**
+     * @brief Run a tensor-in/tensor-out prefill stage.
+     *
+     * This generic stage API is intended for whole-model engines where the model
+     * has already been split into prefill/decode artifacts. For token generation,
+     * keep using generate().
+     */
+    TensorMap prefill(int32_t request_id, const TensorRefMap& inputs) const;
+
+    /**
+     * @brief Run a tensor-in/tensor-out decode stage.
+     *
+     * Decode inputs may include externally supplied KV tensors. Backends with an
+     * internal KV manager may also inject cached tensors associated with
+     * request_id.
+     */
+    TensorMap decode(int32_t request_id, const TensorRefMap& inputs) const;
+
+    /**
      * @brief Return stage timing from the most recent generate() call.
      *
      * Keys are stable strings such as `prefill_ms`, `decode_ms`,

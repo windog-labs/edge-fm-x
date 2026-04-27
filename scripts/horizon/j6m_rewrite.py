@@ -92,7 +92,15 @@ def resolve_lerobot_root(compile_spec: dict[str, Any], override: str | None = No
     env_value = os.environ.get("LEROBOT_ROOT") or os.environ.get("EDGE_FM_LEROBOT_ROOT")
     if env_value:
         return Path(env_value).expanduser().resolve()
-    return Path("~/DATA/repos/public/lerobot").expanduser().resolve()
+    for candidate in (
+        "~/Repos/public/lerobot-v0.4.4",
+        "~/Repos/public/lerobot",
+        "~/DATA/repos/public/lerobot",
+    ):
+        path = Path(candidate).expanduser()
+        if path.exists():
+            return path.resolve()
+    return Path("~/Repos/public/lerobot-v0.4.4").expanduser().resolve()
 
 
 def smolvla_source_files(lerobot_root: Path) -> dict[str, dict[str, Any]]:

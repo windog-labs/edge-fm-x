@@ -3,6 +3,7 @@
 ## 主文档
 
 - `doc/design.md` - 代码结构、运行时分层、配置与调度
+- `doc/smolvla_phase1_horizon_usage.md` - SmolVLA phase-1 Horizon 双 stage 导出与 `prefill`/`decode` 调用示例
 - `doc/edge_fm_benchmark_tables.md` - Benchmark 数据表
 - `doc/orin_r36.4.3_qwen_benchmark_guide.md` - Jetson Orin benchmark 指南
 

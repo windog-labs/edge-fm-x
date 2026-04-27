@@ -21,6 +21,14 @@ Response EdgeFM::generate(const Request& request) const {
     return impl_->engine->generate(request);
 }
 
+TensorMap EdgeFM::prefill(int32_t request_id, const TensorRefMap& inputs) const {
+    return impl_->engine->prefill(request_id, inputs);
+}
+
+TensorMap EdgeFM::decode(int32_t request_id, const TensorRefMap& inputs) const {
+    return impl_->engine->decode(request_id, inputs);
+}
+
 std::unordered_map<std::string, double> EdgeFM::last_generate_metrics() const {
     return impl_->engine->get_last_generate_metrics();
 }

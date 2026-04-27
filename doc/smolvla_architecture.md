@@ -765,3 +765,504 @@ graph TB
 6. **NaViT 可变分辨率**: SigLIP 支持 NaViT 风格的可变分辨率输入，通过 2D 位置编码插值适应不同图像尺寸。
 
 7. **Pixel Shuffle 降低序列长度**: Connector 使用 pixel shuffle (scale=2) 将图像 token 数量减少 4 倍，同时嵌入维度扩大 4 倍后通过线性层投影。
+
+---
+
+## 6. 代码级详解：Prefill 与 Action Expert 的连接
+
+### 6.1 推理两阶段流程
+
+SmolVLA 推理（`VLAFlowMatching.sample_actions`）分为**两阶段**：
+
+**阶段 1 — Prefill**（只执行一次）：
+
+```python
+# modeling_smolvla.py:822-835
+prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(...)
+_, past_key_values = self.vlm_with_expert.forward(
+    inputs_embeds=[prefix_embs, None],   # ← 只有 prefix，expert 输入为 None
+    use_cache=True,
+    fill_kv_cache=True,                  # ← 填充 KV cache
+)
+```
+
+- VLM 的 16 层 self-attention 处理 `[image_emb, lang_emb, state_emb]`
+- 每层产出的 K/V 存入 `past_key_values[layer_idx]`
+- Expert 不参与此阶段（`inputs_embeds[1] = None`）
+
+**阶段 2 — Denoise 循环**（执行 `num_steps=10` 步）：
+
+```python
+# modeling_smolvla.py:840-868
+for step in range(num_steps):   # 10 步
+    v_t = self.denoise_step(x_t, prefix_pad_masks, past_key_values, timestep)
+    x_t = x_t + dt * v_t
+```
+
+每次 `denoise_step` 调用：
+
+```python
+# modeling_smolvla.py:896-903
+outputs_embeds, _ = self.vlm_with_expert.forward(
+    inputs_embeds=[None, suffix_embs],   # ← VLM 输入为 None，只有 Expert
+    past_key_values=past_key_values,     # ← 复用 prefill 的 KV cache
+    use_cache=True,
+    fill_kv_cache=False,                 # ← 读缓存，不写
+)
+```
+
+```mermaid
+graph TB
+    subgraph Prefill["阶段 1: Prefill (执行一次)"]
+        P_EMB["embed_prefix<br/>[img_emb, lang_emb, state_emb]"]
+        P_FWD["VLM 16层 self-attention"]
+        P_KV["past_key_values<br/>(每层的 K, V)"]
+        P_EMB --> P_FWD --> P_KV
+    end
+
+    subgraph Denoise["阶段 2: Denoise 循环 (10步)"]
+        D0["step 0: embed_suffix → Expert forward → v_t"]
+        D1["step 1: embed_suffix → Expert forward → v_t"]
+        DD["..."]
+        D9["step 9: embed_suffix → Expert forward → v_t"]
+        D0 --> D1 --> DD --> D9
+    end
+
+    P_KV -->|"KV cache 复用"| D0
+    P_KV -->|"KV cache 复用"| D1
+    P_KV -->|"KV cache 复用"| D9
+
+    style P_KV fill:#fff9c4,stroke:#f9a825
+```
+
+---
+
+### 6.2 单次 Denoise Step 完整操作拆解
+
+`denoise_step`（`modeling_smolvla.py:875-908`）是推理阶段循环 10 次的核心函数。去掉掩码构建等辅助逻辑，实际只有 **3 步**：
+
+**步骤 1 — `embed_suffix(x_t, t)`：将噪声动作和时间步编码成 Expert 输入**
+
+```
+x_t (B, chunk_size, 32)
+  │
+  ├── action_in_proj:  Linear(32 → 720)         → action_emb
+  │
+t (scalar, 如 step=0 时 t=1.0)
+  │
+  ├── SinCosEmb:      t → (720,)                → time_emb
+  │                                            expand → (B, chunk_size, 720)
+  │
+  ├── concat [action_emb, time_emb]              → (B, chunk_size, 1440)
+  │
+  ├── action_time_mlp_in:  Linear(1440 → 720)    → SiLU
+  ├── action_time_mlp_out: Linear(720 → 720)     → suffix_embs
+```
+
+纯线性投影 + 一个小 MLP，没有 attention，计算量很小。
+
+**步骤 2 — `vlm_with_expert.forward()`：Expert 16 层 transformer**
+
+```
+inputs_embeds = [None, suffix_embs]    # VLM 跳过，只跑 Expert
+past_key_values = prefill 缓存的 KV
+
+for layer_idx in 0..15:
+    偶数层 (0,2,4...):  Expert self-attn   (concat VLM prefix KV + Expert KV)
+    奇数层 (1,3,5...):  Expert cross-attn  (Q←Expert, KV←VLM cache + 重投影)
+    → RMSNorm → FFN (SwiGLU)
+
+→ RMSNorm → suffix_out
+```
+
+这是计算量最大的部分，但只涉及 Expert（75% 宽度，720 维），VLM 完全不跑。
+
+**步骤 3 — `action_out_proj`：投影输出速度场 v_t**
+
+```
+suffix_out[:, -chunk_size:]           # 取最后 chunk_size 个 token
+  → .to(float32)
+  → action_out_proj:  Linear(720 → 32)
+  → v_t                                # 速度场预测
+```
+
+回到 `sample_actions`（`modeling_smolvla.py:868`）做欧拉步更新：
+
+```
+x_t = x_t + dt * v_t                  # dt = -1/10
+```
+
+```mermaid
+graph TB
+    XT_IN["x_t<br/>(B, chunk, 32)"]
+    T_IN["t<br/>(scalar)"]
+
+    XT_IN --> AIN["action_in_proj<br/>Linear(32→720)"]
+    T_IN --> SIN["SinCosEmb<br/>(t→720)"]
+
+    AIN --> ACT_EMB["action_emb<br/>(B, chunk, 720)"]
+    SIN -->|"expand"| TIME_EMB["time_emb<br/>(B, chunk, 720)"]
+
+    ACT_EMB --> CAT["concat<br/>(B, chunk, 1440)"]
+    TIME_EMB --> CAT
+
+    CAT --> MLP_IN["action_time_mlp_in<br/>Linear(1440→720)"]
+    MLP_IN --> SILU["SiLU"]
+    SILU --> MLP_OUT["action_time_mlp_out<br/>Linear(720→720)"]
+
+    MLP_OUT --> EXPERT["Expert 16 层<br/>self-attn / cross-attn<br/>(读 KV cache)"]
+    KV["Prefill KV cache"] --> EXPERT
+
+    EXPERT --> AOUT["action_out_proj<br/>Linear(720→32)"]
+    AOUT --> VT["v_t"]
+    VT --> EULER["x_t = x_t + dt × v_t<br/>dt = -1/10"]
+
+    style KV fill:#fff9c4,stroke:#f9a825
+    style EXPERT fill:#fff3e0,stroke:#e65100
+```
+
+**各步骤计算量对比**：
+
+| 步骤 | 操作 | 计算量 |
+|---|---|---|
+| embed_suffix | `Linear(32→720)` + SinCosEmb + `MLP(1440→720→720)` | 很小 |
+| Expert forward | 16 层 Expert (720维, cross-attn 读 KV cache) | **主要开销** |
+| action_out_proj | `Linear(720→32)` | 极小 |
+| 欧拉步 | `x_t += dt * v_t` | 极小 |
+
+**结论**：denoise step 里除了 `vlm_with_expert.forward()` 就只有两个 Linear + 一个小 MLP + 一个加法，几乎没有额外开销。计算瓶颈完全在 Expert 的 16 层 attention + FFN 上。
+
+---
+
+### 6.3 层级路由：Self-Attn vs Cross-Attn
+
+核心路由逻辑在 `SmolVLMWithExpertModel.forward`（`smolvlm_with_expert.py:437-467`）：
+
+```python
+for layer_idx in range(num_layers):
+    if (fill_kv_cache
+        or "cross" not in self.attention_mode
+        or (self.self_attn_every_n_layers > 0 and layer_idx % self.self_attn_every_n_layers == 0)):
+        att_outputs, past_key_values = self.forward_attn_layer(...)       # self-attention
+    else:
+        att_outputs, past_key_values = self.forward_cross_attn_layer(...)  # cross-attention
+```
+
+默认配置 `attention_mode="cross_attn"`, `self_attn_every_n_layers=2`，所以：
+
+| 层 | Prefill (`fill_kv_cache=True`) | Denoise (`fill_kv_cache=False`) |
+|---|---|---|
+| 0, 2, 4, ... | `forward_attn_layer` (VLM self-attn, 存 KV) | `forward_attn_layer` (Expert self-attn) |
+| 1, 3, 5, ... | `forward_attn_layer` (VLM self-attn, 存 KV) | `forward_cross_attn_layer` (Expert cross-attn) |
+
+```mermaid
+graph TB
+    subgraph PrefillPhase["Prefill 阶段"]
+        direction TB
+        PL0["Layer 0: VLM self-attn → 存 KV cache"]
+        PL1["Layer 1: VLM self-attn → 存 KV cache"]
+        PL2["Layer 2: VLM self-attn → 存 KV cache"]
+        PL3["Layer 3: VLM self-attn → 存 KV cache"]
+        PDOT["..."]
+        PL0 --> PL1 --> PL2 --> PL3 --> PDOT
+    end
+
+    subgraph DenoisePhase["Denoise 阶段"]
+        direction TB
+        DL0["Layer 0: Expert self-attn<br/>(concat VLM prefix KV + Expert KV)"]
+        DL1["Layer 1: Expert cross-attn<br/>(Q←Expert, KV←VLM cache, 重新投影)"]
+        DL2["Layer 2: Expert self-attn<br/>(concat VLM prefix KV + Expert KV)"]
+        DL3["Layer 3: Expert cross-attn<br/>(Q←Expert, KV←VLM cache, 重新投影)"]
+        DDOT["..."]
+        DL0 --> DL1 --> DL2 --> DL3 --> DDOT
+    end
+
+    PL0 -.->|"KV cache"| DL0
+    PL1 -.->|"KV cache"| DL1
+    PL2 -.->|"KV cache"| DL2
+    PL3 -.->|"KV cache"| DL3
+
+    style DL0 fill:#c8e6c9,stroke:#2e7d32
+    style DL1 fill:#ffccbc,stroke:#d84315
+    style DL2 fill:#c8e6c9,stroke:#2e7d32
+    style DL3 fill:#ffccbc,stroke:#d84315
+```
+
+---
+
+### 6.4 Self-Attention 层的 Denoise 行为
+
+对于偶数层 (0, 2, 4...)，在 Denoise 阶段调用 `forward_attn_layer`，`inputs_embeds=[None, suffix_embs]`。
+
+此时 VLM 的 `hidden_states=None`，被跳过，只有 Expert 参与 self-attention。
+
+当 `fill_kv_cache=False` 时，Expert 的新 K/V 与 `past_key_values` 中 VLM 的 prefix K/V **concat**（`smolvlm_with_expert.py:276-277`）：
+
+```python
+key_states = torch.cat([past_key_values[layer_idx]["key_states"], key_states], dim=1)
+value_states = torch.cat([past_key_values[layer_idx]["value_states"], value_states], dim=1)
+```
+
+这使得 Expert 的 self-attn 可以同时 attend 到 prefix 上下文（VLM 产出的 KV）和自身 suffix（action tokens 的 KV）。
+
+```mermaid
+graph LR
+    subgraph SelfAttnDenoise["Self-Attn 层 (Denoise 阶段)"]
+        VLM_KV["VLM prefix KV<br/>(来自 cache)<br/>(B, prefix_len, H, D)"]
+        EXPERT_KV["Expert suffix KV<br/>(当前步计算)<br/>(B, suffix_len, H, D)"]
+        CAT_K["Concat K"]
+        CAT_V["Concat V"]
+        EXPERT_Q["Expert Q"]
+
+        VLM_KV --> CAT_K
+        EXPERT_KV --> CAT_K
+        VLM_KV --> CAT_V
+        EXPERT_KV --> CAT_V
+
+        CAT_K --> ATTN["Attention"]
+        CAT_V --> ATTN
+        EXPERT_Q --> ATTN
+    end
+
+    style VLM_KV fill:#fff9c4,stroke:#f9a825
+```
+
+---
+
+### 6.5 Cross-Attention 层的 Denoise 行为
+
+对于奇数层 (1, 3, 5...)，在 Denoise 阶段调用 `forward_cross_attn_layer`。
+
+关键代码（`smolvlm_with_expert.py:286-399`）：
+
+```python
+# 直接读取 VLM 的 KV cache（不再做 VLM forward）
+key_states = past_key_values[layer_idx]["key_states"]
+value_states = past_key_values[layer_idx]["value_states"]
+
+# Expert 的 Q 来自 suffix embeddings
+expert_query_state = expert_layer.self_attn.q_proj(expert_hidden_states)
+
+# 关键：用 Expert 自己的 k_proj/v_proj 重新投影 VLM 的 KV 到 Expert 维度空间
+expert_key_states = expert_layer.self_attn.k_proj(key_states)    # VLM dim → Expert dim
+expert_value_states = expert_layer.self_attn.v_proj(value_states) # VLM dim → Expert dim
+
+# Expert Q attend to 重投影后的 KV
+att_output = attention(expert_Q, expert_K, expert_V)
+```
+
+**维度投影详解**：
+
+- VLM KV cache 的维度：`(B, prefix_len, num_kv_heads_vlm, head_dim)` = `(B, prefix_len, 5, 64)`
+- 展平后送入 Expert 的 `k_proj`：`(B, prefix_len, 320)` → `(B, prefix_len, expert_kv_dim)`
+- Expert 的 `head_dim=64`，与 VLM 相同，所以投影只改变 KV head 的数量/总维度
+
+```mermaid
+graph TB
+    subgraph CrossAttnDenoise["Cross-Attn 层 (Denoise 阶段)"]
+        VLM_K["VLM K cache<br/>(B, L_prefix, 5, 64)"]
+        VLM_V["VLM V cache<br/>(B, L_prefix, 5, 64)"]
+
+        FLATTEN_K["Flatten → (B, L_prefix, 320)"]
+        FLATTEN_V["Flatten → (B, L_prefix, 320)"]
+
+        EXPERT_KPROJ["Expert k_proj<br/>Linear(320 → expert_kv_dim)"]
+        EXPERT_VPROJ["Expert v_proj<br/>Linear(320 → expert_kv_dim)"]
+
+        EXPERT_K["Expert K<br/>(B, L_prefix, expert_kv_heads, 64)"]
+        EXPERT_V["Expert V<br/>(B, L_prefix, expert_kv_heads, 64)"]
+        EXPERT_Q["Expert Q<br/>(B, L_suffix, expert_q_heads, 64)"]
+
+        VLM_K --> FLATTEN_K --> EXPERT_KPROJ --> EXPERT_K
+        VLM_V --> FLATTEN_V --> EXPERT_VPROJ --> EXPERT_V
+
+        EXPERT_Q --> ATTN["Cross-Attention<br/>Q × Kᵀ → softmax → × V"]
+        EXPERT_K --> ATTN
+        EXPERT_V --> ATTN
+    end
+
+    style VLM_K fill:#fff9c4,stroke:#f9a825
+    style VLM_V fill:#fff9c4,stroke:#f9a825
+```
+
+**k_proj/v_proj 的初始化**：在 `SmolVLMWithExpertModel.__init__` 中（`smolvlm_with_expert.py:122-134`），cross-attn 层的 k_proj/v_proj 被替换为输入维度匹配 VLM 的新 Linear 层：
+
+```python
+# 仅对 cross-attn 层替换（跳过 self-attn 层）
+for layer_idx in range(len(self.lm_expert.layers)):
+    if self.self_attn_every_n_layers > 0 and layer_idx % self.self_attn_every_n_layers == 0:
+        continue  # self-attn 层保持不变
+
+    # 新 k_proj: 输入维度 = VLM 的 KV 总维度, 输出维度 = Expert 的 KV 总维度
+    self.lm_expert.layers[layer_idx].self_attn.k_proj = nn.Linear(
+        config.text_config.num_key_value_heads * config.text_config.head_dim,  # 5 × 64 = 320
+        lm_expert_config.num_key_value_heads * lm_expert_config.head_dim,
+        bias=lm_expert_config.attention_bias,
+    )
+    # v_proj 同理
+```
+
+---
+
+### 6.6 训练路径对比
+
+训练时（`VLAFlowMatching.forward`），prefix 和 suffix **同时输入**，一次 forward 完成：
+
+```python
+# modeling_smolvla.py:789-796
+(_, suffix_out), _ = self.vlm_with_expert.forward(
+    inputs_embeds=[prefix_embs, suffix_embs],  # ← 两个同时输入
+    use_cache=False,                            # ← 不使用 KV cache
+    fill_kv_cache=False,                        # ← 不缓存
+)
+```
+
+- 所有 16 层都走 `forward_attn_layer`（因为 `fill_kv_cache=False` 且没有 `past_key_values`）
+- VLM prefix tokens 和 Expert suffix tokens 在 self-attn 中被 concat 后一起计算
+- 不区分 self-attn / cross-attn，**训练时等价于一个统一的 self-attention 序列**
+
+---
+
+### 6.7 注意力掩码在两阶段中的差异
+
+**Prefill 阶段**：只处理 prefix tokens，掩码由 `make_att_2d_masks(prefix_pad_masks, prefix_att_masks)` 计算。
+
+- Image tokens (`att_mask=0`)：组内双向可见
+- Language tokens (`att_mask=0`)：组内双向可见，且可见 image
+- State tokens (`att_mask=1`)：causal，image/language 不可见 state
+
+**Denoise 阶段**：需要处理 Expert suffix 对 VLM prefix 的 cross-attention：
+
+```python
+# modeling_smolvla.py:888-892
+# 1. prefix 部分只做 pad mask（不做 causal 限制）
+prefix_pad_2d_masks = prefix_pad_masks[:, None, :].expand(batch_size, suffix_len, prefix_len)
+
+# 2. suffix 部分做完整的 att_2d_masks
+suffix_att_2d_masks = make_att_2d_masks(suffix_pad_masks, suffix_att_masks)
+
+# 3. 拼接：suffix 可以看到所有 prefix + causal 的 suffix
+full_att_2d_masks = torch.cat([prefix_pad_2d_masks, suffix_att_2d_masks], dim=2)
+```
+
+```mermaid
+graph TB
+    subgraph MaskMatrix["注意力掩码 (Denoise 阶段)"]
+        direction TB
+        MAT["┌─────────────────┬──────────────┐<br/>│ Prefix × Prefix  │ Prefix × Suf │<br/>│  (不使用，VLM跳过) │  (不使用)    │<br/>├─────────────────┼──────────────┤<br/>│ Suffix × Prefix  │ Suffix × Suf │<br/>│  ✅ 全部可见      │  ✅ causal    │<br/>└─────────────────┴──────────────┘"]
+    end
+```
+
+---
+
+## 7. KV Cache 复用分析与优化
+
+### 7.1 当前已实现的复用
+
+**单次推理内**：Prefill 产出的 KV cache 在 10 步去噪循环中被**完全复用**。这是当前最主要的缓存优化。
+
+```mermaid
+graph LR
+    PREFILL["Prefill<br/>计算 1 次"]
+    D0["Denoise 0<br/>复用 KV"]
+    D1["Denoise 1<br/>复用 KV"]
+    D2["..."]
+    D9["Denoise 9<br/>复用 KV"]
+
+    PREFILL -->|"KV cache"| D0
+    PREFILL -->|"KV cache"| D1
+    PREFETCH -->|"KV cache"| D2
+    PREFILL -->|"KV cache"| D9
+
+    style PREFILL fill:#c8e6c9,stroke:#2e7d32
+```
+
+### 7.2 当前未实现的跨调用复用
+
+**跨推理调用**：每次 `sample_actions()` 都重新计算整个 prefix 的 KV cache。但实际控制循环中：
+
+- **图像**：通常在 episode 内不变（或变化很小）
+- **语言指令**：整个 episode 不变
+- **机器人状态 (state)**：每步都变化
+
+当前 state 被嵌入在 **prefix** 中（`modeling_smolvla.py:696-707`）：
+
+```python
+state_emb = self.state_proj(state)   # state 是 prefix 的一部分
+embs.append(state_emb)
+# ... 与 image_emb, lang_emb 一起 concat
+```
+
+这导致 **state 变化时整个 prefix KV cache 失效**，必须全部重算。
+
+```mermaid
+graph TB
+    subgraph Current["当前实现：state 在 prefix 中"]
+        direction TB
+        CP["Prefix = [img, lang, state]"]
+        CF1["调用 1: Prefill → KV cache → Denoise × 10"]
+        CF2["调用 2: Prefill → KV cache → Denoise × 10<br/>(state 变了，全部重算!)"]
+        CF3["调用 3: Prefill → KV cache → Denoise × 10<br/>(state 又变了，全部重算!)"]
+        CP --> CF1
+        CP --> CF2
+        CP --> CF3
+    end
+
+    style CF2 fill:#ffccbc,stroke:#d84315
+    style CF3 fill:#ffccbc,stroke:#d84315
+```
+
+### 7.3 可行优化：将 state 从 prefix 移到 suffix
+
+```
+当前 prefix: [img_emb, lang_emb, state_emb]  → 任何 state 变化都需全部重算
+优化 prefix: [img_emb, lang_emb]              → 跨调用不变，可缓存
+优化 suffix: [state_emb, action_time_emb]     → 每步重算（成本低）
+```
+
+**优化后的流程**：
+
+```mermaid
+graph TB
+    subgraph Optimized["优化实现：state 移到 suffix"]
+        direction TB
+        OP["Prefix = [img, lang]<br/>(episode 内不变)"]
+        OS1["调用 1: Prefill → KV cache → Denoise × 10"]
+        OS2["调用 2: 复用 KV cache → Denoise × 10<br/>(只重 embed state!)"]
+        OS3["调用 3: 复用 KV cache → Denoise × 10<br/>(只重 embed state!)"]
+        OP --> OS1
+        OP -.->|"KV cache 复用"| OS2
+        OP -.->|"KV cache 复用"| OS3
+    end
+
+    style OS2 fill:#c8e6c9,stroke:#2e7d32
+    style OS3 fill:#c8e6c9,stroke:#2e7d32
+```
+
+**节省的计算量**：
+
+| 阶段 | 当前每步计算 | 优化后每步计算 |
+|---|---|---|
+| SigLIP forward | 每次 ✅ | 仅首次 ✅ |
+| VLM 16 层 (image + lang tokens) | 每次 ✅ | 仅首次 ✅ |
+| VLM 16 层 (state token, 1个) | 每次 ✅ (混在 prefix 中) | ❌ (移到 suffix) |
+| Expert 16 层 | 每次 ✅ | 每次 ✅ (不变) |
+
+**需注意的改动点**：
+
+1. **注意力掩码**：state 当前 `att_mask=1`（causal），移到 suffix 后自然满足 causal 约束，但需要调整 `embed_prefix` 和 `embed_suffix` 的拼接逻辑
+2. **self-attn 层中的 KV concat**：state token 的 KV 会从 VLM prefix cache 移到 Expert suffix 的 KV 中，self-attn 层 concat 的 prefix_len 变短
+3. **cross-attn 层的 K/V 投影**：VLM KV cache 不再包含 state，投影输入略短
+4. **表示质量**：state 从 VLM self-attn 语境移到 Expert 语境，VLM 不再直接处理 state 信息，可能轻微影响 Expert 对 state 的理解
+
+**量化估算**：假设 image tokens ~49 个、lang tokens ~20 个、state 只有 1 个 token。将 state 移出 prefix 可以避免 ~70 个 token 的 16 层 VLM forward + SigLIP forward，在实时控制场景（每秒 10-30 次调用）下收益显著。
+
+### 7.4 更进一步的优化思路
+
+| 优化方向 | 描述 | 难度 | 收益 |
+|---|---|---|---|
+| Static Cache 预分配 | 代码中已有 TODO 注释（`smolvlm_with_expert.py:273-275`），预先分配固定大小的 cache 避免每步 `torch.cat` | 低 | 减少 GPU 内存碎片和拷贝 |
+| 跨 episode KV cache | 图像不变时，只在 episode 首次 prefill，后续 episode 复用 | 中 | 节省 SigLIP + 部分VLM 计算 |
+| Flash Attention 替换 eager | 当前使用 `eager_attention_forward`，可替换为 `flash_attn` | 低 | 2-4x attention 加速 |
+| 减少 Expert 自注意力层 | 当前 self_attn_every_n_layers=2，可增大以减少自注意力层比例 | 低 | 减少 Expert 计算量 |
+| KV Cache 量化 | 将缓存的 K/V 从 bf16 量化为 int8 | 中 | 减少内存带宽瓶颈 |

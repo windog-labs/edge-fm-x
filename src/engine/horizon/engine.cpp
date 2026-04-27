@@ -5,12 +5,17 @@
 #include "utils/check.h"
 #include "utils/logging.h"
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 
 namespace edge_fm {
 
 namespace {
+
+nlohmann::json build_smolvla_stage_specs(
+    const EngineConfig& config,
+    const std::filesystem::path& artifact_dir);
 
 BackendArtifact build_horizon_artifact(const EngineConfig& config) {
     const std::string model_key = config.backend_cache_key();
@@ -27,7 +32,95 @@ BackendArtifact build_horizon_artifact(const EngineConfig& config) {
         {"model_name", config.resolved_model_name()},
         {"resolved_hw_profile", config.resolved_hw_profile()},
     };
+    if (config.resolved_model_name() == "smolvla") {
+        artifact.metadata["stages"] = build_smolvla_stage_specs(config, artifact_dir);
+    }
     return artifact;
+}
+
+int32_t smolvla_num_layers(const nlohmann::json& model_config) {
+    const int32_t explicit_layers = model_config.value("num_vlm_layers", 0);
+    if (explicit_layers > 0) {
+        return explicit_layers;
+    }
+    const int32_t hidden_layers = model_config.value("num_hidden_layers", 16);
+    return std::max(1, std::min(hidden_layers, 16));
+}
+
+nlohmann::json smolvla_options(const EngineConfig& config) {
+    const auto& raw = config.raw();
+    if (raw.contains("smolvla") && raw["smolvla"].is_object()) {
+        return raw["smolvla"];
+    }
+    return nlohmann::json::object();
+}
+
+nlohmann::json build_smolvla_stage_specs(
+    const EngineConfig& config,
+    const std::filesystem::path& artifact_dir)
+{
+    const nlohmann::json model_config = config.prefill_model_config();
+    const nlohmann::json opts = smolvla_options(config);
+    const int32_t hidden_size = model_config.value("hidden_size", 960);
+    const int32_t num_attention_heads = model_config.value("num_attention_heads", 15);
+    const int32_t num_kv_heads = model_config.value("num_key_value_heads", 5);
+    const int32_t head_dim = model_config.value(
+        "head_dim",
+        num_attention_heads > 0 ? hidden_size / num_attention_heads : 64);
+    const int32_t num_layers = opts.value("num_layers", smolvla_num_layers(model_config));
+    const int32_t prefix_len = opts.value("prefix_len", 128);
+    const int32_t suffix_len = opts.value("suffix_len", opts.value("chunk_size", 50));
+    const int32_t expert_hidden_size = opts.value(
+        "expert_hidden_size",
+        std::max(1, static_cast<int32_t>(hidden_size * 3 / 4)));
+
+    auto tensor_desc = [](const std::string& name,
+                          std::initializer_list<int64_t> shape,
+                          const std::string& dtype = "float32") {
+        return nlohmann::json{
+            {"name", name},
+            {"shape", std::vector<int64_t>(shape)},
+            {"dtype", dtype},
+        };
+    };
+
+    nlohmann::json prefill_outputs = nlohmann::json::array();
+    nlohmann::json denoise_inputs = nlohmann::json::array({
+        tensor_desc("suffix_embeds", {1, suffix_len, expert_hidden_size}),
+        tensor_desc("denoise_attention_mask", {1, suffix_len, prefix_len + suffix_len}, "uint8"),
+        tensor_desc("suffix_position_ids", {1, suffix_len}, "int32"),
+    });
+    for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
+        const std::string name = "prefix_kv_layer_" + std::to_string(layer_id);
+        nlohmann::json desc = tensor_desc(name, {2, prefix_len, num_kv_heads, head_dim});
+        prefill_outputs.push_back(desc);
+        denoise_inputs.push_back(desc);
+    }
+
+    return nlohmann::json::array({
+        {
+            {"name", "prefill"},
+            {"artifact_path", (artifact_dir / "smolvla_prefill.hbm").string()},
+            {"factory_kwargs", {{"stage", "prefill"}}},
+            {"inputs", nlohmann::json::array({
+                tensor_desc("prefix_embeds", {1, prefix_len, hidden_size}),
+                tensor_desc("prefix_attention_mask", {1, prefix_len, prefix_len}, "uint8"),
+                tensor_desc("prefix_position_ids", {1, prefix_len}, "int32"),
+            })},
+            {"outputs", prefill_outputs},
+            {"kv_layout", "packed_layer_kv_v1"},
+        },
+        {
+            {"name", "decode"},
+            {"artifact_path", (artifact_dir / "smolvla_decode.hbm").string()},
+            {"factory_kwargs", {{"stage", "decode"}}},
+            {"inputs", denoise_inputs},
+            {"outputs", nlohmann::json::array({
+                tensor_desc("expert_hidden", {1, suffix_len, expert_hidden_size}),
+            })},
+            {"kv_layout", "packed_layer_kv_v1"},
+        },
+    });
 }
 
 bool config_uses_mrope(const EngineConfig& config) {
@@ -53,7 +146,7 @@ nlohmann::json linear_operator_table_for_model(const EngineConfig& config) {
 }
 
 nlohmann::json build_graph_tuning(const EngineConfig& config) {
-    return nlohmann::json{
+    nlohmann::json graph_tuning = {
         {"attention_type", config.kvcache_attention_type()},
         {"kv_cache", {
             {"dtype", config.kvcache_dtype()},
@@ -69,6 +162,18 @@ nlohmann::json build_graph_tuning(const EngineConfig& config) {
             {"resolved_hw_profile", config.resolved_hw_profile()},
         }},
     };
+    if (config.resolved_model_name() == "smolvla") {
+        const nlohmann::json model_config = config.prefill_model_config();
+        const nlohmann::json opts = smolvla_options(config);
+        graph_tuning["smolvla_phase1"] = {
+            {"enabled", true},
+            {"scope", "llm_prefill_plus_action_expert"},
+            {"excluded", {"vit", "embed_suffix", "action_out_proj"}},
+            {"num_layers", opts.value("num_layers", smolvla_num_layers(model_config))},
+            {"kv_layout", "packed_layer_kv_v1"},
+        };
+    }
+    return graph_tuning;
 }
 
 nlohmann::json build_horizon_rewrite_plan(const EngineConfig& config) {
@@ -122,8 +227,10 @@ nlohmann::json build_horizon_rewrite_plan(const EngineConfig& config) {
     };
 
     if (is_smolvla) {
+        const nlohmann::json opts = smolvla_options(config);
         plan["smolvla"] = {
-            {"lerobot_root", "~/DATA/repos/public/lerobot"},
+            {"lerobot_root", opts.value("lerobot_root", std::string("~/Repos/public/lerobot-v0.4.4"))},
+            {"num_layers", opts.value("num_layers", smolvla_num_layers(config.prefill_model_config()))},
             {"num_steps", config.prefill_model_config().value("num_steps", 10)},
             {"chunk_size", config.prefill_model_config().value("chunk_size", 50)},
             {"max_action_dim", config.prefill_model_config().value("max_action_dim", 32)},
@@ -168,6 +275,89 @@ std::string shape_to_string(const std::vector<int64_t>& shape) {
     }
     oss << "]";
     return oss.str();
+}
+
+bool starts_with(const std::string& value, const std::string& prefix) {
+    return value.rfind(prefix, 0) == 0;
+}
+
+RuntimeDType runtime_dtype_from_tensor_dtype(DType dtype) {
+    switch (dtype) {
+        case DType::Float32:
+            return RuntimeDType::Float32;
+        case DType::Float16:
+            return RuntimeDType::Float16;
+        case DType::Int32:
+            return RuntimeDType::Int32;
+        case DType::Int8:
+            return RuntimeDType::Int8;
+        case DType::UInt8:
+            return RuntimeDType::UInt8;
+        default:
+            throw InvalidRequestError("Unsupported tensor dtype for Horizon runtime I/O");
+    }
+}
+
+DType tensor_dtype_from_runtime_dtype(RuntimeDType dtype) {
+    switch (dtype) {
+        case RuntimeDType::Float32:
+            return DType::Float32;
+        case RuntimeDType::Float16:
+            return DType::Float16;
+        case RuntimeDType::Int32:
+            return DType::Int32;
+        case RuntimeDType::Int8:
+            return DType::Int8;
+        case RuntimeDType::UInt8:
+            return DType::UInt8;
+    }
+    throw InvalidRequestError("Unsupported Horizon runtime dtype");
+}
+
+void copy_tensor_to_runtime_input(
+    const Tensor& src,
+    const RuntimeTensorView& dst,
+    const std::string& input_name)
+{
+    auto [src_device, src_device_id] = src.device();
+    (void)src_device_id;
+    check<InvalidRequestError>(
+        src_device == Device::CPU,
+        "Horizon tensor stage currently expects CPU input tensor for: " + input_name);
+    check<InvalidRequestError>(
+        runtime_dtype_from_tensor_dtype(src.dtype()) == dst.dtype,
+        "Horizon tensor stage input dtype mismatch for: " + input_name);
+    check<InvalidRequestError>(
+        src.shape() == dst.shape,
+        "Horizon tensor stage input shape mismatch for: " + input_name +
+        ", expected " + shape_to_string(dst.shape) +
+        ", got " + shape_to_string(src.shape()));
+    copy_contiguous_to_runtime_buffer(src.data_ptr(), dst);
+}
+
+Tensor clone_runtime_output_to_cpu(const RuntimeTensorView& src) {
+    return Tensor::clone_from(
+        src.data,
+        src.shape,
+        tensor_dtype_from_runtime_dtype(src.dtype),
+        Device::CPU,
+        0,
+        Device::CPU,
+        0,
+        MemoryOwnership::OwnCpuMalloc);
+}
+
+Tensor clone_tensor_to_cpu(const Tensor& src) {
+    auto [src_device, src_device_id] = src.device();
+    return Tensor::clone_from(
+        src.data_ptr(),
+        src.shape(),
+        src.dtype(),
+        src_device,
+        src_device_id,
+        Device::CPU,
+        0,
+        MemoryOwnership::OwnCpuMalloc);
 }
 
 } // namespace
@@ -242,12 +432,20 @@ void HorizonEngine::tune() {
         }},
         {"artifact", artifact.to_json()},
     };
+    if (resolved_model_name == "smolvla" &&
+        artifact.metadata.contains("stages") &&
+        artifact.metadata["stages"].is_array())
+    {
+        compile_spec["stages"] = artifact.metadata["stages"];
+        compile_spec["compile_entry"]["default_kwargs"] = {{"stage", "prefill"}};
+    }
 
     std::ofstream output(artifact.manifest_path);
     check<ConfigurationError>(
         output.is_open(),
         "Failed to write Horizon compile spec: " + artifact.manifest_path);
     output << compile_spec.dump(2);
+    Logging::instance().log_info("Horizon compile spec written: {}", artifact.manifest_path);
 
     BackendArtifactCache::instance().set_artifact(model_key, artifact);
 }
@@ -268,6 +466,85 @@ RuntimeInitParams HorizonEngine::make_runtime_init_params(const BackendArtifact&
     params.model_path = artifact.artifact_path;
     params.max_batch_size = 1;
     return params;
+}
+
+RuntimeInitParams HorizonEngine::make_runtime_init_params_for_stage(const nlohmann::json& stage) const {
+    check<ConfigurationError>(
+        stage.is_object(),
+        "SmolVLA Horizon stage metadata must be an object");
+    const std::string artifact_path_str = stage.value("artifact_path", std::string(""));
+    check<ConfigurationError>(
+        !artifact_path_str.empty(),
+        "SmolVLA Horizon stage is missing artifact_path");
+    const std::filesystem::path artifact_path(artifact_path_str);
+    RuntimeInitParams params;
+    params.program_path = artifact_path.parent_path().string();
+    params.model_name = artifact_path.stem().string();
+    params.model_path = artifact_path.string();
+    params.max_batch_size = 1;
+    if (stage.contains("inputs") && stage["inputs"].is_array()) {
+        for (const auto& input : stage["inputs"]) {
+            if (!input.is_object()) {
+                continue;
+            }
+            const std::string name = input.value("name", std::string(""));
+            if (name.empty() || !input.contains("shape") || !input["shape"].is_array()) {
+                continue;
+            }
+            params.input_shape_overrides[name] = input["shape"].get<std::vector<int64_t>>();
+        }
+    }
+    return params;
+}
+
+const nlohmann::json& HorizonEngine::require_smolvla_stage(const std::string& stage_name) const {
+    check<ConfigurationError>(
+        smolvla_artifact_.has_value(),
+        "SmolVLA Horizon artifact is not resolved");
+    const nlohmann::json& metadata = smolvla_artifact_->metadata;
+    check<ConfigurationError>(
+        metadata.contains("stages") && metadata["stages"].is_array(),
+        "SmolVLA Horizon artifact metadata must contain stages");
+    for (const auto& stage : metadata["stages"]) {
+        if (stage.is_object() && stage.value("name", std::string("")) == stage_name) {
+            return stage;
+        }
+    }
+    throw ConfigurationError("SmolVLA Horizon artifact is missing stage: " + stage_name);
+}
+
+IRuntimeBackend& HorizonEngine::ensure_smolvla_stage_runtime(const std::string& stage_name) {
+    auto existing = smolvla_stage_backends_.find(stage_name);
+    if (existing != smolvla_stage_backends_.end() && existing->second != nullptr) {
+        return *existing->second;
+    }
+
+    std::optional<BackendArtifact> artifact = resolve_artifact();
+    check<ConfigurationError>(
+        artifact.has_value(),
+        "SmolVLA Horizon backend requires tune() to generate stage compile specs before running phase-1 APIs");
+    smolvla_artifact_ = artifact;
+
+    const nlohmann::json& stage = require_smolvla_stage(stage_name);
+    const std::string artifact_path = stage.value("artifact_path", std::string(""));
+    check<ConfigurationError>(
+        std::filesystem::exists(artifact_path),
+        "SmolVLA Horizon stage HBM artifact not found: " + artifact_path +
+        ". Compile it with scripts/horizon/compile_horizon_from_spec.py");
+
+    std::unique_ptr<IRuntimeBackend> runtime = create_runtime_backend(BackendTarget::Horizon);
+    RuntimeInitParams params = make_runtime_init_params_for_stage(stage);
+    if (!runtime->init(params)) {
+        const std::string error = runtime->last_error().empty()
+            ? "Horizon runtime backend failed to initialize SmolVLA stage: " + stage_name
+            : runtime->last_error();
+        throw ConfigurationError(error);
+    }
+
+    IRuntimeBackend* runtime_ptr = runtime.get();
+    smolvla_stage_backends_[stage_name] = std::move(runtime);
+    log_runtime_io(*runtime_ptr, "SmolVLA " + stage_name);
+    return *runtime_ptr;
 }
 
 bool HorizonEngine::ensure_runtime_initialized(bool require_artifact) {
@@ -315,19 +592,23 @@ void HorizonEngine::log_runtime_io() const {
     if (runtime_backend_ == nullptr) {
         return;
     }
-    for (const auto& name : runtime_backend_->input_names()) {
+    log_runtime_io(*runtime_backend_, "Horizon");
+}
+
+void HorizonEngine::log_runtime_io(const IRuntimeBackend& runtime, const std::string& label) const {
+    for (const auto& name : runtime.input_names()) {
         std::vector<int64_t> shape;
-        const std::string shape_str = runtime_backend_->get_input_shape(name, &shape)
+        const std::string shape_str = runtime.get_input_shape(name, &shape)
             ? shape_to_string(shape)
             : std::string("<unknown>");
-        Logging::instance().log_info("Horizon input '{}' shape {}", name, shape_str);
+        Logging::instance().log_info("{} input '{}' shape {}", label, name, shape_str);
     }
-    for (const auto& name : runtime_backend_->output_names()) {
+    for (const auto& name : runtime.output_names()) {
         std::vector<int64_t> shape;
-        const std::string shape_str = runtime_backend_->get_output_shape(name, &shape)
+        const std::string shape_str = runtime.get_output_shape(name, &shape)
             ? shape_to_string(shape)
             : std::string("<unknown>");
-        Logging::instance().log_info("Horizon output '{}' shape {}", name, shape_str);
+        Logging::instance().log_info("{} output '{}' shape {}", label, name, shape_str);
     }
 }
 
@@ -340,6 +621,113 @@ Response HorizonEngine::generate(const Request& request) {
     ensure_runtime_initialized(true);
     log_runtime_io();
     throw InternalError("Horizon generate I/O mapping is not implemented in this interface phase");
+}
+
+TensorMap HorizonEngine::prefill(int32_t request_id, const TensorRefMap& inputs) {
+    check<InvalidRequestError>(
+        request_id >= 0,
+        "Horizon prefill requires non-negative request_id");
+    check<ConfigurationError>(
+        config_.resolved_model_name() == "smolvla",
+        "Horizon tensor prefill currently requires model_name=smolvla");
+
+    IRuntimeBackend& runtime = ensure_smolvla_stage_runtime("prefill");
+    for (const auto& name : runtime.input_names()) {
+        auto input_it = inputs.find(name);
+        check<InvalidRequestError>(
+            input_it != inputs.end() && input_it->second != nullptr,
+            "Horizon prefill missing required input tensor: " + name);
+
+        RuntimeTensorView view;
+        check<InvalidRequestError>(
+            runtime.get_input_buffer(name, &view),
+            "Horizon prefill HBM is missing input buffer: " + name);
+        copy_tensor_to_runtime_input(*input_it->second, view, name);
+    }
+
+    if (runtime.forward_sync() != 0) {
+        throw InternalError(
+            runtime.last_error().empty()
+                ? "Horizon prefill runtime failed"
+                : runtime.last_error());
+    }
+
+    TensorMap outputs;
+    CachedStageTensors cache;
+    for (const auto& name : runtime.output_names()) {
+        RuntimeTensorView output;
+        check<InternalError>(
+            runtime.get_output_buffer(name, &output),
+            "Failed to read Horizon prefill output: " + name);
+        Tensor tensor = clone_runtime_output_to_cpu(output);
+        if (starts_with(name, "prefix_kv_layer_")) {
+            cache.names.push_back(name);
+            cache.tensors.emplace(name, clone_tensor_to_cpu(tensor));
+        }
+        outputs.emplace(name, std::move(tensor));
+    }
+
+    check<InternalError>(
+        !cache.names.empty(),
+        "SmolVLA prefill HBM did not expose prefix_kv_layer_* outputs");
+    stage_tensor_cache_[request_id] = std::move(cache);
+    return outputs;
+}
+
+TensorMap HorizonEngine::decode(int32_t request_id, const TensorRefMap& inputs) {
+    check<InvalidRequestError>(
+        request_id >= 0,
+        "Horizon decode requires non-negative request_id");
+    check<ConfigurationError>(
+        config_.resolved_model_name() == "smolvla",
+        "Horizon tensor decode currently requires model_name=smolvla");
+
+    IRuntimeBackend& runtime = ensure_smolvla_stage_runtime("decode");
+    auto cache_it = stage_tensor_cache_.find(request_id);
+
+    for (const auto& name : runtime.input_names()) {
+        const Tensor* tensor = nullptr;
+        auto input_it = inputs.find(name);
+        if (input_it != inputs.end()) {
+            tensor = input_it->second;
+            check<InvalidRequestError>(
+                tensor != nullptr,
+                "Horizon decode input tensor must be non-null: " + name);
+        } else if (cache_it != stage_tensor_cache_.end()) {
+            auto cached_it = cache_it->second.tensors.find(name);
+            if (cached_it != cache_it->second.tensors.end()) {
+                tensor = &cached_it->second;
+            }
+        }
+
+        check<InvalidRequestError>(
+            tensor != nullptr,
+            "Horizon decode missing required input tensor: " + name +
+            ". Provide it explicitly or run prefill(request_id, ...) first.");
+
+        RuntimeTensorView view;
+        check<InvalidRequestError>(
+            runtime.get_input_buffer(name, &view),
+            "Horizon decode HBM is missing input buffer: " + name);
+        copy_tensor_to_runtime_input(*tensor, view, name);
+    }
+
+    if (runtime.forward_sync() != 0) {
+        throw InternalError(
+            runtime.last_error().empty()
+                ? "Horizon decode runtime failed"
+                : runtime.last_error());
+    }
+
+    TensorMap outputs;
+    for (const auto& name : runtime.output_names()) {
+        RuntimeTensorView output;
+        check<InternalError>(
+            runtime.get_output_buffer(name, &output),
+            "Failed to read Horizon decode output: " + name);
+        outputs.emplace(name, clone_runtime_output_to_cpu(output));
+    }
+    return outputs;
 }
 
 std::unordered_map<std::string, double> HorizonEngine::get_last_generate_metrics() const {

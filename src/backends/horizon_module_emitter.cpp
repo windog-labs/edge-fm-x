@@ -21,6 +21,44 @@ std::string py_json_expr(const nlohmann::json& json) {
         + "''')";
 }
 
+int32_t smolvla_num_layers(const nlohmann::json& model_config, const nlohmann::json& horizon_rewrite) {
+    if (horizon_rewrite.contains("smolvla") && horizon_rewrite["smolvla"].is_object()) {
+        const int32_t configured = horizon_rewrite["smolvla"].value("num_layers", 0);
+        if (configured > 0) {
+            return configured;
+        }
+    }
+    const int32_t num_vlm_layers = model_config.value("num_vlm_layers", 0);
+    if (num_vlm_layers > 0) {
+        return num_vlm_layers;
+    }
+    const int32_t hidden_layers = model_config.value("num_hidden_layers", 16);
+    return std::max(1, std::min(hidden_layers, 16));
+}
+
+std::string smolvla_forward_args(int32_t num_layers) {
+    std::ostringstream oss;
+    oss << "        suffix_embeds: torch.Tensor,\n"
+        << "        denoise_attention_mask: torch.Tensor,\n"
+        << "        suffix_position_ids: torch.Tensor";
+    for (int32_t i = 0; i < num_layers; ++i) {
+        oss << ",\n        prefix_kv_layer_" << i << ": torch.Tensor";
+    }
+    oss << ",";
+    return oss.str();
+}
+
+std::string smolvla_kv_arg_list(int32_t num_layers) {
+    std::ostringstream oss;
+    for (int32_t i = 0; i < num_layers; ++i) {
+        if (i > 0) {
+            oss << ", ";
+        }
+        oss << "prefix_kv_layer_" << i;
+    }
+    return oss.str();
+}
+
 std::string horizon_module_source(
     const std::string& model_name,
     const nlohmann::json& model_config,
@@ -309,8 +347,9 @@ std::string smolvla_horizon_module_source(
     const nlohmann::json horizon_rewrite = graph_tuning.value("horizon_rewrite", nlohmann::json::object());
     const std::string lerobot_root =
         horizon_rewrite.contains("smolvla") && horizon_rewrite["smolvla"].is_object()
-        ? horizon_rewrite["smolvla"].value("lerobot_root", std::string("~/DATA/repos/public/lerobot"))
-        : std::string("~/DATA/repos/public/lerobot");
+        ? horizon_rewrite["smolvla"].value("lerobot_root", std::string("~/Repos/public/lerobot-v0.4.4"))
+        : std::string("~/Repos/public/lerobot-v0.4.4");
+    const int32_t num_layers = smolvla_num_layers(model_config, horizon_rewrite);
 
     std::ostringstream oss;
     oss
@@ -320,12 +359,14 @@ std::string smolvla_horizon_module_source(
         << "import os\n"
         << "import sys\n"
         << "from pathlib import Path\n"
-        << "from typing import Any\n\n"
+        << "from typing import Any, List\n\n"
+        << "import torch\n"
         << "import torch.nn as nn\n\n"
         << "MODEL_NAME = \"smolvla\"\n"
         << "MODEL_CONFIG = " << py_json_expr(model_config) << "\n"
         << "EDGEFM_GRAPH_TUNING = " << py_json_expr(graph_tuning) << "\n"
         << "EDGEFM_HORIZON_LOWERING = " << py_json_expr(lowering) << "\n"
+        << "EDGEFM_NUM_LAYERS = " << num_layers << "\n"
         << "PREFILL_MODEL_PATH = Path(" << py_path_literal(prefill_model_path) << ")\n"
         << "LEROBOT_ROOT = Path(os.environ.get(\"EDGE_FM_LEROBOT_ROOT\", "
         << py_path_literal(lerobot_root) << ")).expanduser()\n\n"
@@ -333,6 +374,59 @@ std::string smolvla_horizon_module_source(
         << "    src = lerobot_root / \"src\"\n"
         << "    if src.exists() and str(src) not in sys.path:\n"
         << "        sys.path.insert(0, str(src))\n\n"
+        << "def _policy_model(policy: Any) -> Any:\n"
+        << "    return policy.model if hasattr(policy, \"model\") else policy\n\n"
+        << "def _vlm_with_expert(policy: Any) -> Any:\n"
+        << "    model = _policy_model(policy)\n"
+        << "    if not hasattr(model, \"vlm_with_expert\"):\n"
+        << "        raise RuntimeError(\"SmolVLA policy model does not expose vlm_with_expert\")\n"
+        << "    return model.vlm_with_expert\n\n"
+        << "def _extract_past_key_values(outputs: Any) -> Any:\n"
+        << "    if isinstance(outputs, tuple) and len(outputs) >= 2:\n"
+        << "        return outputs[1]\n"
+        << "    if hasattr(outputs, \"past_key_values\"):\n"
+        << "        return outputs.past_key_values\n"
+        << "    raise RuntimeError(\"Could not find past_key_values in SmolVLA prefill output\")\n\n"
+        << "def _extract_suffix_hidden(outputs: Any) -> torch.Tensor:\n"
+        << "    first = outputs[0] if isinstance(outputs, tuple) else outputs\n"
+        << "    if isinstance(first, tuple) and len(first) >= 2:\n"
+        << "        return first[1]\n"
+        << "    if isinstance(first, list) and len(first) >= 2:\n"
+        << "        return first[1]\n"
+        << "    if torch.is_tensor(first):\n"
+        << "        return first\n"
+        << "    if hasattr(first, \"last_hidden_state\"):\n"
+        << "        return first.last_hidden_state\n"
+        << "    raise RuntimeError(\"Could not find suffix hidden states in SmolVLA decode output\")\n\n"
+        << "def _pack_kv(layer_kv: Any) -> torch.Tensor:\n"
+        << "    if isinstance(layer_kv, dict):\n"
+        << "        k = layer_kv.get(\"key_states\")\n"
+        << "        if k is None:\n"
+        << "            k = layer_kv.get(\"key\")\n"
+        << "        if k is None:\n"
+        << "            k = layer_kv.get(\"k\")\n"
+        << "        v = layer_kv.get(\"value_states\")\n"
+        << "        if v is None:\n"
+        << "            v = layer_kv.get(\"value\")\n"
+        << "        if v is None:\n"
+        << "            v = layer_kv.get(\"v\")\n"
+        << "    else:\n"
+        << "        k, v = layer_kv[0], layer_kv[1]\n"
+        << "    if k is None or v is None:\n"
+        << "        raise RuntimeError(\"Invalid SmolVLA layer KV entry\")\n"
+        << "    if k.dim() == 4 and k.shape[0] == 1:\n"
+        << "        k = k.squeeze(0)\n"
+        << "    if v.dim() == 4 and v.shape[0] == 1:\n"
+        << "        v = v.squeeze(0)\n"
+        << "    return torch.stack([k.contiguous(), v.contiguous()], dim=0).to(torch.float32)\n\n"
+        << "def _unpack_kv(packed: torch.Tensor, dtype: torch.dtype) -> dict[str, torch.Tensor]:\n"
+        << "    k = packed[0].to(dtype=dtype)\n"
+        << "    v = packed[1].to(dtype=dtype)\n"
+        << "    if k.dim() == 3:\n"
+        << "        k = k.unsqueeze(0)\n"
+        << "    if v.dim() == 3:\n"
+        << "        v = v.unsqueeze(0)\n"
+        << "    return {\"key_states\": k.contiguous(), \"value_states\": v.contiguous()}\n\n"
         << "class EdgeFMSmolVLAHorizonModel(nn.Module):\n"
         << "    def __init__(self, stage: str = \"prefill\", load_policy: bool = True, lerobot_root: str | None = None):\n"
         << "        super().__init__()\n"
@@ -344,18 +438,76 @@ std::string smolvla_horizon_module_source(
         << "    def load_edgefm_weights(self, stage: str = \"prefill\") -> \"EdgeFMSmolVLAHorizonModel\":\n"
         << "        del stage\n"
         << "        _add_lerobot_to_path(self.lerobot_root)\n"
+        << "        from lerobot.configs.policies import PreTrainedConfig\n"
         << "        from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy\n"
         << "        from scripts.horizon.j6m_rewrite import apply_smolvla_j6m_rewrites\n"
-        << "        self.policy = SmolVLAPolicy.from_pretrained(str(PREFILL_MODEL_PATH))\n"
+        << "        config = None\n"
+        << "        vlm_override = os.environ.get(\"EDGE_FM_SMOLVLA_VLM_MODEL_PATH\")\n"
+        << "        device_override = os.environ.get(\"EDGE_FM_SMOLVLA_DEVICE\")\n"
+        << "        if vlm_override or device_override:\n"
+        << "            config = PreTrainedConfig.from_pretrained(str(PREFILL_MODEL_PATH))\n"
+        << "            if vlm_override:\n"
+        << "                config.vlm_model_name = str(Path(vlm_override).expanduser())\n"
+        << "            if device_override:\n"
+        << "                config.device = device_override\n"
+        << "        self.policy = SmolVLAPolicy.from_pretrained(str(PREFILL_MODEL_PATH), config=config)\n"
         << "        apply_smolvla_j6m_rewrites(self.policy, self.lerobot_root)\n"
+        << "        export_dtype = os.environ.get(\"EDGE_FM_SMOLVLA_EXPORT_DTYPE\", \"float32\").lower()\n"
+        << "        if export_dtype in {\"float32\", \"fp32\"}:\n"
+        << "            self.policy.to(dtype=torch.float32)\n"
+        << "        elif export_dtype in {\"bfloat16\", \"bf16\"}:\n"
+        << "            self.policy.to(dtype=torch.bfloat16)\n"
+        << "        elif export_dtype not in {\"\", \"keep\", \"native\"}:\n"
+        << "            raise ValueError(f\"Unsupported EDGE_FM_SMOLVLA_EXPORT_DTYPE: {export_dtype}\")\n"
         << "        self.policy.eval()\n"
         << "        return self\n\n"
-        << "    def forward(self, *args: Any, **kwargs: Any):\n"
+        << "    def forward_prefill(\n"
+        << "        self,\n"
+        << "        prefix_embeds: torch.Tensor,\n"
+        << "        prefix_attention_mask: torch.Tensor,\n"
+        << "        prefix_position_ids: torch.Tensor,\n"
+        << "    ):\n"
         << "        if self.policy is None:\n"
         << "            raise RuntimeError(\"SmolVLA policy is not loaded; call load_edgefm_weights() before compile/export\")\n"
-        << "        if hasattr(self.policy, \"model\") and hasattr(self.policy.model, \"sample_actions\"):\n"
-        << "            return self.policy.model.sample_actions(*args, **kwargs)\n"
-        << "        return self.policy(*args, **kwargs)\n\n"
+        << "        vlm = _vlm_with_expert(self.policy)\n"
+        << "        outputs = vlm.forward(\n"
+        << "            attention_mask=prefix_attention_mask.to(torch.bool),\n"
+        << "            position_ids=prefix_position_ids.to(torch.long),\n"
+        << "            past_key_values=None,\n"
+        << "            inputs_embeds=[prefix_embeds, None],\n"
+        << "            use_cache=True,\n"
+        << "            fill_kv_cache=True,\n"
+        << "        )\n"
+        << "        past = _extract_past_key_values(outputs)\n"
+        << "        packed: List[torch.Tensor] = []\n"
+        << "        for layer_id in range(EDGEFM_NUM_LAYERS):\n"
+        << "            packed.append(_pack_kv(past[layer_id]))\n"
+        << "        return tuple(packed)\n\n"
+        << "    def forward_decode(\n"
+        << "        self,\n"
+        << smolvla_forward_args(num_layers) << "\n"
+        << "    ):\n"
+        << "        if self.policy is None:\n"
+        << "            raise RuntimeError(\"SmolVLA policy is not loaded; call load_edgefm_weights() before compile/export\")\n"
+        << "        vlm = _vlm_with_expert(self.policy)\n"
+        << "        packed_layers = [" << smolvla_kv_arg_list(num_layers) << "]\n"
+        << "        kv_dtype = vlm.get_vlm_model().text_model.layers[0].self_attn.k_proj.weight.dtype\n"
+        << "        past_key_values = [_unpack_kv(kv, kv_dtype) for kv in packed_layers]\n"
+        << "        outputs = vlm.forward(\n"
+        << "            attention_mask=denoise_attention_mask.to(torch.bool),\n"
+        << "            position_ids=suffix_position_ids.to(torch.long),\n"
+        << "            past_key_values=past_key_values,\n"
+        << "            inputs_embeds=[None, suffix_embeds],\n"
+        << "            use_cache=True,\n"
+        << "            fill_kv_cache=False,\n"
+        << "        )\n"
+        << "        return _extract_suffix_hidden(outputs).to(torch.float32)\n\n"
+        << "    def forward(self, *args: Any, **kwargs: Any):\n"
+        << "        if self.stage == \"prefill\":\n"
+        << "            return self.forward_prefill(*args, **kwargs)\n"
+        << "        if self.stage == \"decode\":\n"
+        << "            return self.forward_decode(*args, **kwargs)\n"
+        << "        raise ValueError(f\"Unsupported SmolVLA Horizon stage: {self.stage}\")\n\n"
         << "def build_model(stage: str = \"prefill\", load_policy: bool | None = None, lerobot_root: str | None = None) -> EdgeFMSmolVLAHorizonModel:\n"
         << "    if load_policy is None:\n"
         << "        skip = os.environ.get(\"EDGE_FM_HORIZON_SKIP_SMOLVLA_LOAD\", \"0\").lower() in {\"1\", \"true\", \"yes\"}\n"

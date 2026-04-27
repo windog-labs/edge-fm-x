@@ -2,6 +2,7 @@
 #include <edge-fm/core.h>
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
@@ -10,6 +11,16 @@ namespace edge_fm {
 // ==================================================== engine config ====================================================
 namespace {
     inline std::filesystem::path find_default_config_file() {
+        if (const char* config_dir = std::getenv("EDGE_FM_CONFIG_DIR");
+            config_dir != nullptr && *config_dir != '\0')
+        {
+            return std::filesystem::path(config_dir) / "engine_default.json";
+        }
+        if (const char* install_prefix = std::getenv("EDGE_FM_INSTALL_PREFIX");
+            install_prefix != nullptr && *install_prefix != '\0')
+        {
+            return std::filesystem::path(install_prefix) / "config" / "engine_default.json";
+        }
         return std::filesystem::path(EDGE_FM_INSTALL_PREFIX) / "config" / "engine_default.json";
     }
     
@@ -420,5 +431,19 @@ Engine::Engine(const EngineConfig& config)
 {}
 
 Engine::~Engine() = default;
+
+TensorMap Engine::prefill(int32_t request_id, const TensorRefMap& inputs) {
+    (void)request_id;
+    (void)inputs;
+    throw ConfigurationError(
+        "Tensor prefill stage is not implemented by this backend");
+}
+
+TensorMap Engine::decode(int32_t request_id, const TensorRefMap& inputs) {
+    (void)request_id;
+    (void)inputs;
+    throw ConfigurationError(
+        "Tensor decode stage is not implemented by this backend");
+}
 
 } // namespace edge_fm
