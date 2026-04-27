@@ -2,7 +2,8 @@
 Qwen2.5 generate 对齐测试（pytest）
 
 验证 edge_fm.EdgeFM.generate() 的 greedy 解码输出与 Transformers 参考 dump 一致。
-dump 数据位于 tests/data/decode_dump/，首次运行时自动通过 Transformers 生成。
+dump 数据默认位于 tests/data/decode_dump/，首次运行时自动通过 Transformers 生成。
+可通过 EDGE_FM_QWEN_DUMP_DIR / EDGE_FM_QWEN_VL_DUMP_DIR 指向独立 dump 目录。
 
 默认使用 GPU device 0（可通过环境变量 EDGE_FM_DEVICE_ID 覆盖）。
 
@@ -42,8 +43,18 @@ try:
 except ImportError:
     edge_fm_trt = None
 
-DUMP_DIR = project_root / "tests" / "data" / "decode_dump"
-DUMP_DIR_VL = project_root / "tests" / "data" / "decode_dump_vl"
+def _resolve_dump_dir(env_key: str, default_relative_path: str) -> Path:
+    raw = os.environ.get(env_key, "").strip()
+    if raw:
+        path = Path(raw).expanduser()
+        if not path.is_absolute():
+            path = project_root / path
+        return path.resolve()
+    return (project_root / default_relative_path).resolve()
+
+
+DUMP_DIR = _resolve_dump_dir("EDGE_FM_QWEN_DUMP_DIR", "tests/data/decode_dump")
+DUMP_DIR_VL = _resolve_dump_dir("EDGE_FM_QWEN_VL_DUMP_DIR", "tests/data/decode_dump_vl")
 
 DEFAULT_PROMPT = "Hello, how are you today?"
 DEFAULT_VLM_PROMPT = "What animal is on the candy?"

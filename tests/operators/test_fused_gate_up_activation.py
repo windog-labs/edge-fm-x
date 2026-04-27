@@ -46,11 +46,12 @@ def _load_tensor(name: str, *, device: str) -> torch.Tensor:
         return handle.get_tensor(name)
 
 
-def _make_layers():
+def _make_layers(*, hw_profile: str = "cuda_sm80"):
     engine_config_path = make_engine_config(
         QWEN_1P5B_MODEL_PATH,
         device_id=DEFAULT_DEVICE_ID,
         operator_impl_table_path=OPERATOR_IMPL_TABLE_PATH,
+        hw_profile=hw_profile,
     )
 
     fused_linear = edge_fm.FusedGateUpLinearLayer(
@@ -62,6 +63,11 @@ def _make_layers():
     )
     activation = edge_fm.ActivationLayer(str(engine_config_path))
     return fused_linear, activation
+
+
+def _current_sm() -> int:
+    major, minor = torch.cuda.get_device_capability(DEFAULT_DEVICE_ID)
+    return major * 10 + minor
 
 
 def _is_tuned_fused_gate_up_record(record: dict, *, stage: str, shape_sig: str) -> bool:
@@ -289,3 +295,27 @@ def test_decode_fused_gate_up_swiglu_matches_two_stage_output():
     fused_decode_out_torch = edge_fm_tensor_to_torch(fused_decode_out_efm)
     rtol, atol = dtype_tolerances(torch.bfloat16)
     torch.testing.assert_close(fused_decode_out_torch, two_stage_out_torch, rtol=rtol, atol=atol)
+
+
+def test_decode_fused_gate_up_swiglu_disabled_by_default_on_non_sm80_ampere():
+    ensure_cuda()
+    sm = _current_sm()
+    if sm == 80 or sm < 80 or sm >= 90:
+        pytest.skip("SM80-only decode fused SwiGLU guard is only relevant to non-SM80 Ampere GPUs")
+
+    reset_weight_loader()
+
+    device = torch_device()
+    fused_linear, _ = _make_layers(hw_profile=f"cuda_sm{sm}")
+
+    x = torch.randn(1, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
+    fused_out = torch.empty(1, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    fused_decode_out = torch.empty(1, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+
+    x_efm = tensor_to_edge_fm_tensor(x)
+    fused_out_efm = tensor_to_edge_fm_tensor(fused_out)
+    fused_decode_out_efm = tensor_to_edge_fm_tensor(fused_decode_out)
+
+    fused_linear.forward_fp16_bf16(x_efm, fused_out_efm, 0, "Decode")
+
+    assert not fused_linear.try_forward_decode_swiglu_fused(x_efm, fused_decode_out_efm, 0)
