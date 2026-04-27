@@ -1,10 +1,10 @@
 #include "engine/scheduler.h"
-#include "engine/kv_manager.h"
 #include "utils/check.h"
 #include <algorithm>
 #include <cassert>
 #include <edge-fm/core.h>
 #include <stdexcept>
+#include <utility>
 
 namespace edge_fm {
 
@@ -139,7 +139,7 @@ Context Scheduler::create_context(const Request& request, Response* response) {
                     matched_slot->prefix_size,
                     matched_slot->max_tokens,
                     static_cast<int32_t>(k_cache_token_stride),
-                    stream_);
+                    stream_handle_);
 
     // Context::tensors_ is populated with dozens of string-keyed entries during
     // prefill/decode. Reserve upfront to avoid repeated rehash on the hot path.
@@ -151,12 +151,10 @@ Context Scheduler::create_context(const Request& request, Response* response) {
     return context;
 }
 
-Scheduler::~Scheduler() {
-    cudaStreamDestroy(stream_);
-}
-
-Scheduler::Scheduler(std::shared_ptr<KVManager> kv_manager): kv_manager_(kv_manager) {
-    CUDA_CHECK_THROW_EX(cudaStreamCreate(&stream_), "Failed to create CUDA stream", DeviceError);
+Scheduler::Scheduler(std::shared_ptr<KVManager> kv_manager, EngineStreamHandle stream_handle)
+    : stream_handle_(stream_handle), kv_manager_(std::move(kv_manager))
+{
+    check<ConfigurationError>(kv_manager_ != nullptr, "Scheduler requires a non-null KVManager");
 }
 
 std::unordered_map<std::string, Tensor> Context::make_layer_inputs(

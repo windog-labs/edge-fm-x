@@ -11,6 +11,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 endif()
 
 include(CheckLanguage)
+include(CTest)
 
 # ============================================================================
 # 构建类型配置
@@ -206,6 +207,7 @@ endif()
 # 输出 CUDA 状态
 if(ENABLE_CUDA)
     message(STATUS "CUDA: ENABLED")
+    add_compile_definitions(EDGE_FM_ENABLE_CUDA=1)
 else()
     message(STATUS "CUDA: DISABLED")
 endif()
@@ -223,6 +225,50 @@ endif()
 # ============================================================================
 option(BUILD_PYTHON "Build Python bindings" ON)
 option(BUILD_TRT_EDGELLM_PYBIND "Build Python bindings for TRT-Edge-LLM runtime (in-process benchmark)" OFF)
+option(ENABLE_HORIZON_RUNTIME "Build Horizon HBM runtime backend when Horizon SDK is available" OFF)
+set(HORIZON_DEPS_ROOT "" CACHE PATH "Horizon SDK/deps root; expected to contain ucp/include")
+set(HORIZON_INCLUDE_DIR "" CACHE PATH "Explicit Horizon runtime include directory override")
+set(HORIZON_LIBRARY_DIR "" CACHE PATH "Explicit Horizon runtime library directory override")
+set(HORIZON_LIBRARIES "" CACHE STRING "Explicit Horizon runtime libraries, separated by semicolons")
+
+set(EDGE_FM_ENABLE_HORIZON_RUNTIME OFF)
+set(EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIRS "")
+set(EDGE_FM_HORIZON_RUNTIME_LIBRARIES "")
+if(ENABLE_HORIZON_RUNTIME)
+    set(_edge_fm_horizon_include_hints "")
+    if(HORIZON_INCLUDE_DIR)
+        list(APPEND _edge_fm_horizon_include_hints "${HORIZON_INCLUDE_DIR}")
+    endif()
+    if(HORIZON_DEPS_ROOT)
+        list(APPEND _edge_fm_horizon_include_hints
+            "${HORIZON_DEPS_ROOT}/ucp/include"
+            "${HORIZON_DEPS_ROOT}/include"
+        )
+    endif()
+
+    find_path(EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIR
+        NAMES hobot/dnn/hb_dnn.h
+        HINTS ${_edge_fm_horizon_include_hints}
+    )
+
+    if(NOT EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIR)
+        message(FATAL_ERROR
+            "ENABLE_HORIZON_RUNTIME=ON but Horizon headers were not found. "
+            "Set HORIZON_DEPS_ROOT or HORIZON_INCLUDE_DIR.")
+    endif()
+
+    list(APPEND EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIRS "${EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIR}")
+    if(HORIZON_LIBRARIES)
+        set(EDGE_FM_HORIZON_RUNTIME_LIBRARIES ${HORIZON_LIBRARIES})
+    elseif(HORIZON_LIBRARY_DIR)
+        link_directories("${HORIZON_LIBRARY_DIR}")
+    endif()
+    set(EDGE_FM_ENABLE_HORIZON_RUNTIME ON)
+    message(STATUS "Horizon runtime backend: ENABLED")
+    message(STATUS "Horizon include: ${EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIR}")
+else()
+    message(STATUS "Horizon runtime backend: DISABLED")
+endif()
 
 # nlohmann/json
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/CMakeLists.txt)
@@ -454,3 +500,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # 添加源代码目录
 # ============================================================================
 add_subdirectory(src)
+if(BUILD_TESTING)
+    add_subdirectory(tests/cpp)
+endif()

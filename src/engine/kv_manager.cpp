@@ -2,7 +2,9 @@
 #include "engine/engine.h"
 #include "utils/check.h"
 #include <edge-fm/core.h>
-#include "utils/device/memory.h"
+
+#include <new>
+#include <utility>
 
 namespace edge_fm {
 
@@ -18,12 +20,39 @@ namespace {
             throw ConfigurationError("Unsupported attention_type: " + type_str + ". Expected 'mha', 'gqa', or 'mla'");
         }
     }
+
 }
 
-KVManager::KVManager(const EngineConfig& engine_config) {
+void* HostKVBufferAllocator::get_buffer(const std::string& name, size_t bytes, int32_t device_id) {
+    (void)device_id;
+    if (bytes == 0) {
+        return nullptr;
+    }
+
+    Buffer& buffer = buffers_[name];
+    if (buffer.size < bytes) {
+        try {
+            buffer.data = std::make_unique<uint8_t[]>(bytes);
+            buffer.size = bytes;
+        } catch (const std::bad_alloc&) {
+            throw OutOfMemoryError("Failed to allocate host KV buffer: " + name);
+        }
+    }
+    return buffer.data.get();
+}
+
+KVManager::KVManager(const EngineConfig& engine_config)
+    : KVManager(engine_config, std::make_shared<HostKVBufferAllocator>())
+{}
+
+KVManager::KVManager(const EngineConfig& engine_config, std::shared_ptr<KVBufferAllocator> buffer_allocator)
+    : buffer_allocator_(std::move(buffer_allocator))
+{
+    check<ConfigurationError>(buffer_allocator_ != nullptr, "KVManager requires a non-null buffer allocator");
+
     // =============================== parsing common config ===============================
     // 1. 从 runtime 配置读取设备信息
-    device_ = device_from_string(engine_config.runtime_device());
+    device_ = buffer_allocator_->device();
     device_id_ = engine_config.runtime_device_id();
 
     // 2. 从 kvcache 配置读取 attention_type 和 dtype
@@ -154,7 +183,7 @@ void KVManager::allocate_common_kvcache() {
         for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
             std::string buf_name = "kv_cache_request_" + std::to_string(request_id) + 
                                    "_layer_" + std::to_string(layer_id);
-            void* kv_cache_ptr = StaticBufferManager::get_cache_buf(buf_name, kv_cache_size, device_id_);
+            void* kv_cache_ptr = buffer_allocator_->get_buffer(buf_name, kv_cache_size, device_id_);
 
             slot.kv_cache_read_ptrs[layer_id] = kv_cache_ptr;
             slot.kv_cache_write_ptrs[layer_id] = static_cast<uint8_t*>(kv_cache_ptr) + prefix_offset;
@@ -176,7 +205,7 @@ void KVManager::allocate_mla_kvcache() {
         for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
             std::string buf_name = "kv_cache_request_" + std::to_string(request_id) + 
                                    "_layer_" + std::to_string(layer_id);
-            void* kv_cache_ptr = StaticBufferManager::get_cache_buf(buf_name, kv_cache_size, device_id_);
+            void* kv_cache_ptr = buffer_allocator_->get_buffer(buf_name, kv_cache_size, device_id_);
 
             slot.kv_cache_read_ptrs[layer_id] = kv_cache_ptr;
             slot.kv_cache_write_ptrs[layer_id] = static_cast<uint8_t*>(kv_cache_ptr) + prefix_offset;

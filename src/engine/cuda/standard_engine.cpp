@@ -1,11 +1,12 @@
-#include "engine/stardard_engine.h"
+#include "engine/cuda/standard_engine.h"
 #include "layers/sampler.h"
 #include "models/model.h"
 #include "operators/operator_impl_table.h"
 #include "tuning/cuda_operator_tuner.h"
 #include "utils/device/memory.h"
 #include "engine/kv_manager.h"
-#include "utils/device/decode_runtime_kernels.h"
+#include "engine/cuda/scheduler.h"
+#include "engine/cuda/kernels/decode_runtime_kernels.h"
 #include "utils/device/cuda_utils.h"
 #include "utils/device/nvtx.h"
 #include "utils/check.h"
@@ -22,6 +23,36 @@
 
 namespace edge_fm {
 
+namespace {
+
+class CudaKVBufferAllocator : public KVBufferAllocator {
+public:
+    Device device() const override { return Device::GPU; }
+
+    void* get_buffer(const std::string& name, size_t bytes, int32_t device_id) override {
+        return StaticBufferManager::get_cache_buf(name, bytes, device_id);
+    }
+};
+
+} // namespace
+
+StandardEngine::StandardEngine(const EngineConfig& config)
+    : Engine(config)
+{
+    initialize_standard_runtime();
+}
+
+void StandardEngine::initialize_standard_runtime() {
+    device_ = device_from_string(config_.runtime_device());
+    device_id_ = config_.runtime_device_id();
+    CUDA_CHECK_THROW(cudaSetDevice(device_id_), "Failed to set device for engine init");
+
+    model_ = Model::create(config_);
+    kv_manager_ = std::make_shared<KVManager>(config_, std::make_shared<CudaKVBufferAllocator>());
+    scheduler_ = std::make_unique<CudaScheduler>(kv_manager_);
+    sampler_ = std::make_unique<SamplerLayer>(config_);
+    sampler_->load_weights({}, {});
+}
 
 namespace {
 
@@ -352,7 +383,7 @@ void StandardEngine::warmup() {
         prepare_tensors(ModelStage::Prefill, context);
         model_->prefill(context);
 
-        cudaStream_t stream = context.stream();
+        cudaStream_t stream = cuda_stream(context);
         if (stream != nullptr) {
             CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "Failed to synchronize stream during warmup");
         }
@@ -419,7 +450,7 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
 
     const int32_t request_id = request->request_id();
     const uint64_t graph_key = prefill_graph_key(request_id, seq_len);
-    cudaStream_t stream = context.stream();
+    cudaStream_t stream = cuda_stream(context);
     CudaGraphRunner& runner = cuda_graph_manager_.prefill(request_id, seq_len);
 
     auto invalidate_prefill_capture = [&]() {
@@ -605,7 +636,7 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
     }
 
     auto& tensors = context.tensors();
-    cudaStream_t stream = context.stream();
+    cudaStream_t stream = cuda_stream(context);
 
     // Run one uncaptured decode into temporary KV buffers so lazy allocations
     // happen before capture and the real cache stays untouched. Sampler output
@@ -702,7 +733,7 @@ Response StandardEngine::generate(const Request& request) {
 
     Response response;
     Context context = scheduler_->create_context(request, &response);
-    cudaStream_t stream = context.stream();
+    cudaStream_t stream = cuda_stream(context);
     auto& tensors = context.tensors();
     NVTX::Range generate_range("EDGEFM_GENERATE", NVTXColor::WHITE);
 
@@ -928,7 +959,7 @@ void StandardEngine::prepare_kvcache_tensors(
             if (generated_tokens <= 1) {
                 uint32_t kv_len_val = static_cast<uint32_t>(cache_kv_len);
                 CUDA_CHECK_THROW(cudaMemcpyAsync(d_kv_len_ptr, &kv_len_val,
-                    sizeof(uint32_t), cudaMemcpyHostToDevice, context.stream()),
+                    sizeof(uint32_t), cudaMemcpyHostToDevice, cuda_stream(context)),
                     "copy d_kv_len to device");
             }
             tensors[ModelTensors::D_KV_LEN] = Tensor::view(
@@ -961,7 +992,7 @@ void StandardEngine::prepare_kvcache_tensors(
 
 void StandardEngine::prepare_prefill_tensors(Context& context) {
     auto& tensors = context.tensors();
-    cudaStream_t stream = context.stream();
+    cudaStream_t stream = cuda_stream(context);
 
     // 获取模型参数
     int32_t num_layers = model_->num_layers();
@@ -1240,7 +1271,7 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
 
 void StandardEngine::prepare_decode_tensors(Context& context) {
     auto& tensors = context.tensors();
-    cudaStream_t stream = context.stream();
+    cudaStream_t stream = cuda_stream(context);
     const bool init_static = !context.decode_tensors_initialized();
 
     // 获取模型参数

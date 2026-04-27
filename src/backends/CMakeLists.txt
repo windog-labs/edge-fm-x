@@ -5,7 +5,15 @@
 add_library(edge_fm_backends STATIC
     backend_artifact_cache.cpp
     horizon_module_emitter.cpp
+    runtime_backend.cpp
 )
+
+if(EDGE_FM_ENABLE_HORIZON_RUNTIME)
+    target_sources(edge_fm_backends PRIVATE
+        horizon_runtime_backend.cpp
+    )
+    target_compile_definitions(edge_fm_backends PRIVATE EDGE_FM_ENABLE_HORIZON_RUNTIME=1)
+endif()
 
 set_target_properties(edge_fm_backends PROPERTIES
     POSITION_INDEPENDENT_CODE ON
@@ -21,6 +29,13 @@ target_link_libraries(edge_fm_backends PUBLIC
     edge_fm_utils
     nlohmann_json::nlohmann_json
 )
+
+if(EDGE_FM_ENABLE_HORIZON_RUNTIME)
+    target_include_directories(edge_fm_backends PUBLIC ${EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIRS})
+    if(EDGE_FM_HORIZON_RUNTIME_LIBRARIES)
+        target_link_libraries(edge_fm_backends PUBLIC ${EDGE_FM_HORIZON_RUNTIME_LIBRARIES})
+    endif()
+endif()
 
 install(TARGETS edge_fm_backends
     EXPORT edge_fm_targets

@@ -10,7 +10,6 @@ if(ENABLE_CUDA)
     list(APPEND UTILS_SOURCES
         device/weight_loader.cpp
         device/cuda_graph.cpp
-        device/decode_runtime_kernels.cu
     )
 endif()
 

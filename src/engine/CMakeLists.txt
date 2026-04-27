@@ -2,13 +2,24 @@
 # Engine 模块
 # ============================================================================
 
-file(GLOB_RECURSE ENGINE_SOURCES "*.cpp")
-file(GLOB_RECURSE ENGINE_TUNING_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../tuning/*.cpp")
+set(ENGINE_SOURCES
+    engine.cpp
+    engine_factory.cpp
+    kv_manager.cpp
+    scheduler.cpp
+    horizon/engine.cpp
+)
+
 if(ENABLE_CUDA)
+    list(APPEND ENGINE_SOURCES
+        cuda/scheduler.cpp
+        cuda/standard_engine.cpp
+        speculative/eagle_engine.cpp
+    )
     file(GLOB_RECURSE ENGINE_CUDA_SOURCES "*.cu")
-    list(APPEND ENGINE_SOURCES ${ENGINE_CUDA_SOURCES})
+    file(GLOB_RECURSE ENGINE_TUNING_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../tuning/*.cpp")
+    list(APPEND ENGINE_SOURCES ${ENGINE_CUDA_SOURCES} ${ENGINE_TUNING_SOURCES})
 endif()
-list(APPEND ENGINE_SOURCES ${ENGINE_TUNING_SOURCES})
 
 add_library(edge_fm_engine STATIC
     ${ENGINE_SOURCES}
@@ -28,8 +39,12 @@ target_link_libraries(edge_fm_engine PUBLIC
     edge_fm_utils
     edge_fm_backends
     edge_fm_operators
-    edge_fm_layers
 )
+if(ENABLE_CUDA)
+    target_link_libraries(edge_fm_engine PUBLIC
+        edge_fm_layers
+    )
+endif()
 
 # Define install prefix for finding config files at runtime
 target_compile_definitions(edge_fm_engine PRIVATE
@@ -45,7 +60,7 @@ if(ENABLE_CUDA)
     target_include_directories(edge_fm_engine PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
-if(CUDNN_INCLUDE_DIR AND CUDNN_LIBRARY)
+if(ENABLE_CUDA AND CUDNN_INCLUDE_DIR AND CUDNN_LIBRARY)
     target_link_libraries(edge_fm_engine PUBLIC ${CUDNN_LIBRARY})
     target_include_directories(edge_fm_engine PUBLIC ${CUDNN_INCLUDE_DIR})
 endif()

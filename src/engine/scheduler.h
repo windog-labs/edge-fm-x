@@ -1,17 +1,18 @@
 #pragma once
 
 #include <edge-fm/core.h>
-#include <memory>
-#include <vector>
+#include "engine/kv_manager.h"
+#include "utils/non_copyable.h"
+
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include "utils/non_copyable.h"
-#include "engine/kv_manager.h"
-#include "utils/device/cuda_utils.h"
-#include <cuda_runtime.h>
+#include <vector>
 
 namespace edge_fm {
+
+using EngineStreamHandle = void*;
 
 class Context {
 public:
@@ -23,7 +24,7 @@ public:
             size_t prefix_size,
             int32_t slot_max_tokens,
             int32_t token_stride,
-            cudaStream_t stream=nullptr
+            EngineStreamHandle stream_handle=nullptr
         ):
             request_(request),
             kv_cache_ptrs_(kv_cache_ptrs),
@@ -34,7 +35,7 @@ public:
             prefix_size_(prefix_size),
             slot_max_tokens_(slot_max_tokens),
             token_stride_(token_stride),
-            stream_(stream),
+            stream_handle_(stream_handle),
             response_tokens_base_ptr_(nullptr),
             eos_detected_(false) { /* empty */ }
     Context(Context&&) noexcept = default;
@@ -59,7 +60,7 @@ public:
     const Request* request() const { return request_; }
     Response* response() { return response_; }
     const Response* response() const { return response_; }  
-    cudaStream_t stream() const { return stream_; }
+    EngineStreamHandle stream_handle() const { return stream_handle_; }
     
     int32_t get_generated_tokens() const { return generated_tokens_; }
     void set_response_tokens_base_ptr(void* p);
@@ -122,7 +123,7 @@ private:
     size_t prefix_size_;
     int32_t slot_max_tokens_;
     int32_t token_stride_;
-    cudaStream_t stream_;
+    EngineStreamHandle stream_handle_;
     void* response_tokens_base_ptr_;
     bool eos_detected_;
 
@@ -135,14 +136,16 @@ private:
 
 class Scheduler : public NonCopyable {
 public:
-    Scheduler(std::shared_ptr<KVManager> kv_manager);
-    ~Scheduler();
+    explicit Scheduler(std::shared_ptr<KVManager> kv_manager, EngineStreamHandle stream_handle = nullptr);
+    virtual ~Scheduler() = default;
 
     Context create_context(const Request& request, Response* response);
 
+protected:
+    void set_stream_handle(EngineStreamHandle stream_handle) { stream_handle_ = stream_handle; }
+
 private:
-    // TODO: maybe we can use a thread pool to manage the streams
-    cudaStream_t stream_;  
+    EngineStreamHandle stream_handle_ = nullptr;
     std::shared_ptr<KVManager> kv_manager_;
 };
 

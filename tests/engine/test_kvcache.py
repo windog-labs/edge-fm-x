@@ -15,10 +15,13 @@ import tempfile
 import os
 from pathlib import Path
 
-# 添加构建目录到路径
 project_root = Path(__file__).parent.parent.parent
-build_python = project_root / "build" / "install" / "python"
-sys.path.insert(0, str(build_python))
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from scripts.edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(project_root)
 
 import edge_fm
 
@@ -90,7 +93,7 @@ def test_mha_kvcache_basic():
     
     # 测试获取状态
     status = kv_manager.get_status()
-    assert status.device == edge_fm.Device.GPU, "Device should be GPU"
+    assert status.device == edge_fm.Device.CPU, "Standalone KVManager should use the default host allocator"
     assert status.device_id == 0, "Device ID should be 0"
     assert len(status.slots) == 2, "Should have 2 slots"
     
@@ -323,4 +326,3 @@ def test_different_dtypes():
 if __name__ == "__main__":
     # 支持直接运行：python test_kvcache.py
     pytest.main([__file__, "-v"])
-

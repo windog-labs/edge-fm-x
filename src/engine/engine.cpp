@@ -1,8 +1,5 @@
-#include "engine/engine.h"
-#include "layers/sampler.h"
-#include "utils/device/cuda_utils.h"
+#include "engine/engine_factory.h"
 #include <edge-fm/core.h>
-#include <cuda_runtime.h>
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -122,6 +119,10 @@ namespace {
             normalized == "qwen25vl" || normalized == "qwen2_5vl" || normalized == "qwen2vl") {
             return "qwen2_5_vl";
         }
+        if (normalized == "smolvla" || normalized == "smol_vla" ||
+            normalized == "lerobot_smolvla" || normalized == "lerobot_smol_vla") {
+            return "smolvla";
+        }
         return normalized;
     }
 
@@ -139,14 +140,7 @@ namespace {
     }
 
     std::string current_hardware_fingerprint(int32_t device_id) {
-        cudaDeviceProp prop{};
-        if (cudaGetDeviceProperties(&prop, device_id) != cudaSuccess) {
-            return "unknown-device-" + std::to_string(device_id);
-        }
-
-        std::ostringstream oss;
-        oss << prop.name << "|cc=" << prop.major << "." << prop.minor;
-        return oss.str();
+        return cuda_hardware_fingerprint(device_id);
     }
 
     std::string current_backend_fingerprint(const std::string& backend_target, int32_t device_id) {
@@ -218,13 +212,13 @@ nlohmann::json EngineConfig::decode_model_config() const {
 
 std::string EngineConfig::resolved_model_name() const {
     const std::string normalized = normalize_model_name(model_name());
-    if (normalized == "qwen2_5" || normalized == "qwen2_5_vl") {
+    if (normalized == "qwen2_5" || normalized == "qwen2_5_vl" || normalized == "smolvla") {
         return normalized;
     }
 
     throw ConfigurationError(
         "Unsupported or missing model_name in engine config. "
-        "Supported values include: Qwen2.5, qwen2_5, Qwen2.5-VL, qwen2_5_vl");
+        "Supported values include: Qwen2.5, qwen2_5, Qwen2.5-VL, qwen2_5_vl, SmolVLA, smolvla");
 }
 
 nlohmann::json EngineConfig::runtime() const { return get_object_or_empty(config_, "runtime"); }
@@ -269,25 +263,31 @@ void EngineConfig::clear_operator_impl_table_override() {
 bool EngineConfig::tuning_enabled() const {
     return safe_value(tuning(), "enabled", false);
 }
-std::string EngineConfig::backend_target() const {
+BackendTarget EngineConfig::backend_target_kind() const {
     if (config_.contains("_edgefm_internal") && config_["_edgefm_internal"].is_object()) {
         const std::string internal = safe_value(config_["_edgefm_internal"], "backend_target", std::string(""));
         if (!internal.empty()) {
-            return internal;
+            if (internal == "cuda" || internal == "gpu") {
+                return BackendTarget::Cuda;
+            }
+            if (internal == "horizon") {
+                return BackendTarget::Horizon;
+            }
+            throw ConfigurationError("Unsupported backend_target: " + internal);
         }
     }
 
     const std::string runtime_device_str = runtime_device();
     if (runtime_device_str == "cuda" || runtime_device_str == "gpu") {
-        return "cuda";
+        return BackendTarget::Cuda;
     }
     if (runtime_device_str == "horizon") {
-        return "horizon";
+        return BackendTarget::Horizon;
     }
-    if (runtime_device_str == "cpu") {
-        return "cpu";
-    }
-    return runtime_device_str;
+    throw ConfigurationError("Unsupported backend_target/runtime.device: " + runtime_device_str);
+}
+std::string EngineConfig::backend_target() const {
+    return backend_target_to_string(backend_target_kind());
 }
 std::string EngineConfig::runtime_hw_profile() const {
     return safe_value(runtime(), "hw_profile", std::string(""));
@@ -300,11 +300,7 @@ std::string EngineConfig::resolved_hw_profile() const {
 
     const std::string backend = backend_target();
     if (backend == "cuda") {
-        cudaDeviceProp prop{};
-        if (cudaGetDeviceProperties(&prop, runtime_device_id()) == cudaSuccess) {
-            return "cuda_sm" + std::to_string(prop.major) + std::to_string(prop.minor);
-        }
-        return "cuda";
+        return cuda_hw_profile(runtime_device_id());
     }
     if (backend == "horizon") {
         return "horizon";
@@ -422,18 +418,6 @@ Engine::Engine(const EngineConfig& config)
     , device_id_(0)
     , config_(config)
 {}
-
-void Engine::initialize_standard_runtime() {
-    device_ = device_from_string(config_.runtime_device());
-    device_id_ = config_.runtime_device_id();
-    CUDA_CHECK_THROW(cudaSetDevice(device_id_), "Failed to set device for engine init");
-
-    model_ = Model::create(config_);
-    kv_manager_ = std::make_shared<KVManager>(config_);
-    scheduler_ = std::make_unique<Scheduler>(kv_manager_);
-    sampler_ = std::make_unique<SamplerLayer>(config_);
-    sampler_->load_weights({}, {});
-}
 
 Engine::~Engine() = default;
 

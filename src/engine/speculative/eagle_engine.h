@@ -1,6 +1,9 @@
 #pragma once
 
 #include "engine/engine.h"
+#include "engine/kv_manager.h"
+#include "engine/scheduler.h"
+#include "models/model.h"
 #include <memory>
 #include <vector>
 #include <cstdint>

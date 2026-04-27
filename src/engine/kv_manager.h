@@ -2,6 +2,7 @@
 
 #include <edge-fm/core.h>
 #include "utils/non_copyable.h"
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -33,9 +34,31 @@ enum class AttentionType {
     MLA,
 };
 
+class KVBufferAllocator {
+public:
+    virtual ~KVBufferAllocator() = default;
+    virtual Device device() const = 0;
+    virtual void* get_buffer(const std::string& name, size_t bytes, int32_t device_id) = 0;
+};
+
+class HostKVBufferAllocator : public KVBufferAllocator {
+public:
+    Device device() const override { return Device::CPU; }
+    void* get_buffer(const std::string& name, size_t bytes, int32_t device_id) override;
+
+private:
+    struct Buffer {
+        std::unique_ptr<uint8_t[]> data;
+        size_t size = 0;
+    };
+
+    std::unordered_map<std::string, Buffer> buffers_;
+};
+
 class KVManager : public NonCopyable {
 public:
     KVManager(const EngineConfig& engine_config);
+    KVManager(const EngineConfig& engine_config, std::shared_ptr<KVBufferAllocator> buffer_allocator);
     ~KVManager() = default;
 
     size_t get_token_stride() const;
@@ -67,6 +90,7 @@ private:
     Device device_;
     int32_t device_id_;
     DType dtype_;
+    std::shared_ptr<KVBufferAllocator> buffer_allocator_;
     std::unordered_map<int32_t, Slot> slots_;
     // common
     int32_t num_layers_;

@@ -144,6 +144,10 @@ bool try_get_decode_swiglu_kernel_override(DecodeSwigluKernelConfigId& config_id
     return false;
 }
 
+bool decode_swiglu_device_supported(int sm) {
+    return sm == 80;
+}
+
 int sm_version_for_device(int device_id) {
     int major = 0;
     int minor = 0;
@@ -561,9 +565,9 @@ void prepare_decode_swiglu_state_for_dtype(
     const Tensor* bias_tensor,
     FusedGateUpActivationOpState& state) {
     const int sm = sm_version_for_device(ctx.device_id);
-    if (sm < 80 || sm >= 90) {
+    if (!decode_swiglu_device_supported(sm)) {
         state.unavailable_reason =
-            "decode fused SwiGLU path currently only targets sm80-sm89 devices";
+            "decode fused SwiGLU path only enables TensorRT-LLM's SM80 kernel on SM80 by default";
         return;
     }
 
@@ -674,7 +678,10 @@ public:
 
         try {
             const int sm = sm_version_for_device(ctx.device_id);
-            return sm >= 80 && sm < 90;
+            // This path instantiates TensorRT-LLM's sm80 fused-MoE kernel. On
+            // RTX 3060 (SM86) it is fast but not numerically equivalent to the
+            // two-stage BF16 gate/up + SiLU path, which breaks greedy decode.
+            return decode_swiglu_device_supported(sm);
         } catch (const std::exception&) {
             return false;
         }

@@ -4,14 +4,21 @@
 add_subdirectory(utils)
 add_subdirectory(operators)
 add_subdirectory(backends)
-add_subdirectory(layers)
 add_subdirectory(engine)
-add_subdirectory(models)
+if(ENABLE_CUDA)
+    add_subdirectory(layers)
+    add_subdirectory(models)
+endif()
 
 # ============================================================================
 # 主库 edge_fm
 # ============================================================================
-add_library(edge_fm SHARED edge-fm.cpp)
+set(EDGE_FM_SOURCES
+    edge-fm.cpp
+    tensor.cpp
+)
+
+add_library(edge_fm SHARED ${EDGE_FM_SOURCES})
 
 target_include_directories(edge_fm PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
@@ -22,10 +29,14 @@ target_link_libraries(edge_fm PUBLIC
     edge_fm_utils
     edge_fm_operators
     edge_fm_backends
-    edge_fm_layers
     edge_fm_engine
-    edge_fm_models
 )
+if(ENABLE_CUDA)
+    target_link_libraries(edge_fm PUBLIC
+        edge_fm_layers
+        edge_fm_models
+    )
+endif()
 
 # 显式链接 CUDA 运行时，避免 libedge_fm.so 出现 undefined symbol: __cudaLaunchKernel
 if(ENABLE_CUDA)

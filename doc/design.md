@@ -9,15 +9,19 @@ All architecture diagrams below use Mermaid. No external `png` or `jpeg` assets 
 Current `EdgeFM` facade behavior:
 
 - CUDA inference is served by `StandardEngine`.
-- Horizon is served by `HorizonEngine`, but only for compile-spec / artifact generation.
-- Supported model names are `qwen2_5` and `qwen2_5_vl`.
+- Horizon is served by `HorizonEngine`; it emits compile specs and can initialize
+  the internal whole-graph runtime backend when a compiled `.hbm` artifact exists.
+- Supported model names are `qwen2_5`, `qwen2_5_vl`, and the Horizon compile-prep
+  path for `smolvla`.
 - `qwen2_5` and `qwen2_5_vl` currently share the same `Qwen2_5` runtime.
 - `src/engine/speculative/` still contains `EagleEngine` prototype code, but `EdgeFM(config_path)` rejects `speculative.enabled=true` today.
 
 This means the codebase is already split into two real paths:
 
 - CUDA runtime path: loads weights, allocates KV cache, runs prefill + decode, optionally captures CUDA graphs.
-- Horizon backend path: derives graph metadata, emits a Python lowering module, writes compile spec and artifact cache entries, but does not execute runtime inference in this build.
+- Horizon backend path: derives graph metadata, emits a Python lowering module,
+  writes compile spec and artifact cache entries, prepares J6M rewrite diagnostics,
+  and initializes HBM runtime I/O metadata when the runtime SDK/artifact is present.
 
 ## 2. Design Principles
 
@@ -59,8 +63,10 @@ flowchart TD
         J["HorizonEngine"]
         J --> K["build graph_tuning"]
         J --> L["emit_horizon_module"]
+        J --> P["build horizon_rewrite"]
         J --> M["BackendArtifactCache"]
         L --> N["compile_spec.json"]
+        P --> N
         M --> O["artifact.json"]
     end
 
@@ -72,7 +78,8 @@ Key points:
 
 - `EdgeFM` chooses the engine from `EngineConfig::backend_target()`.
 - The CUDA path eagerly loads model weights before constructing `StandardEngine`.
-- The Horizon path does not load CUDA runtime state; it produces backend artifacts.
+- The Horizon path does not load CUDA runtime state; it produces backend artifacts
+  and uses a whole-graph runtime boundary instead of CUDA layers/operators.
 - `Model::create()` currently resolves both `qwen2_5` and `qwen2_5_vl` to the same `Qwen2_5` implementation.
 
 ## 4. Configuration and Dispatch
@@ -115,6 +122,7 @@ Relevant default structure from `examples/config/base/engine_default.json`:
 - `model_name`
   - `Qwen2.5`, `qwen2_5`, `qwen25`, `qwen2` -> `qwen2_5`
   - `Qwen2.5-VL`, `qwen2_5_vl`, `qwen25vl` -> `qwen2_5_vl`
+  - `SmolVLA`, `smolvla`, `smol_vla` -> `smolvla`
 - `runtime.hw_profile`
   - if explicitly set, use the normalized value
   - if omitted on CUDA, derive `cuda_smXX` from device properties, with `cuda` fallback
@@ -439,7 +447,10 @@ without forcing model-layer code to know about vendor-specific kernels.
 
 ## 8. Horizon Backend Path
 
-`HorizonEngine` is a compile-preparation backend, not an execution backend in this build.
+`HorizonEngine` is a whole-graph backend boundary. CUDA requests still use
+`StandardEngine`; Horizon requests never instantiate CUDA layers/operators/model
+graphs. In a build without Horizon SDK support, runtime initialization reports a
+clear "not compiled" error while compile-spec generation remains available.
 
 ### 8.1 Tune flow
 
@@ -447,13 +458,17 @@ without forcing model-layer code to know about vendor-specific kernels.
 flowchart TD
     A["HorizonEngine::tune"] --> B[resolve model and hw profile]
     B --> C[build graph_tuning]
+    B --> R[build horizon_rewrite]
     C --> D[emit_horizon_module]
+    R --> D
     D --> E[generated Python module]
     C --> F[compile_spec.json]
+    R --> F
     E --> F
     F --> G["BackendArtifactCache::set_artifact"]
     G --> H[artifact.json]
-    F --> I[external compile script]
+    F --> I["compile_horizon_from_spec.py"]
+    I --> K["j6m_rewrite manifest/scale/flow plans"]
     I --> J[model.hbm]
 ```
 
@@ -466,27 +481,55 @@ flowchart TD
 - `uses_embedding_injection`
 - `linear_operator_table`
 - `target_hw_constraints`
+- `horizon_rewrite` is embedded in the generated module metadata when present
 
 The generated compile spec uses schema `edgefm_horizon_compile_spec_v2`.
 
-### 8.2 Current behavior of `generate()`
+### 8.2 J6M rewrite preparation
+
+`scripts/horizon/compile_horizon_from_spec.py` accepts `--horizon-rewrite`
+(`auto`, `on`, or `off`). On J6M/SmolVLA specs it writes:
+
+- `horizon_j6m_rewrite_manifest.json`
+- `scale_check_config.json`
+- `flow_matching_export_plan.json`
+
+For SmolVLA, `scripts/horizon/j6m_rewrite.py` also provides Python-level
+rewrites for the LeRobot source-of-truth model:
+
+- boolean/int16-safe attention mask construction
+- bounded negative mask fill instead of `finfo(float32).min`
+- explicit fp32 RoPE sin/cos computation
+- piecewise tanh-GELU replacement to avoid activation overflow
+- parameter scale diagnostics and a per-step flow-matching bin export plan
+
+The generated SmolVLA Horizon module loads `SmolVLAPolicy.from_pretrained()`
+from LeRobot, applies those rewrites, and leaves flow-loop runtime I/O mapping
+as a later integration step.
+
+### 8.3 Current behavior of `generate()`
 
 `HorizonEngine::generate()` currently:
 
-1. checks whether a backend artifact is already cached or injected internally
-2. checks whether the expected `model.hbm` exists
-3. throws because runtime execution is not implemented in this build
+1. validates the request
+2. checks whether a backend artifact is already cached or injected internally
+3. checks whether the expected `model.hbm` exists
+4. initializes `HorizonRuntimeBackend` when compiled and logs runtime I/O names/shapes
+5. throws `Horizon generate I/O mapping is not implemented in this interface phase`
 
-So the Horizon path is currently a lowering / artifact pipeline only.
+So Horizon runtime ownership and I/O discovery are wired, while token/action
+mapping is intentionally left out of this interface phase.
 
 ## 9. Source Tree Boundaries
 
 Current source layout:
 
 - `src/edge-fm.cpp`
-  - public facade, backend selection, CUDA weight loading
+  - public `EdgeFM` facade
+- `src/tensor.cpp`, `src/utils/device/tensor_*.cpp`
+  - public `Tensor` implementation and CMake-selected CPU/CUDA device memory ops
 - `src/engine/`
-  - `EngineConfig`, `StandardEngine`, `HorizonEngine`, `KVManager`, `Scheduler`
+  - `EngineConfig`, engine factory, `StandardEngine`, `HorizonEngine`, CUDA `KVManager`/`Scheduler`
 - `src/engine/speculative/`
   - prototype speculative engine code, not wired into public facade
 - `src/models/`
@@ -500,7 +543,7 @@ Current source layout:
 - `src/operators/kernels/`
   - low-level CUDA kernels used by operator implementations
 - `src/backends/`
-  - backend artifact cache and Horizon module emitter
+  - backend artifact cache, Horizon module emitter, whole-graph runtime backend abstraction
 - `src/utils/`
   - memory, CUDA graph helpers, weight loading, logging, device utilities
 
@@ -511,7 +554,7 @@ The current code intentionally does not do the following:
 - no generic runtime IR on the CUDA path
 - no benchmark-based runtime tuning
 - no public speculative decoding through `EdgeFM`
-- no Horizon runtime execution in this build
+- no public Horizon token/action generation loop yet; HBM I/O discovery is present
 - no model-family inference from checkpoint naming or file layout
 
 In exchange, the code keeps a much tighter mapping between:

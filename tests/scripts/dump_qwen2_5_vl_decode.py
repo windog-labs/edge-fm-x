@@ -30,6 +30,122 @@ DEFAULT_NUM_STEPS = 20
 DEFAULT_SEED = 42
 
 
+def _load_vlm_model_and_processor(model_path: str, device: str, dtype: torch.dtype):
+    from safetensors.torch import load_file
+    from transformers import AutoConfig, AutoProcessor
+
+    config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+    model_type = getattr(config, "model_type", "")
+
+    if model_type == "llava":
+        from transformers import LlavaForConditionalGeneration
+
+        model = LlavaForConditionalGeneration(config)
+        state = load_file(str(Path(model_path) / "model.safetensors"), device="cpu")
+        remapped_state = {}
+        for key, value in state.items():
+            if key.startswith("language_model.model."):
+                new_key = "model.language_model." + key[len("language_model.model."):]
+            elif key.startswith("language_model."):
+                new_key = "model.language_model." + key[len("language_model."):]
+            elif key.startswith("vision_tower."):
+                new_key = "model.vision_tower." + key[len("vision_tower."):]
+            elif key.startswith("multi_modal_projector."):
+                new_key = "model.multi_modal_projector." + key[len("multi_modal_projector."):]
+            else:
+                new_key = key
+            remapped_state[new_key] = value
+        missing, unexpected = model.load_state_dict(remapped_state, strict=False)
+        material_missing = [key for key in missing if key != "lm_head.weight"]
+        if material_missing or unexpected:
+            print(f"[dump] Llava remap missing keys: {material_missing[:20]}", flush=True)
+            print(f"[dump] Llava remap unexpected keys: {unexpected[:20]}", flush=True)
+        model.tie_weights()
+    else:
+        from transformers import Qwen2_5_VLForConditionalGeneration
+
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_path,
+            torch_dtype=dtype,
+            low_cpu_mem_usage=False,
+        )
+
+    model = model.to(device=device, dtype=dtype)
+    model.eval()
+
+    processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+    image_processor = getattr(processor, "image_processor", None)
+    if image_processor is not None:
+        if hasattr(image_processor, "min_pixels"):
+            image_processor.min_pixels = 3136
+        if hasattr(image_processor, "max_pixels"):
+            image_processor.max_pixels = 50176
+
+    if model_type == "llava":
+        vision_config = getattr(config, "vision_config", None)
+        if vision_config is not None and hasattr(processor, "patch_size"):
+            processor.patch_size = getattr(vision_config, "patch_size", processor.patch_size)
+        if hasattr(processor, "vision_feature_select_strategy"):
+            processor.vision_feature_select_strategy = getattr(
+                config,
+                "vision_feature_select_strategy",
+                processor.vision_feature_select_strategy,
+            )
+        if hasattr(processor, "num_additional_image_tokens"):
+            processor.num_additional_image_tokens = max(
+                int(getattr(processor, "num_additional_image_tokens", 0)),
+                1,
+            )
+
+    return model, processor, config, model_type
+
+
+def _render_chat_text(processor, messages, prompt: str) -> str:
+    try:
+        return processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    except ValueError as exc:
+        if "does not have a chat template" not in str(exc):
+            raise
+        tokenizer = getattr(processor, "tokenizer", None)
+        if tokenizer is None or not getattr(tokenizer, "chat_template", None):
+            raise
+
+        image_token = getattr(processor, "image_token", None)
+        if not image_token:
+            image_token = getattr(getattr(processor, "image_processor", None), "image_token", None)
+        if not image_token:
+            image_token = "<image>"
+
+        fallback_messages = [{"role": "user", "content": f"{image_token}\n{prompt}"}]
+        return tokenizer.apply_chat_template(
+            fallback_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+
+def _resolve_embed_token_id(model, processor, config, vocab_size: int) -> int:
+    tokenizer = getattr(processor, "tokenizer", None)
+    processor_image_token_id = None
+    if tokenizer is not None:
+        image_token = getattr(processor, "image_token", None) or "<image>"
+        token_id = tokenizer.convert_tokens_to_ids(image_token)
+        if isinstance(token_id, int) and token_id >= 0:
+            processor_image_token_id = token_id
+
+    text_config = getattr(config, "text_config", None)
+    text_image_token_id = getattr(text_config, "image_token_id", vocab_size)
+    return int(
+        processor_image_token_id
+        if processor_image_token_id is not None
+        else getattr(
+            config,
+            "image_token_index",
+            getattr(model.config, "image_token_id", text_image_token_id),
+        )
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Dump Qwen2.5-VL prefill+decode for alignment")
     parser.add_argument(
@@ -56,7 +172,6 @@ def main():
         print(f"错误: 模型路径不存在或缺少 config.json: {model_path}")
         sys.exit(1)
 
-    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
     from PIL import Image
 
     torch.manual_seed(args.seed)
@@ -64,16 +179,12 @@ def main():
         torch.cuda.manual_seed_all(args.seed)
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    model_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+    model, processor, config, model_type = _load_vlm_model_and_processor(
         model_path,
-        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-        low_cpu_mem_usage=False,
+        device,
+        model_dtype,
     )
-    model = model.to(device)
-    model.eval()
-    processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-    processor.image_processor.min_pixels = 3136
-    processor.image_processor.max_pixels = 50176
 
     image_path = Path(args.image_path)
     if not image_path.exists():
@@ -90,7 +201,7 @@ def main():
             ],
         }
     ]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    text = _render_chat_text(processor, messages, args.prompt)
     inputs = processor(
         text=[text], images=[image], return_tensors="pt", padding=True,
     ).to(device)
@@ -100,28 +211,43 @@ def main():
         input_ids = torch.tensor(input_ids, dtype=torch.long, device=device)
     pixel_values = inputs.get("pixel_values")
     image_grid_thw = inputs.get("image_grid_thw")
+    image_sizes = inputs.get("image_sizes")
     mm_token_type_ids = inputs.get("mm_token_type_ids")
     if mm_token_type_ids is not None and not isinstance(mm_token_type_ids, torch.Tensor):
         mm_token_type_ids = torch.tensor(mm_token_type_ids, dtype=torch.int32, device=device)
 
-    vocab_size = model.config.text_config.vocab_size
-    embed_token_id = getattr(
-        model.config, "image_token_id",
-        getattr(model.config.text_config, "image_token_id", vocab_size),
-    )
+    text_config = getattr(model.config, "text_config", None)
+    vocab_size = getattr(text_config, "vocab_size", None)
+    if vocab_size is None:
+        vocab_size = getattr(model.config, "vocab_size", None)
+    if vocab_size is None:
+        raise RuntimeError("无法确定 VLM vocab_size")
+    embed_token_id = _resolve_embed_token_id(model, processor, config, vocab_size)
     ids_flat = input_ids.cpu().numpy().ravel()
     num_image_tokens = int((ids_flat == embed_token_id).sum())
 
     # ========== Prefill: get image embeddings + KV cache + first token ==========
-    with torch.no_grad():
-        outputs = model(
-            input_ids=input_ids,
-            pixel_values=pixel_values,
-            image_grid_thw=image_grid_thw,
-            output_hidden_states=True,
-            use_cache=True,
-            return_dict=True,
+    prefill_kwargs = {
+        "input_ids": input_ids,
+        "pixel_values": pixel_values,
+        "output_hidden_states": True,
+        "use_cache": True,
+        "return_dict": True,
+    }
+    if image_grid_thw is not None:
+        prefill_kwargs["image_grid_thw"] = image_grid_thw
+    elif model_type == "llava":
+        if image_sizes is not None:
+            prefill_kwargs["image_sizes"] = image_sizes
+        if inputs.get("attention_mask") is not None:
+            prefill_kwargs["attention_mask"] = inputs["attention_mask"]
+    else:
+        raise RuntimeError(
+            f"processor 未输出 image_grid_thw，当前 dump 脚本不支持 model_type={model_type}"
         )
+
+    with torch.no_grad():
+        outputs = model(**prefill_kwargs)
 
     # Extract image embeddings from the embed layer output
     hidden_states = outputs.hidden_states
@@ -133,28 +259,31 @@ def main():
         raise RuntimeError(f"无法确定图像 token 位置, embed_token_id={embed_token_id}")
     image_embeddings = embed_output[0, positions, :].float().cpu().numpy()
 
-    # Compute M-RoPE 3D position_ids and rope_deltas.
-    # Transformers changed Qwen2.5-VL get_rope_index() across versions:
-    # older builds accepted mm_token_type_ids, newer ones derive multimodal
-    # metadata from attention_mask / grid args only.
-    if mm_token_type_ids is None:
-        mm_token_type_ids = torch.zeros_like(input_ids, dtype=torch.int32, device=input_ids.device)
-        mm_token_type_ids[input_ids == embed_token_id] = 1
-    rope_sig = inspect.signature(model.model.get_rope_index)
-    rope_kwargs = {
-        "input_ids": input_ids,
-        "image_grid_thw": image_grid_thw,
-    }
-    if "mm_token_type_ids" in rope_sig.parameters:
-        rope_kwargs["mm_token_type_ids"] = mm_token_type_ids
-    if "video_grid_thw" in rope_sig.parameters and inputs.get("video_grid_thw") is not None:
-        rope_kwargs["video_grid_thw"] = inputs.get("video_grid_thw")
-    if "second_per_grid_ts" in rope_sig.parameters and inputs.get("second_per_grid_ts") is not None:
-        rope_kwargs["second_per_grid_ts"] = inputs.get("second_per_grid_ts")
-    if "attention_mask" in rope_sig.parameters and inputs.get("attention_mask") is not None:
-        rope_kwargs["attention_mask"] = inputs.get("attention_mask")
-    position_ids_3d, rope_deltas_from_rope = model.model.get_rope_index(**rope_kwargs)
-    position_ids_np = position_ids_3d[:, 0, :].cpu().numpy().astype(np.int32)
+    position_ids_np = None
+    rope_deltas_from_rope = None
+    if image_grid_thw is not None:
+        # Compute M-RoPE 3D position_ids and rope_deltas.
+        # Transformers changed Qwen2.5-VL get_rope_index() across versions:
+        # older builds accepted mm_token_type_ids, newer ones derive multimodal
+        # metadata from attention_mask / grid args only.
+        if mm_token_type_ids is None:
+            mm_token_type_ids = torch.zeros_like(input_ids, dtype=torch.int32, device=input_ids.device)
+            mm_token_type_ids[input_ids == embed_token_id] = 1
+        rope_sig = inspect.signature(model.model.get_rope_index)
+        rope_kwargs = {
+            "input_ids": input_ids,
+            "image_grid_thw": image_grid_thw,
+        }
+        if "mm_token_type_ids" in rope_sig.parameters:
+            rope_kwargs["mm_token_type_ids"] = mm_token_type_ids
+        if "video_grid_thw" in rope_sig.parameters and inputs.get("video_grid_thw") is not None:
+            rope_kwargs["video_grid_thw"] = inputs.get("video_grid_thw")
+        if "second_per_grid_ts" in rope_sig.parameters and inputs.get("second_per_grid_ts") is not None:
+            rope_kwargs["second_per_grid_ts"] = inputs.get("second_per_grid_ts")
+        if "attention_mask" in rope_sig.parameters and inputs.get("attention_mask") is not None:
+            rope_kwargs["attention_mask"] = inputs.get("attention_mask")
+        position_ids_3d, rope_deltas_from_rope = model.model.get_rope_index(**rope_kwargs)
+        position_ids_np = position_ids_3d[:, 0, :].cpu().numpy().astype(np.int32)
 
     # Prepare token_ids with incremented image token IDs
     token_ids = input_ids[0].cpu().numpy().astype(np.int32)
@@ -167,12 +296,14 @@ def main():
     # Prefill logits and first decoded token
     prefill_logits = outputs.logits.float().cpu().numpy()
     past_kv = outputs.past_key_values
-    rope_deltas = (
-        rope_deltas_from_rope
-        if rope_deltas_from_rope is not None
-        else getattr(model.model, "rope_deltas", None)
-        or torch.zeros(1, dtype=torch.long, device=device)
-    )
+    rope_deltas = None
+    if image_grid_thw is not None:
+        rope_deltas = (
+            rope_deltas_from_rope
+            if rope_deltas_from_rope is not None
+            else getattr(model.model, "rope_deltas", None)
+            or torch.zeros(1, dtype=torch.long, device=device)
+        )
     first_token = outputs.logits[0, -1].argmax().item()
 
     print(f"[dump] rope_deltas: {rope_deltas}", flush=True)
@@ -187,19 +318,26 @@ def main():
 
     for step in range(args.num_steps):
         cache_position = torch.arange(cache_len, cache_len + 1, dtype=torch.long, device=device)
-        mrope_pos = (cache_position + rope_deltas).view(1, 1, 1).expand(3, 1, 1).to(torch.long)
-        text_pos = cache_position.view(1, 1, 1)
-        position_ids_4d = torch.cat([text_pos, mrope_pos], dim=0)  # [4, 1, 1]
+        decode_kwargs = {
+            "input_ids": decode_input,
+            "past_key_values": past_kv,
+            "cache_position": cache_position,
+            "use_cache": True,
+            "return_dict": True,
+        }
+        if image_grid_thw is not None:
+            mrope_pos = (cache_position + rope_deltas).view(1, 1, 1).expand(3, 1, 1).to(torch.long)
+            text_pos = cache_position.view(1, 1, 1)
+            decode_kwargs["position_ids"] = torch.cat([text_pos, mrope_pos], dim=0)  # [4, 1, 1]
+        elif model_type == "llava":
+            decode_kwargs["attention_mask"] = torch.ones(
+                (1, cache_len + 1),
+                dtype=torch.long,
+                device=device,
+            )
 
         with torch.no_grad():
-            out = model(
-                input_ids=decode_input,
-                past_key_values=past_kv,
-                position_ids=position_ids_4d,
-                cache_position=cache_position,
-                use_cache=True,
-                return_dict=True,
-            )
+            out = model(**decode_kwargs)
         past_kv = out.past_key_values
         step_logits = out.logits[0, -1]  # [vocab]
         next_tok = step_logits.argmax().item()
@@ -225,7 +363,11 @@ def main():
     np.save(str(out_dir / "prefill_logits.npy"), prefill_logits)
     np.save(str(out_dir / "image_embeddings.npy"), image_embeddings.astype(np.float32))
     np.save(str(out_dir / "decode_tokens.npy"), np.array(decode_tokens, dtype=np.int32))
-    np.save(str(out_dir / "position_ids.npy"), position_ids_np)
+    position_ids_path = out_dir / "position_ids.npy"
+    if position_ids_np is not None:
+        np.save(str(position_ids_path), position_ids_np)
+    elif position_ids_path.exists():
+        position_ids_path.unlink()
 
     manifest = {
         "model_path": str(Path(model_path).resolve()),
@@ -236,10 +378,11 @@ def main():
         "num_decode_steps": args.num_steps,
         "vocab_size": vocab_size,
         "embed_token_id": embed_token_id,
+        "model_type": model_type,
         "image_embeddings_shape": list(image_embeddings.shape),
         "token_ids_shape": list(token_ids.shape),
         "decode_tokens": decode_tokens,
-        "position_ids_shape": list(position_ids_np.shape),
+        "position_ids_shape": list(position_ids_np.shape) if position_ids_np is not None else None,
     }
     with open(out_dir / "manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
