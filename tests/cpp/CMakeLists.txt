@@ -29,3 +29,19 @@ add_test(
     NAME edge_fm_tensor_cpu
     COMMAND edge_fm_tensor_cpu_test
 )
+
+add_executable(edge_fm_smolvla_horizon_smoke
+    smolvla_horizon_prefill_decode_smoke.cpp
+)
+
+target_link_libraries(edge_fm_smolvla_horizon_smoke PRIVATE
+    edge_fm
+)
+
+add_executable(edge_fm_smolvla_horizon_benchmark
+    smolvla_horizon_benchmark.cpp
+)
+
+target_link_libraries(edge_fm_smolvla_horizon_benchmark PRIVATE
+    edge_fm
+)

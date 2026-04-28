@@ -233,17 +233,26 @@ set(HORIZON_LIBRARIES "" CACHE STRING "Explicit Horizon runtime libraries, separ
 
 set(EDGE_FM_ENABLE_HORIZON_RUNTIME OFF)
 set(EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIRS "")
+set(EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS "")
 set(EDGE_FM_HORIZON_RUNTIME_LIBRARIES "")
 if(ENABLE_HORIZON_RUNTIME)
     set(_edge_fm_horizon_include_hints "")
-    if(HORIZON_INCLUDE_DIR)
-        list(APPEND _edge_fm_horizon_include_hints "${HORIZON_INCLUDE_DIR}")
-    endif()
+    set(_edge_fm_horizon_library_hints "")
     if(HORIZON_DEPS_ROOT)
         list(APPEND _edge_fm_horizon_include_hints
             "${HORIZON_DEPS_ROOT}/ucp/include"
             "${HORIZON_DEPS_ROOT}/include"
         )
+        list(APPEND _edge_fm_horizon_library_hints
+            "${HORIZON_DEPS_ROOT}/ucp/lib"
+            "${HORIZON_DEPS_ROOT}/appsdk/appuser/lib"
+        )
+    endif()
+    if(HORIZON_INCLUDE_DIR)
+        list(APPEND _edge_fm_horizon_include_hints "${HORIZON_INCLUDE_DIR}")
+    endif()
+    if(HORIZON_LIBRARY_DIR)
+        list(APPEND _edge_fm_horizon_library_hints "${HORIZON_LIBRARY_DIR}")
     endif()
 
     find_path(EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIR
@@ -260,12 +269,63 @@ if(ENABLE_HORIZON_RUNTIME)
     list(APPEND EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIRS "${EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIR}")
     if(HORIZON_LIBRARIES)
         set(EDGE_FM_HORIZON_RUNTIME_LIBRARIES ${HORIZON_LIBRARIES})
-    elseif(HORIZON_LIBRARY_DIR)
-        link_directories("${HORIZON_LIBRARY_DIR}")
+    else()
+        set(_edge_fm_horizon_required_libraries dnn hbucp)
+        set(_edge_fm_horizon_optional_libraries
+            hbrt4
+            hbtl
+            hb_arm_rpc
+            hbmem
+            hlog_wrapper
+            bpu
+            cjson
+            alog
+            hbipcfhal
+            jsoncpp
+            vdsp
+            perfetto_sdk
+        )
+        foreach(_edge_fm_horizon_library_name IN LISTS
+                _edge_fm_horizon_required_libraries
+                _edge_fm_horizon_optional_libraries)
+            string(TOUPPER "${_edge_fm_horizon_library_name}" _edge_fm_horizon_library_var_suffix)
+            string(REPLACE "_" "-" _edge_fm_horizon_library_dash_name "${_edge_fm_horizon_library_name}")
+            unset(EDGE_FM_HORIZON_${_edge_fm_horizon_library_var_suffix}_LIBRARY CACHE)
+            find_library(EDGE_FM_HORIZON_${_edge_fm_horizon_library_var_suffix}_LIBRARY
+                NAMES
+                    ${_edge_fm_horizon_library_name}
+                    ${_edge_fm_horizon_library_dash_name}
+                    lib${_edge_fm_horizon_library_name}.so
+                    lib${_edge_fm_horizon_library_name}.so.1
+                    lib${_edge_fm_horizon_library_name}.so.2
+                HINTS ${_edge_fm_horizon_library_hints}
+            )
+            if(EDGE_FM_HORIZON_${_edge_fm_horizon_library_var_suffix}_LIBRARY)
+                list(APPEND EDGE_FM_HORIZON_RUNTIME_LIBRARIES
+                    "${EDGE_FM_HORIZON_${_edge_fm_horizon_library_var_suffix}_LIBRARY}")
+            else()
+                list(FIND _edge_fm_horizon_required_libraries "${_edge_fm_horizon_library_name}" _edge_fm_horizon_required_index)
+                if(NOT _edge_fm_horizon_required_index EQUAL -1)
+                    message(FATAL_ERROR
+                        "ENABLE_HORIZON_RUNTIME=ON but lib${_edge_fm_horizon_library_name}.so was not found. "
+                        "Set HORIZON_DEPS_ROOT, HORIZON_LIBRARY_DIR, or HORIZON_LIBRARIES.")
+                endif()
+            endif()
+        endforeach()
+    endif()
+    foreach(_edge_fm_horizon_library_dir IN LISTS _edge_fm_horizon_library_hints)
+        if(EXISTS "${_edge_fm_horizon_library_dir}")
+            list(APPEND EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS "${_edge_fm_horizon_library_dir}")
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS)
+    if(EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS)
+        link_directories(${EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS})
     endif()
     set(EDGE_FM_ENABLE_HORIZON_RUNTIME ON)
     message(STATUS "Horizon runtime backend: ENABLED")
     message(STATUS "Horizon include: ${EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIR}")
+    message(STATUS "Horizon libraries: ${EDGE_FM_HORIZON_RUNTIME_LIBRARIES}")
 else()
     message(STATUS "Horizon runtime backend: DISABLED")
 endif()

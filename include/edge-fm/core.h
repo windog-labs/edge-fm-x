@@ -3,6 +3,7 @@
 #include <exception>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <dlpack/dlpack.h>
 
@@ -207,6 +208,9 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
+
+using TensorMap = std::unordered_map<std::string, Tensor>;
+using TensorRefMap = std::unordered_map<std::string, const Tensor*>;
 
 // ***************************** exception classes *****************************
 /**

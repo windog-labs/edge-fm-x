@@ -19,6 +19,14 @@ prepend_built_python_paths(project_root)
 import edge_fm
 
 
+def test_edgefm_tensor_stage_api_surface():
+    assert hasattr(edge_fm.EdgeFM, "prefill")
+    assert hasattr(edge_fm.EdgeFM, "decode")
+    assert not hasattr(edge_fm.EdgeFM, "smolvla_prefill")
+    assert not hasattr(edge_fm.EdgeFM, "smolvla_expert_denoise")
+    assert not hasattr(edge_fm, "SmolVLAPrefillResult")
+
+
 def _find_hf_model_path() -> str | None:
     candidates = [
         os.environ.get("EDGE_FM_TEST_MODEL_PATH"),

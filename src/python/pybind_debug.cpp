@@ -105,6 +105,24 @@ const std::unordered_map<std::string, Tensor>& load_stage_weights_for_debug_laye
     return loader.get(stage);
 }
 
+TensorRefMap tensor_ref_map_from_py_dict(const py::dict& dict) {
+    TensorRefMap out;
+    for (const auto& item : dict) {
+        const std::string name = py::str(item.first);
+        const Tensor& tensor = item.second.cast<const Tensor&>();
+        out.emplace(name, &tensor);
+    }
+    return out;
+}
+
+py::dict tensor_map_to_py_dict(TensorMap outputs) {
+    py::dict out;
+    for (auto& item : outputs) {
+        out[py::str(item.first)] = py::cast(std::move(item.second));
+    }
+    return out;
+}
+
 }  // namespace
 
 // 异常转换函数
@@ -1591,6 +1609,22 @@ PYBIND11_MODULE(edge_fm, m) {
         .def("generate", &EdgeFM::generate,
              py::arg("request"),
              "从给定请求生成响应 token")
+        .def("prefill",
+             [](const EdgeFM& self, int32_t request_id, const py::dict& inputs) {
+                 return tensor_map_to_py_dict(
+                     self.prefill(request_id, tensor_ref_map_from_py_dict(inputs)));
+             },
+             py::arg("request_id"),
+             py::arg("inputs"),
+             "运行 tensor-in/tensor-out prefill stage，返回输出 Tensor 字典")
+        .def("decode",
+             [](const EdgeFM& self, int32_t request_id, const py::dict& inputs) {
+                 return tensor_map_to_py_dict(
+                     self.decode(request_id, tensor_ref_map_from_py_dict(inputs)));
+             },
+             py::arg("request_id"),
+             py::arg("inputs"),
+             "运行 tensor-in/tensor-out decode stage，返回输出 Tensor 字典")
         .def("last_generate_metrics", &EdgeFM::last_generate_metrics,
              "返回最近一次 generate() 的 stage timing 指标。");
 

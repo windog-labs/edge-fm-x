@@ -47,6 +47,7 @@ Important env vars:
   EDGE_FM_DOCKER_REBUILD_IMAGE
   EDGE_FM_DOCKER_EXTRA_BUILD_ARGS
   EDGE_FM_DOCKER_EXTRA_RUN_ARGS
+  EDGE_FM_DOCKER_ENTRYPOINT
   EDGE_FM_DOCKER_RUN_AS_ROOT
   EDGE_FM_BUILD_JOBS
   EDGE_FM_BOOTSTRAP_PACKAGES
@@ -116,6 +117,7 @@ edge_fm_run_action() {
     local platform_name="${EDGE_FM_PLATFORM:?EDGE_FM_PLATFORM is required}"
     local image_tag="${EDGE_FM_DOCKER_IMAGE:?EDGE_FM_DOCKER_IMAGE is required}"
     local docker_platform="${EDGE_FM_DOCKER_PLATFORM:-}"
+    local docker_entrypoint="${EDGE_FM_DOCKER_ENTRYPOINT:-/bin/bash}"
     local build_jobs="${EDGE_FM_BUILD_JOBS:-1}"
     local build_dir
     local python_executable="${EDGE_FM_PYTHON_EXECUTABLE:-/usr/bin/python3}"
@@ -261,9 +263,10 @@ EOF
     if [[ "${docker_run_as_root}" != "1" && "${bootstrap_packages}" != "1" ]]; then
         docker_run_cmd+=(--user "$(id -u):$(id -g)")
     fi
+    docker_run_cmd+=(--entrypoint "${docker_entrypoint}")
     docker_run_cmd+=(-v "${EDGE_FM_PROJECT_ROOT}:/workspace/edge-fm" -w /workspace/edge-fm)
     docker_run_cmd+=("${run_args[@]}")
-    docker_run_cmd+=("${image_tag}" bash -lc "${container_script}")
+    docker_run_cmd+=("${image_tag}" -lc "${container_script}")
     "${docker_run_cmd[@]}"
 }
 

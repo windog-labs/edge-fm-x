@@ -32,6 +32,12 @@ target_link_libraries(edge_fm_backends PUBLIC
 
 if(EDGE_FM_ENABLE_HORIZON_RUNTIME)
     target_include_directories(edge_fm_backends PUBLIC ${EDGE_FM_HORIZON_RUNTIME_INCLUDE_DIRS})
+    if(EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS)
+        target_link_directories(edge_fm_backends PUBLIC ${EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS})
+        foreach(_edge_fm_horizon_library_dir IN LISTS EDGE_FM_HORIZON_RUNTIME_LIBRARY_DIRS)
+            target_link_options(edge_fm_backends INTERFACE "LINKER:-rpath-link,${_edge_fm_horizon_library_dir}")
+        endforeach()
+    endif()
     if(EDGE_FM_HORIZON_RUNTIME_LIBRARIES)
         target_link_libraries(edge_fm_backends PUBLIC ${EDGE_FM_HORIZON_RUNTIME_LIBRARIES})
     endif()

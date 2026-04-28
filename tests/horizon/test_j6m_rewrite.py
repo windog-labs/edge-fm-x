@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 project_root = Path(__file__).resolve().parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
@@ -58,6 +60,37 @@ def _write_compile_spec(tmp_path: Path, model_name: str = "smolvla") -> Path:
             "factory_function": "build_model",
             "default_kwargs": {"stage": "prefill"},
         },
+        "stages": [
+            {
+                "name": "prefill",
+                "artifact_path": str(tmp_path / "smolvla_prefill.hbm"),
+                "factory_kwargs": {"stage": "prefill"},
+                "inputs": [
+                    {"name": "prefix_embeds", "shape": [1, 6, 8], "dtype": "float32"},
+                    {"name": "prefix_attention_mask", "shape": [1, 6, 6], "dtype": "uint8"},
+                    {"name": "prefix_position_ids", "shape": [1, 6], "dtype": "int32"},
+                ],
+                "outputs": [
+                    {"name": "prefix_kv_layer_0", "shape": [2, 6, 1, 8], "dtype": "float32"},
+                ],
+                "kv_layout": "packed_layer_kv_v1",
+            },
+            {
+                "name": "decode",
+                "artifact_path": str(tmp_path / "smolvla_decode.hbm"),
+                "factory_kwargs": {"stage": "decode"},
+                "inputs": [
+                    {"name": "suffix_embeds", "shape": [1, 4, 6], "dtype": "float32"},
+                    {"name": "denoise_attention_mask", "shape": [1, 4, 10], "dtype": "uint8"},
+                    {"name": "suffix_position_ids", "shape": [1, 4], "dtype": "int32"},
+                    {"name": "prefix_kv_layer_0", "shape": [2, 6, 1, 8], "dtype": "float32"},
+                ],
+                "outputs": [
+                    {"name": "expert_hidden", "shape": [1, 4, 6], "dtype": "float32"},
+                ],
+                "kv_layout": "packed_layer_kv_v1",
+            },
+        ],
         "artifact": {
             "backend": "horizon",
             "artifact_type": "hbm",
@@ -73,6 +106,28 @@ def _write_compile_spec(tmp_path: Path, model_name: str = "smolvla") -> Path:
     path = tmp_path / "compile_spec.json"
     path.write_text(json.dumps(compile_spec, indent=2), encoding="utf-8")
     return path
+
+
+def _write_onnx_compile_spec(tmp_path: Path) -> Path:
+    module_path = tmp_path / "horizon_model_for_onnx.py"
+    module_path.write_text(
+        "import torch\n\n"
+        "class DummyModel(torch.nn.Module):\n"
+        "    def forward(self, suffix_embeds, denoise_attention_mask, suffix_position_ids, prefix_kv_layer_0):\n"
+        "        keep = denoise_attention_mask.to(torch.float32).sum() * 0.0\n"
+        "        keep = keep + suffix_position_ids.to(torch.float32).sum() * 0.0\n"
+        "        keep = keep + prefix_kv_layer_0.sum() * 0.0\n"
+        "        return suffix_embeds + keep\n\n"
+        "def build_model(stage='decode'):\n"
+        "    return DummyModel()\n",
+        encoding="utf-8",
+    )
+    compile_spec_path = _write_compile_spec(tmp_path)
+    compile_spec = json.loads(compile_spec_path.read_text(encoding="utf-8"))
+    compile_spec["generated_module"]["module_path"] = str(module_path)
+    compile_spec["compile_entry"]["module_path"] = str(module_path)
+    compile_spec_path.write_text(json.dumps(compile_spec, indent=2), encoding="utf-8")
+    return compile_spec_path
 
 
 def test_should_enable_j6m_rewrite_modes():
@@ -153,3 +208,103 @@ def test_compile_helper_dry_run_records_j6m_rewrite(tmp_path: Path):
 
     model_summary = json.loads((tmp_path / "model_summary.json").read_text(encoding="utf-8"))
     assert model_summary["model_init_skipped"] is True
+
+
+def test_compile_helper_uses_smolvla_stage_io(tmp_path: Path):
+    compile_spec_path = _write_compile_spec(tmp_path)
+    helper = project_root / "scripts" / "horizon" / "compile_horizon_from_spec.py"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(helper),
+            str(compile_spec_path),
+            "--dry-run",
+            "--horizon-rewrite",
+            "off",
+            "--skip-model-init",
+            "--stage",
+            "decode",
+        ],
+        cwd=project_root,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    payload = json.loads(completed.stdout)
+    assert payload["artifact_path"].endswith("smolvla_decode.hbm")
+
+    prep_manifest = json.loads((tmp_path / "compile_prep.json").read_text(encoding="utf-8"))
+    assert prep_manifest["stage"] == "decode"
+    assert prep_manifest["example_inputs"]["kv_layout"] == "packed_layer_kv_v1"
+    assert prep_manifest["example_inputs"]["inputs"]["suffix_embeds"] == [1, 4, 6]
+    assert prep_manifest["example_inputs"]["inputs"]["prefix_kv_layer_0"] == [2, 6, 1, 8]
+    assert prep_manifest["example_inputs"]["outputs"]["expert_hidden"] == [1, 4, 6]
+
+
+def test_compile_helper_rejects_legacy_smolvla_stage_name(tmp_path: Path):
+    compile_spec_path = _write_compile_spec(tmp_path)
+    helper = project_root / "scripts" / "horizon" / "compile_horizon_from_spec.py"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(helper),
+            str(compile_spec_path),
+            "--dry-run",
+            "--skip-model-init",
+            "--stage",
+            "expert_denoise",
+        ],
+        cwd=project_root,
+        text=True,
+        capture_output=True,
+    )
+
+    assert completed.returncode != 0
+    assert "invalid choice" in completed.stderr
+    assert "decode" in completed.stderr
+
+
+def test_compile_helper_exports_stage_onnx(tmp_path: Path):
+    pytest.importorskip("torch")
+    onnx = pytest.importorskip("onnx")
+
+    compile_spec_path = _write_onnx_compile_spec(tmp_path)
+    helper = project_root / "scripts" / "horizon" / "compile_horizon_from_spec.py"
+    onnx_path = tmp_path / "decode.onnx"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(helper),
+            str(compile_spec_path),
+            "--stage",
+            "decode",
+            "--horizon-rewrite",
+            "off",
+            "--export-onnx",
+            "--onnx-path",
+            str(onnx_path),
+        ],
+        cwd=project_root,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    payload = json.loads(completed.stdout)
+    assert payload["status"] == "prepared"
+    assert payload["onnx_path"] == str(onnx_path)
+    assert onnx_path.exists()
+
+    model = onnx.load(str(onnx_path))
+    assert model.ir_version <= 9
+    assert [item.name for item in model.graph.input] == [
+        "suffix_embeds",
+        "denoise_attention_mask",
+        "suffix_position_ids",
+        "prefix_kv_layer_0",
+    ]
+    assert [item.name for item in model.graph.output] == ["expert_hidden"]

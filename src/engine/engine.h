@@ -90,6 +90,8 @@ public:
     virtual void warmup() = 0;
     virtual void tune() = 0;
     virtual Response generate(const Request& request) = 0;
+    virtual TensorMap prefill(int32_t request_id, const TensorRefMap& inputs);
+    virtual TensorMap decode(int32_t request_id, const TensorRefMap& inputs);
     virtual std::unordered_map<std::string, double> get_last_generate_metrics() const = 0;
 
 protected:

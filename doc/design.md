@@ -504,10 +504,26 @@ rewrites for the LeRobot source-of-truth model:
 - parameter scale diagnostics and a per-step flow-matching bin export plan
 
 The generated SmolVLA Horizon module loads `SmolVLAPolicy.from_pretrained()`
-from LeRobot, applies those rewrites, and leaves flow-loop runtime I/O mapping
-as a later integration step.
+from LeRobot, applies those rewrites, and exports the phase-1 LLM path as two
+whole-model stages: `prefill` and `decode`.
 
-### 8.3 Current behavior of `generate()`
+### 8.3 Tensor stage API
+
+Whole-model backends can expose tensor-in/tensor-out stages through:
+
+- `EdgeFM::prefill(request_id, inputs)`
+- `EdgeFM::decode(request_id, inputs)`
+
+For SmolVLA phase 1, `prefill` produces `prefix_kv_layer_*` tensors and stores
+them in the engine-side request cache. `decode` consumes suffix inputs and can
+either reuse the cached KV tensors for the same `request_id` or accept explicit
+`prefix_kv_layer_*` inputs from the caller. The public stage names are only
+`prefill` and `decode`; model-specific names such as `expert_denoise` are not
+part of the EdgeFM API surface.
+
+Usage examples are in `doc/smolvla_phase1_horizon_usage.md`.
+
+### 8.4 Current behavior of `generate()`
 
 `HorizonEngine::generate()` currently:
 
