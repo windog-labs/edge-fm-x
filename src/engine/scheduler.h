@@ -136,7 +136,9 @@ private:
 
 class Scheduler : public NonCopyable {
 public:
-    explicit Scheduler(std::shared_ptr<KVManager> kv_manager, EngineStreamHandle stream_handle = nullptr);
+    explicit Scheduler(std::shared_ptr<KVManager> kv_manager,
+                       int32_t max_new_tokens,
+                       EngineStreamHandle stream_handle = nullptr);
     virtual ~Scheduler() = default;
 
     Context create_context(const Request& request, Response* response);
@@ -147,6 +149,7 @@ protected:
 private:
     EngineStreamHandle stream_handle_ = nullptr;
     std::shared_ptr<KVManager> kv_manager_;
+    int32_t max_new_tokens_ = 1;
 };
 
 } // namespace edge_fm

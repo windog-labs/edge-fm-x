@@ -384,6 +384,9 @@ std::string EngineConfig::kvcache_dtype() const { return safe_value(kvcache(), "
 std::string EngineConfig::kvcache_attention_type() const { return safe_value(kvcache(), "attention_type", std::string("mha")); }
 float EngineConfig::sampling_temperature() const { return safe_value(sampling(), "temperature", 1.0f); }
 uint64_t EngineConfig::sampling_seed() const { return static_cast<uint64_t>(safe_value(sampling(), "seed", 0)); }
+int32_t EngineConfig::sampling_max_new_tokens() const {
+    return std::max<int32_t>(1, safe_value(sampling(), "max_new_tokens", 256));
+}
 
 std::vector<int32_t> EngineConfig::eos_token_ids() const {
     std::vector<int32_t> ids;

@@ -86,7 +86,7 @@ def create_engine_config(model_path: str) -> str:
                 "attention_type": att,
                 "requests": [{"request_id": 0, "prefix_token_ids": [], "max_tokens": max_tok}],
             },
-            "sampling": {"temperature": 0.0, "seed": 42},
+            "sampling": {"max_new_tokens": NUM_STEPS, "temperature": 0.0, "seed": 42},
         }, f, indent=2)
     return str(p)
 

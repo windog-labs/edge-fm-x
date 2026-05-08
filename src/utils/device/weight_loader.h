@@ -40,6 +40,15 @@ public:
      * @throws ConfigurationError 如果 cache_key 对应的权重不存在
      */
     const std::unordered_map<std::string, Tensor>& get(ModelStage cache_key) const;
+
+    /**
+     * @brief Move a loaded stage out of the global staging cache.
+     *
+     * Engine-owned models keep raw Tensor pointers inside layers, so the weight
+     * maps backing those pointers must live for the model lifetime rather than
+     * in this global loader staging area.
+     */
+    std::unordered_map<std::string, Tensor> take_stage(ModelStage cache_key);
     
     /**
      * @brief 从 safetensors 文件加载权重
@@ -101,4 +110,3 @@ private:
 };
 
 } // namespace edge_fm
-

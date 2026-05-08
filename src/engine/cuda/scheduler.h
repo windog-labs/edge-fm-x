@@ -12,7 +12,7 @@ inline cudaStream_t cuda_stream(const Context& context) {
 
 class CudaScheduler : public Scheduler {
 public:
-    explicit CudaScheduler(std::shared_ptr<KVManager> kv_manager);
+    explicit CudaScheduler(std::shared_ptr<KVManager> kv_manager, int32_t max_new_tokens);
     ~CudaScheduler() override;
 
     cudaStream_t stream() const { return stream_; }

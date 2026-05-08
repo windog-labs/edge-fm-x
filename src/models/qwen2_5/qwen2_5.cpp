@@ -126,8 +126,10 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
     // load weights
     // ============================================================================
     WeightLoader& loader = WeightLoader::instance();
-    const auto& prefill_weights = loader.get(ModelStage::Prefill);
-    const auto& decode_weights = loader.get(ModelStage::Decode);
+    prefill_weights_ = loader.take_stage(ModelStage::Prefill);
+    decode_weights_ = loader.take_stage(ModelStage::Decode);
+    const auto& prefill_weights = prefill_weights_;
+    const auto& decode_weights = decode_weights_;
     
     // embed_head (load first, as lm_head depends on its embedding table)
     embed_head_->load_weights(prefill_weights, decode_weights);

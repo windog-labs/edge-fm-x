@@ -66,6 +66,8 @@ private:
     std::unordered_map<std::string, std::unique_ptr<LinearLayer>> linear_;
     std::unique_ptr<LMHeadLinearLayer> lm_head_;  // LM head (tied weights with embedding)
     std::unique_ptr<ActivationLayer> activation_layer_;
+    std::unordered_map<std::string, Tensor> prefill_weights_;
+    std::unordered_map<std::string, Tensor> decode_weights_;
 
     int32_t intermediate_size_;
     int32_t num_attention_heads_;

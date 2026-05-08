@@ -12,6 +12,8 @@
 #include "utils/check.h"
 #include <edge-fm/core.h>
 #include <cuda_runtime.h>
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
@@ -49,7 +51,7 @@ void StandardEngine::initialize_standard_runtime() {
 
     model_ = Model::create(config_);
     kv_manager_ = std::make_shared<KVManager>(config_, std::make_shared<CudaKVBufferAllocator>());
-    scheduler_ = std::make_unique<CudaScheduler>(kv_manager_);
+    scheduler_ = std::make_unique<CudaScheduler>(kv_manager_, config_.sampling_max_new_tokens());
     sampler_ = std::make_unique<SamplerLayer>(config_);
     sampler_->load_weights({}, {});
 }
@@ -363,6 +365,138 @@ float elapsed_event_ms(cudaEvent_t start, cudaEvent_t end) {
     return ms;
 }
 
+using HostClock = std::chrono::steady_clock;
+
+double elapsed_host_ms(HostClock::time_point start, HostClock::time_point end) {
+    return std::chrono::duration<double, std::milli>(end - start).count();
+}
+
+struct GenerateMetricsAccum {
+    double prefill_prepare_host_ms = 0.0;
+    double prefill_model_ms = 0.0;
+    double prefill_sampler_ms = 0.0;
+    double decode_prepare_host_ms = 0.0;
+    double decode_graph_replay_ms = 0.0;
+    double decode_model_ms = 0.0;
+    double decode_sampler_ms = 0.0;
+    double decode_finalize_ms = 0.0;
+    double stop_check_host_ms = 0.0;
+    double response_copy_ms = 0.0;
+};
+
+class ScopedHostMetric {
+public:
+    explicit ScopedHostMetric(double& metric)
+        : metric_(metric), start_(HostClock::now())
+    {}
+
+    ~ScopedHostMetric() {
+        metric_ += elapsed_host_ms(start_, HostClock::now());
+    }
+
+private:
+    double& metric_;
+    HostClock::time_point start_;
+};
+
+class CudaMetricRecorder : public NonCopyable {
+public:
+    CudaMetricRecorder() = default;
+    ~CudaMetricRecorder() {
+        destroy_entries();
+    }
+
+    template <typename F>
+    void measure(cudaStream_t stream, double& metric, F&& fn) {
+        if (stream == nullptr) {
+            fn();
+            return;
+        }
+
+        cudaEvent_t start = nullptr;
+        cudaEvent_t end = nullptr;
+        try {
+            CUDA_CHECK_THROW(cudaEventCreate(&start), "Failed to create metric start event");
+            CUDA_CHECK_THROW(cudaEventCreate(&end), "Failed to create metric end event");
+            CUDA_CHECK_THROW(cudaEventRecord(start, stream), "Failed to record metric start event");
+            fn();
+            CUDA_CHECK_THROW(cudaEventRecord(end, stream), "Failed to record metric end event");
+            entries_.push_back({start, end, &metric});
+        } catch (...) {
+            if (start != nullptr) cudaEventDestroy(start);
+            if (end != nullptr) cudaEventDestroy(end);
+            throw;
+        }
+    }
+
+    void collect() {
+        for (Entry& entry : entries_) {
+            if (entry.metric != nullptr) {
+                *entry.metric += static_cast<double>(elapsed_event_ms(entry.start, entry.end));
+            }
+        }
+        destroy_entries();
+    }
+
+private:
+    struct Entry {
+        cudaEvent_t start = nullptr;
+        cudaEvent_t end = nullptr;
+        double* metric = nullptr;
+    };
+
+    void destroy_entries() {
+        for (Entry& entry : entries_) {
+            if (entry.start != nullptr) cudaEventDestroy(entry.start);
+            if (entry.end != nullptr) cudaEventDestroy(entry.end);
+        }
+        entries_.clear();
+    }
+
+    std::vector<Entry> entries_;
+};
+
+std::unordered_map<std::string, double> make_generate_metrics_map(
+    const GenerateMetricsAccum& accum,
+    double prefill_ms,
+    double decode_ms,
+    int32_t executed_generated_tokens,
+    int32_t returned_generated_tokens,
+    bool cuda_graph_enabled)
+{
+    const double executed_decode_steps = static_cast<double>(std::max(0, executed_generated_tokens - 1));
+    const double returned_decode_steps = static_cast<double>(std::max(0, returned_generated_tokens - 1));
+    const double total_stage_ms = prefill_ms + decode_ms;
+    const double tokens_per_second =
+        total_stage_ms > 0.0 ? static_cast<double>(returned_generated_tokens) * 1000.0 / total_stage_ms : 0.0;
+    const double decode_tokens_per_second =
+        decode_ms > 0.0 ? returned_decode_steps * 1000.0 / decode_ms : 0.0;
+
+    return {
+        {"prefill_ms", prefill_ms},
+        {"decode_ms", decode_ms},
+        {"total_stage_ms", total_stage_ms},
+        {"decode_step_avg_ms", executed_decode_steps > 0.0 ? decode_ms / executed_decode_steps : 0.0},
+        {"generated_tokens_total", static_cast<double>(returned_generated_tokens)},
+        {"decode_steps", executed_decode_steps},
+        {"prefill_prepare_host_ms", accum.prefill_prepare_host_ms},
+        {"prefill_model_ms", accum.prefill_model_ms},
+        {"prefill_sampler_ms", accum.prefill_sampler_ms},
+        {"decode_prepare_host_ms", accum.decode_prepare_host_ms},
+        {"decode_graph_replay_ms", accum.decode_graph_replay_ms},
+        {"decode_model_ms", accum.decode_model_ms},
+        {"decode_sampler_ms", accum.decode_sampler_ms},
+        {"decode_finalize_ms", accum.decode_finalize_ms},
+        {"stop_check_host_ms", accum.stop_check_host_ms},
+        {"response_copy_ms", accum.response_copy_ms},
+        {"tokens_per_second", tokens_per_second},
+        {"decode_tokens_per_second", decode_tokens_per_second},
+        {"executed_generated_tokens_total", static_cast<double>(executed_generated_tokens)},
+        {"returned_generated_tokens_total", static_cast<double>(returned_generated_tokens)},
+        {"cuda_graph_enabled", cuda_graph_enabled ? 1.0 : 0.0},
+    };
+}
+
 } // namespace
 
 void StandardEngine::warmup() {
@@ -413,14 +547,9 @@ void StandardEngine::run_sampler(const Tensor& logits,
                                  cudaStream_t stream,
                                  ModelStage stage)
 {
-    auto [logits_device, logits_device_id] = logits.device();
-    auto [token_device, token_device_id] = token_out.device();
-    std::unordered_map<std::string, Tensor> in, out;
-    in.emplace("logits", Tensor::view(
-        logits.data_ptr(), logits.shape(), logits.dtype(), logits_device, logits_device_id));
-    out.emplace("token_ids", Tensor::view(
-        token_out.data_ptr(), token_out.shape(), token_out.dtype(), token_device, token_device_id));
-    sampler_->forward(in, out, stream, stage);
+    (void)stage;
+    Tensor token_out_view = make_tensor_view(token_out);
+    sampler_->forward_sampling(logits, token_out_view, stream);
 }
 
 bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
@@ -721,21 +850,16 @@ void StandardEngine::tune() {
 Response StandardEngine::generate(const Request& request) {
     CUDA_CHECK_THROW(cudaSetDevice(device_id_), "Failed to set device for generate");
 
-    last_generate_metrics_.clear();
-    last_generate_metrics_ = {
-        {"prefill_ms", 0.0},
-        {"decode_ms", 0.0},
-        {"total_stage_ms", 0.0},
-        {"decode_step_avg_ms", 0.0},
-        {"generated_tokens_total", 0.0},
-        {"decode_steps", 0.0},
-    };
+    GenerateMetricsAccum metrics;
+    last_generate_metrics_ = make_generate_metrics_map(
+        metrics, 0.0, 0.0, 0, 0, config_.use_cuda_graph());
 
     Response response;
     Context context = scheduler_->create_context(request, &response);
     cudaStream_t stream = cuda_stream(context);
     auto& tensors = context.tensors();
     NVTX::Range generate_range("EDGEFM_GENERATE", NVTXColor::WHITE);
+    CudaMetricRecorder metric_recorder;
 
     std::unique_ptr<ScopedCudaEvent> prefill_start_event;
     std::unique_ptr<ScopedCudaEvent> prefill_end_event;
@@ -758,18 +882,6 @@ Response StandardEngine::generate(const Request& request) {
         for (int32_t id : request.stop_token_ids()) stop_tokens.insert(id);
     }
 
-    // Check the last sampled token against stop tokens.
-    // Returns true if the token is a stop token.
-    int32_t host_token_buf = 0;
-    auto check_stop = [&](void* device_token_ptr) -> bool {
-        if (stop_tokens.empty()) return false;
-        CUDA_CHECK_THROW(cudaMemcpyAsync(
-            &host_token_buf, device_token_ptr, sizeof(int32_t),
-            cudaMemcpyDeviceToHost, stream), "Failed to copy sampled token to host");
-        CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "Failed to sync for stop token check");
-        return stop_tokens.count(host_token_buf) > 0;
-    };
-
     {
         NVTX::Range prefill_range("EDGEFM_PREFILL", NVTXColor::BLUE);
         if (prefill_start_event) {
@@ -777,29 +889,39 @@ Response StandardEngine::generate(const Request& request) {
                              "Failed to record prefill start event");
         }
 
-        const bool ran_prefill_graph = try_run_prefill_cuda_graph(context);
-        if (tensors.count(ModelTensors::TOKEN_IDS) == 0) {
-            prepare_tensors(ModelStage::Prefill, context);
+        bool ran_prefill_graph = false;
+        {
+            NVTX::Range prepare_range("EDGEFM_PREFILL_PREPARE", NVTXColor::CYAN);
+            ScopedHostMetric timer(metrics.prefill_prepare_host_ms);
+            ran_prefill_graph = try_run_prefill_cuda_graph(context);
+            if (tensors.count(ModelTensors::TOKEN_IDS) == 0) {
+                prepare_tensors(ModelStage::Prefill, context);
+            }
         }
         if (tensors.count(ModelTensors::RESPONSE_TOKENS_DEVICE) == 0) {
             return response;
         }
 
         if (!ran_prefill_graph) {
-            model_->prefill(context);
-            run_sampler(
-                last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
-                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-                stream,
-                ModelStage::Prefill);
+            {
+                NVTX::Range model_range("EDGEFM_PREFILL_MODEL", NVTXColor::BLUE);
+                metric_recorder.measure(stream, metrics.prefill_model_ms, [&]() {
+                    model_->prefill(context);
+                });
+            }
+            {
+                NVTX::Range sampler_range("EDGEFM_PREFILL_SAMPLER", NVTXColor::ORANGE);
+                metric_recorder.measure(stream, metrics.prefill_sampler_ms, [&]() {
+                    run_sampler(
+                        last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+                        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                        stream,
+                        ModelStage::Prefill);
+                });
+            }
         }
 
         int32_t seq_len = request_prefill_seq_len(context);
-        void* prefill_write_ptr = context.get_response_token_write_ptr();
-        if (check_stop(prefill_write_ptr)) {
-            context.finish();
-        }
-
         context.advance_after_prefill(seq_len);
 
         if (prefill_end_event) {
@@ -823,6 +945,8 @@ Response StandardEngine::generate(const Request& request) {
                 context.decode_tensors_initialized() &&
                 model_->has_static_decode_runtime_tensors();
             if (!skip_decode_prepare) {
+                NVTX::Range prepare_range("EDGEFM_DECODE_PREPARE", NVTXColor::CYAN);
+                ScopedHostMetric timer(metrics.decode_prepare_host_ms);
                 prepare_tensors(ModelStage::Decode, context);
             }
             void* decode_write_ptr = context.get_response_token_write_ptr();
@@ -830,20 +954,41 @@ Response StandardEngine::generate(const Request& request) {
             if (config_.use_cuda_graph()) {
                 ensure_decode_graph_captured(context);
                 sync_decode_graph(context);
-                cuda_graph_manager_.decode().launch(stream);
+                {
+                    NVTX::Range replay_range("EDGEFM_DECODE_GRAPH_REPLAY", NVTXColor::PURPLE);
+                    metric_recorder.measure(stream, metrics.decode_graph_replay_ms, [&]() {
+                        cuda_graph_manager_.decode().launch(stream);
+                    });
+                }
             } else {
-                model_->decode_step(context);
-                run_sampler(
-                    tensors.at(ModelTensors::LOGITS),
-                    tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-                    stream,
-                    ModelStage::Decode);
-                advance_decode_runtime_state(context, stream);
+                {
+                    NVTX::Range model_range("EDGEFM_DECODE_MODEL", NVTXColor::GREEN);
+                    metric_recorder.measure(stream, metrics.decode_model_ms, [&]() {
+                        model_->decode_step(context);
+                    });
+                }
+                {
+                    NVTX::Range sampler_range("EDGEFM_DECODE_SAMPLER", NVTXColor::ORANGE);
+                    metric_recorder.measure(stream, metrics.decode_sampler_ms, [&]() {
+                        run_sampler(
+                            tensors.at(ModelTensors::LOGITS),
+                            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                            stream,
+                            ModelStage::Decode);
+                    });
+                }
             }
 
-            flush_sampled_token(context, decode_write_ptr, stream);
+            {
+                NVTX::Range finalize_range("EDGEFM_DECODE_FINALIZE", NVTXColor::YELLOW);
+                metric_recorder.measure(stream, metrics.decode_finalize_ms, [&]() {
+                    if (!config_.use_cuda_graph()) {
+                        advance_decode_runtime_state(context, stream);
+                    }
+                    flush_sampled_token(context, decode_write_ptr, stream);
+                });
+            }
 
-            if (check_stop(decode_write_ptr)) { ++context; context.finish(); break; }
             ++context;
         }
 
@@ -853,16 +998,33 @@ Response StandardEngine::generate(const Request& request) {
         }
     }
 
-    int32_t num_generated = context.get_generated_tokens();
-    std::vector<int32_t> host_tokens(static_cast<size_t>(num_generated));
+    int32_t executed_num_generated = context.get_generated_tokens();
+    std::vector<int32_t> host_tokens(static_cast<size_t>(executed_num_generated));
     void* response_tokens_base = context.tensors().at(ModelTensors::RESPONSE_TOKENS_DEVICE).data_ptr();
-    CUDA_CHECK_THROW(cudaMemcpyAsync(
-        host_tokens.data(), response_tokens_base,
-        static_cast<size_t>(num_generated) * sizeof(int32_t), cudaMemcpyDeviceToHost, stream),
-        "Failed to copy response tokens to host");
+    {
+        NVTX::Range copy_range("EDGEFM_RESPONSE_COPY", NVTXColor::MAGENTA);
+        metric_recorder.measure(stream, metrics.response_copy_ms, [&]() {
+            CUDA_CHECK_THROW(cudaMemcpyAsync(
+                host_tokens.data(), response_tokens_base,
+                static_cast<size_t>(executed_num_generated) * sizeof(int32_t), cudaMemcpyDeviceToHost, stream),
+                "Failed to copy response tokens to host");
+        });
+    }
     if (stream != nullptr) {
         CUDA_CHECK_THROW(cudaStreamSynchronize(stream), "Failed to sync stream before returning response");
     }
+    metric_recorder.collect();
+
+    if (!stop_tokens.empty()) {
+        ScopedHostMetric timer(metrics.stop_check_host_ms);
+        for (size_t i = 0; i < host_tokens.size(); ++i) {
+            if (stop_tokens.count(host_tokens[i]) > 0) {
+                host_tokens.resize(i + 1);
+                break;
+            }
+        }
+    }
+    int32_t returned_num_generated = static_cast<int32_t>(host_tokens.size());
     response.token_ids().swap(host_tokens);
 
     double prefill_ms = 0.0;
@@ -873,15 +1035,13 @@ Response StandardEngine::generate(const Request& request) {
     if (decode_started && decode_start_event && decode_end_event) {
         decode_ms = static_cast<double>(elapsed_event_ms(decode_start_event->get(), decode_end_event->get()));
     }
-    const double decode_steps = static_cast<double>(std::max(0, num_generated - 1));
-    last_generate_metrics_ = {
-        {"prefill_ms", prefill_ms},
-        {"decode_ms", decode_ms},
-        {"total_stage_ms", prefill_ms + decode_ms},
-        {"decode_step_avg_ms", decode_steps > 0.0 ? decode_ms / decode_steps : 0.0},
-        {"generated_tokens_total", static_cast<double>(num_generated)},
-        {"decode_steps", decode_steps},
-    };
+    last_generate_metrics_ = make_generate_metrics_map(
+        metrics,
+        prefill_ms,
+        decode_ms,
+        executed_num_generated,
+        returned_num_generated,
+        config_.use_cuda_graph());
 
     return response;
 }
