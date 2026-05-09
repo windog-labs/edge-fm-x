@@ -753,7 +753,7 @@ public:
     std::string impl_id() const override { return "flashinfer_attention_decode_sm80_tuned"; }
 
     bool supports(const AttentionOpContext& ctx) const override {
-        if (ctx.dtype != DType::BFloat16 ||
+        if ((ctx.dtype != DType::BFloat16 && ctx.dtype != DType::Float16) ||
             ctx.pos_encoding != AttentionPosEncoding::kRoPELlama) {
             return false;
         }
@@ -775,7 +775,12 @@ public:
         bool causal,
         cudaStream_t stream) override
     {
-        check<ConfigurationError>(supports(ctx), "flashinfer_attention_decode_sm80_tuned only supports Qwen2.5 BF16 RoPE decode/prefill path");
+        check<ConfigurationError>(supports(ctx), "flashinfer_attention_decode_sm80_tuned only supports Qwen2.5 FP16/BF16 RoPE decode/prefill path");
+        if (ctx.dtype == DType::Float16) {
+            throw ConfigurationError(
+                "flashinfer_attention_decode_sm80_tuned FP16 support is decode-only; "
+                "use flashinfer_attention for prefill");
+        }
         forward_prefill_impl<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
             ctx, q, k, v, o, causal, stream);
     }
@@ -790,23 +795,43 @@ public:
         uint32_t* d_kv_len,
         uint32_t max_kv_len) override
     {
-        check<ConfigurationError>(supports(ctx), "flashinfer_attention_decode_sm80_tuned only supports Qwen2.5 BF16 RoPE decode path");
+        check<ConfigurationError>(supports(ctx), "flashinfer_attention_decode_sm80_tuned only supports Qwen2.5 FP16/BF16 RoPE decode path");
         if (Qwen0P5DecodeTunedShape::matches(ctx)) {
+            if (ctx.dtype == DType::Float16) {
+                forward_decode_tuned_impl<Qwen0P5DecodeTunedShape, half, half, half, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+                return;
+            }
             forward_decode_tuned_impl<Qwen0P5DecodeTunedShape, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
                 ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
             return;
         }
         if (Qwen1P5DecodeTunedShape::matches(ctx)) {
+            if (ctx.dtype == DType::Float16) {
+                forward_decode_tuned_impl<Qwen1P5DecodeTunedShape, half, half, half, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+                return;
+            }
             forward_decode_tuned_impl<Qwen1P5DecodeTunedShape, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
                 ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
             return;
         }
         if (Qwen3BDecodeTunedShape::matches(ctx)) {
+            if (ctx.dtype == DType::Float16) {
+                forward_decode_tuned_impl<Qwen3BDecodeTunedShape, half, half, half, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+                return;
+            }
             forward_decode_tuned_impl<Qwen3BDecodeTunedShape, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
                 ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
             return;
         }
         if (Qwen7BDecodeTunedShape::matches(ctx)) {
+            if (ctx.dtype == DType::Float16) {
+                forward_decode_tuned_impl<Qwen7BDecodeTunedShape, half, half, half, PosEncodingMode::kRoPELlama>(
+                    ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
+                return;
+            }
             forward_decode_tuned_impl<Qwen7BDecodeTunedShape, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, PosEncodingMode::kRoPELlama>(
                 ctx, q, k, v, o, stream, d_kv_len, max_kv_len);
             return;

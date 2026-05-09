@@ -49,6 +49,16 @@ public:
      * in this global loader staging area.
      */
     std::unordered_map<std::string, Tensor> take_stage(ModelStage cache_key);
+
+    /**
+     * @brief Move a loaded stage out of the global staging cache, or return an
+     * empty map when that stage was intentionally not loaded.
+     *
+     * This is used when prefill/decode share the exact same checkpoint path.
+     * Layers that need decode weights already fall back to prefill weights when
+     * the decode map is empty, avoiding a duplicate GPU copy of all weights.
+     */
+    std::unordered_map<std::string, Tensor> take_stage_or_empty(ModelStage cache_key);
     
     /**
      * @brief 从 safetensors 文件加载权重

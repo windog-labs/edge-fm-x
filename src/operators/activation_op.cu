@@ -62,9 +62,9 @@ __global__ void act_and_mul_kernel_layout(
         out_vec.cast_store(out + token_idx * d + idx * vec_size);
     }
 
-    const int64_t remaining_offset = d - d % (stride * vec_size);
+    const int64_t remaining_offset = d - d % vec_size;
 #pragma unroll 1
-    for (int64_t idx = thread_idx; idx < d % (stride * vec_size); idx += stride) {
+    for (int64_t idx = thread_idx; idx < d % vec_size; idx += stride) {
         float gate = input[offset + kGateBase * d + remaining_offset + idx];
         float up = input[offset + kUpBase * d + remaining_offset + idx];
         out[token_idx * d + remaining_offset + idx] = float_to_scalar<T>(Activation(gate) * up);

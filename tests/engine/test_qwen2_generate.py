@@ -2180,7 +2180,6 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
             return []
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    tf_model = _load_transformers_llm_model(model_path)
 
     print(f"\n[benchmark] {model_spec['label']} cases:")
     for p, d in bench_cases:
@@ -2190,6 +2189,7 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
     try:
         for prefill_len, num_steps in bench_cases:
             token_ids_list = _build_llm_bench_token_ids(tokenizer, prefill_len)
+            tf_model = _load_transformers_llm_model(model_path)
 
             def make_request():
                 req = edge_fm.Request(0, token_ids_list)
@@ -2199,6 +2199,8 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
             tf_result = _bench_transformers_llm_loaded(
                 tf_model, token_ids_list, num_steps,
                 warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+            del tf_model
+            torch.cuda.empty_cache()
 
             trt_result = None
             if include_trt:
@@ -2252,7 +2254,6 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
                 "trt_edgellm": trt_result,
             })
     finally:
-        del tf_model
         torch.cuda.empty_cache()
 
     return reports

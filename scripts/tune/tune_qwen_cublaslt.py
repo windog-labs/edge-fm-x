@@ -36,6 +36,14 @@ LAYER_ROLE_BY_KIND = {
     "fused_gate_up": "fused_gate_up",
     "lm_head": "lm_head",
 }
+DTYPE_BY_NAME = {
+    "bf16": torch.bfloat16,
+    "fp16": torch.float16,
+}
+EDGE_FM_DTYPE_ID_BY_TORCH_DTYPE = {
+    torch.float16: 1,
+    torch.bfloat16: 2,
+}
 
 
 def write_json_file(prefix: str, name: str, payload: dict) -> Path:
@@ -172,7 +180,7 @@ def load_model_dims(model_path: Path) -> dict:
     }
 
 
-def shape_sig_for(kind: str, *, m: int, dims: dict) -> str:
+def shape_sig_for(kind: str, *, m: int, dims: dict, dtype_id: int = 2) -> str:
     if kind == "fused_qkv":
         in_features = dims["hidden"]
         out_features = dims["hidden"] + 2 * dims["kv"]
@@ -192,7 +200,7 @@ def shape_sig_for(kind: str, *, m: int, dims: dict) -> str:
         raise ValueError(f"Unsupported layer kind: {kind}")
 
     return (
-        f"m={m}|input=2|weight=2|output=2|"
+        f"m={m}|input={dtype_id}|weight={dtype_id}|output={dtype_id}|"
         f"in_features={in_features}|out_features={out_features}"
     )
 
@@ -206,10 +214,11 @@ def build_tuned_records(
     stage: str,
     m: int,
     dims: dict,
+    dtype_id: int = 2,
     impl_params: dict | None,
 ) -> list[dict]:
     layer_role = LAYER_ROLE_BY_KIND[kind]
-    shape_sig = shape_sig_for(kind, m=m, dims=dims)
+    shape_sig = shape_sig_for(kind, m=m, dims=dims, dtype_id=dtype_id)
 
     kept = []
     for record in base_records:
@@ -313,6 +322,8 @@ def enumerate_explicit_candidates(
     kind: str,
     stage: str,
     m: int,
+    torch_dtype: torch.dtype,
+    dtype_id: int,
     device_id: int,
     max_algo_ids: int,
     top_k: int,
@@ -326,6 +337,7 @@ def enumerate_explicit_candidates(
             stage=stage,
             m=m,
             dims=dims,
+            dtype_id=dtype_id,
             impl_params=None,
         )
     )
@@ -334,8 +346,8 @@ def enumerate_explicit_candidates(
     layer = make_layer(kind, engine_config_path, dims)
 
     in_shape, out_dim = input_output_shapes(kind, m=m, dims=dims)
-    x = torch.randn(*in_shape, device=f"cuda:{device_id}", dtype=torch.bfloat16)
-    y = torch.empty(in_shape[0], out_dim, device=f"cuda:{device_id}", dtype=torch.bfloat16)
+    x = torch.randn(*in_shape, device=f"cuda:{device_id}", dtype=torch_dtype)
+    y = torch.empty(in_shape[0], out_dim, device=f"cuda:{device_id}", dtype=torch_dtype)
     x_efm = tensor_to_edge_fm_tensor(x)
     y_efm = tensor_to_edge_fm_tensor(y)
     stage_name = "Decode" if stage == "decode" else "Prefill"
@@ -382,6 +394,8 @@ def benchmark_candidate(
     stage: str,
     m: int,
     impl_params: dict | None,
+    torch_dtype: torch.dtype,
+    dtype_id: int,
     device_id: int,
     warmup: int,
     iters: int,
@@ -395,6 +409,7 @@ def benchmark_candidate(
             stage=stage,
             m=m,
             dims=dims,
+            dtype_id=dtype_id,
             impl_params=impl_params,
         )
     )
@@ -403,8 +418,8 @@ def benchmark_candidate(
     layer = make_layer(kind, engine_config_path, dims)
 
     in_shape, out_dim = input_output_shapes(kind, m=m, dims=dims)
-    x = torch.randn(*in_shape, device=f"cuda:{device_id}", dtype=torch.bfloat16)
-    y = torch.empty(in_shape[0], out_dim, device=f"cuda:{device_id}", dtype=torch.bfloat16)
+    x = torch.randn(*in_shape, device=f"cuda:{device_id}", dtype=torch_dtype)
+    y = torch.empty(in_shape[0], out_dim, device=f"cuda:{device_id}", dtype=torch_dtype)
     x_efm = tensor_to_edge_fm_tensor(x)
     y_efm = tensor_to_edge_fm_tensor(y)
     stage_name = "Decode" if stage == "decode" else "Prefill"
@@ -476,6 +491,12 @@ def parse_args() -> argparse.Namespace:
         help="For candidate-mode explicit/all: max explicit configs to benchmark after enumeration",
     )
     parser.add_argument("--hw-profile", default="", help="Target runtime hw_profile, defaults to current platform")
+    parser.add_argument(
+        "--dtype",
+        choices=sorted(DTYPE_BY_NAME.keys()),
+        default="bf16",
+        help="Activation/weight/output dtype to tune. Defaults to bf16 for existing Qwen HF checkpoints.",
+    )
     return parser.parse_args()
 
 
@@ -491,6 +512,8 @@ def main() -> None:
     dims = load_model_dims(model_path)
     base_records = load_operator_impl_table(operator_table_path)["records"]
     operator_model_name = resolve_operator_model_name(model_path=model_path)
+    torch_dtype = DTYPE_BY_NAME[args.dtype]
+    dtype_id = EDGE_FM_DTYPE_ID_BY_TORCH_DTYPE[torch_dtype]
 
     reset_weight_loader()
     baseline = benchmark_candidate(
@@ -503,6 +526,8 @@ def main() -> None:
         stage=args.stage,
         m=args.m,
         impl_params=None,
+        torch_dtype=torch_dtype,
+        dtype_id=dtype_id,
         device_id=args.device_id,
         warmup=args.warmup,
         iters=args.iters,
@@ -531,6 +556,8 @@ def main() -> None:
             kind=args.layer_kind,
             stage=args.stage,
             m=args.m,
+            torch_dtype=torch_dtype,
+            dtype_id=dtype_id,
             device_id=args.device_id,
             max_algo_ids=args.explicit_max_algo_ids,
             top_k=args.explicit_top_k,
@@ -554,6 +581,8 @@ def main() -> None:
                 stage=args.stage,
                 m=args.m,
                 impl_params=impl_params,
+                torch_dtype=torch_dtype,
+                dtype_id=dtype_id,
                 device_id=args.device_id,
                 warmup=args.warmup,
                 iters=args.iters,
@@ -566,7 +595,8 @@ def main() -> None:
         "layer_kind": args.layer_kind,
         "stage": args.stage,
         "m": args.m,
-        "shape_sig": shape_sig_for(args.layer_kind, m=args.m, dims=dims),
+        "dtype": args.dtype,
+        "shape_sig": shape_sig_for(args.layer_kind, m=args.m, dims=dims, dtype_id=dtype_id),
         "operator_model_name": operator_model_name,
         "hw_profile": hw_profile,
         "candidates": candidates,

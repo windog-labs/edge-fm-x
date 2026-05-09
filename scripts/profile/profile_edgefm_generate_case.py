@@ -21,6 +21,8 @@ SCRIPTS_ROOT = SCRIPT_DIR.parent
 PROJECT_ROOT = SCRIPTS_ROOT.parent
 if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 for build_python in [
     PROJECT_ROOT / "build" / "python",
     PROJECT_ROOT / "build" / "install" / "python",

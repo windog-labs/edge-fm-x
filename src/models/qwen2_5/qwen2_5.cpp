@@ -127,7 +127,7 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
     // ============================================================================
     WeightLoader& loader = WeightLoader::instance();
     prefill_weights_ = loader.take_stage(ModelStage::Prefill);
-    decode_weights_ = loader.take_stage(ModelStage::Decode);
+    decode_weights_ = loader.take_stage_or_empty(ModelStage::Decode);
     const auto& prefill_weights = prefill_weights_;
     const auto& decode_weights = decode_weights_;
     
@@ -399,10 +399,18 @@ void Qwen2_5::forward_prefill(
         layernorms_[layer_prefix + ".post_attention_layernorm"]->forward(post_norm_inputs, post_norm_outputs, stream, ModelStage::Prefill);
 
         std::string gate_up_key = layer_prefix + ".mlp.gate_up_fused";
-        Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
-        linear_[gate_up_key]->forward_fp16_bf16(post_attn_norm_output, gate_up_flat, stream, ModelStage::Prefill);
-        activation_layer_->forward_silu_and_mul_up_gate(
-            mlp_activation_input, mlp_intermediate, stream, ModelStage::Prefill);
+        bool prefill_swiglu_fused = false;
+        if (auto* fused_gate_up = dynamic_cast<FusedGateUpLinearLayer*>(linear_[gate_up_key].get());
+            fused_gate_up != nullptr) {
+            prefill_swiglu_fused = fused_gate_up->try_forward_prefill_swiglu_fused(
+                post_attn_norm_output, mlp_intermediate, stream);
+        }
+        if (!prefill_swiglu_fused) {
+            Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
+            linear_[gate_up_key]->forward_fp16_bf16(post_attn_norm_output, gate_up_flat, stream, ModelStage::Prefill);
+            activation_layer_->forward_silu_and_mul_up_gate(
+                mlp_activation_input, mlp_intermediate, stream, ModelStage::Prefill);
+        }
 
         linear_[layer_prefix + ".mlp.down_proj"]->forward_fp16_bf16(mlp_intermediate, layer_output, stream, ModelStage::Prefill);
     }
@@ -656,15 +664,18 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         Tensor& mlp_activation_input = tensors[ModelTensors::MLP_ACTIVATION_INPUT];
         Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
         Tensor& mlp_intermediate = tensors[ModelTensors::MLP_INTERMEDIATE];
-        bool decode_swiglu_fused = false;
-        if (stage == ModelStage::Decode) {
-            if (auto* fused_gate_up = dynamic_cast<FusedGateUpLinearLayer*>(linear_[gate_up_key].get());
-                fused_gate_up != nullptr) {
-                decode_swiglu_fused = fused_gate_up->try_forward_decode_swiglu_fused(
+        bool swiglu_fused = false;
+        if (auto* fused_gate_up = dynamic_cast<FusedGateUpLinearLayer*>(linear_[gate_up_key].get());
+            fused_gate_up != nullptr) {
+            if (stage == ModelStage::Decode) {
+                swiglu_fused = fused_gate_up->try_forward_decode_swiglu_fused(
+                    hidden_2d, mlp_intermediate, stream);
+            } else if (seq_len >= 64) {
+                swiglu_fused = fused_gate_up->try_forward_prefill_swiglu_fused(
                     hidden_2d, mlp_intermediate, stream);
             }
         }
-        if (!decode_swiglu_fused) {
+        if (!swiglu_fused) {
             linear_[gate_up_key]->forward_fp16_bf16(hidden_2d, gate_up_flat, stream, stage);
             activation_layer_->forward_silu_and_mul_up_gate(
                 mlp_activation_input, mlp_intermediate, stream, stage);

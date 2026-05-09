@@ -1969,13 +1969,41 @@ bool FusedGateUpLinearLayer::try_forward_decode_swiglu_fused(
     Tensor& output,
     cudaStream_t stream)
 {
-    check<InvalidRequestError>(
-        input.shape().size() == 2 && input.shape()[0] == 1,
-        "FusedGateUpLinearLayer: decode fused SwiGLU expects input shape [1, in_features]");
-    check<InvalidRequestError>(
-        output.shape().size() == 2 && output.shape()[0] == 1,
-        "FusedGateUpLinearLayer: decode fused SwiGLU expects output shape [1, up_out_features]");
+    const auto& input_shape = input.shape();
+    const auto& output_shape = output.shape();
+    if (input_shape.size() != 2 || output_shape.size() != 2) {
+        return false;
+    }
+    if (input_shape[0] != 1 || output_shape[0] != 1) {
+        return false;
+    }
+    if (input_shape[1] != static_cast<int64_t>(in_features_) ||
+        output_shape[1] != static_cast<int64_t>(up_out_features_))
+    {
+        return false;
+    }
     return try_forward_swiglu_fused_impl(input, output, ModelStage::Decode, stream);
+}
+
+bool FusedGateUpLinearLayer::try_forward_prefill_swiglu_fused(
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream)
+{
+    const auto& input_shape = input.shape();
+    const auto& output_shape = output.shape();
+    if (input_shape.size() != 2 || output_shape.size() != 2) {
+        return false;
+    }
+    if (input_shape[0] < 64 || output_shape[0] != input_shape[0]) {
+        return false;
+    }
+    if (input_shape[1] != static_cast<int64_t>(in_features_) ||
+        output_shape[1] != static_cast<int64_t>(up_out_features_))
+    {
+        return false;
+    }
+    return try_forward_swiglu_fused_impl(input, output, ModelStage::Prefill, stream);
 }
 
 // ============================================================================

@@ -14,7 +14,7 @@ prepend_built_python_paths(PROJECT_ROOT)
 
 import edge_fm
 import torch
-from scripts.operator_table.utils import resolve_operator_table_path
+from scripts.operator_table.utils import resolve_operator_table_path, resolve_target_hw_profile
 from tests._support.temp_paths import make_temp_dir
 
 QWEN_1P5B_MODEL_PATH = (
@@ -31,6 +31,7 @@ OPERATOR_IMPL_TABLE_PATH = resolve_operator_table_path(
     model_name="Qwen2.5",
 )
 DEFAULT_DEVICE_ID = int(os.environ.get("EDGE_FM_TEST_DEVICE_ID", "0"))
+CUDA_HW_PROFILE = resolve_target_hw_profile()
 DEFAULT_PREFILL_LENGTHS = [512, 1024, 2048]
 DEFAULT_DECODE_LENGTHS = [32, 64]
 
@@ -121,7 +122,7 @@ def make_engine_config(
     device_id: int = DEFAULT_DEVICE_ID,
     operator_impl_table_path: Path | None = None,
     model_name: str = "Qwen2.5",
-    hw_profile: str = "cuda_sm80",
+    hw_profile: str | None = None,
     sampling: dict | None = None,
 ) -> Path:
     config = {
@@ -129,7 +130,7 @@ def make_engine_config(
         "runtime": {
             "device": "cuda",
             "device_id": device_id,
-            "hw_profile": hw_profile,
+            "hw_profile": hw_profile or CUDA_HW_PROFILE,
         },
         "prefill_model_path": str(model_path),
     }

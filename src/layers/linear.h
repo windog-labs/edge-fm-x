@@ -331,6 +331,11 @@ public:
         Tensor& output,
         cudaStream_t stream = nullptr);
 
+    bool try_forward_prefill_swiglu_fused(
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream = nullptr);
+
 private:
     // Input and output dimensions
     uint32_t in_features_;  // Store in_features since base class member is private
