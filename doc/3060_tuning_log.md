@@ -14,8 +14,17 @@
 - Latest accepted optimization: `2026-05-09 15:18 +0800`, prefill SwiGLU fusion default-off on 3060. Latest official full-matrix artifact: `.tmp_codex/bench/3060_20260509_1524_full_llm_matrix_prefill_swiglu_default_off.json`
 - Latest EdgeFM profiling conclusion: `2026-05-09 16:08 +0800`, post-default-off `3B / 2048x32` graph-off mapping shows the previous `fused_moe` prefill hotspot is gone; remaining prefill time is dominated by existing linear GateUp/DownProj. Raw: `.tmp_codex/nsys/3060_3b_2048x32_default_off_mapping.nsys-rep`, triage: `.tmp_codex/nsys/3060_3b_2048x32_default_off_mapping_triage.md`, role summary: `.tmp_codex/nsys/3060_3b_2048x32_default_off_mapping_role_summary.json`
 - Latest TRT profiling conclusion: `2026-05-09 16:50 +0800`, `3B / 2048x1` nsys capture shows TRT-Edge-LLM prefill is also GEMM-dominated but much faster in the same roles: total kernel time `285.46 ms`; GEMM `240.70 ms` (`84.32%`); inferred roles are Gate+Up `136.50 ms`, DownProj `71.36 ms`, QKV `16.96 ms`, OProj `14.06 ms`, AttentionPlugin `22.90 ms`, SwiGLU `14.53 ms`. Raw: `.tmp_codex/nsys/3060_trt_3b_2048x1_mapping.nsys-rep`, run JSON: `.tmp_codex/nsys/3060_trt_3b_2048x1_mapping_run.json`, summary: `.tmp_codex/nsys/3060_trt_3b_2048x1_mapping_kernel_summary.md`
+- Latest benchmark-alignment check: `2026-05-09 18:58 +0800`, EdgeFM does include prefill input preparation/copy in its `prefill_ms`, but existing nsys evidence shows this is not the `~201 ms` prefill gap. EdgeFM graph-off `3B / 2048x32` captured CUDA memcpy total is `0.623 ms` (`84.02 MB`), while TRT `3B / 2048x1` memcpy total is `0.004 ms` (`8.2 KB`). EdgeFM graph-on formal trace only shows `0.044 ms` memcpy outside CUDA graph. A TRT sync probe shows no async timing bias: unsynchronized wall avg `921.5 ms`, explicit `torch.cuda.synchronize()` wall avg `922.1 ms`. Raw: `.tmp_codex/nsys/3060_3b_2048x32_default_off_mapping.sqlite`, `.tmp_codex/nsys/3060_3b_2048x32_formal_graph.sqlite`, `.tmp_codex/nsys/3060_trt_3b_2048x1_mapping.sqlite`, `.tmp_codex/bench/3060_20260509_trt_3b_2048x32_sync_probe.json`
 - Confirming profile: `2026-05-09 16:15 +0800`, `3B / 2048x64` graph-off mapping shows the same long-prefill MLP pattern: GateUp `243.82 ms` (`50.62%`) and DownProj `124.74 ms` (`25.90%`) dominate prefill. Raw: `.tmp_codex/nsys/3060_3b_2048x64_default_off_mapping.nsys-rep`, triage: `.tmp_codex/nsys/3060_3b_2048x64_default_off_mapping_triage.md`, role summary: `.tmp_codex/nsys/3060_3b_2048x64_default_off_mapping_role_summary.json`
 - Latest rejected tuning route: `2026-05-09 16:08 +0800`, 3B `m=2048` cublasLt heuristic/explicit and FlashInfer prefill attention sweeps did not meet the `>=1%` official CUDA graph target-case acceptance rule. Candidate table edits were reverted.
+- Latest diagnostic rejection: `2026-05-09 18:49 +0800`, post-commit probes show that the current three `LinearCutlassImpl` configs do not beat the accepted 3060 cublasLt table for `3B / BF16 / m=2048`, and a temporary FP16 checkpoint does not close the end-to-end gap. Raw artifacts: `.tmp_codex/bench/3060_20260509_probe_3b_m2048_cutlass_vs_cublaslt.json`, `.tmp_codex/bench/3060_20260509_3b_2048x32_fp16_edgefm_probe.json`, `.tmp_codex/bench/3060_20260509_3b_fp16_m2048_fused_gate_up_cublaslt_all.json`, `.tmp_codex/bench/3060_20260509_3b_fp16_m2048_mlp_down_cublaslt_all.json`
+- Latest cublasLt layout probe: `2026-05-09 19:02 +0800`, native row-major descriptors do not beat the current column-major view for `3B / m=2048` GateUp or DownProj; cublasLt packed weight transform/layout combinations tested here returned unsupported. Raw artifacts: `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_gateup_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_downproj_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_gateup_fp16.jsonl`, `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_downproj_fp16.jsonl`
+- Latest CUTLASS config sweep: `2026-05-09 19:02 +0800`, a standalone sweep of existing `third_party/cutlass` GEMM tile/stage configs near TRT's profiled XMMA shapes did not beat current cublasLt for the official BF16 path. BF16 bests: GateUp `6.894 ms`, DownProj `3.727 ms`. FP16 bests: GateUp `6.823 ms`, DownProj `3.524 ms`; this is not a production BF16 win and still cannot close the gap. Raw artifacts: `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_gateup_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_downproj_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_gateup_fp16_serial.jsonl`, `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_downproj_fp16_serial.jsonl`
+- Latest Myelin/XMMA reuse check: `2026-05-10`, `third_party/TensorRT-Edge-LLM` does not expose a public/source-visible BF16/FP16 dense Myelin/XMMA GEMM launcher for `LinearImpl`. The profiled TensorRT kernels are engine tactics, not a buildable EdgeFM operator path. Review doc updated: [doc/3060_fused_mlp_review.md](./3060_fused_mlp_review.md)
+- Latest Myelin/XMMA subengine probe: `2026-05-10 10:45 +0800`, an isolated TensorRT `GateUp -> SwiGLU -> DownProj` engine reproduced the internal tactics. BF16 selected `sm80_xmma_gemm_bf16bf16_*` plus `__myl_SiluMul_*` but measured `11.33 ms` median per layer, slower than the current EdgeFM MLP estimate `10.62 ms`. FP16 selected the same `sm80_xmma_gemm_f16f16_*` family seen in TRT-Edge-LLM and measured `6.26 ms` median per layer, matching TRT's inferred `6.18 ms`. BF16 bridge is rejected as the next production route; FP16 bridge remains review-gated. Raw: `.tmp_codex/bench/trt_mlp_subengine_3b_bf16_nsys_run.json`, `.tmp_codex/nsys/trt_mlp_subengine_3b_bf16_kernel_summary.md`, `.tmp_codex/bench/trt_mlp_subengine_3b_fp16_nsys_run.json`, `.tmp_codex/nsys/trt_mlp_subengine_3b_fp16_kernel_summary.md`
+- Latest CUTLASS layout diagnostic: `2026-05-10 10:58 +0800`, source-visible classic CUTLASS `device::Gemm` with prepacked `RowMajor x RowMajor` B layout does not reproduce TRT's FP16 XMMA speed. Best FP16 GateUp was `6.666 ms` versus TensorRT FP16 GateUp `3.856 ms`; best FP16 DownProj was `3.440 ms` versus TensorRT FP16 DownProj `1.984 ms`. Do not add a production prepacked-weight CUTLASS path from this result alone. Raw: `.tmp_codex/bench/3060_20260510_cutlass_layout_gateup_fp16_sweep.jsonl`, `.tmp_codex/bench/3060_20260510_cutlass_layout_down_fp16_sweep.jsonl`, `.tmp_codex/bench/3060_20260510_cutlass_layout_fp16_sweep_summary.json`
+- Latest source-visible third-party search: `2026-05-10 11:06 +0800`, the remaining vendored candidates do not provide a direct RTX 3060 dense FP16 XMMA-equivalent runner. `third_party/flashinfer/csrc/trtllm_gemm_runner.cu` is FP8/E2M1-to-BF16 only, `third_party/flashinfer/csrc/tgv_gemm.cu` is SM100/UMMA/TMA-oriented and not an SM86 path, and TensorRT-LLM CUTLASS FP16/BF16 code under `third_party/flashinfer/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels` is MoE/grouped, fused-MoE, or quantized GEMM. The current build only compiles the fused-MoE helper path used by `cutlass_prefill_swiglu`, which has already been rejected as default-on. Conclusion: no production `myelin`/`xmma`/dense FP16 impl id should be added from the current source-visible third-party tree; the next meaningful implementation path is a reviewed FP16 TensorRT-backed MLP bridge or a new external source-visible runner with operator evidence.
+- Latest cuTile MatMul probe: `2026-05-10 11:28 +0800`, `third_party/cutile-python/samples/MatMul.py` was run with the pip-provided TileIR compiler enabled through `nvidia-cuda-tileiras`. Best persistent `64x128x64` results were FP16 `GateUp 9.87 ms` / `DownProj 4.80 ms` and BF16 `GateUp 9.75 ms` / `DownProj 4.79 ms`, which is slower than current cublasLt/BF16 and far behind TRT FP16 XMMA. Raw artifacts: `.tmp_codex/bench/3060_20260510_cutile_matmul_fp16_probe.json`, `.tmp_codex/bench/3060_20260510_cutile_matmul_bf16_probe.json`, `.tmp_codex/bench/3060_20260510_cutile_matmul_summary.json`
 - Latest validation gate: `2026-05-09 17:40 +0800`. `git diff --check`, Python compile, `make -C build-3060 -j edge_fm_python && make -C build-3060 install`, operator table validation, operator gate, and generate alignment passed after final cleanup and before commit.
 - Latest validation raw artifacts:
   - `.tmp_codex/bench/3060_20260509_final_build_install.log`
@@ -24,12 +33,19 @@
   - `.tmp_codex/bench/3060_20260509_final_generate_alignment.log`
 - Feishu notifications:
   - `cc-connect daemon start` succeeded, but `cc-connect send` returned `no active session found` after daemon restart; the same Feishu bot credentials from `~/.cc-connect/config.toml` were used to send the conclusion directly.
+  - cuTile probe conclusion message id: `om_x100b50cb9f0f68acb130beab4436935`; delivered to the same Feishu chat via the bot credentials because `cc-connect send` still returned `no active session found` for the current local session map.
   - prefill SwiGLU default-off accepted message id: `om_x100b50da6fc790acb296afd2fe209d3`
   - full-matrix refresh message id: `om_x100b50da05a6e084b36a16762e1a183`
   - post-default-off nsys + rejected low-risk table sweep message id: `om_x100b50da89dc6cb8b24291bf5255c27`
   - `3B / 2048x64` confirming nsys profile message id: `om_x100b50da9b9f6880b125f42933e1ef8`
   - `cc-connect send -p edge-fm-x -s s1 ...` still returns `no active session found`; use the Feishu OpenAPI fallback until the active-session mapping is repaired.
   - TRT prefill reverse attribution message id: `om_x100b50dbe49acca0b2bd2059dbd0f67`
+  - post-commit CUTLASS/FP16 diagnostic rejection message id: `om_x100b50c55826248cb2b867358f2f621`
+  - benchmark/copy alignment check message id: `om_x100b50c57763d080b39b53adf57791b`
+  - cublasLt layout diagnostic rejection message id: `om_x100b50c50a0dbca0b10e7a74d1bccdc`
+  - Myelin/XMMA direct reuse check message id: `om_x100b50ca922744acb3db168ba1115c1`
+  - Myelin/XMMA subengine probe message id: `om_x100b50cb6c0ea8a0b369b4abbdf6487`
+  - CUTLASS prepacked-B layout rejection message id: `om_x100b50cb025e54b0b3b5fca28420517`
 
 Latest official raw matrix:
 
@@ -56,6 +72,20 @@ Current diagnosis:
   - QKV appears as TensorRT Myelin `FcCast` GEMM (`36` launches, `16.96 ms`)
   - AttentionPlugin uses TRT-Edge-LLM `fmha_v2_flash_attention_fp16_64_32_S_qkv_128_causal_sm86_kernel_nl` plus rope/write-KV helpers (`22.90 ms` inferred role time)
   - implication: TRT is not winning by eliminating the MLP structure; it is using faster TensorRT XMMA/Myelin GEMM selections for the same Gate+Up and DownProj roles. Existing-kernel reuse should focus on matching these third-party GEMM paths before any new kernel family.
+- Myelin/XMMA direct reuse check:
+  - `third_party/TensorRT-Edge-LLM/cpp` exposes runtime, attention plugin, embedding, KV-cache, sampling, and INT4 groupwise GEMM code, but no public/source-visible BF16/FP16 dense Myelin/XMMA GEMM launcher
+  - `src/operators/linear_impl.cu` can register source-visible implementations, but a `myelin` or `xmma` impl id would be misleading unless it calls a buildable API in this repo
+  - isolated subengine result: BF16 TensorRT Myelin/XMMA is not faster than current EdgeFM MLP, while FP16 TensorRT Myelin/XMMA matches TRT-Edge-LLM; this makes precision and bridge ownership the next review issue, not direct `myelin`/`xmma` impl registration
+  - TRT-Edge-LLM `3B / 2048x1` trace uses `sm80_xmma_gemm_f16f16_*` for MLP Gate+Up and DownProj even though the HF checkpoint config says `torch_dtype=bfloat16`
+  - source-visible classic CUTLASS `device::Gemm` plus prepacked B layout was checked and did not approach TensorRT's FP16 XMMA numbers
+  - the rest of the current vendored source-visible search did not find a direct SM86 dense FP16 runner: `trtllm_gemm_runner` is FP8/E2M1 only, `tgv_gemm` is SM100-only, and the TensorRT-LLM CUTLASS FP16/BF16 pieces here are MoE/grouped, fused-MoE, or quantized GEMM paths
+  - next valid action is a reviewed FP16 TensorRT-backed MLP bridge, or a genuinely new source-visible third-party runner with operator evidence; do not add fake `myelin`/`xmma` records or another small classic CUTLASS layout variant
+- benchmark/copy alignment check:
+  - official EdgeFM `prefill_ms` is recorded from before `EDGEFM_PREFILL_PREPARE` through prefill sampler, so it includes the host-to-device token copy and prefill tensor preparation
+  - official TRT `prefill_ms` is the TRT internal GPU timer for `kLLM_PREFILL`; the outer TRT wall-time path was checked with and without explicit `torch.cuda.synchronize()`
+  - TRT sync probe for `3B / 2048x32`: unsynchronized wall avg `921.5 ms`; synchronized wall avg `922.1 ms`; stage metrics remain around prefill `286-289 ms`, decode `633-634 ms`
+  - EdgeFM graph-off memcpy in `3B / 2048x32`: `0.623 ms` total, dominated by `72` D2D copies of `1 MB` each for prefill K/V slices; H2D token copy is `8192 B` and about `0.001 ms`
+  - EdgeFM graph-on formal trace shows only `0.044 ms` memcpy outside CUDA graph; this is too small to explain the `+201.15 ms` latest full-matrix prefill gap
 - after default-off, `3B / 2048x32` is still the largest measured gap: EdgeFM mean `1125.25 ms` versus TRT mean `927.69 ms`; prefill gap `+201.15 ms`
 - `3B / 2048x64` is close behind: EdgeFM mean `1778.55 ms` versus TRT mean `1584.36 ms`; prefill gap `+201.43 ms`
 
@@ -165,6 +195,12 @@ Full matrix status from the latest raw artifact:
 
 ## Rejected / Obsolete
 
+- `Qwen2.5-3B-Instruct / source-visible cuTile dense MatMul probe`
+  - rejected because the best persistent `64x128x64` cuTile MatMul results are slower than the current BF16 cublasLt baseline and far behind TRT FP16 XMMA
+  - FP16 GateUp `9.87 ms`, DownProj `4.80 ms`; BF16 GateUp `9.75 ms`, DownProj `4.79 ms`
+  - raw artifacts: `.tmp_codex/bench/3060_20260510_cutile_matmul_fp16_probe.json`, `.tmp_codex/bench/3060_20260510_cutile_matmul_bf16_probe.json`, `.tmp_codex/bench/3060_20260510_cutile_matmul_summary.json`
+  - conclusion: keep cuTile only as a diagnostic helper, not as a near-term production path
+
 - `Qwen2.5-3B-Instruct / BF16 / prefill m=2048 / fused_gate_up + mlp_down cublasLt table sweep`
   - rejected because the official CUDA graph target slice improved by only `2.12 ms` mean and `2.84 ms` median, below the `>=1%` acceptance rule
   - candidate table edit tested: `fused_gate_up algo_index=3` and `mlp_down algo_index=2`
@@ -173,6 +209,53 @@ Full matrix status from the latest raw artifact:
   - raw candidate artifact: `.tmp_codex/bench/3060_20260509_3b_2048x32_gateup3_mlpdown2_candidate_trt.json`
   - microbench artifacts: `.tmp_codex/bench/3060_20260509_3b_m2048_fused_gate_up_cublaslt_heuristic.json`, `.tmp_codex/bench/3060_20260509_3b_m2048_mlp_down_cublaslt_heuristic.json`
   - candidate table edits were reverted; table validation after revert passed: `.tmp_codex/bench/3060_20260509_3b_m2048_cublaslt_rejected_revert_table_validate.log`
+- `Qwen2.5-3B-Instruct / BF16 / prefill m=2048 / existing LinearCutlassImpl configs`
+  - rejected as a near-term route because none of the three currently wired CUTLASS configs beat the accepted 3060 cublasLt records for the dominant GateUp or DownProj shapes
+  - GateUp results: current table `6.852 ms` with cublasLt `algo_index=4`; no shape record `7.031 ms`; CUTLASS `128x128x32_s3` `6.973 ms`; `128x256x32_s3` `7.344 ms`; `256x128x32_s3` `7.322 ms`
+  - DownProj results: current table `3.545 ms` with cublasLt `algo_index=5`; no shape record `3.675 ms`; CUTLASS `128x128x32_s3` `3.718 ms`; `128x256x32_s3` `3.852 ms`; `256x128x32_s3` `3.840 ms`
+  - raw artifact: `.tmp_codex/bench/3060_20260509_probe_3b_m2048_cutlass_vs_cublaslt.json`
+  - conclusion: do not re-add broad CUTLASS heuristics to `src/operators/linear_impl.cu`; only a new, specific third-party config with operator and end-to-end evidence should be considered
+- `Qwen2.5-3B-Instruct / prefill m=2048 / cublasLt native row-major and packed layout probe`
+  - rejected as a low-risk production direction because native row-major descriptors are neutral/slightly slower, and tested cublasLt packed weight transforms returned unsupported for the current dense FP16/BF16 shapes
+  - BF16 GateUp `M=2048,N=22016,K=2048`: current column-view `6.760 ms`; native row-major `6.797 ms`; packed layout transform attempts returned cublasLt status `15`
+  - BF16 DownProj `M=2048,N=2048,K=11008`: current column-view `3.495 ms`; native row-major `3.498 ms`; packed layout transform attempts returned cublasLt status `15`
+  - FP16 GateUp: current column-view `6.702 ms`; native row-major `6.701 ms`; packed transform unsupported
+  - FP16 DownProj: current column-view `3.490 ms`; native row-major `3.497 ms`; packed transform unsupported
+  - raw artifacts: `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_gateup_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_downproj_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_gateup_fp16.jsonl`, `.tmp_codex/bench/3060_20260509_cublaslt_layout_probe_3b_downproj_fp16.jsonl`
+  - conclusion: do not change production descriptors or add a weight prepack path based on this probe; continue toward a proven third-party GEMM runner/config rather than cublasLt layout churn
+- `Qwen2.5-3B-Instruct / prefill m=2048 / standalone CUTLASS dense GEMM config sweep`
+  - rejected because the tested existing CUTLASS tile/stage configs do not beat current cublasLt on the production BF16 path
+  - BF16 GateUp: best `128x128x32_s3_w64x64` at `6.894 ms`, slower than current cublasLt column-view `~6.76-6.85 ms`
+  - BF16 DownProj: best `128x128x32_s3_w64x64` at `3.727 ms`, slower than current cublasLt column-view `~3.49-3.55 ms`
+  - FP16 GateUp: best `64x128x32_s3_w32x64` at `6.823 ms`, slower than FP16 cublasLt best `6.776 ms`
+  - FP16 DownProj: best `64x128x32_s4_w32x64` at `3.524 ms`, roughly tied with FP16 cublasLt best `3.526 ms` but only on the temporary FP16 checkpoint direction
+  - raw artifacts: `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_gateup_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_downproj_bf16.jsonl`, `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_gateup_fp16_serial.jsonl`, `.tmp_codex/bench/3060_20260509_cutlass_config_probe_3b_downproj_fp16_serial.jsonl`
+  - conclusion: do not add more `LinearCutlassImpl` configs from this sweep; continue searching for a higher-level third-party GEMM runner or a reviewed larger prefill path
+- `Qwen2.5-3B-Instruct / temporary FP16 EdgeFM checkpoint`
+  - rejected as an explanation for the TRT gap because converting EdgeFM weights to FP16 did not improve the official target slice
+  - `3B / 2048x32` FP16 probe: EdgeFM mean `1131.10 ms`, TRT mean `921.44 ms`; EdgeFM prefill `498.95 ms`, TRT prefill `287.42 ms`; prefill gap `+211.53 ms`
+  - compare latest BF16 full-matrix case: EdgeFM mean `1125.25 ms`, TRT mean `927.69 ms`, prefill gap `+201.15 ms`
+  - raw artifact: `.tmp_codex/bench/3060_20260509_3b_2048x32_fp16_edgefm_probe.json`
+  - conclusion: the remaining gap is not explained by BF16 versus FP16 alone; do not convert the production checkpoint path as a performance fix
+- `Qwen2.5-3B-Instruct / FP16 / prefill m=2048 / cublasLt operator tuning`
+  - rejected as a mainline route because the best operator-level movement is far below the remaining `~200 ms` prefill gap and was measured only on a temporary FP16 checkpoint
+  - GateUp FP16: baseline `6.916 ms`, best `algo_index=4` `6.776 ms`
+  - DownProj FP16: baseline `3.676 ms`, best `algo_index=1` `3.526 ms`
+  - rough upper-bound movement across 36 layers is about `10 ms`, before end-to-end noise and without addressing the BF16 production path
+  - raw artifacts: `.tmp_codex/bench/3060_20260509_3b_fp16_m2048_fused_gate_up_cublaslt_all.json`, `.tmp_codex/bench/3060_20260509_3b_fp16_m2048_mlp_down_cublaslt_all.json`
+- `Qwen2.5-3B-Instruct / BF16 TensorRT MLP subengine bridge`
+  - rejected as the next production route because the isolated BF16 TensorRT subengine did reproduce `sm80_xmma_gemm_bf16bf16_*` and `__myl_SiluMul_*`, but did not beat EdgeFM's current MLP estimate
+  - BF16 timed-region median: `11.33 ms` per layer
+  - BF16 nsys split per layer: GateUp `7.207 ms`, DownProj `3.701 ms`, SwiGLU `0.401 ms`
+  - compare current EdgeFM graph-off MLP estimate: `(GateUp 242.41 + activation 14.64 + DownProj 125.26) / 36 = 10.62 ms` per layer
+  - FP16 subengine is not rejected as attribution: it matched TRT-Edge-LLM at `6.26 ms` median per layer, but this is a precision/bridge design question and not an accepted production implementation
+  - raw artifacts: `.tmp_codex/bench/trt_mlp_subengine_3b_bf16_nsys_run.json`, `.tmp_codex/nsys/trt_mlp_subengine_3b_bf16_kernel_summary.md`, `.tmp_codex/bench/trt_mlp_subengine_3b_fp16_nsys_run.json`, `.tmp_codex/nsys/trt_mlp_subengine_3b_fp16_kernel_summary.md`
+- `Qwen2.5-3B-Instruct / FP16 CUTLASS prepacked-B layout probe`
+  - rejected as a near-term production route because prepacking B for classic CUTLASS `device::Gemm` improved one shape but stayed far behind TensorRT's FP16 XMMA subengine
+  - GateUp best: `6.666 ms`, `row_major_prepacked`, `64x128x32_s3_w32x64`; TensorRT FP16 GateUp reference is `3.856 ms`
+  - DownProj best: `3.440 ms`, `row_major_prepacked`, `64x128x32_s3_w32x64`; TensorRT FP16 DownProj reference is `1.984 ms`
+  - raw artifacts: `.tmp_codex/bench/3060_20260510_cutlass_layout_gateup_fp16_sweep.jsonl`, `.tmp_codex/bench/3060_20260510_cutlass_layout_down_fp16_sweep.jsonl`, `.tmp_codex/bench/3060_20260510_cutlass_layout_fp16_sweep_summary.json`
+  - conclusion: do not add a production prepacked-weight CUTLASS path from this result alone; the remaining gap needs a different third-party runner or a reviewed FP16 TensorRT bridge
 - `Qwen2.5-3B-Instruct / BF16 / prefill m=2048 / cublasLt explicit low-level configs`
   - rejected because explicit candidates did not beat the best heuristic candidates
   - `mlp_down` best explicit `3.662 ms`, while heuristic best was `3.491 ms`
@@ -210,11 +293,12 @@ Full matrix status from the latest raw artifact:
 
 ## Active Queue
 
-1. Inspect whether EdgeFM can reuse closer TensorRT-LLM/TRT-Edge-LLM/CUTLASS XMMA GEMM configurations for `3B m=2048` Gate+Up and DownProj without changing layer ownership.
-2. Review [doc/3060_fused_mlp_review.md](./3060_fused_mlp_review.md) before changing engine/layer/operator boundaries for a larger prefill MLP path.
-3. If approved, prototype behind a reversible env/table switch and reuse existing TensorRT-LLM/CUTLASS/FlashInfer kernels from `third_party/` first.
-4. Optionally collect `1.5B / 2048x32` graph-off trace to confirm the same GateUp/DownProj-dominated pattern.
-5. The formal diagnostic helper for prefill SwiGLU remains `scripts/tune/profile_prefill_swiglu_kernels.py`.
+1. Continue source-visible FP16/XMMA-equivalent third-party search, but skip more small classic CUTLASS `device::Gemm` layout variants unless a new tactic source appears.
+2. If no source-visible path reproduces the FP16 TensorRT subengine numbers at operator level, write a separate FP16 TensorRT-backed MLP bridge review before touching production code.
+3. Keep BF16 TensorRT MLP bridge out of the active implementation queue; the isolated BF16 subengine did not beat EdgeFM.
+4. Review [doc/3060_fused_mlp_review.md](./3060_fused_mlp_review.md) before changing engine/layer/operator boundaries for a larger prefill MLP path.
+5. Optionally collect `1.5B / 2048x32` graph-off trace to confirm the same GateUp/DownProj-dominated pattern.
+6. The formal diagnostic helper for prefill SwiGLU remains `scripts/tune/profile_prefill_swiglu_kernels.py`.
 
 ## Environment Notes
 

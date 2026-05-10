@@ -34,6 +34,35 @@ It still runs a Gate+Up GEMM, a separate SwiGLU, and a DownProj GEMM per layer,
 but its TensorRT XMMA/Myelin GEMM choices are materially faster on 3060 than
 EdgeFM's current long-prefill linear paths.
 
+## Direct Myelin / XMMA Reuse Check
+
+Checked on `2026-05-10`.
+
+The profiled TRT kernels are real performance references, but they are not
+currently exposed as standalone EdgeFM-callable operators:
+
+- `sm80_xmma_gemm_*_trt` comes from TensorRT engine execution, not from a
+  source-visible TRT-Edge-LLM GEMM launcher.
+- `__myl_FcCast_*` and `__myl_SiluMul_*` are TensorRT Myelin generated kernels
+  embedded in the serialized engine.
+- `third_party/TensorRT-Edge-LLM/cpp` exposes runtime, attention plugin,
+  embedding, KV-cache, sampling, and INT4 groupwise GEMM code, but no public
+  BF16/FP16 dense Myelin/XMMA launcher that can be registered as
+  `LinearLayer::LinearImpl`.
+- The current `src/operators/linear_impl.cu` registry already has the right
+  local extension point for source-visible implementations (`cublasLt`,
+  `cutlass`, `cutile`, `agent`), but adding a fake `myelin` or `xmma` impl id
+  would be misleading unless it calls a buildable API in this repo.
+
+Conclusion: direct Myelin/XMMA operator replacement is not a near-term
+production path. The only ways to use those TensorRT tactics are either:
+
+1. build a TensorRT-backed subgraph or engine bridge and call it as a coarse
+   backend boundary; or
+2. approximate the same behavior using public/source-visible third-party
+   kernels such as cublasLt, CUTLASS, TensorRT-LLM CUTLASS kernels, FlashInfer,
+   or cuTile.
+
 Small existing-table attempts did not close the gap:
 
 - `fused_gate_up algo_index=3` plus `mlp_down algo_index=2` improved the
@@ -61,6 +90,197 @@ existing third-party kernels first:
 - TRT-Edge-LLM plugin/runtime behavior as the performance reference, without
   copying opaque engine internals into EdgeFM
 
+## Reviewed Bridge Design
+
+This is the only reviewed direction that could use TensorRT tactics without
+writing a kernel from scratch. It is intentionally not approved for
+implementation yet.
+
+### Option A: Isolated TensorRT MLP subengine feasibility
+
+Build a temporary `.tmp_codex` TensorRT engine for a representative MLP subgraph:
+
+- input: `[M, hidden]`
+- graph: `GateUp MatMul -> SwiGLU -> DownProj MatMul`
+- dtype: BF16 first when available, otherwise FP16 for feasibility only
+- shapes: start with `3B m=2048`, then `3B m=1024`
+- weights: synthetic or one checkpoint layer only; this is an attribution
+  probe, not an accepted production path
+
+Accept the feasibility result only if nsys shows TensorRT selecting the same
+`sm80_xmma_gemm_*_trt` / `__myl_*` families and the isolated MLP latency is
+materially below EdgeFM's current GateUp + SwiGLU + DownProj path.
+
+#### Probe Result
+
+Ran on `2026-05-10 10:45 +0800`.
+
+The isolated subengine reproduced TensorRT's internal tactic families, but only
+the FP16 path reproduced TRT-Edge-LLM's speed:
+
+- BF16 subengine, `3B m=2048/h=2048/i=11008`:
+  - engine inspector selected `sm80_xmma_gemm_bf16bf16_*` for GateUp and
+    DownProj plus `__myl_SiluMul_*`
+  - nsys timed-region median: `11.33 ms` per layer
+  - kernel split per layer: GateUp `7.207 ms`, DownProj `3.701 ms`,
+    SwiGLU `0.401 ms`
+  - this does not beat the current EdgeFM graph-off MLP estimate of
+    `10.62 ms` per layer and is far from the TRT-Edge-LLM inferred
+    `6.18 ms` per layer
+  - conclusion: reject a BF16 TensorRT MLP subengine as the next production
+    bridge
+- FP16 subengine, same shape:
+  - engine inspector selected the same family visible in the TRT-Edge-LLM
+    prefill trace: `sm80_xmma_gemm_f16f16_*` plus `__myl_SiluMul_*`
+  - nsys timed-region median: `6.26 ms` per layer
+  - kernel split per layer: GateUp `3.856 ms`, DownProj `1.984 ms`,
+    SwiGLU `0.402 ms`
+  - this matches the TRT-Edge-LLM inferred `6.18 ms` per layer and explains
+    why TRT prefill MLP is much faster
+
+Artifacts:
+
+- `.tmp_codex/bench/trt_mlp_subengine_3b_bf16_nsys_run.json`
+- `.tmp_codex/bench/trt_mlp_subengine_3b_bf16_inspector.json`
+- `.tmp_codex/nsys/trt_mlp_subengine_3b_bf16_kernel_summary.md`
+- `.tmp_codex/bench/trt_mlp_subengine_3b_fp16_nsys_run.json`
+- `.tmp_codex/bench/trt_mlp_subengine_3b_fp16_inspector.json`
+- `.tmp_codex/nsys/trt_mlp_subengine_3b_fp16_kernel_summary.md`
+
+This is an attribution result, not production approval. Any production path
+based on FP16 TensorRT MLP requires a separate review covering precision,
+generation correctness, weight ownership, memory pressure, and CUDA graph
+compatibility.
+
+#### Source-Visible CUTLASS Layout Check
+
+Ran on `2026-05-10 10:58 +0800`.
+
+To test whether the TRT FP16 gap is mainly a weight-layout issue, a temporary
+`third_party/cutlass` probe compared EdgeFM's current `RowMajor x ColumnMajor`
+GEMM layout with a prepacked `RowMajor x RowMajor` B layout for the same 3B
+prefill shapes.
+
+Best FP16 results:
+
+- GateUp `M=2048,N=22016,K=2048`: best prepacked CUTLASS result
+  `6.666 ms`, using `64x128x32_s3_w32x64`
+- DownProj `M=2048,N=2048,K=11008`: best prepacked CUTLASS result
+  `3.440 ms`, using `64x128x32_s3_w32x64`
+
+Compare the isolated TensorRT FP16 subengine:
+
+- GateUp `3.856 ms`
+- DownProj `1.984 ms`
+
+Conclusion: simple weight prepacking plus source-visible classic CUTLASS
+`device::Gemm` does not reproduce TRT's FP16 XMMA performance. Do not add a
+production prepacked-weight path from this result alone.
+
+Artifacts:
+
+- `.tmp_codex/bench/3060_20260510_cutlass_layout_gateup_fp16_sweep.jsonl`
+- `.tmp_codex/bench/3060_20260510_cutlass_layout_down_fp16_sweep.jsonl`
+- `.tmp_codex/bench/3060_20260510_cutlass_layout_fp16_sweep_summary.json`
+
+#### Source-Visible cuTile MatMul Probe
+
+Ran on `2026-05-10 11:28 +0800`.
+
+To test whether the existing cuTile dense MatMul sample could serve as a
+source-visible FP16/BF16 runner, a temporary probe ran
+`third_party/cutile-python/samples/MatMul.py` against the same 3B GateUp and
+DownProj shapes after enabling the pip-provided TileIR compiler
+(`nvidia-cuda-tileiras`).
+
+Best persistent `64x128x64` results:
+
+- FP16 GateUp `9.87 ms`
+- FP16 DownProj `4.80 ms`
+- BF16 GateUp `9.75 ms`
+- BF16 DownProj `4.79 ms`
+
+Compare current references:
+
+- current BF16 cublasLt GateUp `~6.76-6.85 ms`
+- current BF16 cublasLt DownProj `~3.49-3.55 ms`
+- TRT FP16 subengine GateUp `3.856 ms`
+- TRT FP16 subengine DownProj `1.984 ms`
+
+Conclusion: the existing cuTile dense MatMul sample is not a viable
+replacement for the 3060 MLP path. Keep cuTile only as a diagnostic exploration
+path unless a materially different fused or sparse runner appears.
+
+Artifacts:
+
+- `.tmp_codex/bench/3060_20260510_cutile_matmul_fp16_probe.json`
+- `.tmp_codex/bench/3060_20260510_cutile_matmul_bf16_probe.json`
+- `.tmp_codex/bench/3060_20260510_cutile_matmul_summary.json`
+
+#### Source-Visible Third-Party Search
+
+Checked on `2026-05-10 11:06 +0800`.
+
+The remaining vendored paths do not provide a direct RTX 3060 dense FP16
+XMMA-equivalent runner:
+
+- `third_party/flashinfer/csrc/trtllm_gemm_runner.cu` only accepts FP8/E2M1
+  inputs and writes BF16 output. It is not the dense FP16 MLP path observed in
+  the TRT-Edge-LLM trace.
+- `third_party/flashinfer/csrc/tgv_gemm.cu` dispatches through SM100/UMMA/TMA
+  code and the config file is explicitly SM100-oriented, so it is not usable on
+  RTX 3060 `sm86`.
+- TensorRT-LLM CUTLASS FP16/BF16 code under
+  `third_party/flashinfer/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels`
+  is MoE/grouped, fused-MoE, or quantized GEMM. The only current build-integrated
+  fused-MoE helper is the `cutlass_prefill_swiglu` diagnostic path, already
+  rejected as default-on for 3060.
+- `src/operators/CMakeLists.txt` does not compile a standalone
+  `MoeGemmRunner<half, half, half>` dense replacement today; wiring one would be
+  a new grouped/MoE-based production path and would need operator evidence before
+  touching mainline code.
+
+Conclusion: do not add a production `myelin`, `xmma`, `tgv`, or dense FP16
+third-party impl id from the current vendor tree. The next implementation-grade
+path is either a separately reviewed FP16 TensorRT-backed MLP bridge or a new
+source-visible third-party runner that beats the current operator path in an
+isolated probe first.
+
+### Option B: Production TensorRT-backed MLP operator
+
+Potential benefit: use TensorRT tactics for GateUp, SwiGLU, and DownProj while
+keeping the rest of EdgeFM unchanged.
+
+Known blockers:
+
+- TensorRT engines usually own and store weights, so a per-layer MLP engine
+  would duplicate MLP weights and can reintroduce 3060 12GB OOM.
+- One engine per decoder layer would add large memory, build, and lifecycle
+  complexity.
+- A single shared engine cannot simply switch among 36 different layer weights
+  without extra weight binding or refit machinery.
+- CUDA graph compatibility must be revalidated because TensorRT enqueue and
+  EdgeFM graph capture/replay are different ownership models.
+
+Do not implement this until a separate FP16 bridge review proves that the
+precision change is acceptable and a memory plan shows that 3B still fits on
+RTX 3060 12GB. The BF16 subengine result is not enough.
+
+### Option C: TensorRT-backed full prefill stage bridge
+
+This is even larger and should not be implemented in this tuning pass.
+
+It would ask TensorRT to run full prefill and then hand off KV cache or hidden
+state to EdgeFM decode. Current TRT-Edge-LLM runtime does not expose a clean
+API for exporting KV cache in EdgeFM's layout, and EdgeFM decode is already not
+the main gap. Treat this as a separate project if it is ever pursued.
+
+### Recommendation
+
+Run Option A as a temporary attribution experiment only. Do not add production
+TRT-backed operators until the isolated subengine proves the expected kernel
+selection and a memory-safe production design is reviewed.
+
 The first design target should be prefill MLP only:
 
 - input: `[M, hidden]`
@@ -74,6 +294,10 @@ The first design target should be prefill MLP only:
 
 - Keep the current `linear + activation + linear` fallback untouched.
 - Gate the prototype behind an env var or operator-table impl id.
+- Do not expose a public `myelin` or `xmma` impl id unless it launches a real,
+  buildable implementation in this repo.
+- Do not duplicate full 3B MLP weights in TensorRT subengines unless a measured
+  memory plan proves the model still fits on RTX 3060 12GB.
 - Do not change engine/layer/operator ownership broadly until a prototype shows
   end-to-end improvement.
 - Keep allocation and workspace ownership explicit; no persistent hidden global
@@ -100,9 +324,15 @@ Before default-enabling any larger path:
 Proceed only after review.
 
 The evidence says another blind cublasLt/FlashInfer table sweep is unlikely to
-close the `3B / 2048` gap. The next low-risk step is to inspect whether EdgeFM
-can reuse or wrap an existing third-party GEMM path closer to TRT's XMMA/Myelin
-behavior for Gate+Up and DownProj. If that cannot be done within the current
-operator boundary, the next meaningful implementation is a reviewed prefill MLP
-prototype based on existing third-party kernels, with a clean fallback and a
-strict CUDA graph end-to-end acceptance gate.
+close the `3B / 2048` gap. The current vendored source-visible search did not
+find a direct RTX 3060 dense FP16 runner close to TRT's XMMA/Myelin behavior.
+The next meaningful implementation is therefore a reviewed FP16 prefill MLP
+bridge or a newly identified source-visible third-party runner, with a clean
+fallback and a strict CUDA graph end-to-end acceptance gate.
+
+For the Myelin/XMMA request specifically, the isolated probe has now shown that
+BF16 TensorRT tactics do not beat EdgeFM, while FP16 TensorRT tactics match
+TRT-Edge-LLM. The source-visible CUTLASS prepacked-B check did not close the
+gap, `trtllm_gemm_runner` is FP8/E2M1-only, and `tgv_gemm` is SM100-only. A
+production TensorRT-backed FP16 MLP bridge remains review-gated and should not
+be implemented directly from this document.

@@ -12,11 +12,13 @@ It is intentionally narrow and should stay stable over time.
 
 ## Implementation Rules
 
-- Do not start with a from-scratch kernel. Prefer extending or tuning existing kernels under `3rdparty/` or `third_party/` first, and only add a new kernel family after a review gate.
+- Do not start with a from-scratch kernel. Prefer extending or tuning existing kernels under `3rdparty/` or `third_party/` first, especially the vendored CUTLASS, FlashInfer, cuTile, and TensorRT-LLM kernels, and only add a new kernel family after a review gate.
 - Do not do a large refactor unless the expected performance win is clear and the change is explicitly reviewed first.
 - Change one variable per experiment whenever possible.
 - Keep code clean. If a candidate fails correctness or does not produce a useful end-to-end gain, remove the temporary test code, debug code, and scripts in the same round.
 - Keep runtime decisions small and reversible. Default-off or fallback behavior must remain available for every new fast path.
+- Treat TensorRT Myelin/XMMA tactics as opaque unless they are reached through a reviewed TensorRT bridge or a source-visible API in this repo. Do not register a fake `myelin` or `xmma` operator impl id that cannot be built, tested, and profiled here.
+- Do not quietly change the production precision mode just to chase a benchmark. Any BF16->FP16 or FP16->BF16 shift must be called out explicitly, revalidated with the generation gate, and either justified or rejected in the log.
 - Preserve correctness on every accepted change. Use the operator and generation tests as the gate before claiming a tuning result.
 
 ## Documentation Rules
