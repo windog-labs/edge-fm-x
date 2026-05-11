@@ -196,6 +196,52 @@ This still is not a default-on production approval. The remaining gates are:
 - a `3B / 2048x32` official CUDA graph target-slice improvement of at least 1%
   with no meaningful regression
 
+#### EdgeFM-Layout BF16 Runtime Weights With FP16 Compute
+
+Ran on `2026-05-11 10:00 +0800`.
+
+The previous runtime-weight FP16 probe still assumed preconverted FP16 runtime
+weights in TensorRT's `[H, 2I]` and `[I, H]` matrix layout. That is not the
+resident EdgeFM layout. A follow-up probe therefore used the production-shaped
+inputs:
+
+- activation input: BF16 `[M, H]`
+- GateUp runtime weight: BF16 `[2I, H]` in EdgeFM's current fused `[up, gate]`
+  order
+- DownProj runtime weight: BF16 `[H, I]`
+- TensorRT graph: cast activation and weights to FP16 inside the engine, run
+  MatMul with `MatrixOperation::kTRANSPOSE` for both weights, run Myelin
+  activation, and cast output back to BF16
+
+The inspector confirms `sm80_xmma_gemm_f16f16_*` for both GEMMs, plus Myelin
+cast/activation layers. It does not select the slower BF16 XMMA path.
+
+Results:
+
+- 3B `m=2048`, layer 0: `7.02 ms` median; layer 35 with the same engine:
+  `7.18 ms` median
+- 3B `m=1024`, layer 0: `4.12 ms` median
+- 3B `m=512`, layer 0: `2.47 ms` median
+- 1.5B `m=2048`, layer 0: `4.29 ms` median
+- 0.5B `m=2048`, layer 0: `1.57 ms` median
+- engine sizes: `80-93 KB`; weights remain runtime inputs, not serialized
+- validation: torch FP16-compute/BF16-output reference mean relative error is
+  about `0.4-0.6%`
+
+Artifacts:
+
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer0_bf16_edgefm_layout_fp16_compute_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer35_bf16_edgefm_layout_fp16_compute_reuse_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer0_m1024_bf16_edgefm_layout_fp16_compute_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer0_m512_bf16_edgefm_layout_fp16_compute_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_1p5b_layer0_bf16_edgefm_layout_fp16_compute_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_0p5b_layer0_bf16_edgefm_layout_fp16_compute_verify.json`
+
+This is now the preferred prototype shape. It directly addresses the earlier
+layout and persistent FP16 weight-copy concern. It still requires production C++
+verification for TensorRT enqueue under CUDA graph capture, pointer binding to
+EdgeFM-owned tensors, generation correctness, and official CUDA graph latency.
+
 #### Source-Visible CUTLASS Layout Check
 
 Ran on `2026-05-10 10:58 +0800`.
