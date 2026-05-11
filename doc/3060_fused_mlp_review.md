@@ -152,6 +152,50 @@ based on FP16 TensorRT MLP requires a separate review covering precision,
 generation correctness, weight ownership, memory pressure, and CUDA graph
 compatibility.
 
+#### Runtime-Weight FP16 TensorRT MLP Probe
+
+Ran on `2026-05-11 09:41 +0800`.
+
+The first isolated FP16 subengine used TensorRT constants and serialized about
+`130 MB` of weights for one 3B MLP layer. That proves the tactic but is not
+memory-safe as a direct 36-layer production design. A second probe therefore
+built the same MLP graph with `gateup_weight` and `down_weight` as TensorRT
+runtime inputs.
+
+Results with actual Qwen2.5-3B checkpoint weights, explicitly cast from BF16 to
+FP16 for the probe:
+
+- engine size: `67 KB` because it no longer embeds the MLP weights
+- layer 0, same-shape runtime weights: `6.01 ms` median; fresh rerun
+  `2026-05-11` measured `6.06 ms` median
+- layer 35, reusing the same engine with different runtime weight pointers:
+  `6.23 ms` median; fresh rerun measured `6.26 ms` median
+- inspector tactics: `sm80_xmma_gemm_f16f16_*` for GateUp and DownProj plus a
+  Myelin-generated activation kernel
+- validation: torch FP16 reference mean relative error is about `0.59-0.60%`
+
+This removes the biggest memory objection to a prototype: a single shape engine
+can bind already-loaded per-layer GPU weights instead of duplicating all MLP
+weights inside serialized TensorRT engines.
+
+Artifacts:
+
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer0_fp16_runtime_weights_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer0_fp16_runtime_weights_verify_inspector.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer35_fp16_runtime_weights_reuse_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer35_fp16_runtime_weights_reuse_verify_inspector.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer0_fp16_runtime_weights_rerun_verify.json`
+- `.tmp_codex/bench/20260511_trt_mlp_3b_layer35_fp16_runtime_weights_reuse_rerun_verify.json`
+
+This still is not a default-on production approval. The remaining gates are:
+
+- generation correctness after using FP16 MLP inside a BF16 checkpoint flow
+- CUDA graph capture/replay compatibility for TensorRT enqueue
+- binding EdgeFM's existing fused GateUp and DownProj GPU weight buffers without
+  layout copies
+- a `3B / 2048x32` official CUDA graph target-slice improvement of at least 1%
+  with no meaningful regression
+
 #### Source-Visible CUTLASS Layout Check
 
 Ran on `2026-05-10 10:58 +0800`.
