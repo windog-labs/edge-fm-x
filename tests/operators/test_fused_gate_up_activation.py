@@ -1,3 +1,4 @@
+import json
 import math
 
 import pytest
@@ -222,6 +223,20 @@ def test_prefill_fused_gate_up_swiglu_default_off(monkeypatch):
     assert not fused_linear.try_forward_prefill_swiglu_fused(
         tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(out), 0
     )
+
+
+def test_fused_gate_up_weight_info_exposes_edgefm_resident_layout():
+    ensure_cuda()
+    reset_weight_loader()
+
+    fused_linear, _ = _make_layers()
+
+    info = json.loads(fused_linear.debug_weight_tensor_info("Prefill"))
+
+    assert info["has_weight"]
+    assert info["shape"] == [2 * INTERMEDIATE_SIZE, HIDDEN_SIZE]
+    assert info["dtype_name"] == "bfloat16"
+    assert info["layout"] == "edgefm_fused_gate_up_up_gate_out_in"
 
 
 def test_prefill_fused_gate_up_swiglu_unsupported_shape_returns_false_without_cache_poisoning(monkeypatch):

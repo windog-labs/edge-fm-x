@@ -242,6 +242,350 @@ layout and persistent FP16 weight-copy concern. It still requires production C++
 verification for TensorRT enqueue under CUDA graph capture, pointer binding to
 EdgeFM-owned tensors, generation correctness, and official CUDA graph latency.
 
+#### EdgeFM Bridge Matrix
+
+Ran on `2026-05-11 11:25-11:43 +0800`.
+
+An optional C++ bridge was prototyped behind both compile and runtime gates:
+
+- compile gate: `BUILD_TRT_MLP_BRIDGE=ON`
+- runtime gate: `EDGE_FM_PREFILL_TRT_MLP=1`
+- engine directory: `EDGE_FM_TRT_MLP_ENGINE_DIR`
+- default build/path: native MLP, no TensorRT dependency
+
+The bridge loads a runtime-weight TensorRT engine per MLP shape, binds the
+existing EdgeFM BF16 activation, GateUp weight, DownProj weight, and output
+tensors, and falls back to native `linear + activation + linear` on any missing
+engine, IO mismatch, disabled env var, or enqueue failure.
+
+During this validation, an independent prefill CUDA graph bug was found:
+first-time prefill graph capture instantiated the graph but did not replay it
+before `generate()` advanced. That could leave the first sampled token
+uninitialized. The fix is to immediately launch the captured graph after
+capture; the new regression test is
+`test_generate_token_alignment_prefill_cuda_graph_first_request`.
+
+Correctness after the graph fix:
+
+- `3B / 2048x32` bridge+CUDA graph matches
+  `transformers.generate(do_sample=False, eos_token_id=None)` for all 32
+  generated tokens.
+- raw:
+  `.tmp_codex/bench/3060_20260511_1117_3b_2048x32_trt_mlp_bridge_transformers_generate_compare_after_prefill_graph_fix.json`
+- obsolete temporary references:
+  `.tmp_codex/bench/3060_20260511_1102_3b_2048x32_trt_mlp_bridge_transformers_token_compare.json`
+  and
+  `.tmp_codex/bench/3060_20260511_1111_3b_2048x32_trt_mlp_bridge_transformers_token_compare_after_prefill_graph_fix.json`
+  used an inconsistent ad hoc reference sequence and should not be cited.
+
+Engine coverage after the graph fix:
+
+- `3B`: `m=512/1024/2048`, `H=2048`, `I=11008`
+- `1.5B`: `m=512/1024/2048`, `H=1536`, `I=8960`
+- `0.5B`: `m=512/1024/2048`, `H=896`, `I=4864`
+
+Experimental EdgeFM-only performance matrix after the graph fix:
+
+| Case | Native EdgeFM | Bridge EdgeFM | Latest TRT | Bridge gain | Remaining gap |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `3B / 2048x32` | `1125.25 ms` | `986.44 ms` | `927.69 ms` | `+138.81 ms` | `+58.75 ms` |
+| `3B / 2048x64` | `1778.55 ms` | `1638.02 ms` | `1584.36 ms` | `+140.53 ms` | `+53.65 ms` |
+| `3B / 1024x32` | `858.97 ms` | `810.40 ms` | `764.35 ms` | `+48.57 ms` | `+46.05 ms` |
+| `3B / 1024x64` | `1493.97 ms` | `1446.06 ms` | `1405.06 ms` | `+47.91 ms` | `+41.00 ms` |
+| `1.5B / 2048x32` | `566.06 ms` | `501.22 ms` | `474.23 ms` | `+64.84 ms` | `+26.99 ms` |
+| `0.5B / 512x32` | `132.39 ms` | `130.57 ms` | `134.66 ms` | `+1.82 ms` | `-4.09 ms` |
+
+The full experimental matrix improved all 18 cases versus native EdgeFM. It
+beats the latest official TRT baseline in `2/18` mean cases and `2/18` median
+cases, both `0.5B / 512`. This is still not a same-run TRT comparison.
+
+Residual `3B / 2048x1` bridge profile:
+
+- bridge prefill kernel total: `350.41 ms`
+- TRT prefill kernel total: `285.46 ms`
+- bridge MLP core without casts: GateUp `134.11 ms`, SwiGLU `14.47 ms`,
+  DownProj `68.33 ms`, total `216.92 ms`
+- TRT inferred MLP core: GateUp `136.50 ms`, SwiGLU `14.53 ms`,
+  DownProj `71.36 ms`, total `222.39 ms`
+- bridge-specific casts: BF16 weight casts `29.86 ms`,
+  activation/output casts `3.77 ms`
+- remaining non-MLP deltas versus TRT: QKV `+16.08 ms`, OProj `+10.04 ms`,
+  prefill attention `+10.40 ms`
+
+This means the bridge has already matched TRT's MLP GEMM/activation core for
+the 3B long-prefill case. The next high-value experiment is not another GEMM
+tile search; it is a review-gated memory/performance check for persistent FP16
+MLP weight copies that could remove the runtime BF16 weight-cast cost. That
+must remain optional until the 3B 12GB memory plan is proven.
+
+FP16 runtime-weight input follow-up, `2026-05-11 12:03 +0800`:
+
+- BF16 EdgeFM-layout runtime weights cast inside TensorRT: `7.02 ms/layer`
+- GateUp weight bound as FP16, DownProj still BF16: `6.60 ms/layer`
+- DownProj weight bound as FP16, GateUp still BF16: `6.90 ms/layer`
+- GateUp and DownProj both bound as FP16: `6.25 ms/layer`
+- pure FP16 runtime weights in the older probe layout: `6.06 ms/layer`
+
+The `both` nsys probe shows two `sm80_xmma_gemm_f16f16_*` kernels plus the
+activation/input/output cast kernels. The large BF16 weight-cast kernels seen
+in the bridge residual trace are absent from the timed region. This validates
+the direction but also sharpens the memory tradeoff: copying both GateUp and
+DownProj MLP weights for 3B costs about `4.57 GiB` and previous warmed memory
+simulation left only about `123 MiB` free after one generate. GateUp-only costs
+about `3.02 GiB`, captured most of the single-layer gain, and previously left
+about `1.7 GiB` warmed free headroom. That makes GateUp-only the first
+implementation candidate; both-weights copy remains review-gated.
+
+GateUp-FP16 bridge implementation slice, `2026-05-11 12:36 +0800`:
+
+- compile/runtime gates remain unchanged: `BUILD_TRT_MLP_BRIDGE=ON`,
+  `EDGE_FM_PREFILL_TRT_MLP=1`, and explicit
+  `EDGE_FM_TRT_MLP_FP16_WEIGHTS=gateup`
+- no kernel was written from scratch; the persistent BF16->FP16 GateUp copies
+  are created by a small TensorRT cast subengine
+- actual bridge logs for `3B / m=2048` show the `fp16weights-gateup` engine
+  loaded, one cast engine built for `r22016_c2048`, and `36` persistent GateUp
+  copies of `90,177,536` bytes each
+- correctness: `3B / 2048x32` CUDA graph matched
+  `transformers.generate(do_sample=False, eos_token_id=None)` for all `32`
+  generated tokens
+- warmed performance: `3B / 2048x32` EdgeFM mean `964.20 ms`, median
+  `964.34 ms`, prefill avg `334.83 ms`, decode avg `629.12 ms`
+- comparison: `-22.24 ms` versus the BF16-weight bridge and `-161.06 ms`
+  versus native EdgeFM, but still `+36.51 ms` slower than the latest TRT
+  baseline `927.69 ms`
+- implementation cleanup: Qwen's operator cache reset now also clears bridge
+  runtime/cast/persistent-copy caches, and the build-path helper preserves
+  explicit `EDGE_FM_BUILD_DIR` priority so bridge gates cannot silently import
+  the default build
+
+Artifacts:
+
+- target performance:
+  `.tmp_codex/bench/3060_20260511_gateup_fp16_weight_3b_2048x32_runs3_clean.json`
+- correctness:
+  `.tmp_codex/bench/3060_20260511_gateup_fp16_weight_3b_2048x32_transformers_compare_clean.json`
+- post-cleanup smoke:
+  `.tmp_codex/bench/3060_20260511_gateup_fp16_weight_3b_2048x32_post_cache_reset_smoke_clean.json`
+
+Conclusion: GateUp-FP16 is a real incremental win and should remain the next
+bridge sub-candidate, but it is not enough to reach TRT and is not ready for
+default-on. The immediate next step is engine generation and regression slices
+for the remaining official/high-value shapes; after that, residual profiling
+should focus on DownProj cast, QKV, OProj, and attention rather than another
+small GEMM tile search.
+
+GateUp-FP16 full official-shape matrix, `2026-05-11 12:54 +0800`:
+
+All official MLP shapes now have GateUp-FP16 TensorRT engines:
+`0.5B/1.5B/3B x m=512/1024/2048`. The 18-case EdgeFM-only CUDA graph matrix
+completed without missing-engine fallback. TRT numbers below reuse the latest
+official baseline because the Python 3.13 bridge build and Python 3.10
+`edge_fm_trt` binding are still ABI-split.
+
+Summary:
+
+- `18/18` cases improved versus the BF16 bridge
+- total mean improvement versus BF16 bridge: `191.57 ms`
+- mean per-case improvement versus BF16 bridge: `10.64 ms`
+- `3/18` mean cases and `3/18` median cases reach or beat the latest TRT
+  baseline
+- BF16 bridge had `2/18`, so GateUp-FP16 is better but still far from the final
+  18-case target
+
+Top remaining gaps:
+
+| Case | GateUp-FP16 EdgeFM | Latest TRT | Gap | Gain vs BF16 bridge | Prefill avg |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `3b 2048x32` | `970.55 ms` | `927.69 ms` | `+42.86 ms` | `+15.89 ms` | `339.82 ms` |
+| `3b 2048x64` | `1621.74 ms` | `1584.36 ms` | `+37.37 ms` | `+16.28 ms` | `340.18 ms` |
+| `3b 1024x32` | `787.77 ms` | `764.35 ms` | `+23.43 ms` | `+22.63 ms` | `172.62 ms` |
+| `0.5b 2048x64` | `311.50 ms` | `293.41 ms` | `+18.09 ms` | `+2.64 ms` | `54.02 ms` |
+| `3b 1024x64` | `1422.92 ms` | `1405.06 ms` | `+17.86 ms` | `+23.14 ms` | `173.11 ms` |
+| `1.5b 2048x64` | `829.03 ms` | `811.69 ms` | `+17.34 ms` | `+9.30 ms` | `165.18 ms` |
+| `1.5b 2048x32` | `491.52 ms` | `474.23 ms` | `+17.29 ms` | `+9.70 ms` | `164.88 ms` |
+| `1.5b 1024x64` | `726.91 ms` | `713.25 ms` | `+13.65 ms` | `+9.13 ms` | `83.08 ms` |
+
+Artifacts:
+
+- full matrix:
+  `.tmp_codex/bench/3060_20260511_gateup_fp16_weight_full_llm_matrix_runs3_clean.json`
+- summary:
+  `.tmp_codex/bench/3060_20260511_gateup_fp16_weight_full_llm_matrix_runs3_summary.json`
+- engine probe raws:
+  `.tmp_codex/bench/20260511_trt_mlp_0p5b_m512_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_0p5b_m1024_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_0p5b_m2048_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_1p5b_m512_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_1p5b_m1024_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_1p5b_m2048_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_3b_m512_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_3b_m1024_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_3b_m2048_edgefm_layout_fp16weights_gateup_verify.json`
+
+Conclusion: keep GateUp-FP16 as the best current default-off bridge candidate.
+The next useful work is a fresh residual profile under this mode. Another
+small GEMM tile search is unlikely to close the remaining `3B / 2048` gap; the
+remaining candidates are DownProj weight-cast removal, QKV/OProj, and prefill
+attention.
+
+GateUp-FP16 residual profile, `2026-05-11 13:18 +0800`:
+
+The follow-up `3B / 2048x1` graph-off profile confirms that GateUp-FP16 changes
+the shape of the problem:
+
+- stage kernel total: EdgeFM bridge `336.08 ms`, TRT reference `285.46 ms`,
+  delta `+50.62 ms`
+- MLP core without casts: EdgeFM bridge `222.54 ms`, TRT reference
+  `222.39 ms`, delta `+0.14 ms`
+- GateUp XMMA delta: `+0.11 ms`
+- DownProj XMMA delta: `+0.03 ms`
+- SwiGLU delta: `-0.001 ms`
+- remaining bridge casts: `11.88 ms`, dominated by DownProj BF16->FP16 weight
+  cast `9.93 ms`
+- non-MLP deltas versus TRT: QKV `+16.39 ms`, OProj `+10.54 ms`, prefill
+  attention `+11.29 ms`, norm `+0.31 ms`
+
+This rules out another small MLP GEMM tile search as the next high-value path.
+DownProj-FP16 is still worth one bounded target-slice test because it may remove
+about `10 ms`, but it cannot close the full `3B / 2048x32` gap by itself. The
+next major review-gated candidates are QKV/OProj TensorRT-style subpaths or an
+attention-plugin/FlashInfer prefill route backed by a fresh profile.
+
+GateUp+DownProj-FP16 target slice, `2026-05-11 13:24 +0800`:
+
+The bounded DownProj follow-up used `EDGE_FM_TRT_MLP_FP16_WEIGHTS=both`, which
+keeps GateUp in persistent FP16 and additionally binds persistent FP16 DownProj
+weights. The single `3B / 2048x32` target slice did not OOM and did not fall
+back to native MLP:
+
+- loaded `fp16weights-both_m2048_h2048_i11008.engine`
+- created `36` GateUp FP16 copies of `90,177,536` bytes each
+- created `36` DownProj FP16 copies of `45,088,768` bytes each
+- correctness passed versus `transformers.generate(do_sample=False,
+  eos_token_id=None)` for all `32` generated tokens
+- EdgeFM mean `952.10 ms`, median `952.18 ms`, prefill avg `322.12 ms`
+- improvement versus GateUp-FP16 `3B / 2048x32`: `18.45 ms` mean,
+  `17.70 ms` prefill
+- remaining gap versus latest TRT baseline: `+24.41 ms`
+
+This is a real improvement, but it is still not a default-on decision. It uses
+the highest-memory MLP mode and has only one official target slice plus
+correctness coverage. The memory probe confirms the risk: after engine init the
+process still had `5,343.6 MiB` free, but after first generate created all
+persistent FP16 MLP copies and CUDA graph state it had only `161.6 MiB` free;
+the same low headroom remained after timed runs. Therefore `both` is
+performance-valid but memory-unsafe for 3B expansion/default-on in the current
+policy. Keep GateUp-FP16 as the safer bridge candidate and move
+attention/QKV/OProj ahead unless a selective/lazy/evictable FP16-weight memory
+design is reviewed.
+
+Artifacts:
+
+- target slice:
+  `.tmp_codex/bench/3060_20260511_both_fp16_weight_3b_2048x32_runs3_clean.json`
+- summary:
+  `.tmp_codex/bench/3060_20260511_both_fp16_weight_3b_2048x32_summary.json`
+- correctness:
+  `.tmp_codex/bench/3060_20260511_both_fp16_weight_3b_2048x32_transformers_compare_clean.json`
+- memory:
+  `.tmp_codex/bench/3060_20260511_both_fp16_weight_3b_2048x32_memory_probe_clean.json`
+
+#### QKV / OProj TensorRT Linear Probe
+
+Ran on `2026-05-11 13:35 +0800`.
+
+After GateUp-FP16, the residual profile shows QKV `+16.39 ms` and OProj
+`+10.54 ms` versus TRT on `3B / m=2048`. A temporary TensorRT linear subengine
+therefore tested the same kind of runtime-weight, EdgeFM-layout bridge for
+attention projections:
+
+- input/output: BF16
+- compute: FP16
+- runtime weight layout: EdgeFM resident `[out_features, in_features]`
+- shapes: QKV `[M=2048, K=2048, N=2560]`, OProj
+  `[M=2048, K=2048, N=2048]`
+- weights: synthetic; this is tactic feasibility, not correctness against
+  checkpoint output
+
+Results, estimated across 36 layers:
+
+| Path | QKV | OProj | Combined |
+| --- | ---: | ---: | ---: |
+| current EdgeFM profile | `33.35 ms` | `24.60 ms` | `57.95 ms` |
+| TRT reference profile | `16.96 ms` | `14.06 ms` | `31.01 ms` |
+| TensorRT BF16 weight inputs | `21.34 ms` | `18.03 ms` | `39.37 ms` |
+| TensorRT FP16 weight inputs | `19.06 ms` | `16.18 ms` | `35.24 ms` |
+
+The inspector reports `sm80_xmma_gemm_f16f16_*` plus Myelin cast/FcCast
+tactics. The FP16-weight-input estimate is still `4.23 ms` slower than the TRT
+reference, but it is `22.71 ms` faster than current EdgeFM QKV+OProj. That is
+large enough to be the next serious candidate, especially because `both` MLP
+mode leaves a `+24.41 ms` end-to-end gap but is memory-unsafe for 3B default-on.
+
+This should not be implemented as an ad hoc code change. It needs a separate
+review covering:
+
+- whether to bridge QKV only, OProj only, or both
+- how to handle Q/K/V split, RoPE/KV copy, and attention input layout without
+  adding back the saved time as memory copies
+- whether FP16 persistent projection weights fit in 3B when combined with the
+  safer GateUp-FP16 mode
+- how to keep native cublasLt fallback and CUDA graph behavior intact
+
+Artifacts:
+
+- summary:
+  `.tmp_codex/bench/20260511_trt_linear_qkv_oproj_3b_m2048_summary.json`
+- QKV BF16/FP16 weight probes:
+  `.tmp_codex/bench/20260511_trt_linear_qkv_3b_m2048_bf16weight_verify.json`,
+  `.tmp_codex/bench/20260511_trt_linear_qkv_3b_m2048_fp16weight_verify.json`
+- OProj BF16/FP16 weight probes:
+  `.tmp_codex/bench/20260511_trt_linear_oproj_3b_m2048_bf16weight_verify.json`,
+  `.tmp_codex/bench/20260511_trt_linear_oproj_3b_m2048_fp16weight_verify.json`
+
+Artifacts:
+
+- raw:
+  `.tmp_codex/nsys/3060_3b_2048x1_gateup_fp16_bridge_mapping.nsys-rep`
+- triage:
+  `.tmp_codex/nsys/3060_3b_2048x1_gateup_fp16_bridge_mapping_triage.md`
+- structured summary:
+  `.tmp_codex/nsys/3060_3b_2048x1_gateup_fp16_bridge_residual_summary.json`
+
+Artifacts:
+
+- clean 18-case EdgeFM-only bridge matrix:
+  `.tmp_codex/bench/3060_20260511_1230_full_llm_matrix_trt_mlp_bridge_edgefm_only_clean.json`
+- 18-case summary:
+  `.tmp_codex/bench/3060_20260511_1230_full_llm_matrix_trt_mlp_bridge_edgefm_only_summary.json`
+- residual profile summary:
+  `.tmp_codex/nsys/3060_3b_2048x1_trt_mlp_bridge_residual_summary.json`
+- residual profile triage:
+  `.tmp_codex/nsys/3060_3b_2048x1_trt_mlp_bridge_mapping_triage.md`
+- FP16 weight-input probes:
+  `.tmp_codex/bench/20260511_trt_mlp_3b_m2048_edgefm_layout_fp16weights_both_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_3b_m2048_edgefm_layout_fp16weights_gateup_verify.json`,
+  `.tmp_codex/bench/20260511_trt_mlp_3b_m2048_edgefm_layout_fp16weights_down_verify.json`
+- FP16 weight-input nsys:
+  `.tmp_codex/nsys/trt_mlp_3b_m2048_fp16weights_both_probe.nsys-rep`
+- summary:
+  `.tmp_codex/bench/3060_20260511_1125_trt_mlp_bridge_slice_summary_after_prefill_graph_fix.json`
+- target slice:
+  `.tmp_codex/bench/3060_20260511_1118_3b_2048x32_trt_mlp_bridge_edgefm_only_after_prefill_graph_fix.json`
+- 3B regression:
+  `.tmp_codex/bench/3060_20260511_1120_3b_512_1024x32_trt_mlp_bridge_regression_after_prefill_graph_fix.json`
+- 0.5B/1.5B regression:
+  `.tmp_codex/bench/3060_20260511_1122_0p5_1p5_2048x32_trt_mlp_bridge_regression_after_prefill_graph_fix.json`
+
+Conclusion: the bridge is a valid, high-impact experimental direction, but it
+is not approved as default-on. It now covers all official MLP shapes and
+improves all 18 experimental EdgeFM-only cases versus native EdgeFM. The
+remaining blockers are the `3B` long-prefill residual gap, same-run in-process
+TRT numbers, and full optional-path correctness/packaging. The current Python
+3.13 bridge build and Python 3.10 `edge_fm_trt` binding are still ABI-split in
+this workspace.
+
 #### Source-Visible CUTLASS Layout Check
 
 Ran on `2026-05-10 10:58 +0800`.
@@ -341,20 +685,20 @@ isolated probe first.
 Potential benefit: use TensorRT tactics for GateUp, SwiGLU, and DownProj while
 keeping the rest of EdgeFM unchanged.
 
-Known blockers:
+Known blockers and current status:
 
-- TensorRT engines usually own and store weights, so a per-layer MLP engine
-  would duplicate MLP weights and can reintroduce 3060 12GB OOM.
-- One engine per decoder layer would add large memory, build, and lifecycle
-  complexity.
-- A single shared engine cannot simply switch among 36 different layer weights
-  without extra weight binding or refit machinery.
-- CUDA graph compatibility must be revalidated because TensorRT enqueue and
-  EdgeFM graph capture/replay are different ownership models.
+- The runtime-weight prototype avoids serialized per-layer MLP weight
+  duplication by binding EdgeFM-owned weights at enqueue time.
+- One shared engine per shape is feasible for same-shape layers; layer-specific
+  weights are rebound per layer.
+- CUDA graph capture/replay is compatible enough for the tested slices after
+  the prefill first-capture replay fix.
+- Remaining blockers: a compatible same-run TRT benchmark path, full
+  optional-path packaging/correctness, and a residual `~59 ms` gap on
+  `3B / 2048x32`.
 
-Do not implement this until a separate FP16 bridge review proves that the
-precision change is acceptable and a memory plan shows that 3B still fits on
-RTX 3060 12GB. The BF16 subengine result is not enough.
+Do not default-enable this path until those blockers are closed. The prototype
+may remain compile/runtime gated for continued measurement.
 
 ### Option C: TensorRT-backed full prefill stage bridge
 
@@ -367,9 +711,9 @@ the main gap. Treat this as a separate project if it is ever pursued.
 
 ### Recommendation
 
-Run Option A as a temporary attribution experiment only. Do not add production
-TRT-backed operators until the isolated subengine proves the expected kernel
-selection and a memory-safe production design is reviewed.
+Continue Option B only as a gated prototype. Do not add a public `myelin` or
+`xmma` operator id, and do not make TensorRT engines part of the default runtime
+until the full correctness and 18-case performance gates are met.
 
 The first design target should be prefill MLP only:
 

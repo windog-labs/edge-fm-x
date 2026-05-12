@@ -752,6 +752,7 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
         stream,
         ModelStage::Prefill);
     runner.end_capture(stream);
+    runner.launch(stream);
     return true;
 }
 

@@ -225,6 +225,7 @@ endif()
 # ============================================================================
 option(BUILD_PYTHON "Build Python bindings" ON)
 option(BUILD_TRT_EDGELLM_PYBIND "Build Python bindings for TRT-Edge-LLM runtime (in-process benchmark)" OFF)
+option(BUILD_TRT_MLP_BRIDGE "Build experimental TensorRT-backed Qwen2.5 prefill MLP bridge" OFF)
 option(ENABLE_HORIZON_RUNTIME "Build Horizon HBM runtime backend when Horizon SDK is available" OFF)
 set(HORIZON_DEPS_ROOT "" CACHE PATH "Horizon SDK/deps root; expected to contain ucp/include")
 set(HORIZON_INCLUDE_DIR "" CACHE PATH "Explicit Horizon runtime include directory override")
@@ -501,6 +502,12 @@ else()
     message(STATUS "TRT-Edge-LLM Python bindings: DISABLED")
 endif()
 
+if(BUILD_TRT_MLP_BRIDGE)
+    message(STATUS "TensorRT MLP bridge: ENABLED")
+else()
+    message(STATUS "TensorRT MLP bridge: DISABLED")
+endif()
+
 # ============================================================================
 # TensorRT-Edge-LLM (optional, for edge_fm_trt Python module)
 # 使用预构建的 TRT-Edge-LLM：需先运行 bash tests/scripts/setup_trt_edgellm_benchmark.sh
@@ -548,6 +555,31 @@ if(BUILD_TRT_EDGELLM_PYBIND)
         message(WARNING "TensorRT-Edge-LLM not built. Run: bash tests/scripts/setup_trt_edgellm_benchmark.sh")
         set(BUILD_TRT_EDGELLM_PYBIND OFF)
     endif()
+endif()
+
+if(BUILD_TRT_MLP_BRIDGE)
+    if(NOT TRT_INCLUDE_DIR OR NOT TRT_NVINFER_LIBRARY)
+        message(FATAL_ERROR
+            "BUILD_TRT_MLP_BRIDGE=ON requires TensorRT headers/libraries. "
+            "Set TRT_PACKAGE_DIR (default: ${EDGE_FM_DEFAULT_TRT_PACKAGE_DIR}) "
+            "or install TensorRT system-wide.")
+    endif()
+    if(NOT TRT_VERSION_STRING)
+        message(FATAL_ERROR
+            "Failed to determine TensorRT version from ${TRT_INCLUDE_DIR}. "
+            "BUILD_TRT_MLP_BRIDGE requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}.")
+    endif()
+    if(TRT_VERSION_MAJOR LESS EDGE_FM_TRT_MIN_VERSION_MAJOR
+       OR (TRT_VERSION_MAJOR EQUAL EDGE_FM_TRT_MIN_VERSION_MAJOR
+           AND TRT_VERSION_MINOR LESS EDGE_FM_TRT_MIN_VERSION_MINOR))
+        message(FATAL_ERROR
+            "TensorRT ${TRT_VERSION_STRING} found in ${TRT_INCLUDE_DIR}, "
+            "but BUILD_TRT_MLP_BRIDGE requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}. "
+            "Set TRT_PACKAGE_DIR to a newer TensorRT installation.")
+    endif()
+    message(STATUS "TensorRT MLP bridge include: ${TRT_INCLUDE_DIR}")
+    message(STATUS "TensorRT MLP bridge library: ${TRT_NVINFER_LIBRARY}")
+    add_compile_definitions(EDGE_FM_ENABLE_TRT_MLP_BRIDGE=1)
 endif()
 
 # ============================================================================

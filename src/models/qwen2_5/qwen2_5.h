@@ -5,6 +5,8 @@
 #include "layers/attention.h"
 #include "layers/linear.h"
 #include "layers/activation.h"
+#include "models/qwen2_5/trt_mlp_bridge.h"
+#include "models/qwen2_5/trt_linear_bridge.h"
 #include <cuda_runtime.h>
 #include <unordered_map>
 
@@ -66,6 +68,8 @@ private:
     std::unordered_map<std::string, std::unique_ptr<LinearLayer>> linear_;
     std::unique_ptr<LMHeadLinearLayer> lm_head_;  // LM head (tied weights with embedding)
     std::unique_ptr<ActivationLayer> activation_layer_;
+    std::unique_ptr<TrtPrefillMlpBridge> trt_prefill_mlp_bridge_;
+    std::unique_ptr<TrtPrefillLinearBridge> trt_prefill_linear_bridge_;
     std::unordered_map<std::string, Tensor> prefill_weights_;
     std::unordered_map<std::string, Tensor> decode_weights_;
 

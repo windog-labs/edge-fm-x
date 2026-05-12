@@ -925,6 +925,15 @@ PYBIND11_MODULE(edge_fm, m) {
             "参数:\n"
             "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n"
             "    m: Prefill 阶段对应 batch/seq 维度；Decode 阶段通常固定为 1\n")
+        .def("debug_weight_tensor_info", [](LinearLayer& self,
+                                             const std::string& stage_str = "Prefill") {
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                return self.debug_weight_tensor_info(stage).dump();
+            },
+            py::arg("stage") = "Prefill",
+            "返回当前 layer 常驻权重的只读调试信息（JSON 字符串）。\n\n"
+            "参数:\n"
+            "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n")
         .def("debug_enumerate_cublaslt_candidates", [](LinearLayer& self,
                                                        const Tensor& input,
                                                        Tensor& output,

@@ -87,6 +87,8 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
             "Layer_" + std::to_string(i) + "_DownProj");
     }
     activation_layer_ = std::make_unique<ActivationLayer>(config, "Activation");
+    trt_prefill_mlp_bridge_ = std::make_unique<TrtPrefillMlpBridge>(config);
+    trt_prefill_linear_bridge_ = std::make_unique<TrtPrefillLinearBridge>(config);
     lm_head_ = std::make_unique<LMHeadLinearLayer>(
         "lm_head",
         config,
@@ -194,6 +196,12 @@ void Qwen2_5::reset_operator_impl_caches() {
     for (auto& [key, layer] : layernorms_) {
         (void)key;
         layer->reset_operator_impl_cache();
+    }
+    if (trt_prefill_mlp_bridge_ != nullptr) {
+        trt_prefill_mlp_bridge_->reset_runtime_caches();
+    }
+    if (trt_prefill_linear_bridge_ != nullptr) {
+        trt_prefill_linear_bridge_->reset_runtime_caches();
     }
 }
 
@@ -345,7 +353,19 @@ void Qwen2_5::forward_prefill(
         int32_t device_id = std::get<1>(hidden_input.device());
         // FusedQKV: 一次 matmul 输出 [seq_len, q_dim+k_dim+v_dim]，再按 stride 拷贝到 q/k/v buffer 供 attention
         Tensor qkv_output = Tensor::view(qkv_buf, {seq_len, qkv_total}, dtype_, Device::GPU, device_id);
-        linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_output, stream, ModelStage::Prefill);
+        bool qkv_done = false;
+        if (trt_prefill_linear_bridge_ != nullptr) {
+            const std::string qkv_key = layer_prefix + ".attn.qkv_fused";
+            const Tensor* qkv_weight = linear_[qkv_key]->weight_tensor(ModelStage::Prefill);
+            const Tensor* qkv_bias = linear_[qkv_key]->bias_tensor(ModelStage::Prefill);
+            if (qkv_weight != nullptr) {
+                qkv_done = trt_prefill_linear_bridge_->try_forward(
+                    "qkv", i, norm_output, *qkv_weight, qkv_bias, qkv_output, stream);
+            }
+        }
+        if (!qkv_done) {
+            linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_output, stream, ModelStage::Prefill);
+        }
         size_t qkv_row_bytes = static_cast<size_t>(qkv_total) * dtype_size;
         size_t q_row_bytes = static_cast<size_t>(q_dim) * dtype_size;
         size_t k_row_bytes = static_cast<size_t>(k_dim) * dtype_size;
@@ -376,7 +396,19 @@ void Qwen2_5::forward_prefill(
 
         Tensor o_proj_in = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         Tensor o_proj_out = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-        linear_[layer_prefix + ".attn.o_proj"]->forward_fp16_bf16(o_proj_in, o_proj_out, stream, ModelStage::Prefill);
+        bool o_proj_done = false;
+        if (trt_prefill_linear_bridge_ != nullptr) {
+            const std::string o_key = layer_prefix + ".attn.o_proj";
+            const Tensor* o_weight = linear_[o_key]->weight_tensor(ModelStage::Prefill);
+            const Tensor* o_bias = linear_[o_key]->bias_tensor(ModelStage::Prefill);
+            if (o_weight != nullptr) {
+                o_proj_done = trt_prefill_linear_bridge_->try_forward(
+                    "oproj", i, o_proj_in, *o_weight, o_bias, o_proj_out, stream);
+            }
+        }
+        if (!o_proj_done) {
+            linear_[layer_prefix + ".attn.o_proj"]->forward_fp16_bf16(o_proj_in, o_proj_out, stream, ModelStage::Prefill);
+        }
 
         CUDA_CHECK_THROW(cudaMemcpyAsync(post_attn_norm_output.data_ptr(), attn_output.data_ptr(),
                                           seq_len * hidden_size_ * dtype_size,
@@ -509,7 +541,19 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         uint32_t q_attn_stride_h = static_cast<uint32_t>(head_dim_);
 
         Tensor qkv_out = Tensor::view(qkv_buf, {seq_len, qkv_total}, dtype_, Device::GPU, device_id);
-        linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_out, stream, stage);
+        bool qkv_done = false;
+        if (stage == ModelStage::Prefill && trt_prefill_linear_bridge_ != nullptr) {
+            const std::string qkv_key = layer_prefix + ".attn.qkv_fused";
+            const Tensor* qkv_weight = linear_[qkv_key]->weight_tensor(ModelStage::Prefill);
+            const Tensor* qkv_bias = linear_[qkv_key]->bias_tensor(ModelStage::Prefill);
+            if (qkv_weight != nullptr) {
+                qkv_done = trt_prefill_linear_bridge_->try_forward(
+                    "qkv", layer_id, norm_output, *qkv_weight, qkv_bias, qkv_out, stream);
+            }
+        }
+        if (!qkv_done) {
+            linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_out, stream, stage);
+        }
         Tensor& k_write = tensors[ModelTensors::k_write_layer(layer_id)];
         Tensor& v_write = tensors[ModelTensors::v_write_layer(layer_id)];
         Tensor& k_cache = tensors[ModelTensors::k_cache_layer(layer_id)];
@@ -650,7 +694,18 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         std::string o_key = layer_prefix + ".attn.o_proj";
         Tensor o_proj_input = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         Tensor o_proj_output = Tensor::view(hidden_states_tensor.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-        linear_[o_key]->forward_fp16_bf16(o_proj_input, o_proj_output, stream, stage);
+        bool o_proj_done = false;
+        if (stage == ModelStage::Prefill && trt_prefill_linear_bridge_ != nullptr) {
+            const Tensor* o_weight = linear_[o_key]->weight_tensor(ModelStage::Prefill);
+            const Tensor* o_bias = linear_[o_key]->bias_tensor(ModelStage::Prefill);
+            if (o_weight != nullptr) {
+                o_proj_done = trt_prefill_linear_bridge_->try_forward(
+                    "oproj", layer_id, o_proj_input, *o_weight, o_bias, o_proj_output, stream);
+            }
+        }
+        if (!o_proj_done) {
+            linear_[o_key]->forward_fp16_bf16(o_proj_input, o_proj_output, stream, stage);
+        }
         
         // Post-attention LayerNorm with fused add+rmsnorm (HIDDEN_STATES already has o_proj output)
         tensors[ModelTensors::HIDDEN_STATES_RESHAPE] = Tensor::view(hidden_states_tensor.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
@@ -658,12 +713,33 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         layernorms_[post_norm_key]->forward_fused_add_rmsnorm(
             hidden_2d, post_norm_output, stream, stage);
         
-        // MLP 1: Fused gate+up projection
+        // MLP
         std::string gate_up_key = layer_prefix + ".mlp.gate_up_fused";
         std::string down_key = layer_prefix + ".mlp.down_proj";
         Tensor& mlp_activation_input = tensors[ModelTensors::MLP_ACTIVATION_INPUT];
         Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
         Tensor& mlp_intermediate = tensors[ModelTensors::MLP_INTERMEDIATE];
+        Tensor mlp_output_2d = (layer_id < num_layers_ - 1)
+            ? Tensor::view(norm_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id)
+            : Tensor::view(hidden_2d.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
+        bool mlp_done = false;
+        if (stage == ModelStage::Prefill && trt_prefill_mlp_bridge_ != nullptr) {
+            const Tensor* gate_up_weight = linear_[gate_up_key]->weight_tensor(ModelStage::Prefill);
+            const Tensor* down_weight = linear_[down_key]->weight_tensor(ModelStage::Prefill);
+            if (gate_up_weight != nullptr && down_weight != nullptr) {
+                mlp_done = trt_prefill_mlp_bridge_->try_forward(
+                    layer_id,
+                    hidden_2d,
+                    *gate_up_weight,
+                    *down_weight,
+                    mlp_output_2d,
+                    stream);
+            }
+        }
+        if (mlp_done) {
+            continue;
+        }
+
         bool swiglu_fused = false;
         if (auto* fused_gate_up = dynamic_cast<FusedGateUpLinearLayer*>(linear_[gate_up_key].get());
             fused_gate_up != nullptr) {
@@ -681,12 +757,7 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
                 mlp_activation_input, mlp_intermediate, stream, stage);
         }
         // MLP 3: Down projection — write to NORM_OUTPUT (for next layer) or HIDDEN_STATES (last layer, for final_norm)
-        if (layer_id < num_layers_ - 1) {
-            Tensor norm_output_2d = Tensor::view(norm_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-            linear_[down_key]->forward_fp16_bf16(mlp_intermediate, norm_output_2d, stream, stage);
-        } else {
-            linear_[down_key]->forward_fp16_bf16(mlp_intermediate, hidden_2d, stream, stage);
-        }
+        linear_[down_key]->forward_fp16_bf16(mlp_intermediate, mlp_output_2d, stream, stage);
     }
 
     // 3. Final norm: hidden_states, _ = self.norm(hidden_states, residual)

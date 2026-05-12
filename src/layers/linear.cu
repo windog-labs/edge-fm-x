@@ -58,6 +58,40 @@ std::string stage_key(ModelStage stage) {
     return stage == ModelStage::Decode ? "decode" : "prefill";
 }
 
+const char* dtype_name(DType dtype) {
+    switch (dtype) {
+        case DType::Float32:
+            return "float32";
+        case DType::Float16:
+            return "float16";
+        case DType::BFloat16:
+            return "bfloat16";
+        case DType::Int32:
+            return "int32";
+        case DType::Int64:
+            return "int64";
+        case DType::UInt8:
+            return "uint8";
+        case DType::Int8:
+            return "int8";
+        default:
+            return "unknown";
+    }
+}
+
+std::string resident_weight_layout_for_role(const std::string& layer_role) {
+    if (layer_role == "fused_gate_up") {
+        return "edgefm_fused_gate_up_up_gate_out_in";
+    }
+    if (layer_role == "mlp_down") {
+        return "edgefm_linear_out_in";
+    }
+    if (layer_role == "fused_qkv") {
+        return "edgefm_fused_qkv_out_in";
+    }
+    return "edgefm_linear_out_in";
+}
+
 std::string model_name_for_operator_resolution(const EngineConfig& engine_config) {
     try {
         return engine_config.resolved_model_name();
@@ -453,6 +487,46 @@ void LinearLayer::reset_operator_impl_cache() {
     }
     prefill_descriptors_map_.clear();
     cleanup_cached_descriptors(decode_descriptors_);
+}
+
+const Tensor* LinearLayer::weight_tensor(ModelStage stage) const
+{
+    const WeightSet& weight_set = (stage == ModelStage::Prefill) ? prefill_weights_ : decode_weights_;
+    if (weight_set.quant_type_ != QuantType::FP16_BF16) {
+        return nullptr;
+    }
+    return weight_set.weight_;
+}
+
+const Tensor* LinearLayer::bias_tensor(ModelStage stage) const
+{
+    const WeightSet& weight_set = (stage == ModelStage::Prefill) ? prefill_weights_ : decode_weights_;
+    if (weight_set.quant_type_ != QuantType::FP16_BF16) {
+        return nullptr;
+    }
+    return weight_set.bias_;
+}
+
+nlohmann::json LinearLayer::debug_weight_tensor_info(ModelStage stage) const
+{
+    const Tensor* weight = weight_tensor(stage);
+    nlohmann::json info = {
+        {"layer_prefix", layer_prefix_},
+        {"layer_role", layer_role_},
+        {"stage", stage_key(stage)},
+        {"has_weight", weight != nullptr},
+        {"layout", resident_weight_layout_for_role(layer_role_)},
+    };
+    if (weight == nullptr) {
+        return info;
+    }
+    const auto [device, device_id] = weight->device();
+    info["shape"] = weight->shape();
+    info["dtype"] = static_cast<int>(weight->dtype());
+    info["dtype_name"] = dtype_name(weight->dtype());
+    info["device"] = (device == Device::GPU) ? "gpu" : "cpu";
+    info["device_id"] = device_id;
+    return info;
 }
 
 void LinearLayer::cleanup_cached_descriptors(CachedDescriptors& cached)

@@ -427,6 +427,25 @@ def engine_and_dump_cuda_graph(dump_data):
     return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
 
 
+@pytest.fixture(scope="module")
+def engine_and_dump_prefill_cuda_graph(dump_data):
+    """Create a CUDA graph engine without a warmed prefix.
+
+    This exercises the first request's prefill graph capture path. It must
+    produce the same prefill sample token as the regular path before decode
+    graph replay begins.
+    """
+    manifest = dump_data["manifest"]
+    model_path = dump_data["model_path"]
+    num_steps = manifest["num_decode_steps"]
+    seq_len = int(dump_data["token_ids"].size)
+    engine_config_path = _create_engine_config(
+        model_path, seq_len, num_steps, use_cuda_graph=True
+    )
+    engine = edge_fm.EdgeFM(engine_config_path)
+    return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
+
+
 # ---------------------------------------------------------------------------
 # VL（含图）dump 与 fixture
 # ---------------------------------------------------------------------------
@@ -891,6 +910,24 @@ def test_generate_token_alignment_cuda_graph(engine_and_dump_cuda_graph):
         pytest.fail(
             f"CUDA graph token 不对齐：{len(mismatches)}/{num_steps} 步不一致\n{detail}"
         )
+
+
+def test_generate_token_alignment_prefill_cuda_graph_first_request(engine_and_dump_prefill_cuda_graph):
+    """首次请求触发 prefill graph capture 时，prefill sample token 也必须有效。"""
+    import torch
+
+    engine = engine_and_dump_prefill_cuda_graph["engine"]
+    token_ids = engine_and_dump_prefill_cuda_graph["token_ids"]
+    decode_tokens = engine_and_dump_prefill_cuda_graph["decode_tokens"]
+
+    request = edge_fm.Request(0, token_ids.flatten().tolist())
+    response = engine.generate(request)
+    got_tokens = response.token_ids()
+
+    torch.cuda.synchronize()
+
+    assert got_tokens, "CUDA graph first request returned no tokens"
+    assert got_tokens[0] == int(decode_tokens[0])
 
 
 # ---------------------------------------------------------------------------
