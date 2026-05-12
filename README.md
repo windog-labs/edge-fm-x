@@ -256,6 +256,10 @@ generated_tokens = response.token_ids()
 
 3060 还新增了 `TRT bridge` 线路，用来在 Qwen2.5 的 prefill 阶段按需接管部分算子路径，目前覆盖的是 `MLP` 以及 `QKV / OProj linear` 这类可回退、默认关闭的实验入口。它不是默认推理主线，只在编译和运行时开关同时开启时生效，失败时会回退到 native EdgeFM 实现。
 
+3060 上不再把继续调 CUTLASS，或者自己再写一条 CUTLASS 风格 kernel 线路，当作主优化方向。`nsys` 结果已经比较明确地表明，`TRT-Edge-LLM` 在这个平台上大量依赖 TensorRT 编译器生成的闭源内核，比如 `Myelin`、`XMMA`、`FcCast` 一类 tactic；这些内核的性能明显优于当前仓库里可直接复用的开源算子库，而且它们不能直接以 EdgeFM 常规 operator 的方式接进来。
+
+因此，3060 上的实际加速路线改为为特定 prefill module 构建 TensorRT `subgraph / subengine`，再通过默认关闭、可回退的 `TRT bridge` 按需接入。这说明 3060 上的主要限制来自特定硬件与工具链下闭源内核的可达性差异，而不是 EdgeFM 整体设计本身有问题。
+
 当前的 bridge 收紧到了下面这个范围：
 
 - `BUILD_TRT_MLP_BRIDGE=ON` 仍然是编译开关，但默认关闭
