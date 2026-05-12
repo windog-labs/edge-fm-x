@@ -274,6 +274,19 @@ generated_tokens = response.token_ids()
 | 最大剩余 gap | `3B / 2048x32`，EdgeFM 比 TRT 慢 `25.60 ms` |
 | 当前主瓶颈 | 仍然是长 prefill，不是 decode |
 
+当前 3060 LLM 对 `TRT-Edge-LLM` 的代表性性能差异如下：
+
+| Case | EdgeFM Total | TRT Total | Total Gap | Prefill Gap | Decode Gap | 说明 |
+|------|-------------:|----------:|----------:|------------:|-----------:|------|
+| `3B / 2048x32` | `953.29 ms` | `927.69 ms` | `+25.60 ms` | `+25.56 ms` | `+0.27 ms` | 当前最大 gap |
+| `3B / 2048x64` | `1603.74 ms` | `1584.36 ms` | `+19.38 ms` | `+19.38 ms` | `+0.00 ms` | 长 prefill 主瓶颈 |
+| `0.5B / 2048x64` | `311.43 ms` | `293.41 ms` | `+18.01 ms` | `+18.05 ms` | `-0.04 ms` | 小模型也受长 prefill 影响 |
+| `3B / 1024x32` | `777.56 ms` | `764.35 ms` | `+13.21 ms` | `+13.24 ms` | `-0.03 ms` | 中长 prefill 仍落后 |
+| `1.5B / 2048x32` | `486.14 ms` | `474.23 ms` | `+11.91 ms` | `+11.91 ms` | `+0.00 ms` | 中模型长 prefill 差距 |
+| `1.5B / 2048x64` | `823.57 ms` | `811.69 ms` | `+11.87 ms` | `+11.87 ms` | `-0.01 ms` | 中模型长 prefill 差距 |
+
+当前已经达到或快于 TRT 的 case 有 `3/18`：`0.5B / 512x32`、`0.5B / 512x64`、`3B / 512x64`。完整 18-case 明细和原始 benchmark artifact 见 [3060_tuning_log.md](doc/3060_tuning_log.md)。
+
 ## 性能测试
 
 ### 推理性能
