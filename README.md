@@ -254,6 +254,8 @@ generated_tokens = response.token_ids()
 
 3060 上的 LLM 性能对比已经收敛到一条明确的 optional bridge 线，而不是新的默认执行路径。当前主线仍然是 `EdgeFM(cuda graph)`，官方比较口径仍然只认 `EdgeFM(cuda graph)` 对 `TRT-Edge-LLM`。详细的持续跟踪记录保存在 [3060_tuning_log.md](doc/3060_tuning_log.md) 和 [3060_tuning_plan.md](doc/3060_tuning_plan.md)。
 
+3060 还新增了 `TRT bridge` 线路，用来在 Qwen2.5 的 prefill 阶段按需接管部分算子路径，目前覆盖的是 `MLP` 以及 `QKV / OProj linear` 这类可回退、默认关闭的实验入口。它不是默认推理主线，只在编译和运行时开关同时开启时生效，失败时会回退到 native EdgeFM 实现。
+
 当前的 bridge 收紧到了下面这个范围：
 
 - `BUILD_TRT_MLP_BRIDGE=ON` 仍然是编译开关，但默认关闭
