@@ -250,6 +250,28 @@ generated_tokens = response.token_ids()
 | Qwen2.5 | ✅ 已支持 | 通义千问2.5系列模型<br>支持模型文件格式转换（参考 `scripts/convert_qwen3.py`） |
 | 更多模型 | 🔄 计划支持 | 更多模型支持正在开发中... |
 
+## 3060 性能现状
+
+3060 上的 LLM 性能对比已经收敛到一条明确的 optional bridge 线，而不是新的默认执行路径。当前主线仍然是 `EdgeFM(cuda graph)`，官方比较口径仍然只认 `EdgeFM(cuda graph)` 对 `TRT-Edge-LLM`。详细的持续跟踪记录保存在 [3060_tuning_log.md](doc/3060_tuning_log.md) 和 [3060_tuning_plan.md](doc/3060_tuning_plan.md)。
+
+当前的 bridge 收紧到了下面这个范围：
+
+- `BUILD_TRT_MLP_BRIDGE=ON` 仍然是编译开关，但默认关闭
+- `EDGE_FM_PREFILL_TRT_MLP=1` 和 `EDGE_FM_PREFILL_TRT_LINEAR=1` 只是显式启用的实验开关
+- 目前可保留的低风险路径是 `GateUp-FP16 MLP bridge + bias-aware BF16 QKV/OProj linear bridge`
+- `EDGE_FM_TRT_MLP_FP16_WEIGHTS=both` 是内存受限的阻塞诊断项，不是可扩展的主路线
+- `prefill_cta_tile_q=128` 的 attention 表项在孤立 kernel 上有收益，但端到端回退，当前仍保留 `64`
+
+截至最新 18-case 3060 LLM 全矩阵，当前桥接路径的整体结果是：
+
+| 指标 | 结果 |
+|------|------|
+| 覆盖范围 | `Qwen2.5-{0.5B,1.5B,3B}` × `prefill={512,1024,2048}` × `decode={32,64}` |
+| 相对 GateUp-FP16 | `15/18` case 更快 |
+| 相对最新 TRT-Edge-LLM | `3/18` case 持平或更快 |
+| 最大剩余 gap | `3B / 2048x32`，EdgeFM 比 TRT 慢 `25.60 ms` |
+| 当前主瓶颈 | 仍然是长 prefill，不是 decode |
+
 ## 性能测试
 
 ### 推理性能
