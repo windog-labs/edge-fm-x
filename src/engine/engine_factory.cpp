@@ -60,10 +60,11 @@ void load_cuda_weights(const EngineConfig& config) {
     }
 
     const std::string decode_path = config.decode_model_path();
-    std::vector<std::string> decode_files = (decode_path.empty() || decode_path == prefill_path)
-        ? prefill_files
+    const bool share_prefill_decode_weights = decode_path.empty() || decode_path == prefill_path;
+    std::vector<std::string> decode_files = share_prefill_decode_weights
+        ? std::vector<std::string>{}
         : collect_safetensors_files(decode_path);
-    if (decode_files.empty()) {
+    if (!share_prefill_decode_weights && decode_files.empty()) {
         throw ConfigurationError("No model.safetensors or model-*-of-*.safetensors found in decode path");
     }
 
@@ -86,9 +87,11 @@ void load_cuda_weights(const EngineConfig& config) {
             loader.load_weights_from_file(
                 ModelStage::Prefill, file, Device::GPU, device_id, true, vlm_filter, vlm_key_mapper);
         }
-        for (const auto& file : decode_files) {
-            loader.load_weights_from_file(
-                ModelStage::Decode, file, Device::GPU, device_id, true, vlm_filter, vlm_key_mapper);
+        if (!share_prefill_decode_weights) {
+            for (const auto& file : decode_files) {
+                loader.load_weights_from_file(
+                    ModelStage::Decode, file, Device::GPU, device_id, true, vlm_filter, vlm_key_mapper);
+            }
         }
         return;
     }
@@ -96,8 +99,10 @@ void load_cuda_weights(const EngineConfig& config) {
     for (const auto& file : prefill_files) {
         loader.load_weights_from_file(ModelStage::Prefill, file, Device::GPU, device_id, true);
     }
-    for (const auto& file : decode_files) {
-        loader.load_weights_from_file(ModelStage::Decode, file, Device::GPU, device_id, true);
+    if (!share_prefill_decode_weights) {
+        for (const auto& file : decode_files) {
+            loader.load_weights_from_file(ModelStage::Decode, file, Device::GPU, device_id, true);
+        }
     }
 }
 

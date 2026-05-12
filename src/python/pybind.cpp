@@ -252,5 +252,7 @@ PYBIND11_MODULE(edge_fm, m) {
              "构造 EdgeFM 推理引擎")
         .def("generate", &EdgeFM::generate,
              py::arg("request"),
-             "从给定请求生成响应 token");
+             "从给定请求生成响应 token")
+        .def("last_generate_metrics", &EdgeFM::last_generate_metrics,
+             "返回最近一次 generate() 的 stage timing 指标。");
 }

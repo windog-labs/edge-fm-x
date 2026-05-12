@@ -29,6 +29,32 @@ const std::unordered_map<std::string, Tensor>& WeightLoader::get(ModelStage cach
     throw ConfigurationError("Weights not found for cache_key");
 }
 
+std::unordered_map<std::string, Tensor> WeightLoader::take_stage(ModelStage cache_key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = cache_.find(cache_key);
+    if (it == cache_.end()) {
+        throw ConfigurationError("Weights not found for cache_key");
+    }
+
+    std::unordered_map<std::string, Tensor> result = std::move(it->second);
+    cache_.erase(it);
+    stage_stfiles_.erase(cache_key);
+    return result;
+}
+
+std::unordered_map<std::string, Tensor> WeightLoader::take_stage_or_empty(ModelStage cache_key) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = cache_.find(cache_key);
+    if (it == cache_.end()) {
+        return {};
+    }
+
+    std::unordered_map<std::string, Tensor> result = std::move(it->second);
+    cache_.erase(it);
+    stage_stfiles_.erase(cache_key);
+    return result;
+}
+
 DType safetensors_dtype_to_edge_fm_dtype(safetensors::dtype dtype) {
     switch (dtype) {
         case safetensors::dtype::kFLOAT32:

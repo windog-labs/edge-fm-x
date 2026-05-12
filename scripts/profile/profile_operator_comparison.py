@@ -125,7 +125,7 @@ def _create_engine_config(model_path: str, prefill_len: int, num_steps: int) -> 
                 "attention_type": attention_type,
                 "requests": [{"request_id": 0, "prefix_token_ids": [], "max_tokens": max_tokens}],
             },
-            "sampling": {"temperature": 0.0, "seed": 42},
+            "sampling": {"max_new_tokens": num_steps, "temperature": 0.0, "seed": 42},
         }, f, indent=2)
     return str(engine_config_path)
 

@@ -250,6 +250,47 @@ generated_tokens = response.token_ids()
 | Qwen2.5 | ✅ 已支持 | 通义千问2.5系列模型<br>支持模型文件格式转换（参考 `scripts/convert_qwen3.py`） |
 | 更多模型 | 🔄 计划支持 | 更多模型支持正在开发中... |
 
+## 3060 性能现状
+
+3060 上的 LLM 性能对比已经收敛到一条明确的 optional bridge 线，而不是新的默认执行路径。当前主线仍然是 `EdgeFM(cuda graph)`，官方比较口径仍然只认 `EdgeFM(cuda graph)` 对 `TRT-Edge-LLM`。详细的持续跟踪记录保存在 [3060_tuning_log.md](doc/3060_tuning_log.md) 和 [3060_tuning_plan.md](doc/3060_tuning_plan.md)。
+
+3060 还新增了 `TRT bridge` 线路，用来在 Qwen2.5 的 prefill 阶段按需接管部分算子路径，目前覆盖的是 `MLP` 以及 `QKV / OProj linear` 这类可回退、默认关闭的实验入口。它不是默认推理主线，只在编译和运行时开关同时开启时生效，失败时会回退到 native EdgeFM 实现。
+
+3060 上不再把继续调 CUTLASS，或者自己再写一条 CUTLASS 风格 kernel 线路，当作主优化方向。`nsys` 结果已经比较明确地表明，`TRT-Edge-LLM` 在这个平台上大量依赖 TensorRT 编译器生成的闭源内核，比如 `Myelin`、`XMMA`、`FcCast` 一类 tactic；这些内核的性能明显优于当前仓库里可直接复用的开源算子库，而且它们不能直接以 EdgeFM 常规 operator 的方式接进来。
+
+因此，3060 上的实际加速路线改为为特定 prefill module 构建 TensorRT `subgraph / subengine`，再通过默认关闭、可回退的 `TRT bridge` 按需接入。这说明 3060 上的主要限制来自特定硬件与工具链下闭源内核的可达性差异，而不是 EdgeFM 整体设计本身有问题。
+
+当前的 bridge 收紧到了下面这个范围：
+
+- `BUILD_TRT_MLP_BRIDGE=ON` 仍然是编译开关，但默认关闭
+- `EDGE_FM_PREFILL_TRT_MLP=1` 和 `EDGE_FM_PREFILL_TRT_LINEAR=1` 只是显式启用的实验开关
+- 目前可保留的低风险路径是 `GateUp-FP16 MLP bridge + bias-aware BF16 QKV/OProj linear bridge`
+- `EDGE_FM_TRT_MLP_FP16_WEIGHTS=both` 是内存受限的阻塞诊断项，不是可扩展的主路线
+- `prefill_cta_tile_q=128` 的 attention 表项在孤立 kernel 上有收益，但端到端回退，当前仍保留 `64`
+
+截至最新 18-case 3060 LLM 全矩阵，当前桥接路径的整体结果是：
+
+| 指标 | 结果 |
+|------|------|
+| 覆盖范围 | `Qwen2.5-{0.5B,1.5B,3B}` × `prefill={512,1024,2048}` × `decode={32,64}` |
+| 相对 GateUp-FP16 | `15/18` case 更快 |
+| 相对最新 TRT-Edge-LLM | `3/18` case 持平或更快 |
+| 最大剩余 gap | `3B / 2048x32`，EdgeFM 比 TRT 慢 `25.60 ms` |
+| 当前主瓶颈 | 仍然是长 prefill，不是 decode |
+
+当前 3060 LLM 对 `TRT-Edge-LLM` 的代表性性能差异如下：
+
+| Case | EdgeFM Total | TRT Total | Total Gap | Prefill Gap | Decode Gap | 说明 |
+|------|-------------:|----------:|----------:|------------:|-----------:|------|
+| `3B / 2048x32` | `953.29 ms` | `927.69 ms` | `+25.60 ms` | `+25.56 ms` | `+0.27 ms` | 当前最大 gap |
+| `3B / 2048x64` | `1603.74 ms` | `1584.36 ms` | `+19.38 ms` | `+19.38 ms` | `+0.00 ms` | 长 prefill 主瓶颈 |
+| `0.5B / 2048x64` | `311.43 ms` | `293.41 ms` | `+18.01 ms` | `+18.05 ms` | `-0.04 ms` | 小模型也受长 prefill 影响 |
+| `3B / 1024x32` | `777.56 ms` | `764.35 ms` | `+13.21 ms` | `+13.24 ms` | `-0.03 ms` | 中长 prefill 仍落后 |
+| `1.5B / 2048x32` | `486.14 ms` | `474.23 ms` | `+11.91 ms` | `+11.91 ms` | `+0.00 ms` | 中模型长 prefill 差距 |
+| `1.5B / 2048x64` | `823.57 ms` | `811.69 ms` | `+11.87 ms` | `+11.87 ms` | `-0.01 ms` | 中模型长 prefill 差距 |
+
+当前已经达到或快于 TRT 的 case 有 `3/18`：`0.5B / 512x32`、`0.5B / 512x64`、`3B / 512x64`。完整 18-case 明细和原始 benchmark artifact 见 [3060_tuning_log.md](doc/3060_tuning_log.md)。
+
 ## 性能测试
 
 ### 推理性能

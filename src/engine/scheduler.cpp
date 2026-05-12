@@ -119,14 +119,16 @@ Context Scheduler::create_context(const Request& request, Response* response) {
         k_cache_token_stride = kvcache_token_stride / 2;
     }
     
-    // max_generated_tokens: KV total = prefix + non_prefix_prefill + decode = token_ids.size() + decode
-    // => decode <= max_tokens - token_ids.size(), plus 1 for the prefill sample
+    // max_generated_tokens is user-facing sampling capacity capped by KV capacity.
+    // KV total = prefix + non_prefix_prefill + decode = token_ids.size() + decode
+    // => generated <= max_tokens - token_ids.size() + 1, including the prefill sample.
     int32_t max_generated_tokens = 0;
     for (const auto& slot : status.slots) {
         if (slot.request_id == matched_request_id) {
             int32_t seq_len = static_cast<int32_t>(request_token_ids.size());
             int32_t kv_slots_for_decode = slot.max_tokens - seq_len;
-            max_generated_tokens = std::max(1, kv_slots_for_decode + 1);
+            int32_t capacity_generated_tokens = std::max(1, kv_slots_for_decode + 1);
+            max_generated_tokens = std::min(max_new_tokens_, capacity_generated_tokens);
             break;
         }
     }
@@ -151,8 +153,12 @@ Context Scheduler::create_context(const Request& request, Response* response) {
     return context;
 }
 
-Scheduler::Scheduler(std::shared_ptr<KVManager> kv_manager, EngineStreamHandle stream_handle)
-    : stream_handle_(stream_handle), kv_manager_(std::move(kv_manager))
+Scheduler::Scheduler(std::shared_ptr<KVManager> kv_manager,
+                     int32_t max_new_tokens,
+                     EngineStreamHandle stream_handle)
+    : stream_handle_(stream_handle)
+    , kv_manager_(std::move(kv_manager))
+    , max_new_tokens_(std::max(1, max_new_tokens))
 {
     check<ConfigurationError>(kv_manager_ != nullptr, "Scheduler requires a non-null KVManager");
 }

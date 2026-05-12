@@ -18,7 +18,11 @@ for build_python in [REPO_ROOT / "build" / "python", REPO_ROOT / "build" / "inst
         sys.path.insert(0, str(build_python))
 
 import edge_fm
-from operator_table.utils import resolve_engine_model_name, resolve_operator_table_path
+from operator_table.utils import (
+    resolve_engine_model_name,
+    resolve_operator_table_path,
+    resolve_target_hw_profile,
+)
 from temp_paths import make_temp_dir
 
 
@@ -50,13 +54,19 @@ def write_operator_impl_table(records: list[dict]) -> Path:
     )
 
 
-def make_engine_config(model_path: Path, device_id: int, operator_impl_table_path: Path) -> Path:
+def make_engine_config(
+    model_path: Path,
+    device_id: int,
+    operator_impl_table_path: Path,
+    *,
+    hw_profile: str,
+) -> Path:
     config = {
         "model_name": resolve_engine_model_name(model_path),
         "runtime": {
             "device": "cuda",
             "device_id": device_id,
-            "hw_profile": "cuda_sm80",
+            "hw_profile": hw_profile,
         },
         "prefill_model_path": str(model_path),
         "operator_impl_table_path": str(operator_impl_table_path),
@@ -112,13 +122,14 @@ def build_tuned_records(
     seq_len: int,
     stage: str,
     algo_index: int | None,
+    hw_profile: str,
 ) -> list[dict]:
     shape_sig = fused_gate_up_shape_sig(seq_len)
     kept = []
     for record in base_records:
         if (
             record.get("model_name") == "qwen2_5"
-            and record.get("hw_profile") == "cuda_sm80"
+            and record.get("hw_profile") == hw_profile
             and record.get("op_kind") == "linear"
             and record.get("layer_role") == "fused_gate_up"
             and record.get("stage") == stage.lower()
@@ -131,7 +142,7 @@ def build_tuned_records(
         kept.append(
             {
                 "model_name": "qwen2_5",
-                "hw_profile": "cuda_sm80",
+                "hw_profile": hw_profile,
                 "op_kind": "linear",
                 "layer_role": "fused_gate_up",
                 "op_name": "",
@@ -157,6 +168,7 @@ def benchmark_candidate(
     algo_index: int | None,
     warmup: int,
     iters: int,
+    hw_profile: str,
 ) -> tuple[float, float]:
     operator_table_path = write_operator_impl_table(
         build_tuned_records(
@@ -164,9 +176,15 @@ def benchmark_candidate(
             seq_len=seq_len,
             stage=stage,
             algo_index=algo_index,
+            hw_profile=hw_profile,
         )
     )
-    engine_config_path = make_engine_config(model_path, device_id, operator_table_path)
+    engine_config_path = make_engine_config(
+        model_path,
+        device_id,
+        operator_table_path,
+        hw_profile=hw_profile,
+    )
 
     reset_weight_loader()
     layer = edge_fm.FusedGateUpLinearLayer(
@@ -209,6 +227,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iters", type=int, default=120)
     parser.add_argument("--operator-table", default="")
+    parser.add_argument("--hw-profile", default=resolve_target_hw_profile())
     return parser.parse_args()
 
 
@@ -239,6 +258,7 @@ def main() -> None:
                 algo_index=algo_index,
                 warmup=args.warmup,
                 iters=args.iters,
+                hw_profile=args.hw_profile,
             )
             candidates.append(
                 {

@@ -40,6 +40,25 @@ public:
      * @throws ConfigurationError 如果 cache_key 对应的权重不存在
      */
     const std::unordered_map<std::string, Tensor>& get(ModelStage cache_key) const;
+
+    /**
+     * @brief Move a loaded stage out of the global staging cache.
+     *
+     * Engine-owned models keep raw Tensor pointers inside layers, so the weight
+     * maps backing those pointers must live for the model lifetime rather than
+     * in this global loader staging area.
+     */
+    std::unordered_map<std::string, Tensor> take_stage(ModelStage cache_key);
+
+    /**
+     * @brief Move a loaded stage out of the global staging cache, or return an
+     * empty map when that stage was intentionally not loaded.
+     *
+     * This is used when prefill/decode share the exact same checkpoint path.
+     * Layers that need decode weights already fall back to prefill weights when
+     * the decode map is empty, avoiding a duplicate GPU copy of all weights.
+     */
+    std::unordered_map<std::string, Tensor> take_stage_or_empty(ModelStage cache_key);
     
     /**
      * @brief 从 safetensors 文件加载权重
@@ -101,4 +120,3 @@ private:
 };
 
 } // namespace edge_fm
-

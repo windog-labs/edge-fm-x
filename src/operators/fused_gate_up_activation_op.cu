@@ -17,6 +17,9 @@
 #include "cutlass/half.h"
 #include "tensorrt_llm/kernels/cutlass_kernels/moe_gemm/launchers/fused_moe_gemm_launcher_sm80.inl"
 
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
+
 namespace edge_fm {
 
 std::string FusedGateUpActivationOpContext::shape_sig() const {
@@ -763,10 +766,429 @@ public:
     }
 };
 
+// ============================================================================
+// CUTLASS-based Prefill Fused GateUp + SiLU + Mul operator
+// Reuses TRT-LLM's Fused_Moe_Kernel_sm80 with num_experts=1 and prefill tile configs
+// ============================================================================
+
+enum class PrefillSwigluKernelConfigId : uint8_t {
+    Tile64x128x64Stage3 = 0,
+    Tile128x128x64Stage3,
+    Tile128x256x64Stage3,
+    Tile256x128x64Stage3,
+    Tile32x128x64Stage2,
+    Tile64x128x64Stage2,
+    Tile128x128x64Stage2,
+    Tile128x256x64Stage2,
+};
+
+struct PrefillSwigluKernelCandidate {
+    PrefillSwigluKernelConfigId id;
+    const char* name;
+};
+
+constexpr PrefillSwigluKernelConfigId kDefaultPrefillSwigluKernelConfig =
+    PrefillSwigluKernelConfigId::Tile128x128x64Stage3;
+
+constexpr std::array<PrefillSwigluKernelCandidate, 8> kPrefillSwigluKernelCandidates = {{
+    {PrefillSwigluKernelConfigId::Tile64x128x64Stage3, "64x128x64_s3"},
+    {PrefillSwigluKernelConfigId::Tile128x128x64Stage3, "128x128x64_s3"},
+    {PrefillSwigluKernelConfigId::Tile128x256x64Stage3, "128x256x64_s3"},
+    {PrefillSwigluKernelConfigId::Tile256x128x64Stage3, "256x128x64_s3"},
+    {PrefillSwigluKernelConfigId::Tile32x128x64Stage2, "32x128x64_s2"},
+    {PrefillSwigluKernelConfigId::Tile64x128x64Stage2, "64x128x64_s2"},
+    {PrefillSwigluKernelConfigId::Tile128x128x64Stage2, "128x128x64_s2"},
+    {PrefillSwigluKernelConfigId::Tile128x256x64Stage2, "128x256x64_s2"},
+}};
+
+const char* prefill_swiglu_kernel_config_name(PrefillSwigluKernelConfigId config_id) {
+    for (const auto& candidate : kPrefillSwigluKernelCandidates) {
+        if (candidate.id == config_id) {
+            return candidate.name;
+        }
+    }
+    return "unknown";
+}
+
+template <typename T, int MaxTileM, int TileN, int TileK, int Stages>
+using PrefillSwigluGemmType = fused_moe::Fused_Moe_Kernel_sm80<
+    typename CutlassScalarType<T>::type,
+    typename CutlassScalarType<T>::type,
+    typename CutlassScalarType<T>::type,
+    MaxTileM,
+    TileN,
+    TileK,
+    Stages,
+    fused_moe::EpilogueRouting<tensorrt_llm::cutlass_extensions::EpilogueOpDefaultSilu>(true)>;
+
+template <typename T, int MaxTileM, int TileN, int TileK, int Stages>
+int query_prefill_swiglu_occupancy_for_config() {
+    using GemmType = PrefillSwigluGemmType<T, MaxTileM, TileN, TileK, Stages>;
+    return fused_moe::fused_gemm_maximum_active_blocks<GemmType>();
+}
+
+template <typename T>
+int query_prefill_swiglu_occupancy(PrefillSwigluKernelConfigId config_id) {
+    switch (config_id) {
+        case PrefillSwigluKernelConfigId::Tile64x128x64Stage3:
+            return query_prefill_swiglu_occupancy_for_config<T, 64, 128, 64, 3>();
+        case PrefillSwigluKernelConfigId::Tile128x128x64Stage3:
+            return query_prefill_swiglu_occupancy_for_config<T, 128, 128, 64, 3>();
+        case PrefillSwigluKernelConfigId::Tile128x256x64Stage3:
+            return query_prefill_swiglu_occupancy_for_config<T, 128, 256, 64, 3>();
+        case PrefillSwigluKernelConfigId::Tile256x128x64Stage3:
+            return query_prefill_swiglu_occupancy_for_config<T, 256, 128, 64, 3>();
+        case PrefillSwigluKernelConfigId::Tile32x128x64Stage2:
+            return query_prefill_swiglu_occupancy_for_config<T, 32, 128, 64, 2>();
+        case PrefillSwigluKernelConfigId::Tile64x128x64Stage2:
+            return query_prefill_swiglu_occupancy_for_config<T, 64, 128, 64, 2>();
+        case PrefillSwigluKernelConfigId::Tile128x128x64Stage2:
+            return query_prefill_swiglu_occupancy_for_config<T, 128, 128, 64, 2>();
+        case PrefillSwigluKernelConfigId::Tile128x256x64Stage2:
+            return query_prefill_swiglu_occupancy_for_config<T, 128, 256, 64, 2>();
+    }
+    return -1;
+}
+
+template <typename T, int MaxTileM, int TileN, int TileK, int Stages>
+void launch_prefill_swiglu_fused_kernel_config(
+    const Tensor& weight_tensor,
+    const Tensor* bias_tensor,
+    int64_t batch_rows,
+    int64_t output_features,
+    int64_t input_features,
+    const FusedGateUpActivationOpState& state,
+    const T* input_ptr,
+    T* output_ptr,
+    cudaStream_t stream)
+{
+    using CutlassT = typename CutlassScalarType<T>::type;
+    using GemmType = PrefillSwigluGemmType<T, MaxTileM, TileN, TileK, Stages>;
+    using Arguments = typename GemmType::Arguments;
+
+    const int occupancy = state.selected_kernel_occupancy > 0
+        ? state.selected_kernel_occupancy
+        : std::min(2, fused_moe::fused_gemm_maximum_active_blocks<GemmType>());
+
+    const int threadblock_count = state.selected_threadblock_count > 0
+        ? state.selected_threadblock_count
+        : state.sm_count * occupancy;
+
+    if constexpr (GemmType::kSmemSize >= (48 << 10)) {
+        CUDA_CHECK_THROW(
+            cudaFuncSetAttribute(
+                fused_moe::run_global<GemmType>,
+                cudaFuncAttributeMaxDynamicSharedMemorySize,
+                GemmType::kSmemSize),
+            "FusedGateUpActivationOp: failed to set fused prefill SwiGLU dynamic shared memory size");
+    }
+
+    Arguments args{
+        {const_cast<CutlassT*>(reinterpret_cast<const CutlassT*>(input_ptr)),
+         const_cast<CutlassT*>(reinterpret_cast<const CutlassT*>(weight_tensor.data_ptr())),
+         bias_tensor ? const_cast<CutlassT*>(reinterpret_cast<const CutlassT*>(bias_tensor->data_ptr())) : nullptr,
+         reinterpret_cast<CutlassT*>(output_ptr),
+         static_cast<const int64_t*>(state.expert_offsets_device_ptr),
+         static_cast<int>(output_features),
+         static_cast<int>(input_features),
+         1,
+         true},
+        1,
+        threadblock_count};
+    auto params = GemmType::to_underlying_arguments(args);
+    fused_moe::run_global<GemmType>
+        <<<dim3(threadblock_count, 1, 1), dim3(GemmType::kThreadCount), GemmType::kSmemSize, stream>>>(params);
+    CUDA_CHECK_THROW(cudaGetLastError(), "FusedGateUpActivationOp: failed to launch fused prefill SwiGLU kernel");
+}
+
+template <typename T>
+void launch_prefill_swiglu_fused_kernel(
+    PrefillSwigluKernelConfigId config_id,
+    const Tensor& weight_tensor,
+    const Tensor* bias_tensor,
+    int64_t batch_rows,
+    int64_t output_features,
+    int64_t input_features,
+    const FusedGateUpActivationOpState& state,
+    const T* input_ptr,
+    T* output_ptr,
+    cudaStream_t stream)
+{
+    switch (config_id) {
+        case PrefillSwigluKernelConfigId::Tile64x128x64Stage3:
+            launch_prefill_swiglu_fused_kernel_config<T, 64, 128, 64, 3>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+        case PrefillSwigluKernelConfigId::Tile128x128x64Stage3:
+            launch_prefill_swiglu_fused_kernel_config<T, 128, 128, 64, 3>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+        case PrefillSwigluKernelConfigId::Tile128x256x64Stage3:
+            launch_prefill_swiglu_fused_kernel_config<T, 128, 256, 64, 3>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+        case PrefillSwigluKernelConfigId::Tile256x128x64Stage3:
+            launch_prefill_swiglu_fused_kernel_config<T, 256, 128, 64, 3>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+        case PrefillSwigluKernelConfigId::Tile32x128x64Stage2:
+            launch_prefill_swiglu_fused_kernel_config<T, 32, 128, 64, 2>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+        case PrefillSwigluKernelConfigId::Tile64x128x64Stage2:
+            launch_prefill_swiglu_fused_kernel_config<T, 64, 128, 64, 2>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+        case PrefillSwigluKernelConfigId::Tile128x128x64Stage2:
+            launch_prefill_swiglu_fused_kernel_config<T, 128, 128, 64, 2>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+        case PrefillSwigluKernelConfigId::Tile128x256x64Stage2:
+            launch_prefill_swiglu_fused_kernel_config<T, 128, 256, 64, 2>(
+                weight_tensor, bias_tensor, batch_rows, output_features, input_features,
+                state, input_ptr, output_ptr, stream);
+            return;
+    }
+}
+
+template <typename T>
+void prepare_prefill_swiglu_state_for_dtype(
+    const FusedGateUpActivationOpContext& ctx,
+    const Tensor& weight_tensor,
+    const Tensor* bias_tensor,
+    FusedGateUpActivationOpState& state)
+{
+    const int sm = sm_version_for_device(ctx.device_id);
+    if (sm < 80) {
+        state.unavailable_reason =
+            "prefill fused SwiGLU path requires SM80+";
+        return;
+    }
+
+    if ((ctx.up_output_features % 64) != 0 || (ctx.input_features % 64) != 0) {
+        state.unavailable_reason =
+            "prefill fused SwiGLU shape is unsupported by TRT-LLM SM80 fused MoE kernel";
+        return;
+    }
+
+    CUDA_CHECK_THROW(cudaSetDevice(ctx.device_id), "FusedGateUpActivationOp: failed to set CUDA device");
+
+    const std::string buffer_name = ctx.layer_prefix + ".prefill_swiglu_fused.total_tokens." +
+        std::to_string(ctx.batch_rows);
+    state.expert_offsets_device_ptr =
+        StaticBufferManager::get_cache_buf(buffer_name, sizeof(int64_t), ctx.device_id);
+
+    const std::array<int64_t, 1> expert_offsets = {ctx.batch_rows};
+    CUDA_CHECK_THROW(
+        cudaMemcpy(
+            state.expert_offsets_device_ptr,
+            expert_offsets.data(),
+            sizeof(expert_offsets),
+            cudaMemcpyHostToDevice),
+        "FusedGateUpActivationOp: failed to initialize prefill expert offsets");
+
+    state.sm_count = sm_count_for_device(ctx.device_id);
+    state.available = true;
+
+    auto config_throughput_score = [](PrefillSwigluKernelConfigId id) -> int {
+        switch (id) {
+            case PrefillSwigluKernelConfigId::Tile64x128x64Stage3:   return 64 * 128 * 3;
+            case PrefillSwigluKernelConfigId::Tile128x128x64Stage3:  return 128 * 128 * 3;
+            case PrefillSwigluKernelConfigId::Tile128x256x64Stage3:  return 128 * 256 * 3;
+            case PrefillSwigluKernelConfigId::Tile256x128x64Stage3:  return 256 * 128 * 3;
+            case PrefillSwigluKernelConfigId::Tile32x128x64Stage2:   return 32 * 128 * 2;
+            case PrefillSwigluKernelConfigId::Tile64x128x64Stage2:   return 64 * 128 * 2;
+            case PrefillSwigluKernelConfigId::Tile128x128x64Stage2:  return 128 * 128 * 2;
+            case PrefillSwigluKernelConfigId::Tile128x256x64Stage2:  return 128 * 256 * 2;
+        }
+        return 0;
+    };
+
+    PrefillSwigluKernelConfigId best_config = kDefaultPrefillSwigluKernelConfig;
+    int best_occupancy = -1;
+    int best_score = 0;
+
+    for (const auto& candidate : kPrefillSwigluKernelCandidates) {
+        int occupancy = query_prefill_swiglu_occupancy<T>(candidate.id);
+        if (occupancy <= 0) continue;
+        int score = occupancy * config_throughput_score(candidate.id);
+        if (best_occupancy <= 0 || score > best_score) {
+            best_occupancy = occupancy;
+            best_score = score;
+            best_config = candidate.id;
+        }
+    }
+
+    if (best_occupancy <= 0) {
+        state.available = false;
+        state.unavailable_reason = "prefill fused SwiGLU no kernel config has legal occupancy on this device";
+        return;
+    }
+
+    state.selected_kernel_config = static_cast<int>(best_config);
+    state.selected_kernel_occupancy = std::min(2, best_occupancy);
+    state.selected_threadblock_count = state.sm_count * state.selected_kernel_occupancy;
+    state.selected_kernel_config_name = prefill_swiglu_kernel_config_name(best_config);
+}
+
+template <typename T>
+void run_prefill_swiglu_fused_for_dtype(
+    const FusedGateUpActivationOpContext& ctx,
+    const Tensor& weight_tensor,
+    const Tensor* bias_tensor,
+    const FusedGateUpActivationOpState& state,
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream)
+{
+    const auto config_id = static_cast<PrefillSwigluKernelConfigId>(state.selected_kernel_config);
+    launch_prefill_swiglu_fused_kernel<T>(
+        config_id,
+        weight_tensor,
+        bias_tensor,
+        ctx.batch_rows,
+        ctx.up_output_features,
+        ctx.input_features,
+        state,
+        static_cast<const T*>(input.data_ptr()),
+        static_cast<T*>(output.data_ptr()),
+        stream);
+}
+
+bool prefill_swiglu_fusion_enabled() {
+    const char* env = std::getenv("EDGE_FM_PREFILL_SWIGLU_FUSION");
+    if (env == nullptr || *env == '\0') {
+        return false;
+    }
+    return std::string(env) != "0" && std::string(env) != "false" && std::string(env) != "False";
+}
+
+class CutlassPrefillSwigluOp final : public FusedGateUpActivationOp {
+public:
+    std::string impl_id() const override { return "cutlass_prefill_swiglu"; }
+
+    bool supports(const FusedGateUpActivationOpContext& ctx) const override {
+        if (!prefill_swiglu_fusion_enabled()) {
+            return false;
+        }
+        if (ctx.batch_rows < 64) {
+            return false;
+        }
+        if (ctx.input_features <= 0 || ctx.gate_output_features <= 0 ||
+            ctx.up_output_features <= 0) {
+            return false;
+        }
+        if (ctx.gate_output_features != ctx.up_output_features) {
+            return false;
+        }
+        if (ctx.input_dtype != ctx.output_dtype || ctx.input_dtype != ctx.weight_dtype) {
+            return false;
+        }
+        if (ctx.input_dtype != DType::Float16 && ctx.input_dtype != DType::BFloat16) {
+            return false;
+        }
+        if ((ctx.up_output_features % 64) != 0 || (ctx.input_features % 64) != 0) {
+            return false;
+        }
+        try {
+            const int sm = sm_version_for_device(ctx.device_id);
+            return sm >= 80;
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+
+    void prepare(
+        const FusedGateUpActivationOpContext& ctx,
+        const Tensor& weight,
+        const Tensor* bias,
+        FusedGateUpActivationOpState& state) override
+    {
+        state = FusedGateUpActivationOpState{};
+        state.initialized = true;
+
+        const auto& weight_shape = weight.shape();
+        if (weight_shape.size() != 2 ||
+            static_cast<int64_t>(weight_shape[0]) != ctx.gate_output_features + ctx.up_output_features ||
+            static_cast<int64_t>(weight_shape[1]) != ctx.input_features)
+        {
+            state.unavailable_reason =
+                "prefill fused SwiGLU weight shape does not match fused gate/up contract";
+            return;
+        }
+        if (bias != nullptr) {
+            const auto& bias_shape = bias->shape();
+            if (bias_shape.size() != 1 ||
+                bias_shape[0] != ctx.gate_output_features + ctx.up_output_features)
+            {
+                state.unavailable_reason = "prefill fused SwiGLU bias shape does not match fused gate/up contract";
+                return;
+            }
+        }
+        if (!supports(ctx)) {
+            state.unavailable_reason =
+                "prefill fused SwiGLU is unsupported for the current device/dtype/shape";
+            return;
+        }
+
+        try {
+            switch (ctx.weight_dtype) {
+                case DType::Float16:
+                    prepare_prefill_swiglu_state_for_dtype<half>(ctx, weight, bias, state);
+                    break;
+                case DType::BFloat16:
+                    prepare_prefill_swiglu_state_for_dtype<__nv_bfloat16>(ctx, weight, bias, state);
+                    break;
+                default:
+                    state.unavailable_reason = "prefill fused SwiGLU requires FP16/BF16 weights";
+                    break;
+            }
+        } catch (const std::exception& ex) {
+            state.available = false;
+            state.unavailable_reason = ex.what();
+        }
+    }
+
+    void run(
+        const FusedGateUpActivationOpContext& ctx,
+        const Tensor& weight,
+        const Tensor* bias,
+        const FusedGateUpActivationOpState& state,
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream) override
+    {
+        if (!state.available) {
+            throw InvalidRequestError(
+                "prefill fused SwiGLU fast path is unavailable: " + state.unavailable_reason);
+        }
+
+        switch (ctx.input_dtype) {
+            case DType::Float16:
+                run_prefill_swiglu_fused_for_dtype<half>(ctx, weight, bias, state, input, output, stream);
+                return;
+            case DType::BFloat16:
+                run_prefill_swiglu_fused_for_dtype<__nv_bfloat16>(ctx, weight, bias, state, input, output, stream);
+                return;
+            default:
+                throw InvalidRequestError(
+                    "prefill fused SwiGLU requires FP16/BF16 activations");
+        }
+    }
+};
+
 } // namespace
 
 FusedGateUpActivationOpRegistry::FusedGateUpActivationOpRegistry() {
     impls_.emplace_back(std::make_unique<TrtLlmDecodeSwigluOp>());
+    impls_.emplace_back(std::make_unique<CutlassPrefillSwigluOp>());
 }
 
 FusedGateUpActivationOpRegistry& FusedGateUpActivationOpRegistry::instance() {

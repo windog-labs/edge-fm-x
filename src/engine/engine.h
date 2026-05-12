@@ -61,6 +61,7 @@ public:
     std::string kvcache_attention_type() const;
     float sampling_temperature() const;
     uint64_t sampling_seed() const;
+    int32_t sampling_max_new_tokens() const;
     std::vector<int32_t> eos_token_ids() const;
     std::vector<int32_t> stop_token_ids() const;
     BackendTarget backend_target_kind() const;

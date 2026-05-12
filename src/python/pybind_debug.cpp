@@ -925,6 +925,15 @@ PYBIND11_MODULE(edge_fm, m) {
             "参数:\n"
             "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n"
             "    m: Prefill 阶段对应 batch/seq 维度；Decode 阶段通常固定为 1\n")
+        .def("debug_weight_tensor_info", [](LinearLayer& self,
+                                             const std::string& stage_str = "Prefill") {
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                return self.debug_weight_tensor_info(stage).dump();
+            },
+            py::arg("stage") = "Prefill",
+            "返回当前 layer 常驻权重的只读调试信息（JSON 字符串）。\n\n"
+            "参数:\n"
+            "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"\n")
         .def("debug_enumerate_cublaslt_candidates", [](LinearLayer& self,
                                                        const Tensor& input,
                                                        Tensor& output,
@@ -1137,7 +1146,24 @@ PYBIND11_MODULE(edge_fm, m) {
             "    output: 输出张量，形状 [1, up_out_features]\n"
             "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n\n"
             "返回:\n"
-            "    如果当前设备/shape/dtype 支持 fused fast path，则返回 True 并写入 output；否则返回 False。");
+            "    如果当前设备/shape/dtype 支持 fused fast path，则返回 True 并写入 output；否则返回 False。")
+        .def("try_forward_prefill_swiglu_fused", [](FusedGateUpLinearLayer& self,
+                                                     const Tensor& input,
+                                                     Tensor& output,
+                                                     uintptr_t stream_ptr = 0) {
+                cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                return self.try_forward_prefill_swiglu_fused(input, output, stream);
+            },
+            py::arg("input"),
+            py::arg("output"),
+            py::arg("stream") = 0,
+            "try to run prefill fused gate_up + SiLU + Mul\n\n"
+            "Args:\n"
+            "    input: [m, in_features], m >= 64\n"
+            "    output: [m, up_out_features]\n"
+            "    stream: CUDA stream ptr (int), 0 = default stream\n\n"
+            "Returns:\n"
+            "    True if fast path executed, False otherwise.");
 
     // ============================================================================
     // LMHeadLinearLayer 类绑定

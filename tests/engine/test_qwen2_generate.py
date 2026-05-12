@@ -14,6 +14,7 @@ dump 数据默认位于 tests/data/decode_dump/，首次运行时自动通过 Tr
 """
 
 import json
+import math
 import os
 import statistics as stats
 import sys
@@ -343,6 +344,7 @@ def _create_engine_config(
     prefix_token_ids: list | None = None,
     generated_tokens_total: int | None = None,
     model_name: str | None = None,
+    max_new_tokens: int | None = None,
 ) -> str:
     model_path_obj = Path(model_path).resolve()
     config = _load_model_config_for_engine(str(model_path_obj))
@@ -372,6 +374,13 @@ def _create_engine_config(
     if use_cuda_graph:
         runtime["use_cuda_graph"] = True
     prefix = prefix_token_ids if prefix_token_ids is not None else []
+    sampling = {
+        "temperature": 0.0,
+        "seed": 42,
+    }
+    if max_new_tokens is not None:
+        sampling["max_new_tokens"] = max_new_tokens
+
     with open(engine_config_path, "w", encoding="utf-8") as f:
         json.dump({
             "model_name": resolved_model_name,
@@ -383,10 +392,7 @@ def _create_engine_config(
                 "attention_type": attention_type,
                 "requests": [{"request_id": 0, "prefix_token_ids": prefix, "max_tokens": max_tokens}],
             },
-            "sampling": {
-                "temperature": 0.0,
-                "seed": 42,
-            },
+            "sampling": sampling,
         }, f, indent=2)
     return str(engine_config_path)
 
@@ -416,6 +422,25 @@ def engine_and_dump_cuda_graph(dump_data):
     prefix = token_ids_flat[: min(4, len(token_ids_flat))].tolist()
     engine_config_path = _create_engine_config(
         model_path, seq_len, num_steps, use_cuda_graph=True, prefix_token_ids=prefix
+    )
+    engine = edge_fm.EdgeFM(engine_config_path)
+    return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
+
+
+@pytest.fixture(scope="module")
+def engine_and_dump_prefill_cuda_graph(dump_data):
+    """Create a CUDA graph engine without a warmed prefix.
+
+    This exercises the first request's prefill graph capture path. It must
+    produce the same prefill sample token as the regular path before decode
+    graph replay begins.
+    """
+    manifest = dump_data["manifest"]
+    model_path = dump_data["model_path"]
+    num_steps = manifest["num_decode_steps"]
+    seq_len = int(dump_data["token_ids"].size)
+    engine_config_path = _create_engine_config(
+        model_path, seq_len, num_steps, use_cuda_graph=True
     )
     engine = edge_fm.EdgeFM(engine_config_path)
     return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
@@ -665,6 +690,128 @@ def test_generate_token_alignment(engine_and_dump):
         )
 
 
+def test_generate_respects_sampling_max_new_tokens(dump_data):
+    """sampling.max_new_tokens limits returned generated tokens independently of KV capacity."""
+    import torch
+
+    manifest = dump_data["manifest"]
+    model_path = dump_data["model_path"]
+    token_ids = dump_data["token_ids"]
+    decode_tokens = dump_data["decode_tokens"]
+    seq_len = int(token_ids.size)
+    max_new_tokens = 5
+    if len(decode_tokens) < max_new_tokens:
+        pytest.skip(f"dump only has {len(decode_tokens)} generated tokens")
+
+    engine_config_path = _create_engine_config(
+        model_path,
+        seq_len,
+        manifest["num_decode_steps"],
+        generated_tokens_total=manifest["num_decode_steps"] + 1,
+        max_new_tokens=max_new_tokens,
+    )
+    engine = edge_fm.EdgeFM(engine_config_path)
+
+    request = edge_fm.Request(0, token_ids.flatten().tolist())
+    request.set_ignore_stop_tokens(True)
+    response = engine.generate(request)
+    got_tokens = list(response.token_ids())
+    torch.cuda.synchronize()
+
+    assert len(got_tokens) == max_new_tokens
+    assert got_tokens == [int(x) for x in decode_tokens[:max_new_tokens]]
+
+
+def test_generate_deferred_stop_token_truncates_response(engine_and_dump):
+    """Deferred stop handling keeps returned token semantics without per-step host sync."""
+    import torch
+
+    engine = engine_and_dump["engine"]
+    token_ids = engine_and_dump["token_ids"]
+    decode_tokens = [int(x) for x in engine_and_dump["decode_tokens"]]
+    if len(decode_tokens) < 3:
+        pytest.skip("Need at least three generated tokens for stop-token truncation test")
+
+    stop_index = None
+    seen = set()
+    for idx, tok in enumerate(decode_tokens[: min(len(decode_tokens), 8)]):
+        if idx > 0 and tok not in seen:
+            stop_index = idx
+            break
+        seen.add(tok)
+    if stop_index is None:
+        stop_index = min(1, len(decode_tokens) - 1)
+
+    request = edge_fm.Request(0, token_ids.flatten().tolist())
+    request.set_stop_token_ids([decode_tokens[stop_index]])
+    response = engine.generate(request)
+    got_tokens = list(response.token_ids())
+    torch.cuda.synchronize()
+
+    assert got_tokens == decode_tokens[: stop_index + 1]
+
+
+def test_generate_metrics_surface(engine_and_dump):
+    """last_generate_metrics() exposes stable coarse keys and Owner A fine-grained keys."""
+    import torch
+
+    engine = engine_and_dump["engine"]
+    token_ids = engine_and_dump["token_ids"]
+
+    request = edge_fm.Request(0, token_ids.flatten().tolist())
+    response = engine.generate(request)
+    torch.cuda.synchronize()
+    metrics = engine.last_generate_metrics()
+
+    required_keys = {
+        "prefill_ms",
+        "decode_ms",
+        "total_stage_ms",
+        "decode_step_avg_ms",
+        "generated_tokens_total",
+        "decode_steps",
+        "prefill_prepare_host_ms",
+        "prefill_model_ms",
+        "prefill_sampler_ms",
+        "decode_prepare_host_ms",
+        "decode_graph_replay_ms",
+        "decode_model_ms",
+        "decode_sampler_ms",
+        "decode_finalize_ms",
+        "stop_check_host_ms",
+        "response_copy_ms",
+        "tokens_per_second",
+        "decode_tokens_per_second",
+        "executed_generated_tokens_total",
+        "returned_generated_tokens_total",
+        "cuda_graph_enabled",
+    }
+    assert required_keys.issubset(metrics.keys())
+
+    for key in required_keys:
+        assert math.isfinite(float(metrics[key])), key
+        assert float(metrics[key]) >= 0.0, key
+
+    assert math.isclose(
+        float(metrics["total_stage_ms"]),
+        float(metrics["prefill_ms"]) + float(metrics["decode_ms"]),
+        rel_tol=1e-4,
+        abs_tol=1e-3,
+    )
+    if float(metrics["decode_steps"]) > 0.0:
+        assert math.isclose(
+            float(metrics["decode_step_avg_ms"]),
+            float(metrics["decode_ms"]) / float(metrics["decode_steps"]),
+            rel_tol=1e-4,
+            abs_tol=1e-3,
+        )
+
+    returned = len(response.token_ids())
+    assert float(metrics["generated_tokens_total"]) == pytest.approx(returned)
+    assert float(metrics["returned_generated_tokens_total"]) == pytest.approx(returned)
+    assert float(metrics["executed_generated_tokens_total"]) >= returned
+
+
 def test_generate_logits_cosine_similarity(engine_and_dump):
     """Edge-FM generate() 各步 logits 的 argmax 应与 Transformers dump 的 argmax 一致。
 
@@ -763,6 +910,24 @@ def test_generate_token_alignment_cuda_graph(engine_and_dump_cuda_graph):
         pytest.fail(
             f"CUDA graph token 不对齐：{len(mismatches)}/{num_steps} 步不一致\n{detail}"
         )
+
+
+def test_generate_token_alignment_prefill_cuda_graph_first_request(engine_and_dump_prefill_cuda_graph):
+    """首次请求触发 prefill graph capture 时，prefill sample token 也必须有效。"""
+    import torch
+
+    engine = engine_and_dump_prefill_cuda_graph["engine"]
+    token_ids = engine_and_dump_prefill_cuda_graph["token_ids"]
+    decode_tokens = engine_and_dump_prefill_cuda_graph["decode_tokens"]
+
+    request = edge_fm.Request(0, token_ids.flatten().tolist())
+    response = engine.generate(request)
+    got_tokens = response.token_ids()
+
+    torch.cuda.synchronize()
+
+    assert got_tokens, "CUDA graph first request returned no tokens"
+    assert got_tokens[0] == int(decode_tokens[0])
 
 
 # ---------------------------------------------------------------------------
@@ -2052,7 +2217,6 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
             return []
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-    tf_model = _load_transformers_llm_model(model_path)
 
     print(f"\n[benchmark] {model_spec['label']} cases:")
     for p, d in bench_cases:
@@ -2062,6 +2226,7 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
     try:
         for prefill_len, num_steps in bench_cases:
             token_ids_list = _build_llm_bench_token_ids(tokenizer, prefill_len)
+            tf_model = _load_transformers_llm_model(model_path)
 
             def make_request():
                 req = edge_fm.Request(0, token_ids_list)
@@ -2071,6 +2236,8 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
             tf_result = _bench_transformers_llm_loaded(
                 tf_model, token_ids_list, num_steps,
                 warmup=BENCH_WARMUP_RUNS, runs=BENCH_TIMED_RUNS)
+            del tf_model
+            torch.cuda.empty_cache()
 
             trt_result = None
             if include_trt:
@@ -2124,7 +2291,6 @@ def _benchmark_llm_model(model_spec: dict, include_trt: bool = False) -> list[di
                 "trt_edgellm": trt_result,
             })
     finally:
-        del tf_model
         torch.cuda.empty_cache()
 
     return reports

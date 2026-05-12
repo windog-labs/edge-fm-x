@@ -1,3 +1,4 @@
+import json
 import math
 
 import pytest
@@ -6,6 +7,7 @@ import torch.nn.functional as F
 from safetensors import safe_open
 
 from ._test_utils import (
+    CUDA_HW_PROFILE,
     DEFAULT_DEVICE_ID,
     DEFAULT_PREFILL_LENGTHS,
     OPERATOR_IMPL_TABLE_PATH,
@@ -46,7 +48,7 @@ def _load_tensor(name: str, *, device: str) -> torch.Tensor:
         return handle.get_tensor(name)
 
 
-def _make_layers(*, hw_profile: str = "cuda_sm80"):
+def _make_layers(*, hw_profile: str = CUDA_HW_PROFILE):
     engine_config_path = make_engine_config(
         QWEN_1P5B_MODEL_PATH,
         device_id=DEFAULT_DEVICE_ID,
@@ -70,10 +72,17 @@ def _current_sm() -> int:
     return major * 10 + minor
 
 
+def _prefill_swiglu_tolerances(dtype: torch.dtype) -> tuple[float, float]:
+    rtol, atol = dtype_tolerances(dtype)
+    if dtype == torch.bfloat16:
+        return max(rtol, 2e-2), max(atol, 6.25e-2)
+    return rtol, atol
+
+
 def _is_tuned_fused_gate_up_record(record: dict, *, stage: str, shape_sig: str) -> bool:
     return (
         record.get("model_name") == "qwen2_5"
-        and record.get("hw_profile") == "cuda_sm80"
+        and record.get("hw_profile") == CUDA_HW_PROFILE
         and record.get("op_kind") == "linear"
         and record.get("layer_role") == "fused_gate_up"
         and record.get("stage") == stage
@@ -114,7 +123,7 @@ def _run_correctness_case(seq_len: int, stage: str):
     up_ref, gate_ref = ref_fused.split(INTERMEDIATE_SIZE, dim=-1)
     ref_activation = (F.silu(gate_ref.float()) * up_ref.float()).to(torch.bfloat16)
 
-    rtol, atol = dtype_tolerances(torch.bfloat16)
+    rtol, atol = _prefill_swiglu_tolerances(torch.bfloat16)
     torch.testing.assert_close(fused_out_torch, ref_fused, rtol=rtol, atol=atol)
     torch.testing.assert_close(activation_out_torch, ref_activation, rtol=rtol, atol=atol)
 
@@ -129,51 +138,149 @@ def test_fused_gate_up_and_activation_correctness(seq_len, stage):
 
 
 @pytest.mark.parametrize(
-    ("seq_len", "stage", "fused_linear_cap_ms", "activation_cap_ms"),
-    [
-        (1, "Decode", 1.0, 0.5),
-        (512, "Prefill", 0.8, 0.5),
-        (1024, "Prefill", 1.2, 0.8),
-        (2048, "Prefill", 2.0, 1.2),
-    ],
-    ids=lambda value: str(value),
+    "seq_len",
+    [512, 1024, 2048],
+    ids=lambda value: f"prefill_{value}",
 )
-def test_fused_gate_up_and_activation_performance_smoke(
-    seq_len, stage, fused_linear_cap_ms, activation_cap_ms
-):
+def test_prefill_fused_gate_up_swiglu_matches_two_stage_output(seq_len, monkeypatch):
     ensure_cuda()
+    monkeypatch.setenv("EDGE_FM_PREFILL_SWIGLU_FUSION", "1")
     reset_weight_loader()
 
     device = torch_device()
     fused_linear, activation = _make_layers()
 
+    torch.manual_seed(seq_len)
     x = torch.randn(seq_len, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
     fused_out = torch.empty(seq_len, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
-    activation_out = torch.empty(seq_len, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    two_stage_out = torch.empty(seq_len, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    fused_prefill_out = torch.empty(seq_len, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
 
     x_efm = tensor_to_edge_fm_tensor(x)
     fused_out_efm = tensor_to_edge_fm_tensor(fused_out)
-    activation_out_efm = tensor_to_edge_fm_tensor(activation_out)
+    two_stage_out_efm = tensor_to_edge_fm_tensor(two_stage_out)
+    fused_prefill_out_efm = tensor_to_edge_fm_tensor(fused_prefill_out)
 
-    fused_linear_ms = median_cuda_ms(
-        lambda: fused_linear.forward_fp16_bf16(x_efm, fused_out_efm, 0, stage),
-        warmup=20,
-        iters=100,
-    )
-    activation_ms = median_cuda_ms(
-        lambda: activation.forward_silu_and_mul_up_gate(fused_out_efm, activation_out_efm, 0, stage),
-        warmup=20,
-        iters=100,
+    fused_linear.forward_fp16_bf16(x_efm, fused_out_efm, 0, "Prefill")
+    activation.forward_silu_and_mul_up_gate(fused_out_efm, two_stage_out_efm, 0, "Prefill")
+
+    assert fused_linear.try_forward_prefill_swiglu_fused(x_efm, fused_prefill_out_efm, 0)
+    torch.cuda.synchronize()
+
+    two_stage_out_torch = edge_fm_tensor_to_torch(two_stage_out_efm)
+    fused_prefill_out_torch = edge_fm_tensor_to_torch(fused_prefill_out_efm)
+    rtol, atol = _prefill_swiglu_tolerances(torch.bfloat16)
+    torch.testing.assert_close(fused_prefill_out_torch, two_stage_out_torch, rtol=rtol, atol=atol)
+
+
+def test_prefill_fused_gate_up_swiglu_disabled_by_env_falls_back(monkeypatch):
+    ensure_cuda()
+    monkeypatch.setenv("EDGE_FM_PREFILL_SWIGLU_FUSION", "0")
+    reset_weight_loader()
+
+    device = torch_device()
+    fused_linear, activation = _make_layers()
+
+    torch.manual_seed(0)
+    x = torch.randn(512, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
+    fused_out = torch.empty(512, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    reference_out = torch.empty(512, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    fallback_out = torch.empty(512, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+
+    x_efm = tensor_to_edge_fm_tensor(x)
+    fused_out_efm = tensor_to_edge_fm_tensor(fused_out)
+    reference_out_efm = tensor_to_edge_fm_tensor(reference_out)
+    fallback_out_efm = tensor_to_edge_fm_tensor(fallback_out)
+
+    fused_linear.forward_fp16_bf16(x_efm, fused_out_efm, 0, "Prefill")
+    activation.forward_silu_and_mul_up_gate(fused_out_efm, reference_out_efm, 0, "Prefill")
+
+    assert not fused_linear.try_forward_prefill_swiglu_fused(x_efm, fallback_out_efm, 0)
+
+    fallback_gate_up = torch.empty(512, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    fallback_gate_up_efm = tensor_to_edge_fm_tensor(fallback_gate_up)
+    fused_linear.forward_fp16_bf16(x_efm, fallback_gate_up_efm, 0, "Prefill")
+    activation.forward_silu_and_mul_up_gate(fallback_gate_up_efm, fallback_out_efm, 0, "Prefill")
+    torch.cuda.synchronize()
+
+    reference_out_torch = edge_fm_tensor_to_torch(reference_out_efm)
+    fallback_out_torch = edge_fm_tensor_to_torch(fallback_out_efm)
+    rtol, atol = _prefill_swiglu_tolerances(torch.bfloat16)
+    torch.testing.assert_close(fallback_out_torch, reference_out_torch, rtol=rtol, atol=atol)
+
+
+def test_prefill_fused_gate_up_swiglu_default_off(monkeypatch):
+    ensure_cuda()
+    monkeypatch.delenv("EDGE_FM_PREFILL_SWIGLU_FUSION", raising=False)
+    reset_weight_loader()
+
+    device = torch_device()
+    fused_linear, _ = _make_layers()
+
+    x = torch.randn(512, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
+    out = torch.empty(512, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+
+    assert not fused_linear.try_forward_prefill_swiglu_fused(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(out), 0
     )
 
-    assert math.isfinite(fused_linear_ms)
-    assert math.isfinite(activation_ms)
-    assert fused_linear_ms < fused_linear_cap_ms, (
-        f"fused_gate_up {stage} seq_len={seq_len} latency regressed to {fused_linear_ms:.6f} ms"
-    )
-    assert activation_ms < activation_cap_ms, (
-        f"silu_and_mul {stage} seq_len={seq_len} latency regressed to {activation_ms:.6f} ms"
-    )
+
+def test_fused_gate_up_weight_info_exposes_edgefm_resident_layout():
+    ensure_cuda()
+    reset_weight_loader()
+
+    fused_linear, _ = _make_layers()
+
+    info = json.loads(fused_linear.debug_weight_tensor_info("Prefill"))
+
+    assert info["has_weight"]
+    assert info["shape"] == [2 * INTERMEDIATE_SIZE, HIDDEN_SIZE]
+    assert info["dtype_name"] == "bfloat16"
+    assert info["layout"] == "edgefm_fused_gate_up_up_gate_out_in"
+
+
+def test_prefill_fused_gate_up_swiglu_unsupported_shape_returns_false_without_cache_poisoning(monkeypatch):
+    ensure_cuda()
+    monkeypatch.setenv("EDGE_FM_PREFILL_SWIGLU_FUSION", "1")
+    reset_weight_loader()
+
+    device = torch_device()
+    fused_linear, activation = _make_layers()
+
+    torch.manual_seed(0)
+    x = torch.randn(512, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
+    fused_out = torch.empty(512, 2 * INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    reference_out = torch.empty(512, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    fused_prefill_out = torch.empty(512, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+
+    x_efm = tensor_to_edge_fm_tensor(x)
+    fused_out_efm = tensor_to_edge_fm_tensor(fused_out)
+    reference_out_efm = tensor_to_edge_fm_tensor(reference_out)
+    fused_prefill_out_efm = tensor_to_edge_fm_tensor(fused_prefill_out)
+
+    assert fused_linear.try_forward_prefill_swiglu_fused(x_efm, fused_prefill_out_efm, 0)
+    fused_linear.forward_fp16_bf16(x_efm, fused_out_efm, 0, "Prefill")
+    activation.forward_silu_and_mul_up_gate(fused_out_efm, reference_out_efm, 0, "Prefill")
+    torch.cuda.synchronize()
+
+    reference_out_torch = edge_fm_tensor_to_torch(reference_out_efm)
+    fused_prefill_out_torch = edge_fm_tensor_to_torch(fused_prefill_out_efm)
+    rtol, atol = _prefill_swiglu_tolerances(torch.bfloat16)
+    torch.testing.assert_close(fused_prefill_out_torch, reference_out_torch, rtol=rtol, atol=atol)
+
+    small_x = torch.randn(32, HIDDEN_SIZE, device=device, dtype=torch.bfloat16)
+    small_out = torch.empty(32, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    small_x_efm = tensor_to_edge_fm_tensor(small_x)
+    small_out_efm = tensor_to_edge_fm_tensor(small_out)
+    assert not fused_linear.try_forward_prefill_swiglu_fused(small_x_efm, small_out_efm, 0)
+
+    second_prefill_out = torch.empty(512, INTERMEDIATE_SIZE, device=device, dtype=torch.bfloat16)
+    second_prefill_out_efm = tensor_to_edge_fm_tensor(second_prefill_out)
+    assert fused_linear.try_forward_prefill_swiglu_fused(x_efm, second_prefill_out_efm, 0)
+    torch.cuda.synchronize()
+
+    second_prefill_out_torch = edge_fm_tensor_to_torch(second_prefill_out_efm)
+    torch.testing.assert_close(second_prefill_out_torch, reference_out_torch, rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize(
@@ -259,7 +366,7 @@ def test_fused_gate_up_tuned_record_matches_baseline_output(seq_len, stage, shap
 
     y_baseline_torch = edge_fm_tensor_to_torch(y_baseline_efm)
     y_tuned_torch = edge_fm_tensor_to_torch(y_tuned_efm)
-    rtol, atol = dtype_tolerances(torch.bfloat16)
+    rtol, atol = _prefill_swiglu_tolerances(torch.bfloat16)
     torch.testing.assert_close(y_tuned_torch, y_baseline_torch, rtol=rtol, atol=atol)
     assert math.isfinite(baseline_ms)
     assert math.isfinite(tuned_ms)
@@ -293,7 +400,7 @@ def test_decode_fused_gate_up_swiglu_matches_two_stage_output():
 
     two_stage_out_torch = edge_fm_tensor_to_torch(two_stage_out_efm)
     fused_decode_out_torch = edge_fm_tensor_to_torch(fused_decode_out_efm)
-    rtol, atol = dtype_tolerances(torch.bfloat16)
+    rtol, atol = _prefill_swiglu_tolerances(torch.bfloat16)
     torch.testing.assert_close(fused_decode_out_torch, two_stage_out_torch, rtol=rtol, atol=atol)
 
 

@@ -62,6 +62,12 @@ public:
     nlohmann::json debug_cached_impl_info(
         ModelStage stage = ModelStage::Decode,
         int32_t m = 1) const;
+    nlohmann::json debug_weight_tensor_info(
+        ModelStage stage = ModelStage::Prefill) const;
+    const Tensor* weight_tensor(
+        ModelStage stage = ModelStage::Prefill) const;
+    const Tensor* bias_tensor(
+        ModelStage stage = ModelStage::Prefill) const;
 
     nlohmann::json debug_enumerate_cublaslt_candidates(
         const Tensor& input,
@@ -327,6 +333,11 @@ public:
     void reset_operator_impl_cache() override;
 
     bool try_forward_decode_swiglu_fused(
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream = nullptr);
+
+    bool try_forward_prefill_swiglu_fused(
         const Tensor& input,
         Tensor& output,
         cudaStream_t stream = nullptr);

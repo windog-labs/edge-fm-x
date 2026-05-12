@@ -119,13 +119,13 @@ def candidate_python_paths(project_root: Path) -> list[Path]:
 
 
 def prepend_built_python_paths(project_root: Path) -> list[Path]:
-    inserted: list[Path] = []
-    for python_dir in candidate_python_paths(project_root):
+    python_paths = candidate_python_paths(project_root)
+    for python_dir in reversed(python_paths):
         python_dir_str = str(python_dir)
-        if python_dir_str not in sys.path:
-            sys.path.insert(0, python_dir_str)
-        inserted.append(python_dir)
-    return inserted
+        while python_dir_str in sys.path:
+            sys.path.remove(python_dir_str)
+        sys.path.insert(0, python_dir_str)
+    return python_paths
 
 
 def resolve_platform(project_root: Path, explicit_platform: str | None = None) -> str:
