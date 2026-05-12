@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -40,6 +41,7 @@ public:
 
 StandardEngine::StandardEngine(const EngineConfig& config)
     : Engine(config)
+    , compact_vocab_(config)
 {
     initialize_standard_runtime();
 }
@@ -462,6 +464,7 @@ std::unordered_map<std::string, double> make_generate_metrics_map(
     double decode_ms,
     int32_t executed_generated_tokens,
     int32_t returned_generated_tokens,
+    int32_t response_tokens_capacity,
     bool cuda_graph_enabled)
 {
     const double executed_decode_steps = static_cast<double>(std::max(0, executed_generated_tokens - 1));
@@ -472,7 +475,7 @@ std::unordered_map<std::string, double> make_generate_metrics_map(
     const double decode_tokens_per_second =
         decode_ms > 0.0 ? returned_decode_steps * 1000.0 / decode_ms : 0.0;
 
-    return {
+    std::unordered_map<std::string, double> metrics = {
         {"prefill_ms", prefill_ms},
         {"decode_ms", decode_ms},
         {"total_stage_ms", total_stage_ms},
@@ -495,6 +498,8 @@ std::unordered_map<std::string, double> make_generate_metrics_map(
         {"returned_generated_tokens_total", static_cast<double>(returned_generated_tokens)},
         {"cuda_graph_enabled", cuda_graph_enabled ? 1.0 : 0.0},
     };
+    metrics.emplace("response_tokens_capacity", static_cast<double>(response_tokens_capacity));
+    return metrics;
 }
 
 } // namespace
@@ -851,12 +856,23 @@ void StandardEngine::tune() {
 Response StandardEngine::generate(const Request& request) {
     CUDA_CHECK_THROW(cudaSetDevice(device_id_), "Failed to set device for generate");
 
+    std::optional<Request> remapped_request;
+    const Request* active_request = &request;
+    if (compact_vocab_.enabled()) {
+        remapped_request.emplace(compact_vocab_.remap_request(
+            request,
+            device_,
+            device_id_,
+            MemoryOwnership::OwnCudaMalloc));
+        active_request = &(*remapped_request);
+    }
+
     GenerateMetricsAccum metrics;
     last_generate_metrics_ = make_generate_metrics_map(
-        metrics, 0.0, 0.0, 0, 0, config_.use_cuda_graph());
+        metrics, 0.0, 0.0, 0, 0, 0, config_.use_cuda_graph());
 
     Response response;
-    Context context = scheduler_->create_context(request, &response);
+    Context context = scheduler_->create_context(*active_request, &response);
     cudaStream_t stream = cuda_stream(context);
     auto& tensors = context.tensors();
     NVTX::Range generate_range("EDGEFM_GENERATE", NVTXColor::WHITE);
@@ -877,10 +893,17 @@ Response StandardEngine::generate(const Request& request) {
     // Build stop token set: model eos_token_ids + config stop_token_ids + request stop_token_ids
     // When request.ignore_stop_tokens() (e.g. alignment tests), use empty set to generate full steps
     std::unordered_set<int32_t> stop_tokens;
-    if (!request.ignore_stop_tokens()) {
-        for (int32_t id : config_.eos_token_ids()) stop_tokens.insert(id);
-        for (int32_t id : config_.stop_token_ids()) stop_tokens.insert(id);
-        for (int32_t id : request.stop_token_ids()) stop_tokens.insert(id);
+    if (!active_request->ignore_stop_tokens()) {
+        std::vector<int32_t> eos_token_ids = config_.eos_token_ids();
+        std::vector<int32_t> config_stop_token_ids = config_.stop_token_ids();
+        if (compact_vocab_.enabled()) {
+            eos_token_ids = compact_vocab_.remap_required_token_ids(eos_token_ids, "model eos_token_ids");
+            config_stop_token_ids = compact_vocab_.remap_required_token_ids(
+                config_stop_token_ids, "sampling.stop_token_ids");
+        }
+        for (int32_t id : eos_token_ids) stop_tokens.insert(id);
+        for (int32_t id : config_stop_token_ids) stop_tokens.insert(id);
+        for (int32_t id : active_request->stop_token_ids()) stop_tokens.insert(id);
     }
 
     {
@@ -983,10 +1006,7 @@ Response StandardEngine::generate(const Request& request) {
             {
                 NVTX::Range finalize_range("EDGEFM_DECODE_FINALIZE", NVTXColor::YELLOW);
                 metric_recorder.measure(stream, metrics.decode_finalize_ms, [&]() {
-                    if (!config_.use_cuda_graph()) {
-                        advance_decode_runtime_state(context, stream);
-                    }
-                    flush_sampled_token(context, decode_write_ptr, stream);
+                    finalize_decode_token(context, decode_write_ptr, stream, !config_.use_cuda_graph());
                 });
             }
 
@@ -1026,6 +1046,9 @@ Response StandardEngine::generate(const Request& request) {
         }
     }
     int32_t returned_num_generated = static_cast<int32_t>(host_tokens.size());
+    if (compact_vocab_.enabled()) {
+        host_tokens = compact_vocab_.restore_token_ids(host_tokens, "response token_ids");
+    }
     response.token_ids().swap(host_tokens);
 
     double prefill_ms = 0.0;
@@ -1042,6 +1065,7 @@ Response StandardEngine::generate(const Request& request) {
         decode_ms,
         executed_num_generated,
         returned_num_generated,
+        context.max_generated_tokens(),
         config_.use_cuda_graph());
 
     return response;
@@ -1165,7 +1189,7 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     const std::vector<int32_t>& token_ids_vec = request->token_ids();
     
     size_t prefix_size = context.prefix_size();
-    int32_t max_generated_tokens = context.slot_max_tokens() - static_cast<int32_t>(prefix_size);
+    int32_t max_generated_tokens = context.max_generated_tokens();
     
     // seq_len = 实际写入 KV 的 token 数（prompt 部分，不含 prefix）
     int32_t seq_len = static_cast<int32_t>(token_ids_vec.size());
@@ -1525,11 +1549,34 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     }
 }
 
-void StandardEngine::flush_sampled_token(const Context& context, void* write_ptr, cudaStream_t stream) {
-    const void* sampled_ptr = context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT).data_ptr();
-    CUDA_CHECK_THROW(cudaMemcpyAsync(write_ptr, sampled_ptr,
-        sizeof(int32_t), cudaMemcpyDeviceToDevice, stream),
-        "copy sampled token from decode runtime buffer to response buffer");
+void StandardEngine::finalize_decode_token(Context& context,
+                                           void* write_ptr,
+                                           cudaStream_t stream,
+                                           bool advance_device_state) {
+    auto& tensors = context.tensors();
+    const auto sampled_it = tensors.find(ModelTensors::SAMPLER_TOKEN_OUT);
+    if (sampled_it == tensors.end()) {
+        throw InternalError("SAMPLER_TOKEN_OUT tensor is missing during decode finalize");
+    }
+
+    uint32_t* d_kv_len = nullptr;
+    if (advance_device_state) {
+        auto kv_it = tensors.find(ModelTensors::D_KV_LEN);
+        if (kv_it != tensors.end()) {
+            d_kv_len = static_cast<uint32_t*>(kv_it->second.data_ptr());
+        }
+    }
+
+    launch_finalize_decode_token(
+        static_cast<const int32_t*>(sampled_it->second.data_ptr()),
+        static_cast<int32_t*>(write_ptr),
+        d_kv_len,
+        stream);
+    CUDA_CHECK_THROW(cudaGetLastError(), "Failed to finalize decode token");
+
+    if (advance_device_state) {
+        model_->advance_decode_runtime_tensors(context, stream);
+    }
 }
 
 void StandardEngine::advance_decode_runtime_state(Context& context, cudaStream_t stream) {

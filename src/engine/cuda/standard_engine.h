@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine.h"
+#include "engine/compact_vocab.h"
 #include "engine/kv_manager.h"
 #include "engine/scheduler.h"
 #include "layers/sampler.h"
@@ -151,8 +152,11 @@ private:
     void prepare_prefill_tensors(Context& context);
     void prepare_decode_tensors(Context& context);
 
-    /// Copy the latest sampled token from the decode runtime buffer to the response array.
-    void flush_sampled_token(const Context& context, void* write_ptr, cudaStream_t stream);
+    /// Finalize one decode token at the runtime boundary.
+    void finalize_decode_token(Context& context,
+                               void* write_ptr,
+                               cudaStream_t stream,
+                               bool advance_device_state);
 
     /// Advance decode runtime buffers that stay at stable device addresses
     /// across graph replays (e.g. kv_len / position_ids).
@@ -162,6 +166,7 @@ private:
     /// and push them into the decode graph's dynamic nodes.
     void sync_decode_graph(Context& context);
 
+    CompactVocab compact_vocab_;
     std::unordered_map<std::string, double> last_generate_metrics_{};
     std::unordered_map<uint64_t, PrefillReplayState> prefill_replay_states_{};
     std::unique_ptr<Model> model_;

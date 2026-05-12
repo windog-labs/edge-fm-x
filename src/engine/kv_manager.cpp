@@ -1,4 +1,5 @@
 #include "engine/kv_manager.h"
+#include "engine/compact_vocab.h"
 #include "engine/engine.h"
 #include "utils/check.h"
 #include <edge-fm/core.h>
@@ -122,6 +123,7 @@ KVManager::KVManager(const EngineConfig& engine_config, std::shared_ptr<KVBuffer
         throw ConfigurationError("kvcache.requests is required and must be an array");
     }
     
+    CompactVocab compact_vocab(engine_config);
     const auto& requests = kvcache_config["requests"];
     check(requests.size() > 0, "kvcache.requests array must not be empty");
     
@@ -145,6 +147,11 @@ KVManager::KVManager(const EngineConfig& engine_config, std::shared_ptr<KVBuffer
                     prefix_token_ids.push_back(static_cast<int32_t>(token_id));
                 }
             }
+        }
+        if (compact_vocab.enabled() && !prefix_token_ids.empty()) {
+            prefix_token_ids = compact_vocab.remap_required_token_ids(
+                prefix_token_ids,
+                "kvcache.requests[].prefix_token_ids");
         }
         
         size_t prefix_size = prefix_token_ids.size();

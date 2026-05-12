@@ -63,6 +63,7 @@ public:
     EngineStreamHandle stream_handle() const { return stream_handle_; }
     
     int32_t get_generated_tokens() const { return generated_tokens_; }
+    int32_t max_generated_tokens() const { return max_generated_tokens_; }
     void set_response_tokens_base_ptr(void* p);
     void* get_response_token_write_ptr() const;  // current write slot for sampler
     void* get_response_token_read_ptr() const;   // previous slot for decode TOKEN_IDS; only valid when get_generated_tokens() >= 1

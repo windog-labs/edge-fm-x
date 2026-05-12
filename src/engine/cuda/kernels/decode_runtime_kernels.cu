@@ -50,6 +50,20 @@ __global__ void increment_int32_triplet_kernel(int32_t* values) {
     }
 }
 
+__global__ void finalize_decode_token_kernel(const int32_t* sampled_token,
+                                             int32_t* response_token,
+                                             uint32_t* d_kv_len)
+{
+    if (blockIdx.x == 0 && threadIdx.x == 0) {
+        if (response_token != nullptr && sampled_token != nullptr) {
+            response_token[0] = sampled_token[0];
+        }
+        if (d_kv_len != nullptr) {
+            d_kv_len[0] += 1;
+        }
+    }
+}
+
 template <typename T>
 __global__ void copy_decode_cache_slot_kernel(const T* src,
                                               T* cache_base,
@@ -226,6 +240,14 @@ void launch_increment_uint32_scalar(uint32_t* value, cudaStream_t stream) {
 
 void launch_increment_int32_triplet(int32_t* values, cudaStream_t stream) {
     increment_int32_triplet_kernel<<<1, 3, 0, stream>>>(values);
+}
+
+void launch_finalize_decode_token(const int32_t* sampled_token,
+                                  int32_t* response_token,
+                                  uint32_t* d_kv_len,
+                                  cudaStream_t stream)
+{
+    finalize_decode_token_kernel<<<1, 1, 0, stream>>>(sampled_token, response_token, d_kv_len);
 }
 
 void launch_copy_decode_cache_slot(const void* src,

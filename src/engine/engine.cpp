@@ -238,6 +238,7 @@ nlohmann::json EngineConfig::kvcache() const { return get_object_or_empty(config
 nlohmann::json EngineConfig::sampling() const { return get_object_or_empty(config_, "sampling"); }
 nlohmann::json EngineConfig::metrics() const { return get_object_or_empty(config_, "metrics"); }
 nlohmann::json EngineConfig::tuning() const { return get_object_or_empty(config_, "tuning"); }
+nlohmann::json EngineConfig::compact_vocab() const { return get_object_or_empty(config_, "compact_vocab"); }
 std::string EngineConfig::configured_operator_impl_table_path() const {
     const std::string raw_path = config_.value("operator_impl_table_path", std::string(""));
     if (raw_path.empty()) {

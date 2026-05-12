@@ -44,6 +44,8 @@ public:
     nlohmann::json sampling() const;
     nlohmann::json metrics() const;
     nlohmann::json tuning() const;
+    nlohmann::json compact_vocab() const;
+    const std::filesystem::path& config_dir() const noexcept { return config_dir_; }
     std::string configured_operator_impl_table_path() const;
     std::string operator_impl_table_path() const;
     bool has_operator_impl_table_override() const;

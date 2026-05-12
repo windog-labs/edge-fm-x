@@ -9,20 +9,16 @@ EmbedHeadLayer 层的正确性和性能测试（pytest 单元测试）
 4. forward_for_embeddings 的性能测试（确保性能不低于 PyTorch 的 0.9 倍）
 """
 
-import sys
 import json
 import torch
 import pytest
 import tempfile
 import os
-from pathlib import Path
 from safetensors.torch import save_file
 
-project_root = Path(__file__).parent.parent.parent
-build_python = project_root / "build" / "install" / "python"
-sys.path.insert(0, str(build_python))
+from tests.layers._test_utils import make_layer_engine_config
+
 import edge_fm
-import flashinfer
 from flashinfer.testing.utils import bench_gpu_time
 
 
@@ -47,13 +43,7 @@ def create_embed_layer(vocab_size, hidden_size, dtype_str="float16"):
     
     engine_config_dir = tempfile.mkdtemp()
     engine_config_path = os.path.join(engine_config_dir, "engine_config.json")
-    engine_config = {
-        "runtime": {
-            "device": "cuda",
-            "device_id": 0
-        },
-        "prefill_model_path": temp_dir
-    }
+    engine_config = make_layer_engine_config(temp_dir, with_operator_table=False)
     with open(engine_config_path, "w") as f:
         json.dump(engine_config, f)
     

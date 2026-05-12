@@ -276,9 +276,11 @@ void SamplerLayer::forward_sampling(
         workspace_size = batch_size * num_slices * PARTIAL_SOFTMAX_RESULT_SIZE;
     }
     
-    void* workspace = MemoryPool::instance().allocate(workspace_size, stream, device_id_);
+    void* workspace = StaticBufferManager::get_cache_buf(
+        "sampler_softmax_workspace", workspace_size, device_id_);
     size_t probs_size = batch_size * vocab_size_ * sizeof(float);
-    float* probs_buffer = static_cast<float*>(MemoryPool::instance().allocate(probs_size, stream, device_id_));
+    float* probs_buffer = static_cast<float*>(StaticBufferManager::get_cache_buf(
+        "sampler_probs_buffer", probs_size, device_id_));
     
     CUDA_CHECK_THROW(
         sampling::OnlineSoftmax<float>(

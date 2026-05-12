@@ -4,6 +4,7 @@
 #include "engine/cuda/kernels/decode_runtime_kernels.h"
 #include "utils/device/cuda_utils.h"
 #include "utils/device/memory.h"
+#include "utils/device/nvtx.h"
 #include "utils/device/weight_loader.h"
 #include "utils/check.h"
 #include <cuda_runtime.h>
@@ -475,7 +476,10 @@ void Qwen2_5::forward_prefill(
     Tensor& lm_head_out = outputs.at("lm_head_output");
     Tensor final_norm_view = Tensor::view(final_norm_out.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
     Tensor lm_head_view = Tensor::view(lm_head_out.data_ptr(), {seq_len, vocab_size_}, lm_head_out.dtype(), Device::GPU, device_id);
-    lm_head_->forward_fp16_bf16(final_norm_view, lm_head_view, stream, ModelStage::Prefill);
+    {
+        NVTX::Range lm_head_range("EDGEFM_PREFILL_LM_HEAD", NVTXColor::MAGENTA);
+        lm_head_->forward_fp16_bf16(final_norm_view, lm_head_view, stream, ModelStage::Prefill);
+    }
 }
 
 void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage stage) {
@@ -783,7 +787,13 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         lm_head_input_ptr, {lm_head_rows, hidden_size_}, dtype_, Device::GPU, device_id);
     Tensor logits_2d = Tensor::view(
         logits.data_ptr(), {lm_head_rows, vocab_size_}, logits.dtype(), Device::GPU, device_id);
-    lm_head_->forward_fp16_bf16(hidden_states_2d, logits_2d, stream, stage);
+    {
+        const char* range_name = stage == ModelStage::Prefill
+            ? "EDGEFM_PREFILL_LM_HEAD"
+            : "EDGEFM_DECODE_LM_HEAD";
+        NVTX::Range lm_head_range(range_name, NVTXColor::MAGENTA);
+        lm_head_->forward_fp16_bf16(hidden_states_2d, logits_2d, stream, stage);
+    }
 }
 
 void Qwen2_5::prepare_decode_position_ids(Context& context, Device device, int32_t device_id) {

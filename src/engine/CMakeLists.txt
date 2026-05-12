@@ -3,6 +3,7 @@
 # ============================================================================
 
 set(ENGINE_SOURCES
+    compact_vocab.cpp
     engine.cpp
     engine_factory.cpp
     kv_manager.cpp

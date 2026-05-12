@@ -8,6 +8,10 @@ namespace edge_fm {
 
 void launch_increment_uint32_scalar(uint32_t* value, cudaStream_t stream);
 void launch_increment_int32_triplet(int32_t* values, cudaStream_t stream);
+void launch_finalize_decode_token(const int32_t* sampled_token,
+                                  int32_t* response_token,
+                                  uint32_t* d_kv_len,
+                                  cudaStream_t stream);
 void launch_copy_decode_cache_slot(const void* src,
                                    void* cache_base,
                                    int elems_per_token,

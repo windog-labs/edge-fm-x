@@ -345,6 +345,7 @@ def _create_engine_config(
     generated_tokens_total: int | None = None,
     model_name: str | None = None,
     max_new_tokens: int | None = None,
+    compact_vocab: dict | None = None,
 ) -> str:
     model_path_obj = Path(model_path).resolve()
     config = _load_model_config_for_engine(str(model_path_obj))
@@ -381,23 +382,52 @@ def _create_engine_config(
     if max_new_tokens is not None:
         sampling["max_new_tokens"] = max_new_tokens
 
+    engine_config = {
+        "model_name": resolved_model_name,
+        "runtime": runtime,
+        "operator_impl_table_path": str(operator_table_path),
+        "prefill_model_path": str(model_path_obj),
+        "kvcache": {
+            "dtype": kvcache_dtype,
+            "attention_type": attention_type,
+            "requests": [{"request_id": 0, "prefix_token_ids": prefix, "max_tokens": max_tokens}],
+        },
+        "sampling": sampling,
+    }
+    if compact_vocab is not None:
+        engine_config["compact_vocab"] = compact_vocab
+
     with open(engine_config_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "model_name": resolved_model_name,
-            "runtime": runtime,
-            "operator_impl_table_path": str(operator_table_path),
-            "prefill_model_path": str(model_path_obj),
-            "kvcache": {
-                "dtype": kvcache_dtype,
-                "attention_type": attention_type,
-                "requests": [{"request_id": 0, "prefix_token_ids": prefix, "max_tokens": max_tokens}],
-            },
-            "sampling": sampling,
-        }, f, indent=2)
+        json.dump(engine_config, f, indent=2)
     return str(engine_config_path)
 
 
-@pytest.fixture(scope="module")
+def _write_identity_compact_vocab_mapping(engine_config_path: str, vocab_size: int, special_token_ids: list[int]) -> str:
+    mapping_path = Path(engine_config_path).parent / "compact_vocab_identity.json"
+    token_ids = list(range(vocab_size))
+    with open(mapping_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "format": "edgefm.compact_vocab.v1",
+            "original_vocab_size": vocab_size,
+            "compact_vocab_size": vocab_size,
+            "old_to_new": token_ids,
+            "new_to_old": token_ids,
+            "special_token_ids": special_token_ids,
+        }, f)
+    return mapping_path.name
+
+
+def _model_special_token_ids(config: dict) -> list[int]:
+    ids: list[int] = []
+    eos_token_id = config.get("eos_token_id")
+    if isinstance(eos_token_id, int):
+        ids.append(eos_token_id)
+    elif isinstance(eos_token_id, list):
+        ids.extend(int(x) for x in eos_token_id if isinstance(x, int))
+    return sorted(set(ids))
+
+
+@pytest.fixture(scope="function")
 def engine_and_dump(dump_data):
     """Create the EdgeFM engine and provide dump data together."""
     manifest = dump_data["manifest"]
@@ -409,7 +439,7 @@ def engine_and_dump(dump_data):
     return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def engine_and_dump_cuda_graph(dump_data):
     """Create the EdgeFM engine with use_cuda_graph=True for decode graph verification.
     Uses prefix so engine warmup can eagerly capture the decode graph before request-time decode.
@@ -427,7 +457,7 @@ def engine_and_dump_cuda_graph(dump_data):
     return {**dump_data, "engine": engine, "num_steps": num_steps, "seq_len": seq_len}
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def engine_and_dump_prefill_cuda_graph(dump_data):
     """Create a CUDA graph engine without a warmed prefix.
 
@@ -498,7 +528,7 @@ def dump_data_vl() -> dict:
     }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def engine_and_dump_vl(dump_data_vl):
     """Create the EdgeFM engine 与 VL dump 数据（含图 embedding）。"""
     manifest = dump_data_vl["manifest"]
@@ -515,7 +545,7 @@ def engine_and_dump_vl(dump_data_vl):
     }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def engine_and_dump_vl_cuda_graph(dump_data_vl):
     """Create the EdgeFM engine with use_cuda_graph=True for VLM decode alignment.
 
@@ -690,6 +720,46 @@ def test_generate_token_alignment(engine_and_dump):
         )
 
 
+def test_generate_token_alignment_compact_vocab_identity(dump_data):
+    """Identity compact vocab must preserve normal Qwen generate token output."""
+    import torch
+
+    manifest = dump_data["manifest"]
+    model_path = dump_data["model_path"]
+    token_ids = dump_data["token_ids"]
+    decode_tokens = dump_data["decode_tokens"]
+    num_steps = manifest["num_decode_steps"]
+    seq_len = int(token_ids.size)
+
+    model_config = _load_model_config_for_engine(model_path)
+    vocab_size = int(model_config["vocab_size"])
+    engine_config_path = _create_engine_config(model_path, seq_len, num_steps)
+    mapping_name = _write_identity_compact_vocab_mapping(
+        engine_config_path,
+        vocab_size,
+        _model_special_token_ids(model_config),
+    )
+    with open(engine_config_path, "r", encoding="utf-8") as f:
+        engine_config = json.load(f)
+    engine_config["compact_vocab"] = {
+        "enabled": True,
+        "mapping_path": mapping_name,
+        "reject_unknown_input_ids": True,
+    }
+    with open(engine_config_path, "w", encoding="utf-8") as f:
+        json.dump(engine_config, f, indent=2)
+
+    engine = edge_fm.EdgeFM(engine_config_path)
+    request = edge_fm.Request(0, token_ids.flatten().tolist())
+    request.set_ignore_stop_tokens(True)
+    response = engine.generate(request)
+    got_tokens = list(response.token_ids())
+    torch.cuda.synchronize()
+
+    expected_tokens = [int(x) for x in decode_tokens[: num_steps + 1]]
+    assert got_tokens == expected_tokens
+
+
 def test_generate_respects_sampling_max_new_tokens(dump_data):
     """sampling.max_new_tokens limits returned generated tokens independently of KV capacity."""
     import torch
@@ -784,6 +854,7 @@ def test_generate_metrics_surface(engine_and_dump):
         "decode_tokens_per_second",
         "executed_generated_tokens_total",
         "returned_generated_tokens_total",
+        "response_tokens_capacity",
         "cuda_graph_enabled",
     }
     assert required_keys.issubset(metrics.keys())
@@ -810,6 +881,9 @@ def test_generate_metrics_surface(engine_and_dump):
     assert float(metrics["generated_tokens_total"]) == pytest.approx(returned)
     assert float(metrics["returned_generated_tokens_total"]) == pytest.approx(returned)
     assert float(metrics["executed_generated_tokens_total"]) >= returned
+    assert float(metrics["response_tokens_capacity"]) == pytest.approx(
+        float(metrics["executed_generated_tokens_total"])
+    )
 
 
 def test_generate_logits_cosine_similarity(engine_and_dump):

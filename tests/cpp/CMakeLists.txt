@@ -30,6 +30,31 @@ add_test(
     COMMAND edge_fm_tensor_cpu_test
 )
 
+add_executable(edge_fm_compact_vocab_test
+    test_compact_vocab.cpp
+    compact_vocab_cuda_stubs.cpp
+    ../../src/engine/compact_vocab.cpp
+    ../../src/engine/engine.cpp
+    ../../src/tensor.cpp
+)
+
+target_link_libraries(edge_fm_compact_vocab_test PRIVATE
+    nlohmann_json::nlohmann_json
+)
+
+target_compile_definitions(edge_fm_compact_vocab_test PRIVATE
+    EDGE_FM_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
+)
+
+if(ENABLE_CUDA)
+    target_link_libraries(edge_fm_compact_vocab_test PRIVATE CUDA::cudart)
+endif()
+
+add_test(
+    NAME edge_fm_compact_vocab
+    COMMAND edge_fm_compact_vocab_test
+)
+
 add_executable(edge_fm_smolvla_horizon_smoke
     smolvla_horizon_prefill_decode_smoke.cpp
 )
