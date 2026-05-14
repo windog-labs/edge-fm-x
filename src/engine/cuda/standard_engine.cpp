@@ -384,6 +384,7 @@ struct GenerateMetricsAccum {
     double decode_finalize_ms = 0.0;
     double stop_check_host_ms = 0.0;
     double response_copy_ms = 0.0;
+    double lm_head_top1_decode_steps = 0.0;
 };
 
 class ScopedHostMetric {
@@ -465,7 +466,8 @@ std::unordered_map<std::string, double> make_generate_metrics_map(
     int32_t executed_generated_tokens,
     int32_t returned_generated_tokens,
     int32_t response_tokens_capacity,
-    bool cuda_graph_enabled)
+    bool cuda_graph_enabled,
+    bool lm_head_top1_enabled)
 {
     const double executed_decode_steps = static_cast<double>(std::max(0, executed_generated_tokens - 1));
     const double returned_decode_steps = static_cast<double>(std::max(0, returned_generated_tokens - 1));
@@ -497,9 +499,15 @@ std::unordered_map<std::string, double> make_generate_metrics_map(
         {"executed_generated_tokens_total", static_cast<double>(executed_generated_tokens)},
         {"returned_generated_tokens_total", static_cast<double>(returned_generated_tokens)},
         {"cuda_graph_enabled", cuda_graph_enabled ? 1.0 : 0.0},
+        {"lm_head_top1_enabled", lm_head_top1_enabled ? 1.0 : 0.0},
+        {"lm_head_top1_decode_steps", accum.lm_head_top1_decode_steps},
     };
     metrics.emplace("response_tokens_capacity", static_cast<double>(response_tokens_capacity));
     return metrics;
+}
+
+bool lm_head_top1_token_ready(const Context& context) {
+    return context.tensors().count(ModelTensors::LM_HEAD_TOP1_DONE) > 0;
 }
 
 } // namespace
@@ -797,11 +805,13 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
             sampler_device_id);
 
         model_->decode_step(context);
-        run_sampler(
-            tensors.at(ModelTensors::LOGITS),
-            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-            stream,
-            ModelStage::Decode);
+        if (!lm_head_top1_token_ready(context)) {
+            run_sampler(
+                tensors.at(ModelTensors::LOGITS),
+                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Decode);
+        }
         if (stream != nullptr) {
             CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
                              "Failed to sync stream before CUDA graph capture");
@@ -813,15 +823,20 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
     (void)cudaGetLastError();
 
     DecodeWritePtrs write_ptrs = collect_decode_write_ptrs_from_tensors(context, model_->num_layers());
+    bool captured_lm_head_top1 = false;
     cuda_graph_manager_.capture_decode(stream, [&]() {
         model_->decode_step(context);
-        run_sampler(
-            tensors.at(ModelTensors::LOGITS),
-            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-            stream,
-            ModelStage::Decode);
+        captured_lm_head_top1 = lm_head_top1_token_ready(context);
+        if (!lm_head_top1_token_ready(context)) {
+            run_sampler(
+                tensors.at(ModelTensors::LOGITS),
+                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Decode);
+        }
         advance_decode_runtime_state(context, stream);
     }, write_ptrs.k, write_ptrs.v);
+    decode_graph_lm_head_top1_ = captured_lm_head_top1;
 
     // Stream capture executes the captured work, so restore the first decode
     // step's input state before the first graph replay.
@@ -849,6 +864,7 @@ void StandardEngine::tune() {
     OperatorImplTable::instance().invalidate(result.operator_table_path.string());
     model_->reset_operator_impl_caches();
     cuda_graph_manager_.reset();
+    decode_graph_lm_head_top1_ = false;
     prefill_replay_states_.clear();
 }
 
@@ -869,7 +885,7 @@ Response StandardEngine::generate(const Request& request) {
 
     GenerateMetricsAccum metrics;
     last_generate_metrics_ = make_generate_metrics_map(
-        metrics, 0.0, 0.0, 0, 0, 0, config_.use_cuda_graph());
+        metrics, 0.0, 0.0, 0, 0, 0, config_.use_cuda_graph(), config_.lm_head_top1_enabled());
 
     Response response;
     Context context = scheduler_->create_context(*active_request, &response);
@@ -984,6 +1000,9 @@ Response StandardEngine::generate(const Request& request) {
                         cuda_graph_manager_.decode().launch(stream);
                     });
                 }
+                if (decode_graph_lm_head_top1_) {
+                    metrics.lm_head_top1_decode_steps += 1.0;
+                }
             } else {
                 {
                     NVTX::Range model_range("EDGEFM_DECODE_MODEL", NVTXColor::GREEN);
@@ -991,7 +1010,9 @@ Response StandardEngine::generate(const Request& request) {
                         model_->decode_step(context);
                     });
                 }
-                {
+                if (lm_head_top1_token_ready(context)) {
+                    metrics.lm_head_top1_decode_steps += 1.0;
+                } else {
                     NVTX::Range sampler_range("EDGEFM_DECODE_SAMPLER", NVTXColor::ORANGE);
                     metric_recorder.measure(stream, metrics.decode_sampler_ms, [&]() {
                         run_sampler(
@@ -1066,7 +1087,8 @@ Response StandardEngine::generate(const Request& request) {
         executed_num_generated,
         returned_num_generated,
         context.max_generated_tokens(),
-        config_.use_cuda_graph());
+        config_.use_cuda_graph(),
+        config_.lm_head_top1_enabled());
 
     return response;
 }

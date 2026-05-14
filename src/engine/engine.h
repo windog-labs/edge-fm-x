@@ -66,6 +66,7 @@ public:
     int32_t sampling_max_new_tokens() const;
     std::vector<int32_t> eos_token_ids() const;
     std::vector<int32_t> stop_token_ids() const;
+    bool lm_head_top1_enabled() const;
     BackendTarget backend_target_kind() const;
     std::string backend_target() const;
     bool has_backend_artifact() const;

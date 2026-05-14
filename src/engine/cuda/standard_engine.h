@@ -174,6 +174,7 @@ private:
     std::unique_ptr<Scheduler> scheduler_;
     std::unique_ptr<SamplerLayer> sampler_;
     CudaGraphManager cuda_graph_manager_;
+    bool decode_graph_lm_head_top1_ = false;
 };
 
 } // namespace edge_fm

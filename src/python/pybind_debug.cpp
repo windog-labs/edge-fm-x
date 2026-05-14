@@ -1232,7 +1232,21 @@ PYBIND11_MODULE(edge_fm, m) {
             "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n"
             "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"（默认: \"Prefill\"）\n\n"
             "示例:\n"
-            "    layer.forward_fp16_bf16(input, output)\n");
+            "    layer.forward_fp16_bf16(input, output)\n")
+        .def("try_forward_top1", [](LMHeadLinearLayer& self,
+                                     const Tensor& input,
+                                     Tensor& token_out,
+                                     uintptr_t stream_ptr = 0,
+                                     const std::string& stage_str = "Decode") {
+                cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                return self.try_forward_top1(input, token_out, stream, stage);
+            },
+            py::arg("input"),
+            py::arg("token_out"),
+            py::arg("stream") = 0,
+            py::arg("stage") = "Decode",
+            "实验 decode-only LM head top1 fast path。支持时直接写入 token_out[0] 并返回 True，否则返回 False。");
 
     // ============================================================================
     // EmbedHeadLayer 类绑定

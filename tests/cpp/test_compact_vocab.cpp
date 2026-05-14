@@ -217,6 +217,38 @@ void test_unknown_input_rejected() {
     require(threw, "unmapped input token must throw InvalidRequestError");
 }
 
+void test_remap_request_rejects_pruned_stop_token() {
+    auto dir = make_case_dir("pruned_request_stop");
+    write_json(dir / "compact_vocab.json", {
+        {"format", "edgefm.compact_vocab.v1"},
+        {"original_vocab_size", 4},
+        {"compact_vocab_size", 2},
+        {"old_to_new", {0, -1, 1, -1}},
+        {"new_to_old", {0, 2}},
+        {"special_token_ids", {0}},
+    });
+
+    auto payload = base_engine_config(dir, 2);
+    payload["compact_vocab"] = {
+        {"enabled", true},
+        {"mapping_path", "compact_vocab.json"},
+        {"reject_unknown_input_ids", true},
+    };
+    auto config = write_engine_config(dir, payload);
+    edge_fm::CompactVocab compact(config);
+
+    edge_fm::Request request(0, {0, 2});
+    request.set_stop_token_ids({3});
+
+    bool threw = false;
+    try {
+        (void)compact.remap_request(request, edge_fm::Device::CPU, 0, edge_fm::MemoryOwnership::OwnCpuMalloc);
+    } catch (const edge_fm::InvalidRequestError&) {
+        threw = true;
+    }
+    require(threw, "pruned request stop token must throw InvalidRequestError during remap_request");
+}
+
 void test_mapping_shape_validation() {
     auto dir = make_case_dir("shape");
     write_json(dir / "compact_vocab.json", {
@@ -354,6 +386,7 @@ int main() {
         test_non_identity_remap_and_restore();
         test_non_identity_request_stop_remap();
         test_unknown_input_rejected();
+        test_remap_request_rejects_pruned_stop_token();
         test_mapping_shape_validation();
         test_special_tokens_must_be_kept();
         test_config_stop_tokens_must_be_kept();

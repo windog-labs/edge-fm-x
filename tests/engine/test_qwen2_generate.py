@@ -346,6 +346,7 @@ def _create_engine_config(
     model_name: str | None = None,
     max_new_tokens: int | None = None,
     compact_vocab: dict | None = None,
+    lm_head_top1: bool = False,
 ) -> str:
     model_path_obj = Path(model_path).resolve()
     config = _load_model_config_for_engine(str(model_path_obj))
@@ -374,6 +375,8 @@ def _create_engine_config(
     runtime = {"device": "cuda", "device_id": DEVICE_ID, "hw_profile": CUDA_HW_PROFILE}
     if use_cuda_graph:
         runtime["use_cuda_graph"] = True
+    if lm_head_top1:
+        runtime["lm_head_top1"] = {"enabled": True}
     prefix = prefix_token_ids if prefix_token_ids is not None else []
     sampling = {
         "temperature": 0.0,
@@ -417,6 +420,29 @@ def _write_identity_compact_vocab_mapping(engine_config_path: str, vocab_size: i
     return mapping_path.name
 
 
+def _write_compact_vocab_mapping(
+    engine_config_path: str,
+    *,
+    original_vocab_size: int,
+    compact_vocab_size: int,
+    old_to_new: list[int],
+    new_to_old: list[int],
+    special_token_ids: list[int],
+    file_name: str,
+) -> str:
+    mapping_path = Path(engine_config_path).parent / file_name
+    with open(mapping_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "format": "edgefm.compact_vocab.v1",
+            "original_vocab_size": original_vocab_size,
+            "compact_vocab_size": compact_vocab_size,
+            "old_to_new": old_to_new,
+            "new_to_old": new_to_old,
+            "special_token_ids": special_token_ids,
+        }, f)
+    return mapping_path.name
+
+
 def _model_special_token_ids(config: dict) -> list[int]:
     ids: list[int] = []
     eos_token_id = config.get("eos_token_id")
@@ -425,6 +451,48 @@ def _model_special_token_ids(config: dict) -> list[int]:
     elif isinstance(eos_token_id, list):
         ids.extend(int(x) for x in eos_token_id if isinstance(x, int))
     return sorted(set(ids))
+
+
+def _choose_compact_vocab_permutation_case(
+    token_ids: list[int],
+    decode_tokens: list[int],
+    vocab_size: int,
+    special_token_ids: list[int],
+) -> tuple[list[int], list[int], int, int]:
+    used = set(token_ids) | set(decode_tokens) | set(special_token_ids)
+    prompt_internal = next((tok for tok in token_ids if tok not in set(decode_tokens)), token_ids[0])
+    external_prompt = next((tok for tok in range(vocab_size) if tok not in used and tok != prompt_internal), None)
+    if external_prompt is None:
+        pytest.skip("No spare token id available for compact vocab prompt remap case")
+
+    used.add(external_prompt)
+    stop_internal = next((tok for tok in decode_tokens if tok not in {prompt_internal, external_prompt}), None)
+    if stop_internal is None:
+        pytest.skip("No generated token available for compact vocab response restore case")
+    external_stop = next((tok for tok in range(vocab_size) if tok not in used and tok != stop_internal), None)
+    if external_stop is None:
+        pytest.skip("No spare token id available for compact vocab stop remap case")
+
+    old_to_new = list(range(vocab_size))
+    new_to_old = list(range(vocab_size))
+
+    # External request id external_prompt maps to the physical compact id
+    # prompt_internal, so the model sees the same prompt as the reference run.
+    old_to_new[external_prompt] = prompt_internal
+    new_to_old[prompt_internal] = external_prompt
+
+    # Preserve a valid one-to-one mapping by sending the original id to the
+    # spare external slot. The generated reference token below uses the first
+    # direction to verify response restore and request stop-token remap.
+    old_to_new[prompt_internal] = external_prompt
+    new_to_old[external_prompt] = prompt_internal
+
+    old_to_new[external_stop] = stop_internal
+    new_to_old[stop_internal] = external_stop
+    old_to_new[stop_internal] = external_stop
+    new_to_old[external_stop] = stop_internal
+
+    return old_to_new, new_to_old, prompt_internal, external_prompt
 
 
 @pytest.fixture(scope="function")
@@ -760,6 +828,78 @@ def test_generate_token_alignment_compact_vocab_identity(dump_data):
     assert got_tokens == expected_tokens
 
 
+def test_generate_compact_vocab_non_identity_remaps_request_response_and_stop(dump_data):
+    """Non-identity compact vocab remaps request ids, restores response ids, and honors remapped stop ids."""
+    import torch
+
+    manifest = dump_data["manifest"]
+    model_path = dump_data["model_path"]
+    token_ids = [int(x) for x in dump_data["token_ids"].flatten().tolist()]
+    decode_tokens = [int(x) for x in dump_data["decode_tokens"].tolist()]
+    seq_len = len(token_ids)
+    max_new_tokens = min(6, len(decode_tokens))
+    if max_new_tokens < 2:
+        pytest.skip("Need at least two generated tokens for non-identity compact vocab stop remap")
+
+    model_config = _load_model_config_for_engine(model_path)
+    vocab_size = int(model_config["vocab_size"])
+    special_token_ids = _model_special_token_ids(model_config)
+    old_to_new, new_to_old, prompt_internal, external_prompt = _choose_compact_vocab_permutation_case(
+        token_ids,
+        decode_tokens[:max_new_tokens],
+        vocab_size,
+        special_token_ids,
+    )
+    request_tokens = [external_prompt if tok == prompt_internal else tok for tok in token_ids]
+
+    expected_full = [new_to_old[tok] for tok in decode_tokens[:max_new_tokens]]
+    stop_index = next(
+        idx for idx, tok in enumerate(decode_tokens[:max_new_tokens])
+        if new_to_old[tok] != tok
+    )
+    external_stop = new_to_old[decode_tokens[stop_index]]
+
+    engine_config_path = _create_engine_config(
+        model_path,
+        seq_len,
+        manifest["num_decode_steps"],
+        generated_tokens_total=manifest["num_decode_steps"] + 1,
+        max_new_tokens=max_new_tokens,
+    )
+    mapping_name = _write_compact_vocab_mapping(
+        engine_config_path,
+        original_vocab_size=vocab_size,
+        compact_vocab_size=vocab_size,
+        old_to_new=old_to_new,
+        new_to_old=new_to_old,
+        special_token_ids=special_token_ids,
+        file_name="compact_vocab_non_identity.json",
+    )
+    with open(engine_config_path, "r", encoding="utf-8") as f:
+        engine_config = json.load(f)
+    engine_config["compact_vocab"] = {
+        "enabled": True,
+        "mapping_path": mapping_name,
+        "reject_unknown_input_ids": True,
+    }
+    with open(engine_config_path, "w", encoding="utf-8") as f:
+        json.dump(engine_config, f, indent=2)
+
+    engine = edge_fm.EdgeFM(engine_config_path)
+
+    full_request = edge_fm.Request(0, request_tokens)
+    full_request.set_ignore_stop_tokens(True)
+    full_response = engine.generate(full_request)
+    torch.cuda.synchronize()
+    assert list(full_response.token_ids()) == expected_full
+
+    stop_request = edge_fm.Request(0, request_tokens)
+    stop_request.set_stop_token_ids([external_stop])
+    stop_response = engine.generate(stop_request)
+    torch.cuda.synchronize()
+    assert list(stop_response.token_ids()) == expected_full[: stop_index + 1]
+
+
 def test_generate_respects_sampling_max_new_tokens(dump_data):
     """sampling.max_new_tokens limits returned generated tokens independently of KV capacity."""
     import torch
@@ -876,6 +1016,74 @@ def test_generate_metrics_surface(engine_and_dump):
             rel_tol=1e-4,
             abs_tol=1e-3,
         )
+
+
+def test_generate_token_alignment_lm_head_top1(engine_and_dump):
+    """实验 lm_head_top1 decode path 打开时，greedy token 输出仍与 full logits 对齐。"""
+    import torch
+
+    manifest = engine_and_dump["manifest"]
+    model_path = engine_and_dump["model_path"]
+    num_steps = manifest["num_decode_steps"]
+    seq_len = int(engine_and_dump["token_ids"].size)
+    engine_config_path = _create_engine_config(
+        model_path,
+        seq_len,
+        num_steps,
+        lm_head_top1=True,
+    )
+    engine = edge_fm.EdgeFM(engine_config_path)
+
+    token_ids = engine_and_dump["token_ids"]
+    decode_tokens = engine_and_dump["decode_tokens"]
+    token_ids_list = token_ids.flatten().tolist()
+    ref_tokens = decode_tokens[1: num_steps + 1].tolist()
+
+    request = edge_fm.Request(0, token_ids_list)
+    response = engine.generate(request)
+    all_tokens = response.token_ids()
+    got_tokens = all_tokens[1: 1 + num_steps]
+
+    torch.cuda.synchronize()
+
+    assert got_tokens == [int(tok) for tok in ref_tokens]
+    metrics = engine.last_generate_metrics()
+    assert float(metrics["lm_head_top1_enabled"]) == 1.0
+    assert float(metrics["lm_head_top1_decode_steps"]) >= float(num_steps)
+
+
+def test_generate_token_alignment_cuda_graph_lm_head_top1(dump_data):
+    """CUDA graph decode capture 中也应捕获 lm_head_top1，而不是回到 full-logits sampler。"""
+    import torch
+
+    manifest = dump_data["manifest"]
+    model_path = dump_data["model_path"]
+    num_steps = manifest["num_decode_steps"]
+    seq_len = int(dump_data["token_ids"].size)
+    token_ids = dump_data["token_ids"].flatten()
+    prefix = token_ids[: min(4, len(token_ids))].tolist()
+    engine_config_path = _create_engine_config(
+        model_path,
+        seq_len,
+        num_steps,
+        use_cuda_graph=True,
+        prefix_token_ids=prefix,
+        lm_head_top1=True,
+    )
+    engine = edge_fm.EdgeFM(engine_config_path)
+
+    request = edge_fm.Request(0, token_ids.tolist())
+    response = engine.generate(request)
+    got_tokens = response.token_ids()[1: 1 + num_steps]
+    ref_tokens = dump_data["decode_tokens"][1: num_steps + 1].tolist()
+
+    torch.cuda.synchronize()
+
+    assert got_tokens == [int(tok) for tok in ref_tokens]
+    metrics = engine.last_generate_metrics()
+    assert float(metrics["cuda_graph_enabled"]) == 1.0
+    assert float(metrics["lm_head_top1_enabled"]) == 1.0
+    assert float(metrics["lm_head_top1_decode_steps"]) >= float(num_steps)
 
     returned = len(response.token_ids())
     assert float(metrics["generated_tokens_total"]) == pytest.approx(returned)

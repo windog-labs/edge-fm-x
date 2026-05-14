@@ -99,6 +99,9 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
 
     // M-RoPE configuration
     rope_theta_ = model_config.value("rope_theta", 1000000.0f);
+    lm_head_top1_enabled_ =
+        engine_config_.lm_head_top1_enabled() &&
+        engine_config_.sampling_temperature() < 1e-6f;
     rope_scale_ = 1.0f;
     if (model_config.contains("rope_scaling") && model_config["rope_scaling"].is_object()) {
         auto rope_scaling = model_config["rope_scaling"];
@@ -787,6 +790,23 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         lm_head_input_ptr, {lm_head_rows, hidden_size_}, dtype_, Device::GPU, device_id);
     Tensor logits_2d = Tensor::view(
         logits.data_ptr(), {lm_head_rows, vocab_size_}, logits.dtype(), Device::GPU, device_id);
+    tensors.erase(ModelTensors::LM_HEAD_TOP1_DONE);
+    if (stage == ModelStage::Decode &&
+        lm_head_top1_enabled_ &&
+        lm_head_rows == 1 &&
+        tensors.count(ModelTensors::SAMPLER_TOKEN_OUT) > 0)
+    {
+        Tensor& token_out = tensors[ModelTensors::SAMPLER_TOKEN_OUT];
+        if (lm_head_->try_forward_top1(hidden_states_2d, token_out, stream, stage)) {
+            tensors[ModelTensors::LM_HEAD_TOP1_DONE] = Tensor::view(
+                token_out.data_ptr(),
+                {1},
+                DType::Int32,
+                Device::GPU,
+                device_id);
+            return;
+        }
+    }
     {
         const char* range_name = stage == ModelStage::Prefill
             ? "EDGEFM_PREFILL_LM_HEAD"

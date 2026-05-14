@@ -427,6 +427,20 @@ std::vector<int32_t> EngineConfig::stop_token_ids() const {
     return ids;
 }
 
+bool EngineConfig::lm_head_top1_enabled() const {
+    const nlohmann::json runtime_config = runtime();
+    if (runtime_config.contains("lm_head_top1")) {
+        const auto& value = runtime_config["lm_head_top1"];
+        if (value.is_boolean()) {
+            return value.get<bool>();
+        }
+        if (value.is_object()) {
+            return safe_value(value, "enabled", false);
+        }
+    }
+    return safe_value(runtime_config, "lm_head_top1_enabled", false);
+}
+
 // ==================================================== engine ====================================================
 Engine::Engine(const EngineConfig& config)
     : device_(Device::CPU)

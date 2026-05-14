@@ -671,6 +671,37 @@ class TestLinear:
             msg=f"LMHead 结果与 PyTorch 不一致 (batch_size={batch_size}, dtype={dtype})"
         )
 
+    @pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
+    def test_lm_head_top1_matches_full_logits_argmax(self, dtype):
+        """decode-only lm_head_top1 应与 full-logits greedy argmax 选择同一 token。"""
+        in_features = 96
+        out_features = 257
+
+        torch.manual_seed(123)
+        torch.cuda.manual_seed(123)
+        layer, _ = create_lm_head_linear_layer_with_weights(
+            in_features, out_features, dtype
+        )
+        torch_dtype = torch.float16 if dtype == "float16" else torch.bfloat16
+        input_torch = torch.randn(1, in_features, device="cuda:0", dtype=torch_dtype)
+
+        input_efm = tensor_to_edge_fm_tensor(input_torch)
+        logits_efm = tensor_to_edge_fm_tensor(
+            torch.empty(1, out_features, device="cuda:0", dtype=torch.float32)
+        )
+        token_efm = tensor_to_edge_fm_tensor(
+            torch.empty(1, device="cuda:0", dtype=torch.int32)
+        )
+
+        layer.forward_fp16_bf16(input_efm, logits_efm, 0, "Decode")
+        assert layer.try_forward_top1(input_efm, token_efm, 0, "Decode")
+        torch.cuda.synchronize()
+
+        logits = torch.from_dlpack(logits_efm.to_dlpack())
+        expected = torch.argmax(logits, dim=-1).to(torch.int32)
+        got = torch.from_dlpack(token_efm.to_dlpack())
+        assert torch.equal(got, expected)
+
     @pytest.mark.parametrize("case", FP16_BF16_PERF_TEST_CASES)
     def test_fp16_bf16_performance(self, case):
         """测试 FP16/BF16 前向传播的性能
