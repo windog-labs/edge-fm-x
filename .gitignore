@@ -18,6 +18,7 @@ examples/*/*/
 
 .cache/
 **.pytest_cache/
+.humanize*
 tags*
 tests/data/*
 

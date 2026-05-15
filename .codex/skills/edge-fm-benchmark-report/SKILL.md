@@ -33,7 +33,7 @@ description: Generate detailed benchmark reports inside this edge-fm repo, cover
 ## 工作流
 
 1. 先确认环境变量：
-   - `LD_LIBRARY_PATH=/xs-train-nas/zzm/packages/TensorRT-10.16.0.72/lib:${LD_LIBRARY_PATH:-}`
+   - 如果要跑 TRT-Edge-LLM，对本机 TensorRT 设置 `TRT_PACKAGE_DIR`，并把 `$TRT_PACKAGE_DIR/lib` 放入 `LD_LIBRARY_PATH`
    - `LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6`
   - `EDGE_FM_DEVICE_ID=0`（或用户指定 GPU）
 2. 优先运行本 skill 自带 suite 脚本：

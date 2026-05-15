@@ -9,7 +9,7 @@ import statistics as stats
 import sys
 from pathlib import Path
 
-DEFAULT_TRT_PACKAGE = "/xs-train-nas/zzm/packages/TensorRT-10.16.0.72"
+DEFAULT_TRT_PACKAGE = os.environ.get("TRT_PACKAGE_DIR", "")
 
 
 def load_test_module(repo_root: Path, device_id: int):
@@ -155,7 +155,7 @@ def print_case_report(report: dict):
 
 def main():
     parser = argparse.ArgumentParser(description="Run multi-model Qwen benchmark suite for LLM/VLM.")
-    parser.add_argument("--repo-root", default="/xs-train-nas/zzm/repos/edge-fm-x")
+    parser.add_argument("--repo-root", default=os.environ.get("EDGE_FM_REPO_ROOT", str(Path.cwd())))
     parser.add_argument("--device-id", type=int, default=int(os.environ.get("EDGE_FM_DEVICE_ID", "0")))
     parser.add_argument("--kind", choices=["llm", "vlm", "all"], default="all")
     parser.add_argument("--llm-models", default="")
@@ -166,7 +166,8 @@ def main():
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    os.environ.setdefault("TRT_PACKAGE_DIR", DEFAULT_TRT_PACKAGE)
+    if DEFAULT_TRT_PACKAGE:
+        os.environ.setdefault("TRT_PACKAGE_DIR", DEFAULT_TRT_PACKAGE)
     if args.llm_models:
         os.environ["EDGE_FM_BENCH_LLM_MODELS"] = args.llm_models
     if args.vlm_models:

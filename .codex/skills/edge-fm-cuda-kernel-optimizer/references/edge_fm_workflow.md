@@ -55,6 +55,25 @@ python scripts/profile/profile_operator_comparison.py
 python scripts/profile/profile_edgefm_generate_case.py
 ```
 
+需要 NSYS attribution 时，优先采 graph-off mapping trace；CUDA graph 最终行为再补 graph-on formal trace：
+
+```bash
+nsys profile -o .tmp_codex/nsys/edgefm_mapping \
+  --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
+  --capture-range=cudaProfilerApi --capture-range-end=stop \
+  python3 scripts/profile/profile_edgefm_generate_case.py \
+    --model-path /path/to/model --prefill-len 1024 --decode-len 32 --profile-range
+
+nsys profile -o .tmp_codex/nsys/edgefm_formal \
+  --trace=cuda,nvtx,osrt --sample=none --cpuctxsw=none \
+  --capture-range=cudaProfilerApi --capture-range-end=stop \
+  python3 scripts/profile/profile_edgefm_generate_case.py \
+    --model-path /path/to/model --prefill-len 1024 --decode-len 32 \
+    --use-cuda-graph --profile-range
+```
+
+VLM 用 `scripts/profile/profile_vlm_prepared_case.py`，让 ViT 留在 profiled region 外。
+
 如果用户只说“整模型慢”，不要直接进入多轮 kernel 优化。先拿到热点 kernel 名、shape 和调用路径。
 
 ### 2. 尽量缩到 operator / layer 级
@@ -72,7 +91,7 @@ python scripts/profile/profile_edgefm_generate_case.py
 
 如果生产 kernel 不能直接接进 `.codex/skills/edge-fm-cuda-kernel-optimizer/scripts/benchmark.py`，建议：
 
-1. 从目标实现中抽出核心 CUDA/Triton 逻辑
+1. 从目标实现中抽出核心 CUDA/CUTLASS 逻辑；Triton 只在已有 baseline 或用户明确指定时作为外部对照
 2. 在 `deliverables/kernel_opt/<kernel_name>/` 下放最小 repro
 3. 提供：
    - baseline kernel

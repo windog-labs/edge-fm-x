@@ -1,1 +1,0 @@
-/xs-train-nas/zzm/repos/ptx-isa-markdown/cuda_skill/references/nvtx-patterns.md

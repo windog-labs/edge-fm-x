@@ -7,33 +7,27 @@ description: "Query NVIDIA PTX ISA 9.1, CUDA Runtime API 13.1, Driver API 13.1, 
 
 ## Documentation Locations
 
-In this repo, the canonical documentation root is `.codex/skills/cuda-skill/references/`.
-This repo builds that tree from two upstream sources:
-- `ptx-isa-markdown/cuda_skill/references/` provides PTX / Runtime / Driver docs and the quick guides bundled with that repo.
-- `agent-gpu-skills/cuda_skill/references/` provides `ptx-simple`, the CUDA Programming Guide, Best Practices Guide, Nsight full docs, and hardware profiles.
+In this repo, the canonical CUDA documentation root is the vendored KernelPilot
+AKO4ALL reference pack under
+`.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/references/ako4all/`.
+Do not use the old machine-local absolute symlink tree.
 
 Set the search root once and reuse it in every command:
 
 ```bash
-CUDA_REFS=.codex/skills/cuda-skill/references
-if [ ! -e ${CUDA_REFS} ]; then
-  CUDA_REFS=$(find \
-    ~/.codex/skills \
-    ~/.claude/skills \
-    ~/.cursor/skills \
-    ~/.agents/skills \
-    -path '*/cuda-skill/references' -type d 2>/dev/null | head -1)
-fi
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+CUDA_AKO_REFS="$REPO_ROOT/.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/references/ako4all"
+CUDA_REFS="$CUDA_AKO_REFS/cuda-cpp/vendored-docs"
 ```
 
-All `rg` examples below assume `CUDA_REFS` is set.
+All `rg` examples below assume `CUDA_REFS` and `CUDA_AKO_REFS` are set.
 
 **Source split used by this repo:**
-- `ptx-isa-markdown`: `ptx-docs/`, `cuda-runtime-docs/`, `cuda-driver-docs/`, `ptx-isa.md`, `cuda-runtime.md`, `cuda-driver.md`, `debugging-tools.md`, `ncu-guide.md`, `nsys-guide.md`, `nvtx-patterns.md`, `performance-traps.md`
-- `agent-gpu-skills`: `ptx-simple/`, `cuda-guide/`, `best-practices-guide/`, `ncu-docs/`, `nsys-docs/`, `hardware/`
+- `CUDA_REFS`: PTX ISA, CUDA Runtime/Driver docs, CUDA Programming Guide, Best Practices, Nsight Compute/System docs, quick guides, `ptx-simple/`
+- `CUDA_AKO_REFS`: CUDA/CUTLASS kernel references, profiling guide, architecture guides, source attribution
 
 ```
-references/
+cuda-cpp/vendored-docs/
 ├── ptx-docs/              # PTX ISA 9.1 full spec (405 files, 2.3MB)
 ├── ptx-simple/            # PTX condensed quick-ref (13 files, 149KB)
 ├── cuda-runtime-docs/     # CUDA Runtime API 13.1 (107 files, 0.9MB)
@@ -48,13 +42,6 @@ references/
 ├── best-practices-guide/  # CUDA C++ Best Practices Guide
 ├── ncu-docs/              # Nsight Compute full docs (ProfilingGuide, CLI, etc.)
 ├── nsys-docs/             # Nsight Systems full docs (UserGuide, etc.)
-├── hardware/
-│   ├── h100-optimization-guide.md        # Hopper server GPU tuning notes
-│   ├── a100-optimization-guide.md        # Ampere datacenter GPU tuning notes
-│   ├── t4-optimization-guide.md          # Turing inference GPU tuning notes
-│   ├── a800-optimization-guide.md        # A800 deployment and tuning notes
-│   ├── rtx-3060-optimization-guide.md    # RTX 3060 desktop Ampere tuning notes
-│   └── jetson-orin-optimization-guide.md # Jetson Orin family tuning notes
 ├── ptx-isa.md             # PTX search guide
 ├── cuda-runtime.md        # Runtime API search guide
 ├── cuda-driver.md         # Driver API search guide
@@ -63,6 +50,13 @@ references/
 ├── debugging-tools.md     # compute-sanitizer, cuda-gdb
 ├── nvtx-patterns.md       # NVTX instrumentation
 └── performance-traps.md   # Bank conflicts, coalescing
+
+ako4all/
+├── cuda-cpp-kernel-reference.md
+├── profiling-debugging-reference.md
+├── nvidia-architecture-reference.md
+├── architectures/sm89-optimization-guide.md
+└── architectures/sm90-optimization-guide.md
 ```
 
 ### ptx-simple/ Contents (Condensed Quick-Ref)
@@ -429,25 +423,8 @@ ptx-docs/
 
 ## Updating Documentation
 
-This repo consumes a composite references tree. Update the upstream repos directly, then re-check the symlinks under `.codex/skills/cuda-skill/references/`.
-
-```bash
-# Base PTX / Runtime / Driver docs
-cd /xs-train-nas/zzm/repos/ptx-isa-markdown
-./scrape_cuda_docs.py ptx --force
-./scrape_cuda_docs.py runtime --force
-./scrape_cuda_docs.py driver --force
-
-# Extended docs used by this repo
-cd /xs-train-nas/zzm/repos/agent-gpu-skills
-uv run scrape_docs.py ptx-simple --force
-uv run scrape_docs.py guide --force
-uv run scrape_docs.py best-practices --force
-uv run scrape_docs.py ncu-docs --force
-uv run scrape_docs.py nsys-docs --force
-```
-
-The quick guide markdown files and hardware notes are maintained in their upstream repos. If either upstream repo moves, refresh the symlinks in `.codex/skills/cuda-skill/references/` to point at the new location.
+This repo now consumes the vendored KernelPilot knowledge pack. Refresh it from
+the public KernelPilot checkout, then re-run the edge-fm skill validation.
 
 ## Additional References
 
@@ -455,9 +432,10 @@ For deeper investigation, read the search guide files:
 - PTX search workflow: `${CUDA_REFS}/ptx-isa.md`
 - Runtime API guide: `${CUDA_REFS}/cuda-runtime.md`
 - Driver API guide: `${CUDA_REFS}/cuda-driver.md`
-- H100 guide: `${CUDA_REFS}/hardware/h100-optimization-guide.md`
-- A100 guide: `${CUDA_REFS}/hardware/a100-optimization-guide.md`
-- T4 guide: `${CUDA_REFS}/hardware/t4-optimization-guide.md`
-- A800 guide: `${CUDA_REFS}/hardware/a800-optimization-guide.md`
-- RTX 3060 guide: `${CUDA_REFS}/hardware/rtx-3060-optimization-guide.md`
-- Jetson Orin guide: `${CUDA_REFS}/hardware/jetson-orin-optimization-guide.md`
+- Nsight Compute guide: `${CUDA_REFS}/ncu-guide.md`
+- Nsight Systems guide: `${CUDA_REFS}/nsys-guide.md`
+- CUDA C++ kernel reference: `${CUDA_AKO_REFS}/cuda-cpp-kernel-reference.md`
+- Profiling/debugging reference: `${CUDA_AKO_REFS}/profiling-debugging-reference.md`
+- NVIDIA architecture reference: `${CUDA_AKO_REFS}/nvidia-architecture-reference.md`
+- RTX 3060 / sm89 guide: `${CUDA_AKO_REFS}/architectures/sm89-optimization-guide.md`
+- H100 / sm90 guide: `${CUDA_AKO_REFS}/architectures/sm90-optimization-guide.md`
