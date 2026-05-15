@@ -2,7 +2,7 @@
 #include "layers/sampler.h"
 #include "models/model.h"
 #include "operators/operator_impl_table.h"
-#include "tuning/cuda_operator_tuner.h"
+#include "engine/tasks/token_generation/cuda/tuning/cuda_operator_tuner.h"
 #include "utils/device/memory.h"
 #include "engine/tasks/token_generation/kv_manager.h"
 #include "engine/tasks/token_generation/cuda/scheduler.h"

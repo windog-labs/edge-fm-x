@@ -77,14 +77,14 @@ flowchart TD
 
     subgraph Planner_Path["Planner Policy Path"]
         P --> P1["PlannerStateManager"]
-        P --> P2["StageRuntime"]
+        P --> P2["MockStageRunner for fixture stages"]
         P --> P3["single_stage / candidate_scoring / iterative_denoise"]
     end
 
     subgraph Stage_Path["Named Stage Path"]
         X["StageExecutionEngine"]
         X --> X1["PlannerStateManager"]
-        X --> X2["StageRuntime"]
+        X --> X2["MockStageRunner for fixture stages"]
     end
 
     subgraph Horizon_Path["Horizon Backend Path"]
@@ -111,10 +111,11 @@ Key points:
 - The Horizon path does not load CUDA runtime state; it produces backend artifacts
   and uses a whole-graph runtime boundary instead of CUDA layers/operators.
 - `Model::create()` currently resolves both `qwen2_5` and `qwen2_5_vl` to the same `Qwen2_5` implementation.
-- `StageRuntime` is not a model abstraction. The generic implementation covers
-  mock tensor stages for planner/runtime tests; `HorizonEngine` exposes the same
-  named-stage facade for HBM artifacts. Model semantics stay in
-  `StandardEngine`, `TrajectoryPlannerEngine`, or `HorizonEngine`.
+- `MockStageRunner` is not a backend runtime. It only runs deterministic
+  `backend=mock` tensor stages for planner/stage tests; `HorizonEngine` exposes
+  the same named-stage facade for HBM artifacts. Real TensorRT/Horizon stage
+  adapters should use explicit backend runner names instead of hiding behind a
+  generic runtime label.
 
 ## 4. Configuration and Dispatch
 
@@ -670,10 +671,13 @@ Current source layout:
   - `tasks/token_generation/`: token-generation helpers shared by backend engines,
     including compact vocab, `KVManager`, and scheduler
   - `tasks/trajectory_planning/`: planner facade engine
-  - `tasks/stage_execution/`: generic named-stage facade engine
-  - `runtime/`: `PlannerStateManager`, generic mock `StageRuntime`, and stage tensor helpers
+    plus `PlannerStateManager` and planner tensor helpers
+  - `tasks/stage_execution/`: generic named-stage facade engine and `MockStageRunner`
+    for deterministic fixture stages
   - `tasks/token_generation/cuda/`: CUDA token-generation backend implementation
   - `tasks/stage_execution/horizon/`: Horizon stage/backend engine implementation
+  - `tasks/token_generation/cuda/tuning/`: CUDA token-generation operator-table
+    preparation used by `StandardEngine::tune()`
   - `experimental/speculative/`: prototype speculative engine code, not wired into public facade
 - `src/backends/`
   - platform/backend infrastructure only: artifact cache, Horizon module emitter,

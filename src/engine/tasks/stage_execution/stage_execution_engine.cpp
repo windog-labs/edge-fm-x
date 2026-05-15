@@ -15,7 +15,7 @@ double elapsed_ms(std::chrono::steady_clock::time_point start, std::chrono::stea
 
 StageExecutionEngine::StageExecutionEngine(const EngineConfig& config)
     : Engine(config)
-    , stage_runtime_(config)
+    , mock_stage_runner_(config)
 {}
 
 void StageExecutionEngine::warmup() {}
@@ -34,7 +34,7 @@ TensorMap StageExecutionEngine::run_stage(
 {
     auto start = std::chrono::steady_clock::now();
     TensorRefMap cached = state_manager_.refs(request_id);
-    TensorMap outputs = stage_runtime_.run(request_id, stage_name, inputs, cached);
+    TensorMap outputs = mock_stage_runner_.run(stage_name, inputs, cached);
     state_manager_.put_all(request_id, outputs);
     auto end = std::chrono::steady_clock::now();
     last_stage_metrics_ = {

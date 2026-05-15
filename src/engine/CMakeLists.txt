@@ -5,11 +5,13 @@
 set(ENGINE_SOURCES
     engine.cpp
     engine_factory.cpp
-    runtime/stage_runtime.cpp
+    tasks/stage_execution/mock_stage_runner.cpp
     tasks/token_generation/compact_vocab.cpp
     tasks/token_generation/kv_manager.cpp
     tasks/token_generation/scheduler.cpp
     tasks/stage_execution/stage_execution_engine.cpp
+    tasks/trajectory_planning/planner_state_manager.cpp
+    tasks/trajectory_planning/planner_tensor_utils.cpp
     tasks/trajectory_planning/trajectory_planner_engine.cpp
     tasks/stage_execution/horizon/horizon_engine.cpp
 )
@@ -18,11 +20,11 @@ if(ENABLE_CUDA)
     list(APPEND ENGINE_SOURCES
         tasks/token_generation/cuda/scheduler.cpp
         tasks/token_generation/cuda/standard_engine.cpp
+        tasks/token_generation/cuda/tuning/cuda_operator_tuner.cpp
         experimental/speculative/eagle_engine.cpp
     )
     file(GLOB_RECURSE ENGINE_CUDA_SOURCES "*.cu")
-    file(GLOB_RECURSE ENGINE_TUNING_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../tuning/*.cpp")
-    list(APPEND ENGINE_SOURCES ${ENGINE_CUDA_SOURCES} ${ENGINE_TUNING_SOURCES})
+    list(APPEND ENGINE_SOURCES ${ENGINE_CUDA_SOURCES})
 endif()
 
 add_library(edge_fm_engine STATIC

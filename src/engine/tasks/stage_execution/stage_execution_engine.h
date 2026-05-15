@@ -1,7 +1,8 @@
 #pragma once
 
 #include "engine/engine.h"
-#include "engine/runtime/stage_runtime.h"
+#include "engine/tasks/stage_execution/mock_stage_runner.h"
+#include "engine/tasks/trajectory_planning/planner_state_manager.h"
 
 #include <unordered_map>
 
@@ -19,7 +20,7 @@ public:
     std::unordered_map<std::string, double> get_last_stage_metrics() const override;
 
 private:
-    StageRuntime stage_runtime_;
+    MockStageRunner mock_stage_runner_;
     PlannerStateManager state_manager_;
     std::unordered_map<std::string, double> last_stage_metrics_{};
 };

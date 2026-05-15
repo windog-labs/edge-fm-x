@@ -1,7 +1,8 @@
 #pragma once
 
 #include "engine/engine.h"
-#include "engine/runtime/stage_runtime.h"
+#include "engine/tasks/stage_execution/mock_stage_runner.h"
+#include "engine/tasks/trajectory_planning/planner_state_manager.h"
 
 #include <unordered_map>
 
@@ -25,7 +26,7 @@ private:
     TensorMap plan_candidate_scoring(int32_t request_id, const TensorRefMap& inputs, const nlohmann::json& planner_config);
     TensorMap plan_iterative_denoise(int32_t request_id, const TensorRefMap& inputs, const nlohmann::json& planner_config);
 
-    StageRuntime stage_runtime_;
+    MockStageRunner mock_stage_runner_;
     PlannerStateManager state_manager_;
     std::unordered_map<std::string, double> last_plan_metrics_{};
     std::unordered_map<std::string, double> last_stage_metrics_{};

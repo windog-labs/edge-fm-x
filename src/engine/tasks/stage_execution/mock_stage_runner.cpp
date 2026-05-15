@@ -1,9 +1,9 @@
-#include "engine/runtime/stage_runtime.h"
+#include "engine/tasks/stage_execution/mock_stage_runner.h"
 
-#include <algorithm>
+#include "engine/tasks/trajectory_planning/planner_tensor_utils.h"
+
 #include <cstdint>
 #include <limits>
-#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -69,79 +69,18 @@ Tensor make_mock_tensor_from_spec(const std::string& name, const nlohmann::json&
 
     (void)planner::dtype_from_planner_string(dtype);
     throw ConfigurationError(
-        "Mock StageRuntime only supports float32, int32, int64, uint8, and int8 tensors for now");
-}
-
-template <typename T>
-Tensor make_cpu_tensor(const std::vector<int64_t>& shape, const std::vector<T>& values, DType dtype) {
-    const int64_t expected = planner::tensor_numel(shape);
-    if (expected != static_cast<int64_t>(values.size())) {
-        throw ConfigurationError(
-            "Planner mock tensor value count does not match shape: expected " +
-            std::to_string(expected) + ", got " + std::to_string(values.size()));
-    }
-    return Tensor::clone_from(
-        values.data(),
-        shape,
-        dtype,
-        Device::CPU,
-        0,
-        Device::CPU,
-        0,
-        MemoryOwnership::OwnCpuMalloc);
+        "MockStageRunner only supports float32, int32, int64, uint8, and int8 tensors for now");
 }
 
 } // namespace
 
-void PlannerStateManager::put(int32_t request_id, const std::string& name, const Tensor& tensor) {
-    states_[request_id][name] = planner::clone_tensor_to_cpu(tensor);
-}
-
-void PlannerStateManager::put_all(int32_t request_id, const TensorMap& tensors) {
-    for (const auto& item : tensors) {
-        put(request_id, item.first, item.second);
-    }
-}
-
-const Tensor* PlannerStateManager::get(int32_t request_id, const std::string& name) const {
-    auto state_it = states_.find(request_id);
-    if (state_it == states_.end()) {
-        return nullptr;
-    }
-    auto tensor_it = state_it->second.find(name);
-    if (tensor_it == state_it->second.end()) {
-        return nullptr;
-    }
-    return &tensor_it->second;
-}
-
-TensorRefMap PlannerStateManager::refs(int32_t request_id) const {
-    TensorRefMap out;
-    auto state_it = states_.find(request_id);
-    if (state_it == states_.end()) {
-        return out;
-    }
-    for (const auto& item : state_it->second) {
-        out.emplace(item.first, &item.second);
-    }
-    return out;
-}
-
-void PlannerStateManager::clear(int32_t request_id) {
-    states_.erase(request_id);
-}
-
-void PlannerStateManager::clear_all() {
-    states_.clear();
-}
-
-StageRuntime::StageRuntime(const EngineConfig& config)
+MockStageRunner::MockStageRunner(const EngineConfig& config)
     : config_(config)
 {}
 
-const nlohmann::json& StageRuntime::require_stage(const std::string& stage_name) const {
+const nlohmann::json& MockStageRunner::require_stage(const std::string& stage_name) const {
     if (!config_.raw().contains("stages")) {
-        throw ConfigurationError("StageRuntime requires a top-level stages object or array");
+        throw ConfigurationError("MockStageRunner requires a top-level stages object or array");
     }
     const nlohmann::json& stages = config_.raw()["stages"];
     if (stages.is_object()) {
@@ -157,22 +96,20 @@ const nlohmann::json& StageRuntime::require_stage(const std::string& stage_name)
             }
         }
     }
-    throw ConfigurationError("StageRuntime is missing stage: " + stage_name);
+    throw ConfigurationError("MockStageRunner is missing stage: " + stage_name);
 }
 
-TensorMap StageRuntime::run(
-    int32_t request_id,
+TensorMap MockStageRunner::run(
     const std::string& stage_name,
     const TensorRefMap& inputs,
     const TensorRefMap& cached_inputs)
 {
-    (void)request_id;
     const nlohmann::json& stage = require_stage(stage_name);
     const std::string backend = stage.value("backend", stage.value("runtime", std::string("")));
     if (backend != "mock") {
         throw ConfigurationError(
-            "StageRuntime currently supports mock stages in the generic engine. "
-            "Use HorizonEngine for HBM stages or add a backend adapter for stage: " + stage_name);
+            "MockStageRunner only supports backend=mock. "
+            "Use HorizonEngine for HBM stages or add a real stage adapter for stage: " + stage_name);
     }
 
     TensorMap default_tensors;
@@ -208,7 +145,7 @@ TensorMap StageRuntime::run(
     return run_mock_stage(stage_name, stage, resolved_inputs);
 }
 
-TensorMap StageRuntime::run_mock_stage(
+TensorMap MockStageRunner::run_mock_stage(
     const std::string& stage_name,
     const nlohmann::json& stage,
     const TensorRefMap& resolved_inputs) const
@@ -239,85 +176,4 @@ TensorMap StageRuntime::run_mock_stage(
     return outputs;
 }
 
-namespace planner {
-
-DType dtype_from_planner_string(const std::string& raw) {
-    if (raw == "float32" || raw == "fp32") {
-        return DType::Float32;
-    }
-    if (raw == "float16" || raw == "fp16") {
-        return DType::Float16;
-    }
-    if (raw == "bfloat16" || raw == "bf16") {
-        return DType::BFloat16;
-    }
-    if (raw == "int32") {
-        return DType::Int32;
-    }
-    if (raw == "int64") {
-        return DType::Int64;
-    }
-    if (raw == "uint8") {
-        return DType::UInt8;
-    }
-    if (raw == "int8") {
-        return DType::Int8;
-    }
-    throw ConfigurationError("Unsupported planner tensor dtype: " + raw);
-}
-
-int64_t tensor_numel(const std::vector<int64_t>& shape) {
-    int64_t out = 1;
-    for (int64_t dim : shape) {
-        if (dim < 0) {
-            throw ConfigurationError("Planner tensor shapes must be non-negative");
-        }
-        out *= dim;
-    }
-    return out;
-}
-
-Tensor clone_tensor_to_cpu(const Tensor& src) {
-    auto [src_device, src_device_id] = src.device();
-    return Tensor::clone_from(
-        src.data_ptr(),
-        src.shape(),
-        src.dtype(),
-        src_device,
-        src_device_id,
-        Device::CPU,
-        0,
-        MemoryOwnership::OwnCpuMalloc);
-}
-
-Tensor make_cpu_float32_tensor(const std::vector<int64_t>& shape, const std::vector<float>& values) {
-    return make_cpu_tensor(shape, values, DType::Float32);
-}
-
-Tensor make_cpu_int32_tensor(const std::vector<int64_t>& shape, const std::vector<int32_t>& values) {
-    return make_cpu_tensor(shape, values, DType::Int32);
-}
-
-Tensor make_cpu_int64_tensor(const std::vector<int64_t>& shape, const std::vector<int64_t>& values) {
-    return make_cpu_tensor(shape, values, DType::Int64);
-}
-
-Tensor make_cpu_uint8_tensor(const std::vector<int64_t>& shape, const std::vector<uint8_t>& values) {
-    return make_cpu_tensor(shape, values, DType::UInt8);
-}
-
-Tensor make_cpu_int8_tensor(const std::vector<int64_t>& shape, const std::vector<int8_t>& values) {
-    return make_cpu_tensor(shape, values, DType::Int8);
-}
-
-const float* require_cpu_float32(const Tensor& tensor, const std::string& name) {
-    auto [device, device_id] = tensor.device();
-    (void)device_id;
-    if (device != Device::CPU || tensor.dtype() != DType::Float32) {
-        throw InvalidRequestError(name + " must be a CPU float32 tensor for planner v1");
-    }
-    return static_cast<const float*>(tensor.data_ptr());
-}
-
-} // namespace planner
 } // namespace edge_fm

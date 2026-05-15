@@ -1,5 +1,7 @@
 #include "engine/tasks/trajectory_planning/trajectory_planner_engine.h"
 
+#include "engine/tasks/trajectory_planning/planner_tensor_utils.h"
+
 #include <edge-fm/core.h>
 
 #include <algorithm>
@@ -179,7 +181,7 @@ Tensor select_argmax_trajectory(const Tensor& candidates, const Tensor& scores, 
 
 TrajectoryPlannerEngine::TrajectoryPlannerEngine(const EngineConfig& config)
     : Engine(config)
-    , stage_runtime_(config)
+    , mock_stage_runner_(config)
 {}
 
 void TrajectoryPlannerEngine::warmup() {}
@@ -198,7 +200,7 @@ TensorMap TrajectoryPlannerEngine::run_stage(
 {
     auto start = std::chrono::steady_clock::now();
     TensorRefMap cached = state_manager_.refs(request_id);
-    TensorMap outputs = stage_runtime_.run(request_id, stage_name, inputs, cached);
+    TensorMap outputs = mock_stage_runner_.run(stage_name, inputs, cached);
     state_manager_.put_all(request_id, outputs);
     auto end = std::chrono::steady_clock::now();
     last_stage_metrics_ = {
