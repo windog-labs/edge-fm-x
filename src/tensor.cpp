@@ -29,7 +29,7 @@ namespace detail {
 
 namespace {
 
-[[noreturn]] void throw_cuda_tensor_unavailable(const char* message) {
+[[noreturn, maybe_unused]] void throw_cuda_tensor_unavailable(const char* message) {
     throw ConfigurationError(message);
 }
 
@@ -669,7 +669,8 @@ Tensor Tensor::clone_from(const void* src,
                           int32_t dst_device_id,
                           MemoryOwnership ownership,
                           void* stream_handle) {
-    if (src == nullptr) {
+    const size_t num_elements = calculate_num_elements(shape);
+    if (src == nullptr && num_elements != 0) {
         throw InvalidRequestError("Tensor::clone_from requires non-null src");
     }
 
@@ -692,7 +693,6 @@ Tensor Tensor::clone_from(const void* src,
     }
 
     Tensor dst;
-    const size_t num_elements = calculate_num_elements(shape);
     dst.impl_->shape_ = shape;
     dst.impl_->dtype_ = dtype;
     dst.impl_->device_ = dst_device;

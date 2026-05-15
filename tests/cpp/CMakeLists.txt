@@ -30,10 +30,27 @@ add_test(
     COMMAND edge_fm_tensor_cpu_test
 )
 
+add_executable(edge_fm_planner_state_manager_test
+    test_planner_state_manager.cpp
+)
+
+target_include_directories(edge_fm_planner_state_manager_test PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+)
+
+target_link_libraries(edge_fm_planner_state_manager_test PRIVATE
+    edge_fm
+)
+
+add_test(
+    NAME edge_fm_planner_state_manager
+    COMMAND edge_fm_planner_state_manager_test
+)
+
 add_executable(edge_fm_compact_vocab_test
     test_compact_vocab.cpp
     compact_vocab_cuda_stubs.cpp
-    ../../src/engine/compact_vocab.cpp
+    ../../src/engine/tasks/token_generation/compact_vocab.cpp
     ../../src/engine/engine.cpp
     ../../src/tensor.cpp
 )

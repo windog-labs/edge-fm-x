@@ -45,11 +45,31 @@ void test_cpu_clone_and_dlpack() {
     dlpack->deleter(dlpack);
 }
 
+void test_empty_cpu_clone_preserves_metadata() {
+    edge_fm::Tensor tensor = edge_fm::Tensor::clone_from(
+        nullptr,
+        {1, 0, 2},
+        edge_fm::DType::Float32,
+        edge_fm::Device::CPU,
+        0,
+        edge_fm::Device::CPU,
+        0,
+        edge_fm::MemoryOwnership::OwnCpuMalloc);
+
+    require(tensor.empty(), "Zero-element clone should create an empty tensor");
+    require(tensor.dtype() == edge_fm::DType::Float32, "Zero-element clone dtype mismatch");
+    require(tensor.shape() == std::vector<int64_t>({1, 0, 2}), "Zero-element clone shape mismatch");
+    auto [device, device_id] = tensor.device();
+    require(device == edge_fm::Device::CPU, "Zero-element clone device mismatch");
+    require(device_id == 0, "Zero-element clone device id mismatch");
+}
+
 } // namespace
 
 int main() {
     try {
         test_cpu_clone_and_dlpack();
+        test_empty_cpu_clone_preserves_metadata();
     } catch (const std::exception& exc) {
         std::cerr << exc.what() << "\n";
         return 1;

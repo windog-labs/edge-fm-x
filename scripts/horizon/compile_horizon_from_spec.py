@@ -402,8 +402,7 @@ def main() -> int:
     parser.add_argument(
         "--stage",
         default="prefill",
-        choices=["prefill", "decode"],
-        help="Model stage to instantiate",
+        help="Model stage to instantiate. Common values are prefill/decode, but planner stages may use arbitrary names.",
     )
     parser.add_argument(
         "--compiler-command",
@@ -515,6 +514,8 @@ def main() -> int:
     compile_spec = _load_json(compile_spec_path)
     if compile_spec.get("backend") != "horizon":
         raise ValueError(f"Unsupported backend in compile spec: {compile_spec.get('backend')}")
+    if args.stage not in {"prefill", "decode"} and _stage_entry(compile_spec, args.stage) is None:
+        raise ValueError(f"Stage '{args.stage}' was not found in compile spec")
 
     generated_module = compile_spec.get("generated_module", {})
     module_path = Path(generated_module["module_path"]).resolve()

@@ -17,7 +17,7 @@
 #include "layers/linear.h"
 #include "engine/engine.h"
 #include "models/model.h"
-#include "engine/kv_manager.h"
+#include "engine/tasks/token_generation/kv_manager.h"
 #include "utils/device/weight_loader.h"
 #include <nlohmann/json.hpp>
 #include <cuda_runtime.h>
@@ -1649,6 +1649,23 @@ PYBIND11_MODULE(edge_fm, m) {
         .def("generate", &EdgeFM::generate,
              py::arg("request"),
              "从给定请求生成响应 token")
+        .def("plan",
+             [](const EdgeFM& self, int32_t request_id, const py::dict& inputs) {
+                 return tensor_map_to_py_dict(
+                     self.plan(request_id, tensor_ref_map_from_py_dict(inputs)));
+             },
+             py::arg("request_id"),
+             py::arg("inputs"),
+             "运行 trajectory planner，返回输出 Tensor 字典")
+        .def("run_stage",
+             [](const EdgeFM& self, int32_t request_id, const std::string& stage_name, const py::dict& inputs) {
+                 return tensor_map_to_py_dict(
+                     self.run_stage(request_id, stage_name, tensor_ref_map_from_py_dict(inputs)));
+             },
+             py::arg("request_id"),
+             py::arg("stage_name"),
+             py::arg("inputs"),
+             "运行命名 tensor stage，返回输出 Tensor 字典")
         .def("prefill",
              [](const EdgeFM& self, int32_t request_id, const py::dict& inputs) {
                  return tensor_map_to_py_dict(
@@ -1666,7 +1683,11 @@ PYBIND11_MODULE(edge_fm, m) {
              py::arg("inputs"),
              "运行 tensor-in/tensor-out decode stage，返回输出 Tensor 字典")
         .def("last_generate_metrics", &EdgeFM::last_generate_metrics,
-             "返回最近一次 generate() 的 stage timing 指标。");
+             "返回最近一次 generate() 的 stage timing 指标。")
+        .def("last_plan_metrics", &EdgeFM::last_plan_metrics,
+             "返回最近一次 plan() 的 stage timing 指标。")
+        .def("last_stage_metrics", &EdgeFM::last_stage_metrics,
+             "返回最近一次 run_stage()/prefill()/decode() 的 stage timing 指标。");
 
     // ============================================================================
     // M-RoPE standalone function

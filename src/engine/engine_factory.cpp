@@ -1,9 +1,11 @@
 #include "engine/engine_factory.h"
 
-#include "engine/horizon/engine.h"
+#include "engine/tasks/stage_execution/horizon/horizon_engine.h"
+#include "engine/tasks/stage_execution/stage_execution_engine.h"
+#include "engine/tasks/trajectory_planning/trajectory_planner_engine.h"
 
 #if defined(EDGE_FM_ENABLE_CUDA)
-#include "engine/cuda/standard_engine.h"
+#include "engine/tasks/token_generation/cuda/standard_engine.h"
 #include "utils/device/weight_loader.h"
 
 #include <cuda_runtime.h>
@@ -156,6 +158,17 @@ std::string cuda_hw_profile(int32_t) {
 #endif
 
 std::unique_ptr<Engine> create_engine(const EngineConfig& config) {
+    const std::string task = config.task();
+    if (task == "trajectory_planning") {
+        return std::make_unique<TrajectoryPlannerEngine>(config);
+    }
+    if (task == "stage_execution") {
+        if (config.runtime_device() == "horizon") {
+            return create_horizon_engine(config);
+        }
+        return std::make_unique<StageExecutionEngine>(config);
+    }
+
     const bool speculative_enabled = config.speculative().value("enabled", false);
     if (speculative_enabled) {
         throw std::runtime_error("Speculative decoding (EagleEngine) not yet supported in EdgeFM facade");

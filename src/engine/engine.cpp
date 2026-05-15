@@ -137,6 +137,43 @@ namespace {
         return normalized;
     }
 
+    std::string normalize_task_name(const std::string& raw_name) {
+        std::string normalized;
+        normalized.reserve(raw_name.size());
+        for (unsigned char ch : raw_name) {
+            if (std::isalnum(ch)) {
+                normalized.push_back(static_cast<char>(std::tolower(ch)));
+            } else if (ch == '_' || ch == '.' || ch == '-' || ch == ' ' || ch == '/') {
+                normalized.push_back('_');
+            }
+        }
+        if (normalized == "token_generation" ||
+            normalized == "text_generation" ||
+            normalized == "multimodal_generation" ||
+            normalized == "vlm_generation" ||
+            normalized == "llm" ||
+            normalized == "generation" ||
+            normalized == "text")
+        {
+            return "token_generation";
+        }
+        if (normalized == "planner" || normalized == "planning" || normalized == "trajectory") {
+            return "trajectory_planning";
+        }
+        if (normalized == "stage" || normalized == "stage_runtime" || normalized == "tensor_stage") {
+            return "stage_execution";
+        }
+        return normalized;
+    }
+
+    bool is_planner_model_name(const std::string& normalized_model_name) {
+        return normalized_model_name == "trajectory_planner" ||
+               normalized_model_name == "sparsedrive_v2" ||
+               normalized_model_name == "sparse_drive_v2" ||
+               normalized_model_name == "lingxi_sparsedrive_planner" ||
+               normalized_model_name == "lingxi_sparse_drive_planner";
+    }
+
     std::string normalize_hw_profile(const std::string& raw_profile) {
         std::string normalized;
         normalized.reserve(raw_profile.size());
@@ -174,17 +211,40 @@ EngineConfig::EngineConfig(const std::string& config_path) {
     nlohmann::json user_config = load_json_file(config_path, "configuration file");
     config.update(user_config);
     
-    // Validate prefill_model_path
+    const std::string explicit_task = normalize_task_name(config.value("task", std::string("")));
+    if (!explicit_task.empty() &&
+        explicit_task != "token_generation" &&
+        explicit_task != "trajectory_planning" &&
+        explicit_task != "stage_execution")
+    {
+        throw ConfigurationError("Unsupported task in engine config: " + explicit_task);
+    }
+    const std::string normalized_model_name =
+        normalize_model_name(config.value("model_name", std::string("")));
+    const bool inferred_stage_task =
+        explicit_task.empty() &&
+        (is_planner_model_name(normalized_model_name) || normalized_model_name == "smolvla");
+    const bool requires_model_path =
+        !inferred_stage_task &&
+        (explicit_task.empty() || explicit_task == "token_generation");
+
+    // Validate prefill_model_path. Planner and stage-execution configs may be
+    // backed only by compiled stage artifacts, so they do not require a HF-style
+    // model directory.
     std::string prefill_path = config.value("prefill_model_path", std::string(""));
-    if (prefill_path.empty()) {
+    if (prefill_path.empty() && requires_model_path) {
         throw ConfigurationError("prefill_model_path is required in configuration");
     }
-    validate_model_path(prefill_path, "prefill_model_path");
+    if (!prefill_path.empty()) {
+        validate_model_path(prefill_path, "prefill_model_path");
+    }
     
     // Handle decode_model_path
-    if (!config.contains("decode_model_path") || 
-        config["decode_model_path"].is_null() || 
-        config["decode_model_path"].get<std::string>().empty()) 
+    if (prefill_path.empty()) {
+        config["decode_model_path"] = std::string("");
+    } else if (!config.contains("decode_model_path") ||
+        config["decode_model_path"].is_null() ||
+        config["decode_model_path"].get<std::string>().empty())
     {
         config["decode_model_path"] = prefill_path;
     } else {
@@ -205,6 +265,9 @@ std::string EngineConfig::decode_model_path() const {
 }
 
 nlohmann::json EngineConfig::prefill_model_config() const {
+    if (prefill_model_path().empty()) {
+        return nlohmann::json::object();
+    }
     nlohmann::json config = load_model_top_config_from_path(prefill_model_path());
     // Qwen2.5-VL 等 VLM 的 config 中 LLM 参数在 text_config 下
     if (config.contains("text_config") && config["text_config"].is_object()) {
@@ -214,6 +277,9 @@ nlohmann::json EngineConfig::prefill_model_config() const {
 }
 
 nlohmann::json EngineConfig::decode_model_config() const {
+    if (decode_model_path().empty()) {
+        return nlohmann::json::object();
+    }
     nlohmann::json config = load_model_top_config_from_path(decode_model_path());
     if (config.contains("text_config") && config["text_config"].is_object()) {
         return config["text_config"];
@@ -223,7 +289,8 @@ nlohmann::json EngineConfig::decode_model_config() const {
 
 std::string EngineConfig::resolved_model_name() const {
     const std::string normalized = normalize_model_name(model_name());
-    if (normalized == "qwen2_5" || normalized == "qwen2_5_vl" || normalized == "smolvla") {
+    if (normalized == "qwen2_5" || normalized == "qwen2_5_vl" || normalized == "smolvla" ||
+        is_planner_model_name(normalized)) {
         return normalized;
     }
 
@@ -239,6 +306,29 @@ nlohmann::json EngineConfig::sampling() const { return get_object_or_empty(confi
 nlohmann::json EngineConfig::metrics() const { return get_object_or_empty(config_, "metrics"); }
 nlohmann::json EngineConfig::tuning() const { return get_object_or_empty(config_, "tuning"); }
 nlohmann::json EngineConfig::compact_vocab() const { return get_object_or_empty(config_, "compact_vocab"); }
+std::string EngineConfig::task() const {
+    const std::string explicit_task = normalize_task_name(config_.value("task", std::string("")));
+    if (!explicit_task.empty()) {
+        if (explicit_task == "token_generation" ||
+            explicit_task == "trajectory_planning" ||
+            explicit_task == "stage_execution")
+        {
+            return explicit_task;
+        }
+        throw ConfigurationError("Unsupported task in engine config: " + explicit_task);
+    }
+
+    const std::string normalized_model_name = normalize_model_name(model_name());
+    if (is_planner_model_name(normalized_model_name)) {
+        return "trajectory_planning";
+    }
+    if (normalized_model_name == "smolvla") {
+        return "stage_execution";
+    }
+    return "token_generation";
+}
+nlohmann::json EngineConfig::stages() const { return get_object_or_empty(config_, "stages"); }
+nlohmann::json EngineConfig::planner() const { return get_object_or_empty(config_, "planner"); }
 std::string EngineConfig::configured_operator_impl_table_path() const {
     const std::string raw_path = config_.value("operator_impl_table_path", std::string(""));
     if (raw_path.empty()) {
@@ -451,17 +541,34 @@ Engine::Engine(const EngineConfig& config)
 Engine::~Engine() = default;
 
 TensorMap Engine::prefill(int32_t request_id, const TensorRefMap& inputs) {
-    (void)request_id;
-    (void)inputs;
-    throw ConfigurationError(
-        "Tensor prefill stage is not implemented by this backend");
+    return run_stage(request_id, "prefill", inputs);
 }
 
 TensorMap Engine::decode(int32_t request_id, const TensorRefMap& inputs) {
+    return run_stage(request_id, "decode", inputs);
+}
+
+TensorMap Engine::plan(int32_t request_id, const TensorRefMap& inputs) {
     (void)request_id;
     (void)inputs;
     throw ConfigurationError(
-        "Tensor decode stage is not implemented by this backend");
+        "Trajectory planning is not implemented by this backend");
+}
+
+TensorMap Engine::run_stage(int32_t request_id, const std::string& stage_name, const TensorRefMap& inputs) {
+    (void)request_id;
+    (void)stage_name;
+    (void)inputs;
+    throw ConfigurationError(
+        "Named tensor stage execution is not implemented by this backend");
+}
+
+std::unordered_map<std::string, double> Engine::get_last_plan_metrics() const {
+    return {};
+}
+
+std::unordered_map<std::string, double> Engine::get_last_stage_metrics() const {
+    return {};
 }
 
 } // namespace edge_fm

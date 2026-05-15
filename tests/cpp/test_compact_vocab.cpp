@@ -1,4 +1,4 @@
-#include "engine/compact_vocab.h"
+#include "engine/tasks/token_generation/compact_vocab.h"
 
 #include <edge-fm/core.h>
 #include <nlohmann/json.hpp>

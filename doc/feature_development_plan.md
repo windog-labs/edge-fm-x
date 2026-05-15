@@ -33,15 +33,15 @@
 | W4A16 量化 | 已有 INT4 groupwise kernel 和 `LinearLayer::forward_int4_groupwise()` 测试入口 | 不是正式 `linear` operator impl，不能通过 `operator_impl_table` 路由，端到端流程不完整 |
 | W8A8 量化 | `DType::Int8` 基础类型存在 | 没有 activation quant、scale contract、decode-first int8 linear 正式实现 |
 | 词表裁剪 | 已有 compact vocab artifact contract、runtime input/output remap、response restore、非 identity 测试、TRT-Edge-LLM 风格 `vocab_map` packaging/validator 工具、0.5B 真实 checkpoint packaging smoke | 仍缺多模型/大规模验收 |
-| 投机采样 | `src/engine/speculative/EagleEngine` 只有原型头文件，facade 拒绝启用 | 没有 draft model runtime、verify loop、accept/reject/commit、临时 KV workspace |
+| 投机采样 | `src/engine/experimental/speculative/EagleEngine` 只有原型头文件，facade 拒绝启用 | 没有 draft model runtime、verify loop、accept/reject/commit、临时 KV workspace |
 | KV cache 压缩 | `KVManager` 当前是连续 per-request/per-layer KV buffer | 没有压缩格式、scale metadata、dequant-on-load attention、压缩态连续 buffer 接入 |
 | Prefix KV | 已完成连续 KV slot 下的 prefix warmup/reuse | 没有 paged attention、语义化 prefix cache lookup 或 INT8 KV scale contract |
 
 ### 1.3 当前关键代码事实
 
 - `src/engine/engine_factory.cpp` 当前在 `speculative.enabled=true` 时直接抛错。
-- `src/engine/speculative/eagle_engine.cpp` 当前为空文件。
-- `src/engine/kv_manager.cpp` 当前按 request/layer 分配连续 KV buffer，没有 paged attention 语义。
+- `src/engine/experimental/speculative/eagle_engine.cpp` 当前为空文件。
+- `src/engine/tasks/token_generation/kv_manager.cpp` 当前按 request/layer 分配连续 KV buffer，没有 paged attention 语义。
 - `src/layers/linear.cu` 已支持 `.qweight + .scaling_factors` 识别 INT4 groupwise 权重。
 - `src/operators/linear_impl.cu` 目前正式注册的 linear impl 主要是 `cublasLt`、`cutlass` 等。
 - `src/layers/sampler.cu` 当前实际主路径主要消费 `temperature` 和 `seed`。
@@ -133,7 +133,7 @@
 | Owner | 负责范围 | 默认写入范围 | 不应该主动扩大的范围 |
 | --- | --- | --- | --- |
 | Owner A | 单请求性能、词表裁剪、运行时设计、共享接口边界、DeepGEMM 评估、KV compression engine side | `src/engine/`、部分 `src/models/`、benchmark/metrics/config、compact vocab runtime | 不写量化 kernel，不写 speculative 算法主体 |
-| Owner B | speculative greedy 最小闭环 | `src/engine/speculative/`，以及 `StandardEngine::generate()` 附近的最小 glue code | 不重构 generate framework，不改 KV 连续设计，不改大范围 engine API |
+| Owner B | speculative greedy 最小闭环 | `src/engine/experimental/speculative/`，以及 `StandardEngine::generate()` 附近的最小 glue code | 不重构 generate framework，不改 KV 连续设计，不改大范围 engine API |
 | Owner C | W4A16/W8A8 量化算子、已量化模型加载兼容、相关 correctness/benchmark | `src/layers/linear*`、`src/operators/*linear*`、quant loading/tests | 不改 scheduler/generate loop，不开发离线量化转换工具 |
 
 ### 3.3 共享接口协作规则
@@ -302,7 +302,7 @@ Owner B 负责 speculative greedy 的最小闭环。这里的重点是 correctne
 - 不重构成通用 decode framework。
 - 不支持跨 tokenizer draft model。
 - 不改变主 KV 连续 buffer 设计。
-- 默认写入范围尽量限制在 `src/engine/speculative/` 和 `StandardEngine::generate()` 附近的最小 glue code。
+- 默认写入范围尽量限制在 `src/engine/experimental/speculative/` 和 `StandardEngine::generate()` 附近的最小 glue code。
 
 #### 4.2.4 必须先和 Owner A 对齐的改动
 

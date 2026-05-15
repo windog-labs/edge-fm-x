@@ -21,6 +21,14 @@ Response EdgeFM::generate(const Request& request) const {
     return impl_->engine->generate(request);
 }
 
+TensorMap EdgeFM::plan(int32_t request_id, const TensorRefMap& inputs) const {
+    return impl_->engine->plan(request_id, inputs);
+}
+
+TensorMap EdgeFM::run_stage(int32_t request_id, const std::string& stage_name, const TensorRefMap& inputs) const {
+    return impl_->engine->run_stage(request_id, stage_name, inputs);
+}
+
 TensorMap EdgeFM::prefill(int32_t request_id, const TensorRefMap& inputs) const {
     return impl_->engine->prefill(request_id, inputs);
 }
@@ -31,6 +39,14 @@ TensorMap EdgeFM::decode(int32_t request_id, const TensorRefMap& inputs) const {
 
 std::unordered_map<std::string, double> EdgeFM::last_generate_metrics() const {
     return impl_->engine->get_last_generate_metrics();
+}
+
+std::unordered_map<std::string, double> EdgeFM::last_plan_metrics() const {
+    return impl_->engine->get_last_plan_metrics();
+}
+
+std::unordered_map<std::string, double> EdgeFM::last_stage_metrics() const {
+    return impl_->engine->get_last_stage_metrics();
 }
 
 void EdgeFM::tune() {
