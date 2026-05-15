@@ -1,9 +1,11 @@
 #!/bin/bash
 
+set -u
+
 # 支持 horizon_quant (Python 3.10)：export HORIZON_PYTHON=/path/to/python 则使用该 python
 PYEXEC="${HORIZON_PYTHON:-pytest}"
 PYTHON_FOR_HELPER="${HORIZON_PYTHON:-python3}"
-if [ -n "$HORIZON_PYTHON" ]; then
+if [ -n "${HORIZON_PYTHON:-}" ]; then
     PYEXEC="$HORIZON_PYTHON -m pytest"
 fi
 
@@ -48,8 +50,13 @@ fi
 
 cd "$PROJECT_ROOT"
 
+OVERALL_STATUS=0
+run_pytest() {
+    "$@" || OVERALL_STATUS=$?
+}
+
 # 若用 horizon_quant，需 PYTHONPATH 包含 edge_fm，以及 CUDA lib 供 edge_fm 加载
-if [ -n "$HORIZON_PYTHON" ]; then
+if [ -n "${HORIZON_PYTHON:-}" ]; then
     EDGE_FM_PY=""
     EDGE_FM_PY="${BUILD_DIR}/install/python"
     [ -d "$EDGE_FM_PY" ] || EDGE_FM_PY="${BUILD_DIR}/python"
@@ -71,17 +78,19 @@ if [ -n "$HORIZON_PYTHON" ]; then
 fi
 
 # engine
-$PYEXEC -s tests/engine/test_kvcache.py
-$PYEXEC -s tests/engine/test_qwen2_generate.py
+run_pytest $PYEXEC -s tests/engine/test_kvcache.py
+run_pytest $PYEXEC -s tests/engine/test_qwen2_generate.py
 
 # layers
-$PYEXEC -s tests/layers/test_attn.py
-$PYEXEC -s tests/layers/test_activation.py
-$PYEXEC -s tests/layers/test_layernorm.py
-$PYEXEC -s tests/layers/test_sampler.py
-$PYEXEC -s tests/layers/test_embed.py
-$PYEXEC -s tests/layers/test_linear.py
+run_pytest $PYEXEC -s tests/layers/test_attn.py
+run_pytest $PYEXEC -s tests/layers/test_activation.py
+run_pytest $PYEXEC -s tests/layers/test_layernorm.py
+run_pytest $PYEXEC -s tests/layers/test_sampler.py
+run_pytest $PYEXEC -s tests/layers/test_embed.py
+run_pytest $PYEXEC -s tests/layers/test_linear.py
 
 # utils
-$PYEXEC -s tests/utils/test_tensor.py
-$PYEXEC -s tests/utils/test_weight_loader.py
+run_pytest $PYEXEC -s tests/utils/test_tensor.py
+run_pytest $PYEXEC -s tests/utils/test_weight_loader.py
+
+exit "$OVERALL_STATUS"

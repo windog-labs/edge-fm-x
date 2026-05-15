@@ -44,6 +44,11 @@ public:
     nlohmann::json sampling() const;
     nlohmann::json metrics() const;
     nlohmann::json tuning() const;
+    nlohmann::json compact_vocab() const;
+    std::string task() const;
+    nlohmann::json stages() const;
+    nlohmann::json planner() const;
+    const std::filesystem::path& config_dir() const noexcept { return config_dir_; }
     std::string configured_operator_impl_table_path() const;
     std::string operator_impl_table_path() const;
     bool has_operator_impl_table_override() const;
@@ -64,6 +69,7 @@ public:
     int32_t sampling_max_new_tokens() const;
     std::vector<int32_t> eos_token_ids() const;
     std::vector<int32_t> stop_token_ids() const;
+    bool lm_head_top1_enabled() const;
     BackendTarget backend_target_kind() const;
     std::string backend_target() const;
     bool has_backend_artifact() const;
@@ -91,9 +97,13 @@ public:
     virtual void warmup() = 0;
     virtual void tune() = 0;
     virtual Response generate(const Request& request) = 0;
+    virtual TensorMap plan(int32_t request_id, const TensorRefMap& inputs);
+    virtual TensorMap run_stage(int32_t request_id, const std::string& stage_name, const TensorRefMap& inputs);
     virtual TensorMap prefill(int32_t request_id, const TensorRefMap& inputs);
     virtual TensorMap decode(int32_t request_id, const TensorRefMap& inputs);
     virtual std::unordered_map<std::string, double> get_last_generate_metrics() const = 0;
+    virtual std::unordered_map<std::string, double> get_last_plan_metrics() const;
+    virtual std::unordered_map<std::string, double> get_last_stage_metrics() const;
 
 protected:
     Device device_;

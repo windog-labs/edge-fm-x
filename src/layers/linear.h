@@ -410,6 +410,13 @@ public:
         const std::unordered_map<std::string, Tensor>& prefill_weights,
         const std::unordered_map<std::string, Tensor>& decode_weights
     ) override;
+
+    bool try_forward_top1(
+        const Tensor& input,
+        Tensor& token_out,
+        cudaStream_t stream = nullptr,
+        ModelStage stage = ModelStage::Decode
+    );
 };
 
 } // namespace edge_fm

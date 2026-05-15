@@ -79,6 +79,16 @@ except ImportError:
 
 DEFAULT_VLM_IMAGE = PROJECT_ROOT / "tests" / "data" / "candy.JPG"
 CUDA_HW_PROFILE = resolve_target_hw_profile()
+EDGEFM_REQUIRED_STAGE_METRIC_KEYS = {
+    "prefill_ms",
+    "decode_ms",
+    "decode_step_avg_ms",
+    "tokens_per_second",
+    "decode_tokens_per_second",
+    "executed_generated_tokens_total",
+    "returned_generated_tokens_total",
+    "cuda_graph_enabled",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -234,6 +244,29 @@ def maybe_stop_profiler(cudart) -> None:
         raise RuntimeError(f"cudaProfilerStop failed with error code {err}")
 
 
+def add_edgefm_json_contract(result: dict, expected_generated_tokens: int) -> dict:
+    generated_counts = result.get("generated_counts", [])
+    bad_counts = [count for count in generated_counts if count != expected_generated_tokens]
+    if bad_counts:
+        raise RuntimeError(
+            f"Generated token count mismatch: expected each run to return {expected_generated_tokens}, "
+            f"got {generated_counts}"
+        )
+
+    stage_metrics = result.get("stage_metrics", [])
+    if not stage_metrics:
+        raise RuntimeError("EdgeFM profile result has no stage_metrics")
+    for idx, metrics in enumerate(stage_metrics):
+        missing = sorted(EDGEFM_REQUIRED_STAGE_METRIC_KEYS - set(metrics.keys()))
+        if missing:
+            raise RuntimeError(f"EdgeFM profile run{idx} missing required stage metric keys: {missing}")
+
+    result["json_contract"] = "edgefm.generate_profile.v1"
+    for key in sorted(EDGEFM_REQUIRED_STAGE_METRIC_KEYS):
+        result[key] = sum(float(metrics[key]) for metrics in stage_metrics) / len(stage_metrics)
+    return result
+
+
 def profile_edgefm(args: argparse.Namespace, prepared_inputs: dict) -> dict:
     engine_config_path = make_edgefm_engine_config(
         model_path=Path(args.model_path).resolve(),
@@ -277,7 +310,7 @@ def profile_edgefm(args: argparse.Namespace, prepared_inputs: dict) -> dict:
     finally:
         maybe_stop_profiler(cudart)
 
-    return {
+    result = {
         "framework": "edgefm",
         "model_path": str(Path(args.model_path).resolve()),
         "device_id": args.device_id,
@@ -298,6 +331,7 @@ def profile_edgefm(args: argparse.Namespace, prepared_inputs: dict) -> dict:
         },
         "request_mode": "reuse_prepared_request",
     }
+    return add_edgefm_json_contract(result, args.decode_len)
 
 
 def profile_trt(args: argparse.Namespace, prepared_inputs: dict) -> dict:

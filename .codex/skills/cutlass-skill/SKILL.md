@@ -16,7 +16,7 @@ description: "Develop, debug, and optimize CUTLASS C++, CuTe C++, and CuTe DSL k
 优先级固定如下：
 
 1. 当前 workspace 的 `third_party/cutlass/`
-2. 当前 workspace 的 `.codex/skills/cuda-skill/references/`
+2. 当前 workspace vendored KernelPilot AKO4ALL CUDA references
 3. home 目录下安装的 `cutlass-skill` / `cuda-skill`
 4. 你当前对 CUTLASS/CUDA 的通识记忆
 
@@ -36,15 +36,12 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 CUTLASS_REPO="$REPO_ROOT/third_party/cutlass"
 if [ ! -d "$CUTLASS_REPO" ]; then
-  CUTLASS_REPO="$(find "$HOME/.codex/skills" "$HOME/.claude/skills" "$HOME/.cursor/skills" \
+  CUTLASS_REPO="$(find "$HOME/.codex/skills" "$HOME/.claude/skills" "$HOME/.agents/skills" \
     -path '*/cutlass-skill/repos/cutlass' -type d 2>/dev/null | head -1)"
 fi
 
-CUDA_REFS="$REPO_ROOT/.codex/skills/cuda-skill/references"
-if [ ! -d "$CUDA_REFS" ]; then
-  CUDA_REFS="$(find "$HOME/.codex/skills" "$HOME/.claude/skills" "$HOME/.cursor/skills" \
-    -path '*/cuda-skill/references' -type d 2>/dev/null | head -1)"
-fi
+CUDA_AKO_REFS="$REPO_ROOT/.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/references/ako4all"
+CUDA_REFS="$CUDA_AKO_REFS/cuda-cpp/vendored-docs"
 
 echo "CUTLASS_REPO=$CUTLASS_REPO"
 echo "CUDA_REFS=$CUDA_REFS"
@@ -53,7 +50,7 @@ echo "CUDA_REFS=$CUDA_REFS"
 硬规则：
 
 - 只要 `third_party/cutlass/` 存在，就以它为准。
-- 只要 `.codex/skills/cuda-skill/references/` 存在，就以它为准。
+- 只要 vendored KernelPilot AKO4ALL CUDA references 存在，就以它为准。
 - 不要再把外部 clone 当成默认路径。
 
 ## Repo Map

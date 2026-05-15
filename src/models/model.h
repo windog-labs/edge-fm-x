@@ -49,6 +49,7 @@ namespace ModelTensors {
     // ==================== Engine 内部 tensors（sampler / response 缓冲） ====================
     constexpr const char* SAMPLER_TOKEN_OUT = "sampler_token_out";
     constexpr const char* RESPONSE_TOKENS_DEVICE = "response_tokens_device";
+    constexpr const char* LM_HEAD_TOP1_DONE = "lm_head_top1_done";
 
     // ==================== CUDA graph support ====================
     constexpr const char* D_KV_LEN = "d_kv_len";  // device uint32_t, actual kv_len for attention

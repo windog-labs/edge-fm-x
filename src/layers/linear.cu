@@ -17,6 +17,8 @@
 #include <cstdlib>
 #include <algorithm>
 #include <array>
+#include <cfloat>
+#include <climits>
 #include <limits>
 #include <set>
 
@@ -133,6 +135,140 @@ size_t cublaslt_max_workspace_bytes() {
     }();
     return value;
 }
+
+namespace lm_head_top1 {
+
+constexpr int kWarpSize = 32;
+constexpr int kWarpsPerBlock = 8;
+constexpr int kThreadsPerBlock = kWarpSize * kWarpsPerBlock;
+
+struct Candidate {
+    float value;
+    int32_t index;
+};
+
+__device__ __forceinline__ Candidate empty_candidate() {
+    return Candidate{-FLT_MAX, INT_MAX};
+}
+
+__device__ __forceinline__ Candidate better(Candidate a, Candidate b) {
+    if (b.value > a.value || (b.value == a.value && b.index < a.index)) {
+        return b;
+    }
+    return a;
+}
+
+__device__ __forceinline__ Candidate warp_reduce_best(Candidate local) {
+    unsigned mask = 0xffffffffu;
+    for (int offset = kWarpSize / 2; offset > 0; offset >>= 1) {
+        Candidate other{
+            __shfl_down_sync(mask, local.value, offset),
+            __shfl_down_sync(mask, local.index, offset),
+        };
+        local = better(local, other);
+    }
+    return local;
+}
+
+template <typename T>
+__device__ __forceinline__ float scalar_to_float(T value);
+
+template <>
+__device__ __forceinline__ float scalar_to_float<half>(half value) {
+    return __half2float(value);
+}
+
+template <>
+__device__ __forceinline__ float scalar_to_float<__nv_bfloat16>(__nv_bfloat16 value) {
+    return __bfloat162float(value);
+}
+
+template <typename T>
+__global__ void stage1_kernel(
+    const T* __restrict__ hidden,
+    const T* __restrict__ weight,
+    int32_t hidden_size,
+    int32_t vocab_size,
+    float* __restrict__ tmp_values,
+    int32_t* __restrict__ tmp_indices)
+{
+    __shared__ float warp_values[kWarpsPerBlock];
+    __shared__ int32_t warp_indices[kWarpsPerBlock];
+
+    const int32_t lane = static_cast<int32_t>(threadIdx.x) & (kWarpSize - 1);
+    const int32_t warp = static_cast<int32_t>(threadIdx.x) / kWarpSize;
+    const int32_t vocab_id = static_cast<int32_t>(blockIdx.x) * kWarpsPerBlock + warp;
+
+    float sum = 0.0f;
+    if (vocab_id < vocab_size) {
+        const T* row = weight + static_cast<size_t>(vocab_id) * static_cast<size_t>(hidden_size);
+        for (int32_t k = lane; k < hidden_size; k += kWarpSize) {
+            sum += scalar_to_float(hidden[k]) * scalar_to_float(row[k]);
+        }
+    }
+
+    for (int offset = kWarpSize / 2; offset > 0; offset >>= 1) {
+        sum += __shfl_down_sync(0xffffffffu, sum, offset);
+    }
+    if (lane == 0) {
+        warp_values[warp] = (vocab_id < vocab_size) ? sum : -FLT_MAX;
+        warp_indices[warp] = (vocab_id < vocab_size) ? vocab_id : INT_MAX;
+    }
+    __syncthreads();
+
+    if (warp == 0) {
+        Candidate local = empty_candidate();
+        if (lane < kWarpsPerBlock) {
+            local = Candidate{warp_values[lane], warp_indices[lane]};
+        }
+        Candidate best = warp_reduce_best(local);
+        if (lane == 0) {
+            tmp_values[blockIdx.x] = best.value;
+            tmp_indices[blockIdx.x] = best.index;
+        }
+    }
+}
+
+__global__ void stage2_kernel(
+    const float* __restrict__ tmp_values,
+    const int32_t* __restrict__ tmp_indices,
+    int32_t candidate_count,
+    int32_t* __restrict__ token_out)
+{
+    __shared__ float shared_values[256];
+    __shared__ int32_t shared_indices[256];
+
+    const int32_t tid = static_cast<int32_t>(threadIdx.x);
+    Candidate local = empty_candidate();
+    for (int32_t i = tid; i < candidate_count; i += static_cast<int32_t>(blockDim.x)) {
+        local = better(local, Candidate{tmp_values[i], tmp_indices[i]});
+    }
+
+    shared_values[tid] = local.value;
+    shared_indices[tid] = local.index;
+    __syncthreads();
+
+    for (int stride = static_cast<int>(blockDim.x) / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            Candidate a{shared_values[tid], shared_indices[tid]};
+            Candidate b{shared_values[tid + stride], shared_indices[tid + stride]};
+            Candidate best = better(a, b);
+            shared_values[tid] = best.value;
+            shared_indices[tid] = best.index;
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        token_out[0] = shared_indices[0] == INT_MAX ? 0 : shared_indices[0];
+    }
+}
+
+inline size_t align256(size_t size) {
+    return (size + 255u) & ~static_cast<size_t>(255u);
+}
+
+} // namespace lm_head_top1
 
 template <typename T>
 bool get_cublaslt_algo_config_attr(
@@ -2141,6 +2277,89 @@ void LMHeadLinearLayer::load_weights(
     }
 
     weights_loaded_ = true;
+}
+
+bool LMHeadLinearLayer::try_forward_top1(
+    const Tensor& input,
+    Tensor& token_out,
+    cudaStream_t stream,
+    ModelStage stage)
+{
+    if (stage != ModelStage::Decode) {
+        return false;
+    }
+    check<InvalidRequestError>(is_initialized(), "LMHeadLinearLayer is not initialized");
+
+    const WeightSet& weight_set = decode_weights_;
+    if (weight_set.quant_type_ != QuantType::FP16_BF16 || weight_set.weight_ == nullptr || weight_set.bias_ != nullptr) {
+        return false;
+    }
+
+    const auto& input_shape = input.shape();
+    const auto& token_shape = token_out.shape();
+    check<InvalidRequestError>(
+        input_shape.size() == 2 && input_shape[0] == 1 &&
+            input_shape[1] == static_cast<int64_t>(in_features_),
+        "LMHeadLinearLayer::try_forward_top1 expects input shape [1, hidden_size]");
+    check<InvalidRequestError>(
+        token_shape.size() == 1 && token_shape[0] == 1,
+        "LMHeadLinearLayer::try_forward_top1 expects token_out shape [1]");
+    check<InvalidRequestError>(
+        token_out.dtype() == DType::Int32,
+        "LMHeadLinearLayer::try_forward_top1 expects token_out dtype Int32");
+
+    const DType input_dtype = input.dtype();
+    const DType weight_dtype = weight_set.weight_->dtype();
+    if (input_dtype != weight_dtype) {
+        return false;
+    }
+    if (input_dtype != DType::Float16 && input_dtype != DType::BFloat16) {
+        return false;
+    }
+
+    const int32_t hidden_size = static_cast<int32_t>(in_features_);
+    const int32_t vocab_size = static_cast<int32_t>(out_features_);
+    const int32_t candidate_count =
+        (vocab_size + lm_head_top1::kWarpsPerBlock - 1) / lm_head_top1::kWarpsPerBlock;
+
+    const size_t values_bytes = lm_head_top1::align256(static_cast<size_t>(candidate_count) * sizeof(float));
+    const size_t indices_bytes = lm_head_top1::align256(static_cast<size_t>(candidate_count) * sizeof(int32_t));
+    auto [input_device, input_device_id] = input.device();
+    (void)input_device;
+    void* workspace = StaticBufferManager::get_cache_buf(
+        "lm_head_top1_workspace",
+        values_bytes + indices_bytes,
+        input_device_id);
+    float* tmp_values = reinterpret_cast<float*>(workspace);
+    int32_t* tmp_indices = reinterpret_cast<int32_t*>(static_cast<char*>(workspace) + values_bytes);
+    int32_t* token_ptr = static_cast<int32_t*>(token_out.data_ptr());
+
+    dim3 grid(candidate_count);
+    dim3 block(lm_head_top1::kThreadsPerBlock);
+    if (input_dtype == DType::Float16) {
+        lm_head_top1::stage1_kernel<half><<<grid, block, 0, stream>>>(
+            static_cast<const half*>(input.data_ptr()),
+            static_cast<const half*>(weight_set.weight_->data_ptr()),
+            hidden_size,
+            vocab_size,
+            tmp_values,
+            tmp_indices);
+    } else {
+        lm_head_top1::stage1_kernel<__nv_bfloat16><<<grid, block, 0, stream>>>(
+            static_cast<const __nv_bfloat16*>(input.data_ptr()),
+            static_cast<const __nv_bfloat16*>(weight_set.weight_->data_ptr()),
+            hidden_size,
+            vocab_size,
+            tmp_values,
+            tmp_indices);
+    }
+    lm_head_top1::stage2_kernel<<<1, 256, 0, stream>>>(
+        tmp_values,
+        tmp_indices,
+        candidate_count,
+        token_ptr);
+    CUDA_CHECK_THROW(cudaGetLastError(), "LMHeadLinearLayer::try_forward_top1 failed");
+    return true;
 }
 
 }  // namespace edge_fm

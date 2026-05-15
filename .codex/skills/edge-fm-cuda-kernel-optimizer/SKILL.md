@@ -1,22 +1,24 @@
 ---
 name: edge-fm-cuda-kernel-optimizer
-description: NCU-guided iterative CUDA/CUTLASS/Triton kernel optimization workflow for edge-fm-x. Use when optimizing kernels under src/, tuning standalone .cu/.py reproductions, or when the user asks to speed up a CUDA kernel in this repo and mentions Nsight Compute, NCU, CUTLASS, Triton, kernel tuning, latency regressions, or iterative optimization. The skill supports both a standalone benchmark contract (`extern "C" void solve(...)` or Triton `setup/run_kernel`) and an edge-fm in-repo workflow with hotspot isolation, rebuild, and targeted pytest validation.
+description: NCU-guided CUDA/CUTLASS kernel optimization workflow for edge-fm-x, including short standalone/repo-in-place tuning and long Humanize + KernelPilot loops. Use when optimizing kernels under src/, tuning standalone CUDA/CUTLASS reproductions, or when the user asks to speed up an Edge-FM CUDA kernel and mentions Nsight Compute, Nsight Systems, NCU, benchmark plateaus, Humanize, KernelPilot, long-running kernel search, source provenance, ledgers, CUTLASS, latency regressions, or iterative optimization.
 ---
 
 # Edge-FM CUDA Kernel Optimizer
 
-这个 skill 把外部 `cuda-kernel-optimizer` 的迭代优化框架本地化到 `edge-fm-x`。重点不是直接盲改生产 kernel，而是先定位热点、建立可复现 baseline，再做 profile -> 选方法 -> 改代码 -> 校验 -> benchmark 的闭环，最后把有效改动回迁到正式实现。
+这个 skill 把 NSYS 热点预诊断、短程 NCU 优化和长程 Humanize + KernelPilot 优化都收口到 `edge-fm-x` 的一个入口。重点不是直接盲改生产 kernel，而是先定位热点、建立可复现 baseline，再做 profile -> 选方法 -> 改代码 -> 校验 -> benchmark 的闭环；当任务需要多小时、多版本、多来源证据时，再升级到带外部审查和 ledgers 的长循环。
 
 ## 什么时候用
 
-- 用户明确要优化 `src/` 下的 CUDA / CUTLASS / Triton kernel
+- 用户明确要优化 `src/` 下的 CUDA / CUTLASS kernel
 - 已经知道热点 kernel，或至少已经缩小到某个 operator / layer
-- 用户提到 `ncu` / `Nsight Compute` / kernel tuning / CUTLASS / Triton / “make this kernel faster”
+- 用户要分析 Edge-FM `.nsys-rep` / `.sqlite`，或提到 `nsys` / `Nsight Systems` / CUDA graph profile
+- 用户提到 `ncu` / `Nsight Compute` / kernel tuning / CUTLASS / “make this kernel faster”
 - 需要做多轮迭代，而不是一次性盲猜优化
+- 用户提到 Humanize / KernelPilot / 长期 autonomous search / 版本 lineage / profile evidence / source provenance
 
 ## 什么时候先不要用
 
-- 只知道“整模型慢”，但还不知道热点在哪里
+- 只知道“整模型慢”，但没有 trace、profile 入口或可复现实验
 - 当前先是功能错误、编译失败、接口不匹配，不是性能问题
 - 没有 reference 或最小可验证输入
 
@@ -24,17 +26,35 @@ description: NCU-guided iterative CUDA/CUTLASS/Triton kernel optimization workfl
 
 ## 先选工作模式
 
-### 模式 A: 独立基准闭环
+### 模式 0: NSYS 热点预诊断
 
-适用于你已经有一个独立 kernel 文件，能直接接入本 skill 自带的 `benchmark.py`：
+适用于已有 Edge-FM `.nsys-rep` / `.sqlite`，或需要先判断整条 generate/VLM profile 里哪个 stage、layer、kernel 最值得继续优化。
+
+```bash
+python .codex/skills/edge-fm-cuda-kernel-optimizer/scripts/analyze_edgefm_nsys_profile.py \
+  --input /path/to/profile.nsys-rep
+```
+
+CUDA graph 场景优先用 graph-off mapping trace 补 attribution，再用 graph-on formal trace 看最终行为：
+
+```bash
+python .codex/skills/edge-fm-cuda-kernel-optimizer/scripts/analyze_edgefm_nsys_profile.py \
+  --mapping-input /path/to/graph_off.nsys-rep \
+  --formal-input /path/to/graph_on.nsys-rep
+```
+
+这个脚本固定输出 kernel table、known-path table、action table。先按 action table 检查既有 Edge-FM operator/tuning 路线；不要在这些路径排除前把热点当成全新 kernel 机会。
+
+### 模式 A: 短程独立基准闭环
+
+适用于你已经有一个独立 CUDA/CUTLASS kernel 文件，能直接接入本 skill 自带的 `benchmark.py`：
 
 - CUDA / CUTLASS: `extern "C" void solve(...)`
-- Triton: `setup(**kwargs)` + `run_kernel(**kwargs)`
 - reference: `reference(**kwargs)` in `ref.py`
 
-这种模式直接用自带脚本跑完整优化循环。
+这种模式直接用自带脚本跑完整优化循环。`benchmark.py` 仍保留 Triton 兼容入口，只用于已有 baseline 或用户明确指定的外部对照；默认不要把 Triton 作为 edge-fm 的候选实现路线。
 
-### 模式 B: edge-fm 仓库内 kernel
+### 模式 B: 短程 edge-fm 仓库内 kernel
 
 适用于目标在 `src/layers/*.cu`、`src/operators/*.cu`、`src/utils/device/*.cu` 等正式实现中。
 
@@ -46,6 +66,18 @@ description: NCU-guided iterative CUDA/CUTLASS/Triton kernel optimization workfl
 4. 只有当复现版本已经证明正确且更快，再把有效改动回迁到 `src/`。
 5. 回迁后必须 rebuild 并运行目标 pytest / benchmark 做回归。
 
+### 模式 C: Humanize + KernelPilot 长循环
+
+适用于 QKV/OProj、W4A16/W8A8 linear、prefill attention/KV、fused gate-up、`lm_head_top1`、DeepGEMM/TensorRT bridge 这类需要长期探索的优化任务。
+
+进入条件：
+
+- 已经有明确热点、shape、baseline、验证入口和收益口径。
+- 预计需要多轮候选、NCU 证据、失败记录、来源记录和外部 review。
+- 用户明确要求 Humanize / KernelPilot，或连续短程优化已经 plateau。
+
+先读 `references/humanize_kernelpilot_long_loop.md`。不要在未知热点、没有 correctness reference、或仓库不干净时启动 RLCR；先建立 standalone repo 和计划。
+
 ## 必读文件
 
 - `references/edge_fm_workflow.md`
@@ -54,30 +86,42 @@ description: NCU-guided iterative CUDA/CUTLASS/Triton kernel optimization workfl
   选优化方法时必须先读。每个 axis 必须按优先级严格扫描。
 - `references/ncu_metrics_guide.md`
   把 `ncu_top.json` 的指标映射到 compute / memory / latency 三个轴。
+- `references/profile_known_paths.md`
+  分析 Edge-FM NSYS trace 后，判断 hotspot 是否已经对应现有 operator/tuning 路线时读取。
+- `references/humanize_kernelpilot_long_loop.md`
+  当任务需要 Humanize + KernelPilot 长循环、source ledgers、profile evidence digest 或 RLCR review gate 时读取。
 
 ## 自带资源
 
 - `scripts/benchmark.py`
   独立 benchmark + correctness harness
 - `scripts/check_env.py`
-  采集 GPU / nvcc / ncu / CUTLASS / torch / triton 环境
+  采集 GPU / nvcc / ncu / CUTLASS / torch 环境，并记录可选 Triton 环境用于对照
 - `scripts/preflight.py`
   校验 baseline / reference / dims 契约
 - `scripts/orchestrate.py`
   串起 setup / close-iter / finalize
 - `scripts/profile_ncu.py`
   采集 `.ncu-rep` 并生成 `ncu_top.json`
+- `scripts/analyze_edgefm_nsys_profile.py`
+  分析 Edge-FM `.nsys-rep` / `.sqlite`，输出 kernel、known-path、action 三张表
 - `scripts/state.py`
   维护 run 状态和方法有效性
+- `scripts/install_humanize_hooks.sh`
+  安装/更新 Codex Stop hook，使其指向本 skill 内 vendored Humanize runtime；只做 hook 配置，不启动 RLCR。
 - `templates/iteration_report.md`
   每轮分析模板
+- `vendor/humanize/`
+  Humanize runtime：scripts、hooks、prompt-template、templates、config、agents，以及内部 `humanize-kernel-agent-loop` 参考。
+- `vendor/kernel-pilot/`
+  KernelPilot 知识库、source catalog、`kernel-knowledge` 和 `profile-evidence` 内部参考。
 
 ## 需要的输入
 
 做模式 A 时，开始前至少确认：
 
 1. `baseline`
-   例如 `./gemm.cu` 或 `./matmul_triton.py`
+   例如 `./gemm.cu`
 2. `ref`
    例如 `./ref.py`
 3. `dims`

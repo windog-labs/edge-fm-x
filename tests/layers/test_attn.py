@@ -7,18 +7,13 @@ Attention 层的正确性和性能测试（pytest 单元测试）
 2. 性能测试：确保性能不低于 flashinfer 的 0.9 倍
 """
 
-import sys
 import json
 import torch
 import pytest
 import tempfile
 import os
-from pathlib import Path
 
-# 添加构建目录到路径
-project_root = Path(__file__).parent.parent.parent
-build_python = project_root / "build" / "install" / "python"
-sys.path.insert(0, str(build_python))
+from tests.layers._test_utils import CUDA_HW_PROFILE, OPERATOR_IMPL_TABLE_PATH
 
 import edge_fm
 import flashinfer
@@ -49,9 +44,9 @@ def create_attention_layer(num_qo_heads, num_kv_heads, hidden_size):
         "runtime": {
             "device": "cuda",
             "device_id": 0,
-            "hw_profile": "cuda_sm80"
+            "hw_profile": CUDA_HW_PROFILE
         },
-        "operator_impl_table_path": str((project_root / "examples" / "config" / "operator_impl_table.json").resolve()),
+        "operator_impl_table_path": str(OPERATOR_IMPL_TABLE_PATH),
         "prefill_model_path": temp_dir
     }
     with open(engine_config_path, "w") as f:

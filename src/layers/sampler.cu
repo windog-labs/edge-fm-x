@@ -14,11 +14,6 @@ using namespace flashinfer;
 namespace edge_fm {
 namespace sampler_trt {
 
-// TensorRT-Edge-LLM style topK=1 (greedy). Ported from third_party/TensorRT-Edge-LLM/cpp/sampler/sampling.cu
-__device__ __forceinline__ float invTemp_device(float temperature) {
-    return (temperature < 1e-3f) ? 1000.0f : 1.0f / temperature;
-}
-
 struct TopK_2 {
     float value;
     int32_t index;
@@ -39,15 +34,14 @@ struct topk2MaxOpFunctor {
     }
 };
 
+// TensorRT-Edge-LLM style topK=1 (greedy). Ported from third_party/TensorRT-Edge-LLM/cpp/sampler/sampling.cu
 template <int32_t BLOCK_SIZE, int32_t BLOCKS_PER_BEAM>
 __global__ void topKStage1Greedy(
     float const* __restrict__ logits,
-    float* tmpLogits,
     int32_t* topKTmpIdBuf,
     float* topKTmpValBuf,
     int32_t batchSize,
-    int32_t vocabSize,
-    float temperature)
+    int32_t vocabSize)
 {
     typedef cub::BlockReduce<TopK_2, BLOCK_SIZE> BlockReduce;
     __shared__ typename BlockReduce::TempStorage tempStorage;
@@ -59,20 +53,14 @@ __global__ void topKStage1Greedy(
 
     if (batchId >= batchSize) return;
 
-    float invTemp = invTemp_device(temperature);
-    int32_t tmpLogBufIndex = batchId * vocabSize;
+    int32_t rowOffset = batchId * vocabSize;
     int32_t tmpTopKBufIndex = batchId * BLOCKS_PER_BEAM + blockLane;
 
     TopK_2 partial;
-    for (int32_t elemId = tid + blockLane * BLOCK_SIZE; elemId < vocabSize; elemId += BLOCK_SIZE * BLOCKS_PER_BEAM) {
-        int32_t localIndex = elemId + tmpLogBufIndex;
-        tmpLogits[localIndex] = logits[localIndex] * invTemp;
-    }
-
     partial.init();
     for (int32_t elemId = tid + blockLane * BLOCK_SIZE; elemId < vocabSize; elemId += BLOCK_SIZE * BLOCKS_PER_BEAM) {
-        int32_t index = elemId + tmpLogBufIndex;
-        partial.insert(tmpLogits[index], index);
+        int32_t index = elemId + rowOffset;
+        partial.insert(logits[index], index);
     }
     TopK_2 total = BlockReduce(tempStorage).Reduce(partial, topk2MaxOpFunctor());
 
@@ -117,12 +105,12 @@ __global__ void topKStage2Greedy(
 }
 
 inline size_t getTopK1WorkspaceSize(int32_t batchSize, int32_t vocabSize) {
+    (void)vocabSize;
     auto align = [](size_t s) -> size_t {
         const size_t a = 256;
         return (s + a - 1) & ~(a - 1);
     };
     size_t total = 0;
-    total += align(static_cast<size_t>(batchSize) * vocabSize * sizeof(float));
     total += align(static_cast<size_t>(batchSize) * 8 * sizeof(int32_t));
     total += align(static_cast<size_t>(batchSize) * 8 * sizeof(float));
     return total;
@@ -243,19 +231,16 @@ void SamplerLayer::forward_sampling(
         void* ws = StaticBufferManager::get_cache_buf("greedy_sampler_ws", ws_size, device_id_);
         auto align = [](size_t s) -> size_t { return (s + 255) & ~255ULL; };
         size_t off = 0;
-        float* tmpLogits = static_cast<float*>(ws);
-        off += align(batch_size * vocab_size_ * sizeof(float));
         int32_t* topKTmpIdBuf = reinterpret_cast<int32_t*>(static_cast<char*>(ws) + off);
         off += align(batch_size * 8 * sizeof(int32_t));
         float* topKTmpValBuf = reinterpret_cast<float*>(static_cast<char*>(ws) + off);
 
         constexpr int BLOCK_SIZE = 256;
         constexpr int BLOCKS_PER_BEAM = 8;
-        float eff_temp = std::max(temperature_, 1e-9f);
         sampler_trt::topKStage1Greedy<BLOCK_SIZE, BLOCKS_PER_BEAM><<<
             batch_size * BLOCKS_PER_BEAM, BLOCK_SIZE, 0, stream>>>(
-            logits_data, tmpLogits, topKTmpIdBuf, topKTmpValBuf,
-            static_cast<int32_t>(batch_size), static_cast<int32_t>(vocab_size_), eff_temp);
+            logits_data, topKTmpIdBuf, topKTmpValBuf,
+            static_cast<int32_t>(batch_size), static_cast<int32_t>(vocab_size_));
         sampler_trt::topKStage2Greedy<BLOCK_SIZE><<<batch_size, BLOCK_SIZE, 0, stream>>>(
             topKTmpIdBuf, topKTmpValBuf, token_ids_data,
             static_cast<int32_t>(batch_size), static_cast<int32_t>(vocab_size_));
@@ -276,9 +261,11 @@ void SamplerLayer::forward_sampling(
         workspace_size = batch_size * num_slices * PARTIAL_SOFTMAX_RESULT_SIZE;
     }
     
-    void* workspace = MemoryPool::instance().allocate(workspace_size, stream, device_id_);
+    void* workspace = StaticBufferManager::get_cache_buf(
+        "sampler_softmax_workspace", workspace_size, device_id_);
     size_t probs_size = batch_size * vocab_size_ * sizeof(float);
-    float* probs_buffer = static_cast<float*>(MemoryPool::instance().allocate(probs_size, stream, device_id_));
+    float* probs_buffer = static_cast<float*>(StaticBufferManager::get_cache_buf(
+        "sampler_probs_buffer", probs_size, device_id_));
     
     CUDA_CHECK_THROW(
         sampling::OnlineSoftmax<float>(

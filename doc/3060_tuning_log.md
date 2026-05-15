@@ -152,7 +152,7 @@ Current diagnosis:
   - this fixed the 3B benchmark OOM/segfault path caused by holding the 3B Transformers model on GPU while creating `EdgeFM(cuda graph)`
   - blocker artifact: `.tmp_codex/bench/3060_20260509_1428_llm_3b_512x32_edge_only_probe.err`
   - confirmation artifact: `.tmp_codex/bench/3060_20260509_1432_llm_3b_512x32_after_tf_cleanup.json`
-- `src/engine/cuda/standard_engine.cpp`, `tests/engine/test_qwen2_generate.py`
+- `src/engine/tasks/token_generation/cuda/standard_engine.cpp`, `tests/engine/test_qwen2_generate.py`
   - fixed prefill CUDA graph first-capture semantics by replaying the captured graph immediately after capture
   - this is accepted as a correctness fix, not a performance optimization
   - regression command: `EDGE_FM_PLATFORM=3060 EDGE_FM_DEVICE_ID=0 python3 -m pytest -s tests/engine/test_qwen2_generate.py::test_generate_token_alignment_prefill_cuda_graph_first_request -q`

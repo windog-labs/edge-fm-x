@@ -41,6 +41,22 @@ public:
     Response generate(const Request& request) const;
 
     /**
+     * @brief Run a trajectory planning request.
+     *
+     * Planner inputs and outputs are tensor maps. The active engine must be
+     * configured with task=trajectory_planning.
+     */
+    TensorMap plan(int32_t request_id, const TensorRefMap& inputs) const;
+
+    /**
+     * @brief Run a named tensor stage.
+     *
+     * This is the low-level stage execution API used by planner context/step
+     * stages and by prefill/decode compatibility wrappers.
+     */
+    TensorMap run_stage(int32_t request_id, const std::string& stage_name, const TensorRefMap& inputs) const;
+
+    /**
      * @brief Run a tensor-in/tensor-out prefill stage.
      *
      * This generic stage API is intended for whole-model engines where the model
@@ -68,6 +84,16 @@ public:
      * throughput, and executed-vs-returned token counts.
      */
     std::unordered_map<std::string, double> last_generate_metrics() const;
+
+    /**
+     * @brief Return metrics from the most recent plan() call.
+     */
+    std::unordered_map<std::string, double> last_plan_metrics() const;
+
+    /**
+     * @brief Return metrics from the most recent run_stage(), prefill(), or decode() call.
+     */
+    std::unordered_map<std::string, double> last_stage_metrics() const;
 
     /**
      * @brief Build or tune backend-specific execution artifacts for the current model/configuration.

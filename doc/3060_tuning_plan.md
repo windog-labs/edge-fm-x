@@ -82,7 +82,7 @@ The standing tuning rules live in [3060_tuning_rules.md](./3060_tuning_rules.md)
   - `1p5b_fused_qkv_m2048` keeps `algo_index=4`; `algo_index=6` is rejected on 3060 because it regressed the operator gate
 - `tests/engine/test_qwen2_generate.py`
   - LLM benchmark releases the Transformers model before allocating EdgeFM/TRT runtimes; this is required for 3B to run on 3060 12GB
-- `src/engine/cuda/standard_engine.cpp`, `tests/engine/test_qwen2_generate.py`
+- `src/engine/tasks/token_generation/cuda/standard_engine.cpp`, `tests/engine/test_qwen2_generate.py`
   - prefill CUDA graph first-capture now immediately replays the captured graph before returning to `generate()`
   - a regression test verifies the first request without a warmed prefix returns a valid prefill sample token
 

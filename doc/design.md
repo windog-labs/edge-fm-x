@@ -11,12 +11,25 @@ Current `EdgeFM` facade behavior:
 - CUDA inference is served by `StandardEngine`.
 - Horizon is served by `HorizonEngine`; it emits compile specs and can initialize
   the internal whole-graph runtime backend when a compiled `.hbm` artifact exists.
-- Supported model names are `qwen2_5`, `qwen2_5_vl`, and the Horizon compile-prep
-  path for `smolvla`.
+- Supported token-generation model names are `qwen2_5` and `qwen2_5_vl`. Planner
+  and stage-oriented names include `trajectory_planner`, `sparsedrive_v2`,
+  `lingxi_sparsedrive_planner`, and the Horizon compile-prep path for `smolvla`.
 - `qwen2_5` and `qwen2_5_vl` currently share the same `Qwen2_5` runtime.
-- `src/engine/speculative/` still contains `EagleEngine` prototype code, but `EdgeFM(config_path)` rejects `speculative.enabled=true` today.
+- `src/engine/experimental/speculative/` still contains `EagleEngine`
+  prototype code, but `EdgeFM(config_path)` rejects
+  `speculative.enabled=true` today.
 
-This means the codebase is already split into two real paths:
+This means the codebase is split into three user-facing task families:
+
+- `token_generation`: loads weights, allocates KV cache, runs token prefill +
+  decode, optionally captures CUDA graphs, and exposes `generate()`. Legacy
+  `text_generation` configs are normalized to this task.
+- `trajectory_planning`: runs tensor planner policy stages and exposes `plan()`
+  with request-local `PlannerStateManager` state.
+- `stage_execution`: runs named tensor stages and exposes `run_stage()`;
+  `prefill()` and `decode()` are compatibility wrappers over stage names.
+
+There are still two concrete backend families underneath those tasks:
 
 - CUDA runtime path: loads weights, allocates KV cache, runs prefill + decode, optionally captures CUDA graphs.
 - Horizon backend path: derives graph metadata, emits a Python lowering module,
@@ -31,7 +44,7 @@ The current design follows these constraints:
 2. The main CUDA execution path does not build or execute a generic IR.
 3. Runtime tuning is no longer benchmark-driven. Operator selection is table-driven with registry fallback.
 4. The source tree is split by responsibility:
-   - `engine/`: request lifecycle, scheduling, KV cache, CUDA graph management
+   - `engine/`: facade dispatch, task engines, stage runtime, and backend engine adapters
    - `models/`: model-specific runtime
    - `layers/`: model-layer semantics and fused weight organization
    - `operators/`: implementation lookup, operator registries, concrete operator entrypoints, low-level kernels
@@ -43,7 +56,10 @@ The current design follows these constraints:
 ```mermaid
 flowchart TD
     A["EdgeFM(config_path)"] --> B["EngineConfig"]
-    B --> C{"backend_target"}
+    B --> T{"task"}
+    T -->|token_generation| C{"backend_target"}
+    T -->|trajectory_planning| P["TrajectoryPlannerEngine"]
+    T -->|stage_execution| S{"runtime.device"}
 
     subgraph CUDA_Path["CUDA Runtime Path"]
         D["StandardEngine"]
@@ -59,6 +75,18 @@ flowchart TD
         H --> I["cuBLASLt / FlashInfer / custom kernels"]
     end
 
+    subgraph Planner_Path["Planner Policy Path"]
+        P --> P1["PlannerStateManager"]
+        P --> P2["MockStageRunner for fixture stages"]
+        P --> P3["single_stage / candidate_scoring / iterative_denoise"]
+    end
+
+    subgraph Stage_Path["Named Stage Path"]
+        X["StageExecutionEngine"]
+        X --> X1["PlannerStateManager"]
+        X --> X2["MockStageRunner for fixture stages"]
+    end
+
     subgraph Horizon_Path["Horizon Backend Path"]
         J["HorizonEngine"]
         J --> K["build graph_tuning"]
@@ -72,15 +100,22 @@ flowchart TD
 
     C -->|cuda| D
     C -->|horizon| J
+    S -->|horizon| J
+    S -->|other| X
 ```
 
 Key points:
 
-- `EdgeFM` chooses the engine from `EngineConfig::backend_target()`.
+- `EdgeFM` chooses the engine from `EngineConfig::task()` first, then the backend.
 - The CUDA path eagerly loads model weights before constructing `StandardEngine`.
 - The Horizon path does not load CUDA runtime state; it produces backend artifacts
   and uses a whole-graph runtime boundary instead of CUDA layers/operators.
 - `Model::create()` currently resolves both `qwen2_5` and `qwen2_5_vl` to the same `Qwen2_5` implementation.
+- `MockStageRunner` is not a backend runtime. It only runs deterministic
+  `backend=mock` tensor stages for planner/stage tests; `HorizonEngine` exposes
+  the same named-stage facade for HBM artifacts. Real TensorRT/Horizon stage
+  adapters should use explicit backend runner names instead of hiding behind a
+  generic runtime label.
 
 ## 4. Configuration and Dispatch
 
@@ -92,11 +127,14 @@ The public entry remains:
 engine = edge_fm.EdgeFM("/path/to/engine.json")
 ```
 
-At minimum, `engine.json` needs:
+For `task=token_generation`, `engine.json` needs:
 
 - `model_name`
 - `prefill_model_path`
 - `runtime.device`
+
+For `task=trajectory_planning` or `task=stage_execution`, `prefill_model_path`
+is optional because the engine may be backed only by named stage artifacts.
 
 Relevant default structure from `examples/config/base/engine_default.json`:
 
@@ -123,6 +161,13 @@ Relevant default structure from `examples/config/base/engine_default.json`:
   - `Qwen2.5`, `qwen2_5`, `qwen25`, `qwen2` -> `qwen2_5`
   - `Qwen2.5-VL`, `qwen2_5_vl`, `qwen25vl` -> `qwen2_5_vl`
   - `SmolVLA`, `smolvla`, `smol_vla` -> `smolvla`
+- `task`
+  - omitted Qwen configs -> `token_generation`
+  - omitted planner model names such as `sparsedrive_v2` -> `trajectory_planning`
+  - omitted `smolvla` -> `stage_execution`
+  - explicit values: `token_generation`, `trajectory_planning`, `stage_execution`
+  - compatibility aliases such as `text_generation`, `multimodal_generation`,
+    `vlm_generation`, `llm`, and `generation` -> `token_generation`
 - `runtime.hw_profile`
   - if explicitly set, use the normalized value
   - if omitted on CUDA, derive `cuda_smXX` from device properties, with `cuda` fallback
@@ -146,11 +191,82 @@ For VLM checkpoints, `prefill_model_config()` and `decode_model_config()` unwrap
 
 Current `EdgeFM` facade behavior in `src/edge-fm.cpp`:
 
-- if `backend_target == "horizon"`, build `HorizonEngine`
-- else `backend_target` must be `cuda`
+- if `task == "trajectory_planning"`, build `TrajectoryPlannerEngine`
+- if `task == "stage_execution"` and `runtime.device == "horizon"`, build `HorizonEngine`
+- if `task == "stage_execution"` for other devices, build `StageExecutionEngine`
+- otherwise `token_generation` follows the existing CUDA/Horizon backend dispatch
 - if `speculative.enabled == true`, throw immediately
 
 So speculative decoding is not a supported public runtime mode yet, even though the prototype code exists in the tree.
+
+### 4.5 Planner and stage configuration
+
+Planner-policy inference is intentionally tensor-in/tensor-out. It does not add
+training losses, visual preprocessing, request queues, or a diffusion serving
+scheduler. The first implemented planner kinds are:
+
+- `single_stage`: run one stage such as `plan` and return `trajectory`
+- `candidate_scoring`: run a scoring stage, choose `candidate_scores.argmax`,
+  and return `selected_index` plus the selected `trajectory`
+- `iterative_denoise`: optionally run `context`, loop a `step` stage, and update
+  the planner state with `euler_flow` or `ddim`-style replacement
+
+`planner.method` is accepted as a short alias when `planner.kind` is omitted:
+`scoring` maps to `candidate_scoring`, while `flow`, `flow_matching`,
+`diffusion`, and `diffusion_policy` map to `iterative_denoise`.
+
+For `iterative_denoise`, callers can pass the state tensor explicitly, for
+example `current_actions`. If it is omitted, the engine initializes it from
+`planner.trajectory_shape`, `planner.noise_sigma`, and `planner.seed`. Each
+step also receives a float32 timestep tensor named by `planner.timestep_tensor`
+(default `timestep`) over the configured `timestep_start` to `timestep_end`
+range.
+
+TensorRT `.engine` planner stages are expected to plug into this same
+`run_stage()` boundary, but the C++ TensorRT stage adapter is intentionally left
+for a fixture-backed follow-up so the first planner policy layer can stay
+backend-neutral and regression-safe.
+
+The local flow-matching trajectory-planning reference paper used for this
+planner-policy shape is stored at `doc/papers/2503.05689v6.pdf`.
+
+Example mock config:
+
+```json
+{
+  "task": "trajectory_planning",
+  "model_name": "lingxi_sparsedrive_planner",
+  "runtime": {"device": "cpu"},
+  "planner": {
+    "kind": "iterative_denoise",
+    "method": "flow",
+    "sampler": "euler_flow",
+    "num_steps": 3,
+    "state_tensor": "current_actions",
+    "step_stage": "step",
+    "step_output_tensor": "velocity",
+    "output_tensor": "trajectory"
+  },
+  "stages": {
+    "step": {
+      "backend": "mock",
+      "outputs": {
+        "velocity": {
+          "dtype": "float32",
+          "shape": [1, 2, 2],
+          "values": [3.0, 6.0, 9.0, 12.0]
+        }
+      }
+    }
+  }
+}
+```
+
+`PlannerStateManager` is request-local. `run_stage()` resolves inputs in this
+order: explicit call inputs, cached tensors for the same `request_id`, then
+stage `defaults` / `default_inputs`. This is the planner analogue of keeping
+LLM token KV state inside `KVManager`, but it stores generic
+context/action/candidate tensors instead of attention KV cache.
 
 ## 5. CUDA Runtime Path
 
@@ -511,15 +627,21 @@ whole-model stages: `prefill` and `decode`.
 
 Whole-model backends can expose tensor-in/tensor-out stages through:
 
+- `EdgeFM::run_stage(request_id, stage_name, inputs)`
 - `EdgeFM::prefill(request_id, inputs)`
 - `EdgeFM::decode(request_id, inputs)`
+
+`prefill()` and `decode()` are compatibility wrappers for
+`run_stage("prefill")` and `run_stage("decode")`. Planner and whole-stage
+artifacts may expose additional names such as `context`, `step`, or `score`
+when those names are declared in the stage manifest / compile spec.
 
 For SmolVLA phase 1, `prefill` produces `prefix_kv_layer_*` tensors and stores
 them in the engine-side request cache. `decode` consumes suffix inputs and can
 either reuse the cached KV tensors for the same `request_id` or accept explicit
-`prefix_kv_layer_*` inputs from the caller. The public stage names are only
-`prefill` and `decode`; model-specific names such as `expert_denoise` are not
-part of the EdgeFM API surface.
+`prefix_kv_layer_*` inputs from the caller. Horizon stage outputs are merged
+into the request cache by tensor name, so a later stage does not discard
+previous stage tensors unless it overwrites the same name.
 
 Usage examples are in `doc/smolvla_phase1_horizon_usage.md`.
 
@@ -545,9 +667,23 @@ Current source layout:
 - `src/tensor.cpp`, `src/utils/device/tensor_*.cpp`
   - public `Tensor` implementation and CMake-selected CPU/CUDA device memory ops
 - `src/engine/`
-  - `EngineConfig`, engine factory, `StandardEngine`, `HorizonEngine`, CUDA `KVManager`/`Scheduler`
-- `src/engine/speculative/`
-  - prototype speculative engine code, not wired into public facade
+  - `engine.*`, `engine_factory.*`: `EngineConfig`, base `Engine`, and engine factory
+  - `tasks/token_generation/`: token-generation helpers shared by backend engines,
+    including compact vocab, `KVManager`, and scheduler
+  - `tasks/trajectory_planning/`: planner facade engine
+    plus `PlannerStateManager` and planner tensor helpers
+  - `tasks/stage_execution/`: generic named-stage facade engine and `MockStageRunner`
+    for deterministic fixture stages
+  - `tasks/token_generation/cuda/`: CUDA token-generation backend implementation
+  - `tasks/stage_execution/horizon/`: Horizon stage/backend engine implementation
+  - `tasks/token_generation/cuda/tuning/`: CUDA token-generation operator-table
+    preparation used by `StandardEngine::tune()`
+  - `experimental/speculative/`: prototype speculative engine code, not wired into public facade
+- `src/backends/`
+  - platform/backend infrastructure only: artifact cache, Horizon module emitter,
+    backend target enum, and whole-graph runtime backend wrapper
+  - no task-level `Engine` implementations live here; those stay under
+    `src/engine/tasks/<task>/<backend>/`
 - `src/models/`
   - model dispatch and model runtimes
 - `src/models/qwen2_5/`
@@ -558,8 +694,6 @@ Current source layout:
   - operator registries, table lookup, concrete operator entrypoints
 - `src/operators/kernels/`
   - low-level CUDA kernels used by operator implementations
-- `src/backends/`
-  - backend artifact cache, Horizon module emitter, whole-graph runtime backend abstraction
 - `src/utils/`
   - memory, CUDA graph helpers, weight loading, logging, device utilities
 

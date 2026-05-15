@@ -17,7 +17,7 @@
 #include "layers/linear.h"
 #include "engine/engine.h"
 #include "models/model.h"
-#include "engine/kv_manager.h"
+#include "engine/tasks/token_generation/kv_manager.h"
 #include "utils/device/weight_loader.h"
 #include <nlohmann/json.hpp>
 #include <cuda_runtime.h>
@@ -1232,7 +1232,21 @@ PYBIND11_MODULE(edge_fm, m) {
             "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n"
             "    stage: 模型阶段，\"Prefill\" 或 \"Decode\"（默认: \"Prefill\"）\n\n"
             "示例:\n"
-            "    layer.forward_fp16_bf16(input, output)\n");
+            "    layer.forward_fp16_bf16(input, output)\n")
+        .def("try_forward_top1", [](LMHeadLinearLayer& self,
+                                     const Tensor& input,
+                                     Tensor& token_out,
+                                     uintptr_t stream_ptr = 0,
+                                     const std::string& stage_str = "Decode") {
+                cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                ModelStage stage = (stage_str == "Decode") ? ModelStage::Decode : ModelStage::Prefill;
+                return self.try_forward_top1(input, token_out, stream, stage);
+            },
+            py::arg("input"),
+            py::arg("token_out"),
+            py::arg("stream") = 0,
+            py::arg("stage") = "Decode",
+            "实验 decode-only LM head top1 fast path。支持时直接写入 token_out[0] 并返回 True，否则返回 False。");
 
     // ============================================================================
     // EmbedHeadLayer 类绑定
@@ -1635,6 +1649,23 @@ PYBIND11_MODULE(edge_fm, m) {
         .def("generate", &EdgeFM::generate,
              py::arg("request"),
              "从给定请求生成响应 token")
+        .def("plan",
+             [](const EdgeFM& self, int32_t request_id, const py::dict& inputs) {
+                 return tensor_map_to_py_dict(
+                     self.plan(request_id, tensor_ref_map_from_py_dict(inputs)));
+             },
+             py::arg("request_id"),
+             py::arg("inputs"),
+             "运行 trajectory planner，返回输出 Tensor 字典")
+        .def("run_stage",
+             [](const EdgeFM& self, int32_t request_id, const std::string& stage_name, const py::dict& inputs) {
+                 return tensor_map_to_py_dict(
+                     self.run_stage(request_id, stage_name, tensor_ref_map_from_py_dict(inputs)));
+             },
+             py::arg("request_id"),
+             py::arg("stage_name"),
+             py::arg("inputs"),
+             "运行命名 tensor stage，返回输出 Tensor 字典")
         .def("prefill",
              [](const EdgeFM& self, int32_t request_id, const py::dict& inputs) {
                  return tensor_map_to_py_dict(
@@ -1652,7 +1683,11 @@ PYBIND11_MODULE(edge_fm, m) {
              py::arg("inputs"),
              "运行 tensor-in/tensor-out decode stage，返回输出 Tensor 字典")
         .def("last_generate_metrics", &EdgeFM::last_generate_metrics,
-             "返回最近一次 generate() 的 stage timing 指标。");
+             "返回最近一次 generate() 的 stage timing 指标。")
+        .def("last_plan_metrics", &EdgeFM::last_plan_metrics,
+             "返回最近一次 plan() 的 stage timing 指标。")
+        .def("last_stage_metrics", &EdgeFM::last_stage_metrics,
+             "返回最近一次 run_stage()/prefill()/decode() 的 stage timing 指标。");
 
     // ============================================================================
     // M-RoPE standalone function

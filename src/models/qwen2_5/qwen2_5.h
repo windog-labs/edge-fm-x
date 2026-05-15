@@ -80,6 +80,7 @@ private:
 
     // M-RoPE state (only active when rope_scaling.type == "mrope")
     bool use_mrope_ = false;
+    bool lm_head_top1_enabled_ = false;
     float rope_theta_ = 1000000.0f;
     float rope_scale_ = 1.0f;
     std::vector<int32_t> mrope_section_;          // e.g. [16, 24, 24]

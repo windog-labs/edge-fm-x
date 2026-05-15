@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-DEFAULT_TRT_PACKAGE = "/xs-train-nas/zzm/packages/TensorRT-10.16.0.72"
+DEFAULT_TRT_PACKAGE = os.environ.get("TRT_PACKAGE_DIR", "")
 
 
 def load_test_module(repo_root: Path, device_id: int):
@@ -291,7 +291,7 @@ def print_text_report(report):
 
 def main():
     parser = argparse.ArgumentParser(description="Benchmark Transformers vs EdgeFM(cuda-graph) vs TRT-Edge-LLM using test_qwen2_generate helpers.")
-    parser.add_argument("--repo-root", default="/xs-train-nas/zzm/repos/edge-fm-x")
+    parser.add_argument("--repo-root", default=os.environ.get("EDGE_FM_REPO_ROOT", str(Path.cwd())))
     parser.add_argument("--device-id", type=int, default=int(os.environ.get("EDGE_FM_DEVICE_ID", "1")))
     parser.add_argument("--prefill-list", default="")
     parser.add_argument("--decode-list", default="")
@@ -299,7 +299,8 @@ def main():
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    os.environ.setdefault("TRT_PACKAGE_DIR", DEFAULT_TRT_PACKAGE)
+    if DEFAULT_TRT_PACKAGE:
+        os.environ.setdefault("TRT_PACKAGE_DIR", DEFAULT_TRT_PACKAGE)
 
     t = load_test_module(repo_root, args.device_id)
     import edge_fm  # noqa: F401

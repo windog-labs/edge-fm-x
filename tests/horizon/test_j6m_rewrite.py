@@ -243,6 +243,52 @@ def test_compile_helper_uses_smolvla_stage_io(tmp_path: Path):
     assert prep_manifest["example_inputs"]["outputs"]["expert_hidden"] == [1, 4, 6]
 
 
+def test_compile_helper_accepts_arbitrary_stage_names(tmp_path: Path):
+    compile_spec_path = _write_compile_spec(tmp_path)
+    compile_spec = json.loads(compile_spec_path.read_text(encoding="utf-8"))
+    compile_spec["stages"].append(
+        {
+            "name": "score",
+            "artifact_path": str(tmp_path / "planner_score.hbm"),
+            "factory_kwargs": {"stage": "score"},
+            "inputs": [
+                {"name": "candidate_trajectories", "shape": [1, 3, 4, 3], "dtype": "float32"},
+                {"name": "ego_status", "shape": [1, 8], "dtype": "float32"},
+            ],
+            "outputs": [
+                {"name": "candidate_scores", "shape": [1, 3], "dtype": "float32"},
+            ],
+        }
+    )
+    compile_spec_path.write_text(json.dumps(compile_spec, indent=2), encoding="utf-8")
+    helper = project_root / "scripts" / "horizon" / "compile_horizon_from_spec.py"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(helper),
+            str(compile_spec_path),
+            "--dry-run",
+            "--horizon-rewrite",
+            "off",
+            "--skip-model-init",
+            "--stage",
+            "score",
+        ],
+        cwd=project_root,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    payload = json.loads(completed.stdout)
+    assert payload["artifact_path"].endswith("planner_score.hbm")
+    prep_manifest = json.loads((tmp_path / "compile_prep.json").read_text(encoding="utf-8"))
+    assert prep_manifest["stage"] == "score"
+    assert prep_manifest["example_inputs"]["inputs"]["candidate_trajectories"] == [1, 3, 4, 3]
+    assert prep_manifest["example_inputs"]["outputs"]["candidate_scores"] == [1, 3]
+
+
 def test_compile_helper_rejects_legacy_smolvla_stage_name(tmp_path: Path):
     compile_spec_path = _write_compile_spec(tmp_path)
     helper = project_root / "scripts" / "horizon" / "compile_horizon_from_spec.py"
@@ -263,8 +309,7 @@ def test_compile_helper_rejects_legacy_smolvla_stage_name(tmp_path: Path):
     )
 
     assert completed.returncode != 0
-    assert "invalid choice" in completed.stderr
-    assert "decode" in completed.stderr
+    assert "Stage 'expert_denoise' was not found in compile spec" in completed.stderr
 
 
 def test_compile_helper_exports_stage_onnx(tmp_path: Path):

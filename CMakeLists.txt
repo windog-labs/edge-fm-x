@@ -26,7 +26,7 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 # 根据构建类型设置编译选项
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_compile_definitions(DEBUG)
+    add_compile_definitions(EDGE_FM_DEBUG=1)
     if(MSVC)
         add_compile_options(/Od /Zi)
     else()

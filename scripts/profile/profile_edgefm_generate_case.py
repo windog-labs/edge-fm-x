@@ -31,6 +31,10 @@ for build_python in [
     if build_python.is_dir() and build_python_str not in sys.path:
         sys.path.insert(0, build_python_str)
 
+from edge_fm_build_paths import prepend_built_python_paths
+
+prepend_built_python_paths(PROJECT_ROOT)
+
 import edge_fm
 from operator_table.utils import (
     resolve_engine_model_name,
@@ -41,6 +45,73 @@ from temp_paths import make_temp_dir
 
 
 CUDA_HW_PROFILE = resolve_target_hw_profile()
+EDGEFM_REQUIRED_STAGE_METRIC_KEYS = {
+    "prefill_ms",
+    "decode_ms",
+    "decode_step_avg_ms",
+    "tokens_per_second",
+    "decode_tokens_per_second",
+    "executed_generated_tokens_total",
+    "returned_generated_tokens_total",
+    "cuda_graph_enabled",
+    "lm_head_top1_enabled",
+    "lm_head_top1_decode_steps",
+}
+
+
+def _mean_metric(stage_metrics: list[dict], key: str) -> float:
+    if not stage_metrics:
+        return 0.0
+    return sum(float(metrics.get(key, 0.0)) for metrics in stage_metrics) / len(stage_metrics)
+
+
+def _pct(part: float, total: float) -> float:
+    return (part * 100.0 / total) if total > 0.0 else 0.0
+
+
+def build_owner_a_decode_breakdown(stage_metrics: list[dict]) -> dict:
+    """Summarize decode timing and whether the default-off top1 path was active."""
+    decode_ms = _mean_metric(stage_metrics, "decode_ms")
+    decode_model_ms = _mean_metric(stage_metrics, "decode_model_ms")
+    decode_sampler_ms = _mean_metric(stage_metrics, "decode_sampler_ms")
+    decode_finalize_ms = _mean_metric(stage_metrics, "decode_finalize_ms")
+    decode_graph_replay_ms = _mean_metric(stage_metrics, "decode_graph_replay_ms")
+    lm_head_top1_enabled = _mean_metric(stage_metrics, "lm_head_top1_enabled") > 0.5
+    lm_head_top1_decode_steps = _mean_metric(stage_metrics, "lm_head_top1_decode_steps")
+
+    return {
+        "decode_ms": decode_ms,
+        "decode_model_including_lm_head_ms": decode_model_ms,
+        "decode_sampler_ms": decode_sampler_ms,
+        "decode_finalize_ms": decode_finalize_ms,
+        "decode_graph_replay_ms": decode_graph_replay_ms,
+        "lm_head_top1_enabled": lm_head_top1_enabled,
+        "lm_head_top1_decode_steps": lm_head_top1_decode_steps,
+        "model_pct": _pct(decode_model_ms, decode_ms),
+        "sampler_pct": _pct(decode_sampler_ms, decode_ms),
+        "finalize_pct": _pct(decode_finalize_ms, decode_ms),
+        "graph_replay_pct": _pct(decode_graph_replay_ms, decode_ms),
+        "full_logits_default": not lm_head_top1_enabled,
+        "lm_head_top1_status": "enabled_experimental" if lm_head_top1_enabled else "available_default_off",
+        "decision_gate": "Keep full logits as default unless lm_head_top1 shows >=1% end-to-end CUDA graph gain plus token alignment.",
+    }
+
+
+def format_owner_a_decode_breakdown(breakdown: dict) -> str:
+    return (
+        "Owner A decode breakdown: "
+        f"decode model+lm_head={float(breakdown.get('decode_model_including_lm_head_ms', 0.0)):.3f} ms "
+        f"({float(breakdown.get('model_pct', 0.0)):.1f}%), "
+        f"sampler={float(breakdown.get('decode_sampler_ms', 0.0)):.3f} ms "
+        f"({float(breakdown.get('sampler_pct', 0.0)):.1f}%), "
+        f"finalize={float(breakdown.get('decode_finalize_ms', 0.0)):.3f} ms "
+        f"({float(breakdown.get('finalize_pct', 0.0)):.1f}%), "
+        f"graph_replay={float(breakdown.get('decode_graph_replay_ms', 0.0)):.3f} ms "
+        f"({float(breakdown.get('graph_replay_pct', 0.0)):.1f}%). "
+        f"lm_head_top1={breakdown.get('lm_head_top1_status', 'unknown')} "
+        f"steps={float(breakdown.get('lm_head_top1_decode_steps', 0.0)):.1f}; "
+        f"full_logits_default={bool(breakdown.get('full_logits_default', True))}."
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,6 +129,12 @@ def parse_args() -> argparse.Namespace:
         default="",
     )
     parser.add_argument("--use-cuda-graph", action="store_true", default=False)
+    parser.add_argument(
+        "--lm-head-top1",
+        action="store_true",
+        default=False,
+        help="Enable the default-off experimental greedy decode lm_head_top1 path.",
+    )
     parser.add_argument(
         "--profile-range",
         action="store_true",
@@ -84,6 +161,30 @@ def load_engine_text_config(model_path: Path) -> dict:
     return config.get("text_config", config)
 
 
+def add_edgefm_json_contract(result: dict, expected_generated_tokens: int) -> dict:
+    generated_counts = result.get("generated_counts", [])
+    bad_counts = [count for count in generated_counts if count != expected_generated_tokens]
+    if bad_counts:
+        raise RuntimeError(
+            f"Generated token count mismatch: expected each run to return {expected_generated_tokens}, "
+            f"got {generated_counts}"
+        )
+
+    stage_metrics = result.get("stage_metrics", [])
+    if not stage_metrics:
+        raise RuntimeError("EdgeFM profile result has no stage_metrics")
+    for idx, metrics in enumerate(stage_metrics):
+        missing = sorted(EDGEFM_REQUIRED_STAGE_METRIC_KEYS - set(metrics.keys()))
+        if missing:
+            raise RuntimeError(f"EdgeFM profile run{idx} missing required stage metric keys: {missing}")
+
+    result["json_contract"] = "edgefm.generate_profile.v1"
+    for key in sorted(EDGEFM_REQUIRED_STAGE_METRIC_KEYS):
+        result[key] = sum(float(metrics[key]) for metrics in stage_metrics) / len(stage_metrics)
+    result["owner_a_decode_breakdown"] = build_owner_a_decode_breakdown(stage_metrics)
+    return result
+
+
 def make_engine_config(
     *,
     model_path: Path,
@@ -93,6 +194,7 @@ def make_engine_config(
     decode_len: int,
     operator_impl_table_path: str,
     use_cuda_graph: bool,
+    lm_head_top1: bool,
 ) -> Path:
     config = load_engine_text_config(model_path)
     torch_dtype = str(config.get("torch_dtype", "float16")).lower()
@@ -113,6 +215,7 @@ def make_engine_config(
             "device_id": device_id,
             "hw_profile": CUDA_HW_PROFILE,
             "use_cuda_graph": use_cuda_graph,
+            "lm_head_top1": {"enabled": lm_head_top1},
         },
         "operator_impl_table_path": str(
             resolve_operator_table_path(
@@ -156,6 +259,7 @@ def main() -> None:
         decode_len=args.decode_len,
         operator_impl_table_path=args.operator_impl_table,
         use_cuda_graph=args.use_cuda_graph,
+        lm_head_top1=args.lm_head_top1,
     )
     engine = edge_fm.EdgeFM(str(engine_config_path))
 
@@ -200,6 +304,7 @@ def main() -> None:
         "prefill_len": args.prefill_len,
         "decode_len": args.decode_len,
         "use_cuda_graph": args.use_cuda_graph,
+        "lm_head_top1": args.lm_head_top1,
         "warmup": args.warmup,
         "runs": args.runs,
         "warmup_generated": warmup_generated,
@@ -208,6 +313,7 @@ def main() -> None:
         "avg_ms": sum(times_ms) / len(times_ms) if times_ms else 0.0,
         "stage_metrics": stage_metrics,
     }
+    add_edgefm_json_contract(result, args.decode_len)
 
     if args.json:
         print(json.dumps(result, indent=2))
@@ -216,7 +322,7 @@ def main() -> None:
     print(
         f"[profile] model={model_path.name} device=cuda:{args.device_id} "
         f"prefill={args.prefill_len} decode={args.decode_len} "
-        f"cuda_graph={args.use_cuda_graph}"
+        f"cuda_graph={args.use_cuda_graph} lm_head_top1={args.lm_head_top1}"
     )
     print(f"[profile] warmup generated counts: {warmup_generated}")
     print(f"[profile] timed generated counts:  {generated_counts}")
@@ -225,6 +331,8 @@ def main() -> None:
     print("[profile] stage metrics:")
     for idx, metrics in enumerate(stage_metrics):
         print(f"  run{idx}: {json.dumps(metrics, sort_keys=True)}")
+    print("[profile] owner-a breakdown:")
+    print(f"  {format_owner_a_decode_breakdown(result['owner_a_decode_breakdown'])}")
 
 
 if __name__ == "__main__":

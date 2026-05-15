@@ -1,4 +1,4 @@
 interface:
   display_name: "Edge-FM CUDA Optimizer"
-  short_description: "Iteratively optimize Edge-FM CUDA kernels with NCU"
-  default_prompt: "Use $edge-fm-cuda-kernel-optimizer to isolate, profile, optimize, and validate a CUDA, CUTLASS, or Triton kernel in edge-fm-x with an NCU-guided iteration loop."
+  short_description: "Triage NSYS traces and optimize Edge-FM CUDA kernels"
+  default_prompt: "Use $edge-fm-cuda-kernel-optimizer to triage Edge-FM NSYS traces, isolate hotspots, and optimize CUDA or CUTLASS kernels with NCU-guided iteration."
