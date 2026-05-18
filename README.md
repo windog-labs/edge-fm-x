@@ -261,32 +261,16 @@ generated_tokens = response.token_ids()
   <br><em>性能指标对比（x86 / Orin / J6M）</em>
 </p>
 
-### RTX 3060 Qwen2.5 LLM
+### x86
 
-RTX 3060 上的 Qwen2.5 LLM 默认路径已经不再使用内部 TensorRT engine
-bridge：`qwen2_5` 运行时不加载 serialized TensorRT plan，也不创建
-TensorRT execution context。当前主线是 `EdgeFM(cuda graph)` + source-op
-CUTLASS/CUDA operator + FlashInfer/cuBLASLt，并通过
-`examples/config/platform/3060/operator_impl_table_llm.json` 做 model/shape
-级算子选择。
+#### RTX 3060
 
-`TRT-Edge-LLM` 仍保留为 benchmark reference；仓库里的 `edge_fm_trt`
-Python 模块和 `tests/data/trt_edgellm_workspace/*/llm.engine` 只用于对照
-测试。默认关闭的 plugin-op 只允许复用 source-visible plugin/kernel 资产，
-不作为 TensorRT engine bridge。
+**Qwen2.5 LLM**
 
-最新 3060 LLM 全矩阵口径：
-
-| 指标 | 结果 |
-|------|------|
-| 覆盖范围 | `Qwen2.5-{0.5B,1.5B,3B}` × `prefill={512,1024,2048}` × `decode={32,64}` |
-| 相对最新 TRT-Edge-LLM | `16/18` case 更快 |
-| 最大稳定剩余 gap | `1.5B / 512x64`，EdgeFM 比 TRT 慢约 `0.9 ms` |
-| 当前状态 | 0.5B 和 3B 全 shape 快于 TRT-Edge-LLM；1.5B 512x32 已接近测量噪声 |
-| 默认路径 | 无内部 TRT engine bridge；source-op/FlashInfer/cuBLASLt 组合 |
-
-最新 18-case 明细如下。Prefill/Decode gap 为百分比差值，Total gap 为
-`EdgeFM - TRT-Edge-LLM`；负数表示 EdgeFM 更快：
+EdgeFM 在 `Qwen2.5-{0.5B,1.5B,3B}` × `prefill={512,1024,2048}` ×
+`decode={32,64}` 的 18-case 矩阵中有 `16/18` 个 case 快于
+TRT-Edge-LLM。Prefill/Decode gap 为百分比差值，Total gap 为
+`EdgeFM - TRT-Edge-LLM`，负数表示 EdgeFM 更快。
 
 | Model | Shape | EdgeFM Prefill | TRT Prefill | Prefill Gap | EdgeFM Decode | TRT Decode | Decode Gap | EdgeFM Total | TRT Total | Total Gap |
 |------|------:|-------------:|----------:|----:|-------------:|----------:|----:|-------------:|----------:|----:|
@@ -309,11 +293,9 @@ Python 模块和 `tests/data/trt_edgellm_workspace/*/llm.engine` 只用于对照
 | 3B | 2048x32 | `297.759 ms` | `288.021 ms` | `+3.38%` | `619.143 ms` | `631.246 ms` | `-1.92%` | `917.042 ms` | `919.372 ms` | `-2.330 ms` |
 | 3B | 2048x64 | `298.517 ms` | `288.577 ms` | `+3.44%` | `1258.738 ms` | `1282.461 ms` | `-1.85%` | `1557.436 ms` | `1571.146 ms` | `-13.710 ms` |
 
-高 runs 复核显示 `1.5B / 512x32` 已经是 practical parity
-（avg `+0.197 ms`，median `+0.135 ms`）。完整性能表见
-[edge_fm_benchmark_tables.md](doc/edge_fm_benchmark_tables.md)。
+完整性能表见 [edge_fm_benchmark_tables.md](doc/edge_fm_benchmark_tables.md)。
 
-### x86 (A800)
+#### A800
 
 **Qwen2.5-VL-0.5B**
 
@@ -346,7 +328,7 @@ Python 模块和 `tests/data/trt_edgellm_workspace/*/llm.engine` 只用于对照
 | 2048/32 | 120.855 | 120.110 | +0.62% | 301.360 | 315.002 | -4.33% | 422.215 | 435.112 | -2.96% |
 | 2048/64 | 120.841 | 120.290 | +0.46% | 612.216 | 638.760 | -4.16% | 733.056 | 759.050 | -3.42% |
 
-### x86 (A100)
+#### A100
 
 **Qwen2.5-0.5B**
 
