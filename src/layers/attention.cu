@@ -247,6 +247,7 @@ AttentionOp* AttentionLayer::resolve_impl(ModelStage stage) const {
 
     if (resolved.has_value()) {
         if (AttentionOp* impl = AttentionOpRegistry::instance().find_impl_by_id(resolved->impl_id); impl != nullptr) {
+            ctx.impl_params = resolved->impl_params;
             if (impl->supports(ctx)) {
                 selected_impl_id = impl->impl_id();
                 selected_impl_params_[slot] = resolved->impl_params;
@@ -320,7 +321,14 @@ void AttentionLayer::forward_prefill(
     bool causal,
     cudaStream_t stream,
     uint32_t q_stride_n,
-    uint32_t q_stride_h) const
+    uint32_t q_stride_h,
+    uint32_t kv_stride_n,
+    uint32_t kv_stride_h,
+    uint32_t k_stride_n,
+    uint32_t k_stride_h,
+    bool k_already_prerotated,
+    uint32_t q_rope_pos_offset,
+    uint32_t k_rope_pos_offset) const
 {
     validate_tensor_device(q, device_, device_id_, "q");
     validate_tensor_device(k, device_, device_id_, "k");
@@ -365,13 +373,23 @@ void AttentionLayer::forward_prefill(
     ctx.head_dim = head_dim_;
     ctx.q_stride_n = q_stride_n;
     ctx.q_stride_h = q_stride_h;
+    ctx.k_stride_n = k_stride_n;
+    ctx.k_stride_h = k_stride_h;
+    ctx.kv_stride_n = kv_stride_n;
+    ctx.kv_stride_h = kv_stride_h;
     ctx.rope_scale = rope_scale_;
     ctx.rope_theta = rope_theta_;
+    ctx.q_rope_pos_offset = q_rope_pos_offset;
+    ctx.k_rope_pos_offset = k_rope_pos_offset;
     ctx.dtype = dtype_;
     ctx.pos_encoding = resolve_pos_encoding(rope_mode_);
+    ctx.k_already_prerotated = k_already_prerotated;
     ctx.device_id = device_id_;
 
     AttentionOp* impl = resolve_impl(ModelStage::Prefill);
+    check<ConfigurationError>(
+        !k_already_prerotated || impl->impl_id() == "flashinfer_attention_prefill_prerotate",
+        "AttentionLayer: k_already_prerotated requires flashinfer_attention_prefill_prerotate");
     ctx.impl_params = selected_impl_params_[stage_slot(ModelStage::Prefill)];
     impl->forward_prefill(ctx, q, k, v, o, causal, stream);
 }

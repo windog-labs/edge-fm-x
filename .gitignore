@@ -28,6 +28,7 @@ nsys_*
 doc/benchmark_reports
 doc/edge_fm_optimization_journal.md
 deliverables
+artifacts
 .hb_compile
 hb_compile*
 .check*

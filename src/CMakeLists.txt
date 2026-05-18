@@ -43,6 +43,15 @@ if(ENABLE_CUDA)
     target_link_libraries(edge_fm PUBLIC CUDA::cudart CUDA::cublas CUDA::curand)
 endif()
 
+if(EDGE_FM_ENABLE_TRT_PLUGIN_OPS)
+    set(_edge_fm_trt_plugin_rpath "${TRT_LIBRARY_DIR}" "${TRT_EDGELLM_PLUGIN_DIR}")
+    list(REMOVE_DUPLICATES _edge_fm_trt_plugin_rpath)
+    set_target_properties(edge_fm PROPERTIES
+        BUILD_RPATH "${CMAKE_BINARY_DIR}/lib;${_edge_fm_trt_plugin_rpath}"
+        INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib;${_edge_fm_trt_plugin_rpath}"
+    )
+endif()
+
 # Link dlpack if available (header-only library)
 if(TARGET dlpack)
     target_link_libraries(edge_fm PUBLIC dlpack)

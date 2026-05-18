@@ -1,5 +1,6 @@
 #include "operators/linear_registry.h"
 
+#include "operators/prefill_linear_source_op.h"
 #include "operators/operator_impl_table.h"
 #include "utils/check.h"
 #include "utils/device/cuda_utils.h"
@@ -704,6 +705,70 @@ private:
     }
 };
 
+class LinearPrefillSourceOpImpl final : public LinearLayer::LinearImpl {
+public:
+    std::string impl_id() const override { return "cutlass_prefill_linear_source_op"; }
+
+    bool supports(
+        const LinearLayer::LinearOpContext& ctx,
+        const LinearLayer::WeightSet& weight_set) const override
+    {
+        if (ctx.stage != ModelStage::Prefill ||
+            weight_set.quant_type_ != LinearLayer::QuantType::FP16_BF16 ||
+            weight_set.weight_ == nullptr)
+        {
+            return false;
+        }
+        if (ctx.layer_role != "fused_qkv" && ctx.layer_role != "attention_output") {
+            return false;
+        }
+        return ctx.shape.input_dtype == DType::BFloat16 &&
+            ctx.shape.weight_dtype == DType::BFloat16 &&
+            ctx.shape.output_dtype == DType::BFloat16;
+    }
+
+    void prepare(
+        LinearLayer&,
+        const LinearLayer::LinearOpContext&,
+        const LinearLayer::WeightSet&,
+        const Tensor&,
+        Tensor&,
+        cudaStream_t,
+        LinearLayer::CachedDescriptors& cached) override
+    {
+        cached.selected_impl_id_ = impl_id();
+    }
+
+    void forward(
+        LinearLayer& owner,
+        const LinearLayer::LinearOpContext& ctx,
+        const LinearLayer::WeightSet& weight_set,
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream,
+        LinearLayer::CachedDescriptors& cached) override
+    {
+        prepare(owner, ctx, weight_set, input, output, stream, cached);
+        if (owner.prefill_linear_source_op_ != nullptr &&
+            owner.prefill_linear_source_op_->try_forward(
+                ctx.layer_role,
+                0,
+                input,
+                *weight_set.weight_,
+                weight_set.bias_,
+                output,
+                stream))
+        {
+            return;
+        }
+
+        LinearLayer::LinearImpl* fallback =
+            LinearOpRegistry::instance().find_impl_by_id("cublasLt");
+        check<InternalError>(fallback != nullptr, "LinearLayer: cublasLt fallback impl is missing");
+        fallback->forward(owner, ctx, weight_set, input, output, stream, cached);
+    }
+};
+
 class LinearCutileImpl final : public LinearLayer::LinearImpl {
 public:
     std::string impl_id() const override { return "cutile"; }
@@ -759,6 +824,7 @@ public:
 LinearOpRegistry::LinearOpRegistry() {
     impls_.emplace_back(std::make_unique<LinearCublasLtImpl>());
     impls_.emplace_back(std::make_unique<LinearCutlassImpl>());
+    impls_.emplace_back(std::make_unique<LinearPrefillSourceOpImpl>());
     impls_.emplace_back(std::make_unique<LinearCutileImpl>());
     impls_.emplace_back(std::make_unique<LinearAgentImpl>());
 }
@@ -769,8 +835,12 @@ LinearOpRegistry& LinearOpRegistry::instance() {
 }
 
 LinearLayer::LinearImpl* LinearOpRegistry::find_impl_by_id(const std::string& impl_id) const {
+    const std::string normalized_impl_id =
+        impl_id == "cutlass_prefill_linear_bridge"
+            ? "cutlass_prefill_linear_source_op"
+            : impl_id;
     for (const auto& impl : impls_) {
-        if (impl->impl_id() == impl_id) {
+        if (impl->impl_id() == normalized_impl_id) {
             return impl.get();
         }
     }

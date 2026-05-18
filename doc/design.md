@@ -44,12 +44,25 @@ The current design follows these constraints:
 2. The main CUDA execution path does not build or execute a generic IR.
 3. Runtime tuning is no longer benchmark-driven. Operator selection is table-driven with registry fallback.
 4. The source tree is split by responsibility:
-   - `engine/`: facade dispatch, task engines, stage runtime, and backend engine adapters
+   - `engine/`: facade dispatch, config/factory logic, and task engines under
+     `engine/tasks/`
+   - `engine/tasks/token_generation/`: `generate()`, KV cache management,
+     scheduling, compact vocab, and token-generation runtime state
+   - `engine/tasks/trajectory_planning/`: planner policy runtime,
+     `PlannerStateManager`, and tensor planner utilities
+   - `engine/tasks/stage_execution/`: named stage execution facade and mock
+     stage runner used by fixtures
    - `models/`: model-specific runtime
    - `layers/`: model-layer semantics and fused weight organization
    - `operators/`: implementation lookup, operator registries, concrete operator entrypoints, low-level kernels
    - `backends/`: backend-specific artifact emission and cache
 5. Request-time multimodal data is injected through the request contract, rather than via a separate model graph IR.
+
+For the CUDA Qwen2.5 path, the production prefill acceleration work lives behind
+the layer/operator boundary. Model code does not call TensorRT engine bridges for
+prefill MLP or QKV/OProj. The current 3060 path selects source-op CUTLASS/CUDA
+implementations through the operator table, while `edge_fm_trt` remains a
+separate benchmark/reference Python module for `TRT-Edge-LLM` comparisons.
 
 ## 3. System Architecture
 

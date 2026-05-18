@@ -156,7 +156,7 @@
       "op_name": "",
       "stage": "prefill",
       "shape_sig": "num_qo_heads=14|num_kv_heads=2|head_dim=64",
-      "impl_id": "flashinfer_attention",
+      "impl_id": "flashinfer_attention_prefill_prerotate",
       "impl_params": {
         "prefill_cta_tile_q": 64
       }
@@ -176,12 +176,12 @@
         "long_seq_threshold": 1024,
         "no_split_kv_threshold": 256,
         "min_chunk_size": 64,
-        "chunk_alignment": 64,
+        "chunk_alignment": 32,
         "chunk_candidates": [
           64,
+          96,
           128,
-          256,
-          512
+          192
         ]
       }
     },
@@ -349,7 +349,7 @@
       "op_name": "",
       "stage": "prefill",
       "shape_sig": "num_qo_heads=12|num_kv_heads=2|head_dim=128",
-      "impl_id": "flashinfer_attention",
+      "impl_id": "flashinfer_attention_prefill_prerotate",
       "impl_params": {
         "prefill_cta_tile_q": 64
       }
@@ -363,7 +363,20 @@
       "stage": "decode",
       "shape_sig": "num_qo_heads=12|num_kv_heads=2|head_dim=128",
       "impl_id": "flashinfer_attention_decode_sm80_tuned",
-      "impl_params": {}
+      "impl_params": {
+        "short_seq_bdz": 4,
+        "long_seq_bdz": 4,
+        "long_seq_threshold": 1024,
+        "no_split_kv_threshold": 512,
+        "min_chunk_size": 64,
+        "chunk_alignment": 32,
+        "chunk_candidates": [
+          64,
+          96,
+          128,
+          192
+        ]
+      }
     },
     {
       "model_name": "qwen2_5",
@@ -537,9 +550,29 @@
       "op_name": "",
       "stage": "prefill",
       "shape_sig": "num_qo_heads=16|num_kv_heads=2|head_dim=128",
-      "impl_id": "flashinfer_attention",
+      "impl_id": "flashinfer_attention_prefill_prerotate",
       "impl_params": {
-        "prefill_cta_tile_q": 64
+        "prefill_cta_tile_q": 64,
+        "prefill_max_mma_kv_cap": 2
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "attention",
+      "layer_role": "",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "num_qo_heads=16|num_kv_heads=2|head_dim=128",
+      "impl_id": "trt_context_fmha_plugin_attention",
+      "impl_params": {
+        "enabled": true,
+        "allow_bf16_fp16_cast": true,
+        "contiguous_q_kv": true,
+        "contiguous_q_kv_min_seq_len": 2048,
+        "contiguous_q_kv_token_dim_pack": true,
+        "prefill_cta_tile_q": 64,
+        "prefill_max_mma_kv_cap": 2
       }
     },
     {
@@ -551,7 +584,20 @@
       "stage": "decode",
       "shape_sig": "num_qo_heads=16|num_kv_heads=2|head_dim=128",
       "impl_id": "flashinfer_attention_decode_sm80_tuned",
-      "impl_params": {}
+      "impl_params": {
+        "short_seq_bdz": 4,
+        "long_seq_bdz": 4,
+        "long_seq_threshold": 1024,
+        "no_split_kv_threshold": 384,
+        "min_chunk_size": 64,
+        "chunk_alignment": 64,
+        "chunk_candidates": [
+          64,
+          128,
+          192,
+          256
+        ]
+      }
     },
     {
       "model_name": "qwen2_5",
@@ -746,16 +792,16 @@
       "impl_id": "flashinfer_attention_decode_sm80_tuned",
       "impl_params": {
         "short_seq_bdz": 4,
-        "long_seq_bdz": 3,
-        "long_seq_threshold": 1536,
-        "no_split_kv_threshold": 192,
+        "long_seq_bdz": 4,
+        "long_seq_threshold": 1024,
+        "no_split_kv_threshold": 256,
         "min_chunk_size": 64,
-        "chunk_alignment": 64,
+        "chunk_alignment": 32,
         "chunk_candidates": [
           64,
+          96,
           128,
-          256,
-          512
+          192
         ]
       }
     },
@@ -807,7 +853,20 @@
       "stage": "decode",
       "shape_sig": "num_qo_heads=12|num_kv_heads=2|head_dim=128",
       "impl_id": "flashinfer_attention_decode_sm80_tuned",
-      "impl_params": {}
+      "impl_params": {
+        "short_seq_bdz": 4,
+        "long_seq_bdz": 4,
+        "long_seq_threshold": 1024,
+        "no_split_kv_threshold": 512,
+        "min_chunk_size": 64,
+        "chunk_alignment": 32,
+        "chunk_candidates": [
+          64,
+          96,
+          128,
+          192
+        ]
+      }
     },
     {
       "model_name": "qwen2_5",
@@ -854,8 +913,8 @@
         "chunk_candidates": [
           64,
           128,
-          256,
-          512
+          192,
+          256
         ]
       }
     },
@@ -906,7 +965,7 @@
       "op_name": "",
       "stage": "prefill",
       "shape_sig": "num_qo_heads=14|num_kv_heads=2|head_dim=64",
-      "impl_id": "flashinfer_attention",
+      "impl_id": "flashinfer_attention_prefill_prerotate",
       "impl_params": {
         "prefill_cta_tile_q": 64
       }
@@ -1026,7 +1085,7 @@
       "op_name": "",
       "stage": "prefill",
       "shape_sig": "num_qo_heads=12|num_kv_heads=2|head_dim=128",
-      "impl_id": "flashinfer_attention",
+      "impl_id": "flashinfer_attention_prefill_prerotate",
       "impl_params": {
         "prefill_cta_tile_q": 64
       }
@@ -1381,6 +1440,512 @@
       "impl_id": "cublasLt",
       "impl_params": {
         "algo_index": 5
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|hidden=896|intermediate=4864",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "down_tile": "128x128x32",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|hidden=896|intermediate=4864",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "down_tile": "128x128x32_warp32x64",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|hidden=896|intermediate=4864",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "activation_mode": "mixed_bf16",
+        "tile": "256x128x32",
+        "down_tile": "128x128x32_warp32x64",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|hidden=1536|intermediate=8960",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|hidden=1536|intermediate=8960",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|hidden=1536|intermediate=8960",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "gateup_tile": "128x256x32",
+        "down_tile": "128x128x32_warp32x64",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|hidden=2048|intermediate=11008",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "down_tile": "128x128x32_warp32x64",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|hidden=2048|intermediate=11008",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "down_tile": "128x128x32_warp32x64",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "mlp",
+      "layer_role": "fused_mlp",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|hidden=2048|intermediate=11008",
+      "impl_id": "cutlass_prefill_mlp_source_op",
+      "impl_params": {
+        "enabled": true,
+        "accum": "fp16",
+        "tile": "256x128x32",
+        "gateup_tile": "128x256x32_s4",
+        "persistent_weights": true,
+        "swiglu_threads": 64,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=896|out_features=1152",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "fp16_cast",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=896|out_features=896",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=896|out_features=1152",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "fp16_cast",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=896|out_features=896",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=896|out_features=1152",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "256x128x32",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=896|out_features=896",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "256x128x32",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=1536|out_features=2048",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=1536|out_features=1536",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=1536|out_features=2048",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=1536|out_features=1536",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=1536|out_features=2048",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=1536|out_features=1536",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=2048|out_features=2560",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=512|input=2|weight=2|output=2|in_features=2048|out_features=2048",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=2048|out_features=2560",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=1024|input=2|weight=2|output=2|in_features=2048|out_features=2048",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "fused_qkv",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=2048|out_features=2560",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": true,
+        "persistent_min_free_mb": 64,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "m=2048|input=2|weight=2|output=2|in_features=2048|out_features=2048",
+      "impl_id": "cutlass_prefill_linear_source_op",
+      "impl_params": {
+        "enabled": true,
+        "tile": "auto",
+        "input_mode": "mixed_bf16",
+        "persistent_weights": false,
+        "min_m": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "attention",
+      "layer_role": "",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "num_qo_heads=14|num_kv_heads=2|head_dim=64",
+      "impl_id": "trt_context_fmha_plugin_attention",
+      "impl_params": {
+        "enabled": true,
+        "allow_bf16_fp16_cast": true,
+        "contiguous_q_kv": true,
+        "contiguous_q_kv_min_seq_len": 2048,
+        "contiguous_q_kv_token_dim_pack": true,
+        "prefill_cta_tile_q": 64
+      }
+    },
+    {
+      "model_name": "qwen2_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "attention",
+      "layer_role": "",
+      "op_name": "",
+      "stage": "prefill",
+      "shape_sig": "num_qo_heads=12|num_kv_heads=2|head_dim=128",
+      "impl_id": "trt_context_fmha_plugin_attention",
+      "impl_params": {
+        "enabled": true,
+        "allow_bf16_fp16_cast": true,
+        "contiguous_q_kv": true,
+        "contiguous_q_kv_min_seq_len": 2048,
+        "contiguous_q_kv_token_dim_pack": true,
+        "prefill_cta_tile_q": 64
       }
     }
   ],

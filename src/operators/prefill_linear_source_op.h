@@ -8,10 +8,10 @@
 
 namespace edge_fm {
 
-class TrtPrefillLinearBridge {
+class PrefillLinearSourceOp {
 public:
-    explicit TrtPrefillLinearBridge(const EngineConfig& config);
-    ~TrtPrefillLinearBridge();
+    explicit PrefillLinearSourceOp(const EngineConfig& config);
+    ~PrefillLinearSourceOp();
 
     bool try_forward(
         const std::string& role,

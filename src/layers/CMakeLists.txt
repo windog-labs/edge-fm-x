@@ -94,6 +94,7 @@ if(ENABLE_CUDA)
 
     # linear
     add_library(linear STATIC
+        gated_mlp.cu
         linear.cu
     )
     set_target_properties(linear PROPERTIES

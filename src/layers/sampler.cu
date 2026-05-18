@@ -247,7 +247,7 @@ void SamplerLayer::forward_sampling(
         CUDA_CHECK_THROW(cudaGetLastError(), "greedy sampling failed");
         return;
     }
-    
+
     float effective_temperature = temperature_;
     
     constexpr uint32_t SMALL_BATCH_THRESHOLD = 128;

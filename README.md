@@ -252,44 +252,56 @@ generated_tokens = response.token_ids()
 
 ## 3060 性能现状
 
-3060 上的 LLM 性能对比已经收敛到一条明确的 optional bridge 线，而不是新的默认执行路径。当前主线仍然是 `EdgeFM(cuda graph)`，官方比较口径仍然只认 `EdgeFM(cuda graph)` 对 `TRT-Edge-LLM`。详细的持续跟踪记录保存在 [3060_tuning_log.md](doc/3060_tuning_log.md) 和 [3060_tuning_plan.md](doc/3060_tuning_plan.md)。
+RTX 3060 上的 Qwen2.5 LLM 默认路径已经不再使用内部 TensorRT engine
+bridge：`qwen2_5` 运行时不加载 serialized TensorRT plan，也不创建
+TensorRT execution context。当前主线是 `EdgeFM(cuda graph)` + source-op
+CUTLASS/CUDA operator + FlashInfer/cuBLASLt，并通过
+`examples/config/platform/3060/operator_impl_table_llm.json` 做 model/shape
+级算子选择。
 
-3060 还新增了 `TRT bridge` 线路，用来在 Qwen2.5 的 prefill 阶段按需接管部分算子路径，目前覆盖的是 `MLP` 以及 `QKV / OProj linear` 这类可回退、默认关闭的实验入口。它不是默认推理主线，只在编译和运行时开关同时开启时生效，失败时会回退到 native EdgeFM 实现。
+`TRT-Edge-LLM` 仍保留为 benchmark reference；仓库里的 `edge_fm_trt`
+Python 模块和 `tests/data/trt_edgellm_workspace/*/llm.engine` 只用于对照
+测试。默认关闭的 plugin-op 只允许复用 source-visible plugin/kernel 资产，
+不作为 TensorRT engine bridge。
 
-3060 上不再把继续调 CUTLASS，或者自己再写一条 CUTLASS 风格 kernel 线路，当作主优化方向。`nsys` 结果已经比较明确地表明，`TRT-Edge-LLM` 在这个平台上大量依赖 TensorRT 编译器生成的闭源内核，比如 `Myelin`、`XMMA`、`FcCast` 一类 tactic；这些内核的性能明显优于当前仓库里可直接复用的开源算子库，而且它们不能直接以 EdgeFM 常规 operator 的方式接进来。
-
-因此，3060 上的实际加速路线改为为特定 prefill module 构建 TensorRT `subgraph / subengine`，再通过默认关闭、可回退的 `TRT bridge` 按需接入。这说明 3060 上的主要限制来自特定硬件与工具链下闭源内核的可达性差异，而不是 EdgeFM 整体设计本身有问题。
-
-当前的 bridge 收紧到了下面这个范围：
-
-- `BUILD_TRT_MLP_BRIDGE=ON` 仍然是编译开关，但默认关闭
-- `EDGE_FM_PREFILL_TRT_MLP=1` 和 `EDGE_FM_PREFILL_TRT_LINEAR=1` 只是显式启用的实验开关
-- 目前可保留的低风险路径是 `GateUp-FP16 MLP bridge + bias-aware BF16 QKV/OProj linear bridge`
-- `EDGE_FM_TRT_MLP_FP16_WEIGHTS=both` 是内存受限的阻塞诊断项，不是可扩展的主路线
-- `prefill_cta_tile_q=128` 的 attention 表项在孤立 kernel 上有收益，但端到端回退，当前仍保留 `64`
-
-截至最新 18-case 3060 LLM 全矩阵，当前桥接路径的整体结果是：
+最新 3060 LLM 全矩阵口径：
 
 | 指标 | 结果 |
 |------|------|
 | 覆盖范围 | `Qwen2.5-{0.5B,1.5B,3B}` × `prefill={512,1024,2048}` × `decode={32,64}` |
-| 相对 GateUp-FP16 | `15/18` case 更快 |
-| 相对最新 TRT-Edge-LLM | `3/18` case 持平或更快 |
-| 最大剩余 gap | `3B / 2048x32`，EdgeFM 比 TRT 慢 `25.60 ms` |
-| 当前主瓶颈 | 仍然是长 prefill，不是 decode |
+| 相对最新 TRT-Edge-LLM | `16/18` case 更快 |
+| 最大稳定剩余 gap | `1.5B / 512x64`，EdgeFM 比 TRT 慢约 `0.9 ms` |
+| 当前状态 | 0.5B 和 3B 全 shape 快于 TRT-Edge-LLM；1.5B 512x32 已接近测量噪声 |
+| 默认路径 | 无内部 TRT engine bridge；source-op/FlashInfer/cuBLASLt 组合 |
 
-当前 3060 LLM 对 `TRT-Edge-LLM` 的代表性性能差异如下：
+最新 18-case 明细如下。Gap 为 `EdgeFM - TRT-Edge-LLM`，负数表示 EdgeFM
+更快：
 
-| Case | EdgeFM Total | TRT Total | Total Gap | Prefill Gap | Decode Gap | 说明 |
-|------|-------------:|----------:|----------:|------------:|-----------:|------|
-| `3B / 2048x32` | `953.29 ms` | `927.69 ms` | `+25.60 ms` | `+25.56 ms` | `+0.27 ms` | 当前最大 gap |
-| `3B / 2048x64` | `1603.74 ms` | `1584.36 ms` | `+19.38 ms` | `+19.38 ms` | `+0.00 ms` | 长 prefill 主瓶颈 |
-| `0.5B / 2048x64` | `311.43 ms` | `293.41 ms` | `+18.01 ms` | `+18.05 ms` | `-0.04 ms` | 小模型也受长 prefill 影响 |
-| `3B / 1024x32` | `777.56 ms` | `764.35 ms` | `+13.21 ms` | `+13.24 ms` | `-0.03 ms` | 中长 prefill 仍落后 |
-| `1.5B / 2048x32` | `486.14 ms` | `474.23 ms` | `+11.91 ms` | `+11.91 ms` | `+0.00 ms` | 中模型长 prefill 差距 |
-| `1.5B / 2048x64` | `823.57 ms` | `811.69 ms` | `+11.87 ms` | `+11.87 ms` | `-0.01 ms` | 中模型长 prefill 差距 |
+| Model | Shape | EdgeFM Total | TRT Total | Gap |
+|------|------:|-------------:|----------:|----:|
+| 0.5B | 512x32 | `126.609 ms` | `134.979 ms` | `-8.370 ms` |
+| 0.5B | 512x64 | `242.668 ms` | `248.447 ms` | `-5.778 ms` |
+| 0.5B | 1024x32 | `140.586 ms` | `141.554 ms` | `-0.969 ms` |
+| 0.5B | 1024x64 | `257.486 ms` | `257.671 ms` | `-0.185 ms` |
+| 0.5B | 2048x32 | `168.178 ms` | `168.969 ms` | `-0.791 ms` |
+| 0.5B | 2048x64 | `290.109 ms` | `292.024 ms` | `-1.915 ms` |
+| 1.5B | 512x32 | `346.130 ms` | `345.300 ms` | `+0.830 ms` |
+| 1.5B | 512x64 | `664.482 ms` | `663.594 ms` | `+0.888 ms` |
+| 1.5B | 1024x32 | `384.591 ms` | `384.730 ms` | `-0.139 ms` |
+| 1.5B | 1024x64 | `705.402 ms` | `708.590 ms` | `-3.188 ms` |
+| 1.5B | 2048x32 | `466.729 ms` | `469.011 ms` | `-2.282 ms` |
+| 1.5B | 2048x64 | `796.607 ms` | `805.288 ms` | `-8.681 ms` |
+| 3B | 512x32 | `681.482 ms` | `686.182 ms` | `-4.700 ms` |
+| 3B | 512x64 | `1303.951 ms` | `1316.090 ms` | `-12.139 ms` |
+| 3B | 1024x32 | `757.754 ms` | `758.143 ms` | `-0.389 ms` |
+| 3B | 1024x64 | `1388.178 ms` | `1395.001 ms` | `-6.824 ms` |
+| 3B | 2048x32 | `917.042 ms` | `919.372 ms` | `-2.330 ms` |
+| 3B | 2048x64 | `1557.436 ms` | `1571.146 ms` | `-13.710 ms` |
 
-当前已经达到或快于 TRT 的 case 有 `3/18`：`0.5B / 512x32`、`0.5B / 512x64`、`3B / 512x64`。完整 18-case 明细和原始 benchmark artifact 见 [3060_tuning_log.md](doc/3060_tuning_log.md)。
+高 runs 复核显示 `1.5B / 512x32` 已经是 practical parity
+（avg `+0.197 ms`，median `+0.135 ms`）。完整调优日志、rejected
+路线和 raw artifact 见 [3060_tuning_log.md](doc/3060_tuning_log.md)，当前
+队列和验收标准见 [3060_tuning_plan.md](doc/3060_tuning_plan.md)。
 
 ## 性能测试
 
@@ -420,10 +432,15 @@ edge-fm/
 │       ├── core.h        # 核心类型定义
 │       └── edge-fm.h    # 主接口
 ├── src/                  # 源代码
-│   ├── engine/           # 推理引擎
-│   │   ├── speculative/  # 投机采样引擎
-│   │   └── ...
-│   ├── layers/           # 神经网络层
+│   ├── engine/           # EdgeFM facade、配置、engine factory 和 task engines
+│   │   ├── tasks/
+│   │   │   ├── token_generation/     # generate()、KVManager、scheduler、compact vocab
+│   │   │   ├── trajectory_planning/  # plan()、PlannerStateManager、planner policy
+│   │   │   └── stage_execution/      # run_stage() 和命名 stage 测试 runner
+│   │   └── experimental/speculative/ # 投机采样原型
+│   ├── backends/         # Horizon artifact/cache/runtime backend 边界
+│   ├── layers/           # 模型层语义、权重布局和 layer-level 调用
+│   ├── operators/        # operator registry、实现表、CUDA/CUTLASS/FlashInfer kernels
 │   ├── models/           # 模型实现
 │   │   └── qwen2_5/      # Qwen2.5-VL 模型
 │   ├── python/           # Python 绑定

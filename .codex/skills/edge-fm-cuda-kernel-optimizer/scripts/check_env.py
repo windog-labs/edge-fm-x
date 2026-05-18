@@ -65,19 +65,63 @@ def _detect_nvcc() -> dict:
 def _detect_ncu() -> dict:
     path = shutil.which("ncu")
     if not path:
-        return {"available": False, "path": None, "version": None, "can_read_counters": None}
+        return {
+            "available": False,
+            "path": None,
+            "version": None,
+            "query_metrics_available": None,
+            "profiling_admin_only": None,
+            "can_read_counters": None,
+            "note": None,
+        }
     rc, out, _ = _run([path, "--version"])
     version = out.strip().splitlines()[0] if out else None
-    # Heuristic: try a tiny query against --query-metrics to see if profiling works at all
+    # --query-metrics can succeed even when actual profiling counters are
+    # restricted by the NVIDIA kernel module. Record both facts separately.
     rc2, _, err2 = _run([path, "--query-metrics"], timeout=5)
-    can_read = rc2 == 0
+    query_ok = rc2 == 0
+    profiling_admin_only = _detect_nvidia_profiling_admin_only()
+    if profiling_admin_only is None:
+        can_read = query_ok
+        note = None if query_ok else (
+            err2.strip()[:400] or "ncu query failed — perf counters may require elevated permissions"
+        )
+    elif profiling_admin_only:
+        can_read = False
+        note = (
+            "ncu --query-metrics may succeed, but the active NVIDIA driver has "
+            "RmProfilingAdminOnly=1; non-root profiling will fail with ERR_NVGPUCTRPERM"
+        )
+    else:
+        can_read = query_ok
+        note = None if query_ok else (
+            err2.strip()[:400] or "ncu query failed despite RmProfilingAdminOnly=0"
+        )
     return {
         "available": True,
         "path": path,
         "version": version,
+        "query_metrics_available": query_ok,
+        "profiling_admin_only": profiling_admin_only,
         "can_read_counters": can_read,
-        "note": None if can_read else (err2.strip()[:400] or "ncu query failed — perf counters may require elevated permissions"),
+        "note": note,
     }
+
+
+def _detect_nvidia_profiling_admin_only() -> bool | None:
+    params_path = Path("/proc/driver/nvidia/params")
+    try:
+        for line in params_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if not line.startswith("RmProfilingAdminOnly:"):
+                continue
+            value = line.split(":", 1)[1].strip().lower()
+            if value in {"0", "n", "no", "false"}:
+                return False
+            if value in {"1", "y", "yes", "true"}:
+                return True
+    except OSError:
+        return None
+    return None
 
 
 def _detect_driver() -> dict:

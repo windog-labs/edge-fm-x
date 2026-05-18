@@ -225,7 +225,7 @@ endif()
 # ============================================================================
 option(BUILD_PYTHON "Build Python bindings" ON)
 option(BUILD_TRT_EDGELLM_PYBIND "Build Python bindings for TRT-Edge-LLM runtime (in-process benchmark)" OFF)
-option(BUILD_TRT_MLP_BRIDGE "Build experimental TensorRT-backed Qwen2.5 prefill MLP bridge" OFF)
+option(BUILD_TRT_PLUGIN_OPS "Build default-off EdgeFM operators that directly reuse TRT-Edge-LLM plugin kernels without TensorRT engines" OFF)
 option(ENABLE_HORIZON_RUNTIME "Build Horizon HBM runtime backend when Horizon SDK is available" OFF)
 set(HORIZON_DEPS_ROOT "" CACHE PATH "Horizon SDK/deps root; expected to contain ucp/include")
 set(HORIZON_INCLUDE_DIR "" CACHE PATH "Explicit Horizon runtime include directory override")
@@ -502,10 +502,10 @@ else()
     message(STATUS "TRT-Edge-LLM Python bindings: DISABLED")
 endif()
 
-if(BUILD_TRT_MLP_BRIDGE)
-    message(STATUS "TensorRT MLP bridge: ENABLED")
+if(BUILD_TRT_PLUGIN_OPS)
+    message(STATUS "TensorRT plugin operators: ENABLED")
 else()
-    message(STATUS "TensorRT MLP bridge: DISABLED")
+    message(STATUS "TensorRT plugin operators: DISABLED")
 endif()
 
 # ============================================================================
@@ -557,29 +557,50 @@ if(BUILD_TRT_EDGELLM_PYBIND)
     endif()
 endif()
 
-if(BUILD_TRT_MLP_BRIDGE)
+set(EDGE_FM_ENABLE_TRT_PLUGIN_OPS OFF)
+set(TRT_EDGELLM_PLUGIN_LIBRARY "")
+set(TRT_EDGELLM_PLUGIN_DIR "")
+set(TRT_EDGELLM_PLUGIN_CANDIDATE_DIRS
+    "${CMAKE_BINARY_DIR}/trt-edgellm"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/TensorRT-Edge-LLM/build")
+if(BUILD_TRT_PLUGIN_OPS)
     if(NOT TRT_INCLUDE_DIR OR NOT TRT_NVINFER_LIBRARY)
         message(FATAL_ERROR
-            "BUILD_TRT_MLP_BRIDGE=ON requires TensorRT headers/libraries. "
+            "BUILD_TRT_PLUGIN_OPS=ON requires TensorRT headers/libraries. "
             "Set TRT_PACKAGE_DIR (default: ${EDGE_FM_DEFAULT_TRT_PACKAGE_DIR}) "
             "or install TensorRT system-wide.")
     endif()
     if(NOT TRT_VERSION_STRING)
         message(FATAL_ERROR
             "Failed to determine TensorRT version from ${TRT_INCLUDE_DIR}. "
-            "BUILD_TRT_MLP_BRIDGE requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}.")
+            "BUILD_TRT_PLUGIN_OPS requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}.")
     endif()
     if(TRT_VERSION_MAJOR LESS EDGE_FM_TRT_MIN_VERSION_MAJOR
        OR (TRT_VERSION_MAJOR EQUAL EDGE_FM_TRT_MIN_VERSION_MAJOR
            AND TRT_VERSION_MINOR LESS EDGE_FM_TRT_MIN_VERSION_MINOR))
         message(FATAL_ERROR
             "TensorRT ${TRT_VERSION_STRING} found in ${TRT_INCLUDE_DIR}, "
-            "but BUILD_TRT_MLP_BRIDGE requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}. "
+            "but BUILD_TRT_PLUGIN_OPS requires TensorRT >= ${EDGE_FM_TRT_MIN_VERSION}. "
             "Set TRT_PACKAGE_DIR to a newer TensorRT installation.")
     endif()
-    message(STATUS "TensorRT MLP bridge include: ${TRT_INCLUDE_DIR}")
-    message(STATUS "TensorRT MLP bridge library: ${TRT_NVINFER_LIBRARY}")
-    add_compile_definitions(EDGE_FM_ENABLE_TRT_MLP_BRIDGE=1)
+    unset(TRT_EDGELLM_PLUGIN_LIBRARY CACHE)
+    unset(TRT_EDGELLM_PLUGIN_LIBRARY)
+    find_library(TRT_EDGELLM_PLUGIN_LIBRARY
+        NAMES NvInfer_edgellm_plugin
+        HINTS ${TRT_EDGELLM_PLUGIN_CANDIDATE_DIRS}
+        NO_DEFAULT_PATH
+    )
+    if(NOT TRT_EDGELLM_PLUGIN_LIBRARY)
+        message(FATAL_ERROR
+            "BUILD_TRT_PLUGIN_OPS=ON requires third_party/TensorRT-Edge-LLM/build/libNvInfer_edgellm_plugin.so. "
+            "Run bash tests/scripts/setup_trt_edgellm_benchmark.sh first. "
+            "Searched: ${TRT_EDGELLM_PLUGIN_CANDIDATE_DIRS}")
+    endif()
+    get_filename_component(TRT_EDGELLM_PLUGIN_DIR "${TRT_EDGELLM_PLUGIN_LIBRARY}" DIRECTORY)
+    set(EDGE_FM_ENABLE_TRT_PLUGIN_OPS ON)
+    add_compile_definitions(EDGE_FM_ENABLE_TRT_PLUGIN_OPS=1)
+    message(STATUS "TensorRT plugin operators include: ${TRT_INCLUDE_DIR}")
+    message(STATUS "TensorRT plugin operators library: ${TRT_EDGELLM_PLUGIN_LIBRARY}")
 endif()
 
 # ============================================================================

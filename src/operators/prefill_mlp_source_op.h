@@ -7,10 +7,10 @@
 
 namespace edge_fm {
 
-class TrtPrefillMlpBridge {
+class PrefillMlpSourceOp {
 public:
-    explicit TrtPrefillMlpBridge(const EngineConfig& config);
-    ~TrtPrefillMlpBridge();
+    explicit PrefillMlpSourceOp(const EngineConfig& config);
+    ~PrefillMlpSourceOp();
 
     bool try_forward(
         int32_t layer_id,

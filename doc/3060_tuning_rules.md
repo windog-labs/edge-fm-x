@@ -13,13 +13,17 @@ It is intentionally narrow and should stay stable over time.
 ## Implementation Rules
 
 - Do not start with a from-scratch kernel. Prefer extending or tuning existing kernels under `3rdparty/` or `third_party/` first, especially the vendored CUTLASS, FlashInfer, cuTile, and TensorRT-LLM kernels, and only add a new kernel family after a review gate.
-- For the 3060 stage specifically, do not continue open-ended CUTLASS retuning or start a self-written CUTLASS-style kernel route once `nsys` and operator evidence show TRT is winning through closed compiler-generated kernels that are not source-visible here. At that point, move to a reviewed TensorRT subgraph/subengine bridge instead of another speculative kernel rewrite.
+- For the 3060 stage specifically, do not continue open-ended CUTLASS retuning or start a self-written CUTLASS-style kernel route once `nsys` and operator evidence show a plateau. Stage 1 accepted the source-op path as close enough and removed the internal Qwen2.5 TensorRT engine bridge; further work should target source-visible operators, direct plugin-op assets, or external TRT-Edge-LLM comparison evidence.
 - Do not do a large refactor unless the expected performance win is clear and the change is explicitly reviewed first.
 - Change one variable per experiment whenever possible.
 - Keep code clean. If a candidate fails correctness or does not produce a useful end-to-end gain, remove the temporary test code, debug code, and scripts in the same round.
 - Keep runtime decisions small and reversible. Default-off or fallback behavior must remain available for every new fast path.
-- Treat TensorRT Myelin/XMMA tactics as opaque unless they are reached through a reviewed TensorRT bridge or a source-visible API in this repo. Do not register a fake `myelin` or `xmma` operator impl id that cannot be built, tested, and profiled here.
+- Treat TensorRT Myelin/XMMA tactics as opaque unless they are reached through a source-visible API in this repo. Do not register a fake `myelin` or `xmma` operator impl id that cannot be built, tested, and profiled here.
 - Do not quietly change the production precision mode just to chase a benchmark. Any BF16->FP16 or FP16->BF16 shift must be called out explicitly, revalidated with the generation gate, and either justified or rejected in the log.
+- Do not wire Qwen2.5 prefill fast paths as model-local bridge members. Linear
+  and MLP fast paths should be selected through layers, operators, and
+  `operator_impl_table` records so future source-op/plugin-op candidates share
+  the same boundary.
 - Preserve correctness on every accepted change. Use the operator and generation tests as the gate before claiming a tuning result.
 
 ## Documentation Rules
@@ -55,6 +59,6 @@ It is intentionally narrow and should stay stable over time.
 
 - Prefer existing kernel families first.
 - For `fused_gate_up` / SwiGLU work, extend the current TensorRT-LLM / CUTLASS-based path instead of inventing a new implementation style.
-- On 3060, once the source-visible kernel search has failed to match TRT and the traces point to closed TensorRT compiler tactics, the preferred implementation strategy becomes TensorRT subgraph/subengine bridging for selected modules, not more source-visible kernel rewrites.
+- On 3060, TensorRT engine bridging is no longer the preferred implementation strategy for Qwen2.5. Keep external TRT-Edge-LLM as the reference, and only promote source-op or direct plugin-op paths that pass correctness and end-to-end gates.
 - Only promote a new kernel path if correctness passes and the end-to-end benchmark shows a real gain.
 - If a kernel path is only useful as a diagnostic helper, keep it under `scripts/tune/` or `.tmp_codex/` and do not treat it as the source of truth.

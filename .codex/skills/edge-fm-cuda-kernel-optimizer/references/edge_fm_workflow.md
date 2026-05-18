@@ -10,8 +10,8 @@
   典型是 layer 级组合逻辑或封装
 - `src/utils/device/*.cu`
   典型是 runtime kernel、decode/prefill 辅助 kernel
-- `src/tuning/*.cpp`
-  可能涉及 launch config、operator tuner 或策略逻辑
+- `src/engine/tasks/token_generation/cuda/tuning/*.cpp`
+  可能涉及 token generation 的 launch config、operator tuner 或策略逻辑
 
 ## 常见测试映射
 
@@ -54,6 +54,28 @@ python tests/scripts/profile_edgefm.py
 python scripts/profile/profile_operator_comparison.py
 python scripts/profile/profile_edgefm_generate_case.py
 ```
+
+When profiling optional TensorRT bridge builds, `EDGE_FM_BUILD_DIR` is not enough
+by itself. Put the selected bridge build's `lib/` or `install/lib/` first in
+`LD_LIBRARY_PATH`; otherwise Python can import the bridge module while the dynamic
+linker resolves `libedge_fm.so` from a non-bridge build. The single-case profile
+script records `runtime_library_check` and raises when bridge env flags are set
+but the loaded `libedge_fm.so` is outside `EDGE_FM_BUILD_DIR`.
+
+For TensorRT subengine/plugin probes, do not trust Python event timing alone.
+TensorRT enqueue overhead can dominate a one-layer standalone harness while the
+same work is later captured in EdgeFM CUDA graph. Use one of:
+
+- NSYS kernel attribution for the timed CUDA range
+- CUDA graph replay timing in the standalone probe
+- a direct runner harness when the third-party runtime exposes one, for example
+  `deliverables/kernel_opt/3060_prefill_attention_20260515/trt_fmha_runner_probe.cpp`
+  for TensorRT-Edge-LLM `ContextFMHARunner`
+
+Then compare against the current in-repo operator's kernel time and the official
+end-to-end acceptance gate. A TensorRT plugin that is faster in isolation still
+needs EdgeFM layout/cast/cache costs included before it can justify production
+code.
 
 需要 NSYS attribution 时，优先采 graph-off mapping trace；CUDA graph 最终行为再补 graph-on formal trace：
 
@@ -138,6 +160,20 @@ pytest -s tests/engine/test_qwen2_generate.py
 ## NCU 与 benchmark 建议
 
 - 若还没建立 standalone repro，先在 pytest 上跑 NCU，确认热点和 shape
+- 先区分 `ncu` 二进制可用和 GPU counter 权限可用；如果 `ncu --set basic`
+  返回 `ERR_NVGPUCTRPERM`，把它记录为环境权限 blocker，不要把缺失的
+  counter digest 当成性能结论。此时应先修复 counter 权限，或退回到 NSYS
+  attribution / operator microbench。
+- 如果 `/proc/driver/nvidia/params` 显示 `RmProfilingAdminOnly: 1`，优先使用
+  本机的窄权限 sudoers drop-in：`/etc/sudoers.d/edgefm-ncu`。它只允许当前
+  用户免密执行 `/usr/local/cuda/bin/ncu`、`/usr/local/cuda-12.8/bin/ncu`，
+  以及把 `.tmp_codex/ncu` / `.tmp_codex/tmp` 归还给普通用户的限定
+  `chown`。验证方式是先 `sudo -k`，再跑 `sudo -n /usr/local/cuda/bin/ncu
+  --version`；不要使用或配置宽泛的免密 sudo。
+- 如果换机后没有上述 drop-in，可在用户明确授权后临时用 `sudo -S ... ncu`
+  采集 counters。不要把 sudo 密码写入命令行、文件、文档或脚本；只通过交互
+  stdin 输入。采集后把 root 创建的 `.ncu-rep` 和临时目录 `chown` 回普通
+  用户，避免后续 `find` / cleanup 出现权限噪声。
 - 若已经有 standalone repro，用本 skill 自带 `benchmark.py` 跑 correctness + latency
 - 若收益只在 standalone repro 上存在，回到 repo 里重新核对：
   - 输入 shape 是否一致

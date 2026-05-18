@@ -340,8 +340,10 @@ def tune_linear_shape(
     iters: int,
 ) -> tuple[list[dict], dict]:
     dims = tune_cublaslt.load_model_dims(model_path)
+    torch_dtype = torch.bfloat16
+    dtype_id = tune_cublaslt.EDGE_FM_DTYPE_ID_BY_TORCH_DTYPE[torch_dtype]
     operator_model_name = resolve_operator_model_name(model_path=model_path)
-    shape_sig = tune_cublaslt.shape_sig_for(kind, m=m, dims=dims)
+    shape_sig = tune_cublaslt.shape_sig_for(kind, m=m, dims=dims, dtype_id=dtype_id)
     existing = current_linear_record(
         records,
         operator_model_name=operator_model_name,
@@ -361,6 +363,8 @@ def tune_linear_shape(
         stage=stage,
         m=m,
         impl_params=None,
+        torch_dtype=torch_dtype,
+        dtype_id=dtype_id,
         device_id=device_id,
         warmup=warmup,
         iters=iters,
@@ -380,6 +384,8 @@ def tune_linear_shape(
                 stage=stage,
                 m=m,
                 impl_params={"algo_index": algo_index},
+                torch_dtype=torch_dtype,
+                dtype_id=dtype_id,
                 device_id=device_id,
                 warmup=warmup,
                 iters=iters,
@@ -395,6 +401,7 @@ def tune_linear_shape(
         stage=stage,
         m=m,
         dims=dims,
+        dtype_id=dtype_id,
         impl_params=best["impl_params"],
     )
     return new_records, {

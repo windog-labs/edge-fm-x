@@ -9,8 +9,77 @@
 #include "utils/check.h"
 #include <cuda_runtime.h>
 #include <nlohmann/json.hpp>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
 
 namespace edge_fm {
+
+namespace {
+
+bool qwen_env_flag_enabled(const char* name) {
+    const char* raw = std::getenv(name);
+    if (raw == nullptr || raw[0] == '\0') {
+        return false;
+    }
+    return std::strcmp(raw, "0") != 0 &&
+        std::strcmp(raw, "false") != 0 &&
+        std::strcmp(raw, "FALSE") != 0 &&
+        std::strcmp(raw, "off") != 0 &&
+        std::strcmp(raw, "OFF") != 0;
+}
+
+bool qwen_env_flag_disabled(const char* name) {
+    const char* raw = std::getenv(name);
+    if (raw == nullptr || raw[0] == '\0') {
+        return false;
+    }
+    return std::strcmp(raw, "0") == 0 ||
+        std::strcmp(raw, "false") == 0 ||
+        std::strcmp(raw, "FALSE") == 0 ||
+        std::strcmp(raw, "off") == 0 ||
+        std::strcmp(raw, "OFF") == 0;
+}
+
+bool prefill_strided_qkv_attention_enabled() {
+    static const bool enabled = !qwen_env_flag_disabled("EDGE_FM_PREFILL_STRIDED_QKV_ATTENTION");
+    return enabled;
+}
+
+bool prefill_strided_qkv_side_stream_enabled() {
+    static const bool enabled = !qwen_env_flag_disabled("EDGE_FM_PREFILL_STRIDED_QKV_SIDE_STREAM");
+    return enabled;
+}
+
+bool prefill_fused_k_rope_copy_enabled() {
+    static const bool enabled = qwen_env_flag_enabled("EDGE_FM_PREFILL_FUSED_K_ROPE_COPY");
+    return enabled;
+}
+
+struct PrefillKvCopyRuntime {
+    cudaStream_t stream = nullptr;
+    cudaEvent_t qkv_ready = nullptr;
+    cudaEvent_t copy_done = nullptr;
+};
+
+PrefillKvCopyRuntime& prefill_kv_copy_runtime() {
+    static PrefillKvCopyRuntime runtime;
+    static std::once_flag once;
+    std::call_once(once, []() {
+        CUDA_CHECK_THROW(
+            cudaStreamCreateWithFlags(&runtime.stream, cudaStreamNonBlocking),
+            "create prefill strided QKV KV-copy stream");
+        CUDA_CHECK_THROW(
+            cudaEventCreateWithFlags(&runtime.qkv_ready, cudaEventDisableTiming),
+            "create prefill strided QKV ready event");
+        CUDA_CHECK_THROW(
+            cudaEventCreateWithFlags(&runtime.copy_done, cudaEventDisableTiming),
+            "create prefill strided QKV copy-done event");
+    });
+    return runtime;
+}
+
+} // namespace
 
 Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
 {
@@ -88,8 +157,10 @@ Qwen2_5::Qwen2_5(const EngineConfig& config) : Model(config)
             "Layer_" + std::to_string(i) + "_DownProj");
     }
     activation_layer_ = std::make_unique<ActivationLayer>(config, "Activation");
-    trt_prefill_mlp_bridge_ = std::make_unique<TrtPrefillMlpBridge>(config);
-    trt_prefill_linear_bridge_ = std::make_unique<TrtPrefillLinearBridge>(config);
+    mlps_.resize(static_cast<size_t>(num_layers_));
+    for (int32_t i = 0; i < num_layers_; ++i) {
+        mlps_[static_cast<size_t>(i)] = std::make_unique<GatedMlpLayer>(config);
+    }
     lm_head_ = std::make_unique<LMHeadLinearLayer>(
         "lm_head",
         config,
@@ -201,11 +272,10 @@ void Qwen2_5::reset_operator_impl_caches() {
         (void)key;
         layer->reset_operator_impl_cache();
     }
-    if (trt_prefill_mlp_bridge_ != nullptr) {
-        trt_prefill_mlp_bridge_->reset_runtime_caches();
-    }
-    if (trt_prefill_linear_bridge_ != nullptr) {
-        trt_prefill_linear_bridge_->reset_runtime_caches();
+    for (auto& mlp : mlps_) {
+        if (mlp != nullptr) {
+            mlp->reset_operator_impl_cache();
+        }
     }
 }
 
@@ -357,19 +427,7 @@ void Qwen2_5::forward_prefill(
         int32_t device_id = std::get<1>(hidden_input.device());
         // FusedQKV: 一次 matmul 输出 [seq_len, q_dim+k_dim+v_dim]，再按 stride 拷贝到 q/k/v buffer 供 attention
         Tensor qkv_output = Tensor::view(qkv_buf, {seq_len, qkv_total}, dtype_, Device::GPU, device_id);
-        bool qkv_done = false;
-        if (trt_prefill_linear_bridge_ != nullptr) {
-            const std::string qkv_key = layer_prefix + ".attn.qkv_fused";
-            const Tensor* qkv_weight = linear_[qkv_key]->weight_tensor(ModelStage::Prefill);
-            const Tensor* qkv_bias = linear_[qkv_key]->bias_tensor(ModelStage::Prefill);
-            if (qkv_weight != nullptr) {
-                qkv_done = trt_prefill_linear_bridge_->try_forward(
-                    "qkv", i, norm_output, *qkv_weight, qkv_bias, qkv_output, stream);
-            }
-        }
-        if (!qkv_done) {
-            linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_output, stream, ModelStage::Prefill);
-        }
+        linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_output, stream, ModelStage::Prefill);
         size_t qkv_row_bytes = static_cast<size_t>(qkv_total) * dtype_size;
         size_t q_row_bytes = static_cast<size_t>(q_dim) * dtype_size;
         size_t k_row_bytes = static_cast<size_t>(k_dim) * dtype_size;
@@ -400,19 +458,7 @@ void Qwen2_5::forward_prefill(
 
         Tensor o_proj_in = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         Tensor o_proj_out = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-        bool o_proj_done = false;
-        if (trt_prefill_linear_bridge_ != nullptr) {
-            const std::string o_key = layer_prefix + ".attn.o_proj";
-            const Tensor* o_weight = linear_[o_key]->weight_tensor(ModelStage::Prefill);
-            const Tensor* o_bias = linear_[o_key]->bias_tensor(ModelStage::Prefill);
-            if (o_weight != nullptr) {
-                o_proj_done = trt_prefill_linear_bridge_->try_forward(
-                    "oproj", i, o_proj_in, *o_weight, o_bias, o_proj_out, stream);
-            }
-        }
-        if (!o_proj_done) {
-            linear_[layer_prefix + ".attn.o_proj"]->forward_fp16_bf16(o_proj_in, o_proj_out, stream, ModelStage::Prefill);
-        }
+        linear_[layer_prefix + ".attn.o_proj"]->forward_fp16_bf16(o_proj_in, o_proj_out, stream, ModelStage::Prefill);
 
         CUDA_CHECK_THROW(cudaMemcpyAsync(post_attn_norm_output.data_ptr(), attn_output.data_ptr(),
                                           seq_len * hidden_size_ * dtype_size,
@@ -548,25 +594,26 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         uint32_t q_attn_stride_h = static_cast<uint32_t>(head_dim_);
 
         Tensor qkv_out = Tensor::view(qkv_buf, {seq_len, qkv_total}, dtype_, Device::GPU, device_id);
-        bool qkv_done = false;
-        if (stage == ModelStage::Prefill && trt_prefill_linear_bridge_ != nullptr) {
-            const std::string qkv_key = layer_prefix + ".attn.qkv_fused";
-            const Tensor* qkv_weight = linear_[qkv_key]->weight_tensor(ModelStage::Prefill);
-            const Tensor* qkv_bias = linear_[qkv_key]->bias_tensor(ModelStage::Prefill);
-            if (qkv_weight != nullptr) {
-                qkv_done = trt_prefill_linear_bridge_->try_forward(
-                    "qkv", layer_id, norm_output, *qkv_weight, qkv_bias, qkv_out, stream);
-            }
-        }
-        if (!qkv_done) {
-            linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_out, stream, stage);
-        }
+        linear_[layer_prefix + ".attn.qkv_fused"]->forward_fp16_bf16(norm_output, qkv_out, stream, stage);
         Tensor& k_write = tensors[ModelTensors::k_write_layer(layer_id)];
         Tensor& v_write = tensors[ModelTensors::v_write_layer(layer_id)];
         Tensor& k_cache = tensors[ModelTensors::k_cache_layer(layer_id)];
         Tensor& v_cache = tensors[ModelTensors::v_cache_layer(layer_id)];
         void* k_rotated_src = static_cast<char*>(qkv_buf) + q_row_bytes;
         void* v_src = static_cast<char*>(qkv_buf) + q_row_bytes + k_row_bytes;
+        void* k_attn_ptr = k_cache.data_ptr();
+        void* v_attn_ptr = v_cache.data_ptr();
+        int32_t k_attn_len = static_cast<int32_t>(k_cache.shape().front());
+        int32_t v_attn_len = static_cast<int32_t>(v_cache.shape().front());
+        uint32_t k_attn_stride_n = 0U;
+        uint32_t k_attn_stride_h = 0U;
+        uint32_t kv_attn_stride_n = 0U;
+        uint32_t kv_attn_stride_h = 0U;
+        bool prefill_strided_qkv_attention = false;
+        bool pending_prefill_kv_side_copy = false;
+        bool k_already_prerotated = false;
+        uint32_t q_rope_pos_offset = 0U;
+        uint32_t k_rope_pos_offset = 0U;
         const uint32_t* d_kv_len = nullptr;
         if (seq_len == 1 && tensors.count(ModelTensors::D_KV_LEN)) {
             d_kv_len = static_cast<const uint32_t*>(tensors.at(ModelTensors::D_KV_LEN).data_ptr());
@@ -607,15 +654,97 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
             }
         } else {
             // Prefill: multi-row strided copy required
+            const bool fused_k_rope_copy =
+                context.prefix_size() == 0 && !use_mrope_ && dtype_ == DType::BFloat16 &&
+                prefill_fused_k_rope_copy_enabled();
             if (use_mrope_) {
                 CUDA_CHECK_THROW(cudaMemcpy2DAsync(q_buf, q_row_bytes, qkv_buf, qkv_row_bytes, q_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy Q from qkv");
             } else {
                 q_buf = qkv_buf;
                 q_attn_stride_n = static_cast<uint32_t>(qkv_total);
+                prefill_strided_qkv_attention =
+                    context.prefix_size() == 0 && dtype_ == DType::BFloat16 &&
+                    prefill_strided_qkv_attention_enabled();
+                if (prefill_strided_qkv_attention) {
+                    k_attn_ptr = static_cast<char*>(qkv_buf) + q_row_bytes;
+                    v_attn_ptr = v_cache.data_ptr();
+                    k_attn_len = seq_len;
+                    v_attn_len = seq_len;
+                    k_attn_stride_n = static_cast<uint32_t>(qkv_total);
+                    k_attn_stride_h = static_cast<uint32_t>(head_dim_);
+                }
             }
-            CUDA_CHECK_THROW(cudaMemcpy2DAsync(k_write.data_ptr(), k_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes, qkv_row_bytes, k_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy K to k_write");
-            CUDA_CHECK_THROW(cudaMemcpy2DAsync(v_write.data_ptr(), v_row_bytes, v_src, qkv_row_bytes, v_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
-            k_rotated_src = k_write.data_ptr();
+            if (fused_k_rope_copy) {
+                void* k_rot_ptr = StaticBufferManager::get_cache_buf(
+                    "qwen_prefill_fused_k_rope_copy_k_rot",
+                    static_cast<size_t>(seq_len) * static_cast<size_t>(k_dim) * dtype_size,
+                    device_id);
+                CUDA_CHECK_THROW(cudaMemcpy2DAsync(
+                                     v_write.data_ptr(),
+                                     v_row_bytes,
+                                     v_src,
+                                     qkv_row_bytes,
+                                     v_row_bytes,
+                                     seq_len,
+                                     cudaMemcpyDeviceToDevice,
+                                     stream),
+                                 "copy V to v_write");
+                launch_prefill_copy_k_and_prerotate(
+                    static_cast<char*>(qkv_buf) + q_row_bytes,
+                    k_write.data_ptr(),
+                    k_rot_ptr,
+                    seq_len,
+                    num_kv_heads_,
+                    head_dim_,
+                    qkv_total,
+                    rope_theta_,
+                    rope_scale_,
+                    dtype_,
+                    stream);
+                CUDA_CHECK_THROW(cudaGetLastError(), "prefill fused K-copy + RoPE");
+                k_attn_ptr = k_rot_ptr;
+                k_attn_len = seq_len;
+                v_attn_len = seq_len;
+                k_already_prerotated = true;
+            } else if (prefill_strided_qkv_attention) {
+                CUDA_CHECK_THROW(cudaMemcpy2DAsync(
+                                     v_write.data_ptr(),
+                                     v_row_bytes,
+                                     v_src,
+                                     qkv_row_bytes,
+                                     v_row_bytes,
+                                     seq_len,
+                                     cudaMemcpyDeviceToDevice,
+                                     stream),
+                                 "copy V to v_write");
+                const bool side_stream_copy = prefill_strided_qkv_side_stream_enabled();
+                if (side_stream_copy) {
+                    PrefillKvCopyRuntime& copy_runtime = prefill_kv_copy_runtime();
+                    CUDA_CHECK_THROW(cudaEventRecord(copy_runtime.qkv_ready, stream),
+                                     "record prefill strided QKV ready event");
+                    CUDA_CHECK_THROW(cudaStreamWaitEvent(copy_runtime.stream, copy_runtime.qkv_ready, 0),
+                                     "prefill strided QKV copy stream wait ready event");
+                    CUDA_CHECK_THROW(cudaMemcpy2DAsync(
+                                         k_write.data_ptr(),
+                                         k_row_bytes,
+                                         static_cast<char*>(qkv_buf) + q_row_bytes,
+                                         qkv_row_bytes,
+                                         k_row_bytes,
+                                         seq_len,
+                                         cudaMemcpyDeviceToDevice,
+                                         copy_runtime.stream),
+                                     "copy K to k_write on prefill side stream");
+                    CUDA_CHECK_THROW(cudaEventRecord(copy_runtime.copy_done, copy_runtime.stream),
+                                     "record prefill strided QKV copy-done event");
+                    pending_prefill_kv_side_copy = true;
+                } else {
+                    CUDA_CHECK_THROW(cudaMemcpy2DAsync(k_write.data_ptr(), k_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes, qkv_row_bytes, k_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy K to k_write");
+                }
+            } else {
+                CUDA_CHECK_THROW(cudaMemcpy2DAsync(k_write.data_ptr(), k_row_bytes, static_cast<char*>(qkv_buf) + q_row_bytes, qkv_row_bytes, k_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy K to k_write");
+                CUDA_CHECK_THROW(cudaMemcpy2DAsync(v_write.data_ptr(), v_row_bytes, v_src, qkv_row_bytes, v_row_bytes, seq_len, cudaMemcpyDeviceToDevice, stream), "copy V to v_write");
+                k_rotated_src = k_write.data_ptr();
+            }
         }
 
         // M-RoPE: rotate Q in-place. For decode, rotate K in the static QKV buffer
@@ -676,15 +805,29 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         Tensor q_attn = Tensor::view(q_buf, {seq_len, num_attention_heads_, head_dim_}, dtype_, Device::GPU, device_id);
         Tensor& attn_output = tensors[ModelTensors::ATTENTION_OUTPUT];
         if (stage == ModelStage::Prefill) {
+            Tensor k_attn = Tensor::view(
+                k_attn_ptr, {k_attn_len, num_kv_heads_, head_dim_}, dtype_, Device::GPU, device_id);
+            Tensor v_attn = Tensor::view(
+                v_attn_ptr, {v_attn_len, num_kv_heads_, head_dim_}, dtype_, Device::GPU, device_id);
+            if (!use_mrope_ && k_attn_len > seq_len) {
+                q_rope_pos_offset = static_cast<uint32_t>(k_attn_len - seq_len);
+            }
             attentions_[attn_key]->forward_prefill(
                 q_attn,
-                k_cache,
-                v_cache,
+                k_attn,
+                v_attn,
                 attn_output,
                 true,
                 stream,
                 q_attn_stride_n,
-                q_attn_stride_h);
+                q_attn_stride_h,
+                kv_attn_stride_n,
+                kv_attn_stride_h,
+                k_attn_stride_n,
+                k_attn_stride_h,
+                k_already_prerotated,
+                q_rope_pos_offset,
+                k_rope_pos_offset);
         } else {
             uint32_t* decode_kv_len = nullptr;
             uint32_t max_kv_len = 0;
@@ -701,18 +844,7 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         std::string o_key = layer_prefix + ".attn.o_proj";
         Tensor o_proj_input = Tensor::view(attn_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
         Tensor o_proj_output = Tensor::view(hidden_states_tensor.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-        bool o_proj_done = false;
-        if (stage == ModelStage::Prefill && trt_prefill_linear_bridge_ != nullptr) {
-            const Tensor* o_weight = linear_[o_key]->weight_tensor(ModelStage::Prefill);
-            const Tensor* o_bias = linear_[o_key]->bias_tensor(ModelStage::Prefill);
-            if (o_weight != nullptr) {
-                o_proj_done = trt_prefill_linear_bridge_->try_forward(
-                    "oproj", layer_id, o_proj_input, *o_weight, o_bias, o_proj_output, stream);
-            }
-        }
-        if (!o_proj_done) {
-            linear_[o_key]->forward_fp16_bf16(o_proj_input, o_proj_output, stream, stage);
-        }
+        linear_[o_key]->forward_fp16_bf16(o_proj_input, o_proj_output, stream, stage);
         
         // Post-attention LayerNorm with fused add+rmsnorm (HIDDEN_STATES already has o_proj output)
         tensors[ModelTensors::HIDDEN_STATES_RESHAPE] = Tensor::view(hidden_states_tensor.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
@@ -724,47 +856,28 @@ void Qwen2_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         std::string gate_up_key = layer_prefix + ".mlp.gate_up_fused";
         std::string down_key = layer_prefix + ".mlp.down_proj";
         Tensor& mlp_activation_input = tensors[ModelTensors::MLP_ACTIVATION_INPUT];
-        Tensor gate_up_flat = Tensor::view(mlp_activation_input.data_ptr(), {seq_len, 2 * intermediate_size_}, dtype_, Device::GPU, device_id);
         Tensor& mlp_intermediate = tensors[ModelTensors::MLP_INTERMEDIATE];
         Tensor mlp_output_2d = (layer_id < num_layers_ - 1)
             ? Tensor::view(norm_output.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id)
             : Tensor::view(hidden_2d.data_ptr(), {seq_len, hidden_size_}, dtype_, Device::GPU, device_id);
-        bool mlp_done = false;
-        if (stage == ModelStage::Prefill && trt_prefill_mlp_bridge_ != nullptr) {
-            const Tensor* gate_up_weight = linear_[gate_up_key]->weight_tensor(ModelStage::Prefill);
-            const Tensor* down_weight = linear_[down_key]->weight_tensor(ModelStage::Prefill);
-            if (gate_up_weight != nullptr && down_weight != nullptr) {
-                mlp_done = trt_prefill_mlp_bridge_->try_forward(
-                    layer_id,
-                    hidden_2d,
-                    *gate_up_weight,
-                    *down_weight,
-                    mlp_output_2d,
-                    stream);
-            }
+        auto* gate_up = dynamic_cast<FusedGateUpLinearLayer*>(linear_[gate_up_key].get());
+        check<InternalError>(gate_up != nullptr, "Qwen2_5: gate_up_fused layer has unexpected type");
+        mlps_[static_cast<size_t>(layer_id)]->forward(
+            layer_id,
+            hidden_2d,
+            *gate_up,
+            *linear_[down_key],
+            *activation_layer_,
+            mlp_activation_input,
+            mlp_intermediate,
+            mlp_output_2d,
+            stream,
+            stage);
+        if (pending_prefill_kv_side_copy) {
+            PrefillKvCopyRuntime& copy_runtime = prefill_kv_copy_runtime();
+            CUDA_CHECK_THROW(cudaStreamWaitEvent(stream, copy_runtime.copy_done, 0),
+                             "wait prefill strided QKV side-stream KV copy");
         }
-        if (mlp_done) {
-            continue;
-        }
-
-        bool swiglu_fused = false;
-        if (auto* fused_gate_up = dynamic_cast<FusedGateUpLinearLayer*>(linear_[gate_up_key].get());
-            fused_gate_up != nullptr) {
-            if (stage == ModelStage::Decode) {
-                swiglu_fused = fused_gate_up->try_forward_decode_swiglu_fused(
-                    hidden_2d, mlp_intermediate, stream);
-            } else if (seq_len >= 64) {
-                swiglu_fused = fused_gate_up->try_forward_prefill_swiglu_fused(
-                    hidden_2d, mlp_intermediate, stream);
-            }
-        }
-        if (!swiglu_fused) {
-            linear_[gate_up_key]->forward_fp16_bf16(hidden_2d, gate_up_flat, stream, stage);
-            activation_layer_->forward_silu_and_mul_up_gate(
-                mlp_activation_input, mlp_intermediate, stream, stage);
-        }
-        // MLP 3: Down projection — write to NORM_OUTPUT (for next layer) or HIDDEN_STATES (last layer, for final_norm)
-        linear_[down_key]->forward_fp16_bf16(mlp_intermediate, mlp_output_2d, stream, stage);
     }
 
     // 3. Final norm: hidden_states, _ = self.norm(hidden_states, residual)
