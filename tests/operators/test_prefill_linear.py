@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 
 import pytest
 import torch
@@ -294,6 +295,34 @@ def _make_layer(case: dict, engine_config_path: str):
     raise ValueError(f"Unsupported layer_kind: {case['layer_kind']}")
 
 
+def _source_op_table(
+    case: dict,
+    input_mode: str,
+    weight_mode: str = "fp16_cast",
+    overlap_casts: bool = False,
+) -> Path:
+    record = {
+        "model_name": "qwen2_5",
+        "hw_profile": CUDA_HW_PROFILE,
+        "op_kind": "linear",
+        "layer_role": case["layer_role"],
+        "op_name": "",
+        "stage": "prefill",
+        "shape_sig": case["shape_sig"],
+        "impl_id": "cutlass_prefill_linear_source_op",
+        "impl_params": {
+            "enabled": True,
+            "tile": "auto",
+            "input_mode": input_mode,
+            "weight_mode": weight_mode,
+            "overlap_casts": overlap_casts,
+            "persistent_weights": False,
+            "min_m": 1,
+        },
+    }
+    return write_operator_impl_table([record])
+
+
 @pytest.mark.parametrize("case", PREFILL_TUNED_CASES, ids=[case["name"] for case in PREFILL_TUNED_CASES])
 def test_prefill_tuned_record_matches_baseline_output_and_latency(case):
     ensure_cuda()
@@ -364,3 +393,244 @@ def test_prefill_tuned_record_matches_baseline_output_and_latency(case):
         f"{case['name']} tuned prefill record regressed beyond noise tolerance: "
         f"tuned={tuned_ms:.6f} ms baseline={baseline_ms:.6f} ms"
     )
+
+
+def test_prefill_linear_source_op_mixed_bf16_matches_fp16_cast_source_op():
+    ensure_cuda()
+    device = torch_device()
+    case = {
+        "model_path": QWEN_0P5B_MODEL_PATH,
+        "layer_kind": "attention_output",
+        "layer_role": "attention_output",
+        "layer_prefix": "model.layers.0.self_attn.o_proj",
+        "seq_len": 128,
+        "in_features": 896,
+        "out_features": 896,
+        "shape_sig": "m=128|input=2|weight=2|output=2|in_features=896|out_features=896",
+    }
+
+    torch.manual_seed(case["seq_len"])
+    x = torch.randn(case["seq_len"], case["in_features"], device=device, dtype=torch.bfloat16)
+
+    reset_weight_loader()
+    cast_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(case, "fp16_cast"),
+            )
+        ),
+    )
+    y_cast = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    cast_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_cast), 0, "Prefill"
+    )
+
+    reset_weight_loader()
+    mixed_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(case, "mixed_bf16"),
+            )
+        ),
+    )
+    y_mixed = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    mixed_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_mixed), 0, "Prefill"
+    )
+
+    torch.cuda.synchronize()
+    torch.testing.assert_close(y_mixed, y_cast, rtol=8e-2, atol=8e-2)
+
+
+def test_prefill_fused_qkv_source_op_mixed_bf16_bias_matches_fp16_cast_source_op():
+    ensure_cuda()
+    device = torch_device()
+    case = {
+        "model_path": QWEN_0P5B_MODEL_PATH,
+        "layer_kind": "fused_qkv",
+        "layer_role": "fused_qkv",
+        "layer_prefix": "model.layers.0.self_attn",
+        "seq_len": 128,
+        "in_features": 896,
+        "out_features": 1152,
+        "q_out_features": 896,
+        "k_out_features": 128,
+        "v_out_features": 128,
+        "shape_sig": "m=128|input=2|weight=2|output=2|in_features=896|out_features=1152",
+    }
+
+    torch.manual_seed(case["seq_len"] + 1)
+    x = torch.randn(case["seq_len"], case["in_features"], device=device, dtype=torch.bfloat16)
+
+    reset_weight_loader()
+    cast_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(case, "fp16_cast"),
+            )
+        ),
+    )
+    y_cast = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    cast_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_cast), 0, "Prefill"
+    )
+
+    reset_weight_loader()
+    mixed_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(case, "mixed_bf16"),
+            )
+        ),
+    )
+    y_mixed = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    mixed_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_mixed), 0, "Prefill"
+    )
+
+    torch.cuda.synchronize()
+    torch.testing.assert_close(y_mixed, y_cast, rtol=8e-2, atol=8e-2)
+
+
+def test_prefill_fused_qkv_source_op_overlap_casts_matches_same_stream_casts():
+    ensure_cuda()
+    device = torch_device()
+    case = {
+        "model_path": QWEN_0P5B_MODEL_PATH,
+        "layer_kind": "fused_qkv",
+        "layer_role": "fused_qkv",
+        "layer_prefix": "model.layers.0.self_attn",
+        "seq_len": 128,
+        "in_features": 896,
+        "out_features": 1152,
+        "q_out_features": 896,
+        "k_out_features": 128,
+        "v_out_features": 128,
+        "shape_sig": "m=128|input=2|weight=2|output=2|in_features=896|out_features=1152",
+    }
+
+    torch.manual_seed(case["seq_len"] + 7)
+    x = torch.randn(case["seq_len"], case["in_features"], device=device, dtype=torch.bfloat16)
+
+    reset_weight_loader()
+    cast_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(case, "fp16_cast"),
+            )
+        ),
+    )
+    y_cast = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    cast_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_cast), 0, "Prefill"
+    )
+
+    reset_weight_loader()
+    overlap_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(
+                    case,
+                    "fp16_cast",
+                    overlap_casts=True,
+                ),
+            )
+        ),
+    )
+    y_overlap = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    overlap_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_overlap), 0, "Prefill"
+    )
+
+    torch.cuda.synchronize()
+    torch.testing.assert_close(y_overlap, y_cast, rtol=8e-2, atol=8e-2)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        {
+            "model_path": QWEN_0P5B_MODEL_PATH,
+            "layer_kind": "attention_output",
+            "layer_role": "attention_output",
+            "layer_prefix": "model.layers.0.self_attn.o_proj",
+            "seq_len": 128,
+            "in_features": 896,
+            "out_features": 896,
+            "shape_sig": "m=128|input=2|weight=2|output=2|in_features=896|out_features=896",
+        },
+        {
+            "model_path": QWEN_0P5B_MODEL_PATH,
+            "layer_kind": "fused_qkv",
+            "layer_role": "fused_qkv",
+            "layer_prefix": "model.layers.0.self_attn",
+            "seq_len": 128,
+            "in_features": 896,
+            "out_features": 1152,
+            "q_out_features": 896,
+            "k_out_features": 128,
+            "v_out_features": 128,
+            "shape_sig": "m=128|input=2|weight=2|output=2|in_features=896|out_features=1152",
+        },
+    ],
+    ids=["attention_output", "fused_qkv_bias"],
+)
+def test_prefill_linear_source_op_bf16_direct_weight_matches_mixed_bf16(case):
+    ensure_cuda()
+    device = torch_device()
+
+    torch.manual_seed(case["seq_len"] + 17)
+    x = torch.randn(case["seq_len"], case["in_features"], device=device, dtype=torch.bfloat16)
+
+    reset_weight_loader()
+    mixed_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(case, "mixed_bf16"),
+            )
+        ),
+    )
+    y_mixed = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    mixed_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_mixed), 0, "Prefill"
+    )
+
+    reset_weight_loader()
+    direct_layer = _make_layer(
+        case,
+        str(
+            make_engine_config(
+                case["model_path"],
+                device_id=DEFAULT_DEVICE_ID,
+                operator_impl_table_path=_source_op_table(case, "mixed_bf16", "bf16_direct"),
+            )
+        ),
+    )
+    y_direct = torch.empty(case["seq_len"], case["out_features"], device=device, dtype=torch.bfloat16)
+    direct_layer.forward_fp16_bf16(
+        tensor_to_edge_fm_tensor(x), tensor_to_edge_fm_tensor(y_direct), 0, "Prefill"
+    )
+
+    torch.cuda.synchronize()
+    torch.testing.assert_close(y_direct, y_mixed, rtol=1.5e-1, atol=1.5e-1)

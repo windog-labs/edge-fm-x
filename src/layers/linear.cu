@@ -1,4 +1,5 @@
 #include "layers/linear.h"
+#include "operators/prefill_linear_source_op.h"
 #include "operators/fused_gate_up_activation_op.h"
 #include "operators/operator_impl_table.h"
 #include "utils/device/nvtx.h"
@@ -202,8 +203,12 @@ __global__ void stage1_kernel(
     float sum = 0.0f;
     if (vocab_id < vocab_size) {
         const T* row = weight + static_cast<size_t>(vocab_id) * static_cast<size_t>(hidden_size);
-        for (int32_t k = lane; k < hidden_size; k += kWarpSize) {
+        for (int32_t k = lane; k < hidden_size; k += 2 * kWarpSize) {
             sum += scalar_to_float(hidden[k]) * scalar_to_float(row[k]);
+            const int32_t k_next = k + kWarpSize;
+            if (k_next < hidden_size) {
+                sum += scalar_to_float(hidden[k_next]) * scalar_to_float(row[k_next]);
+            }
         }
     }
 
@@ -417,6 +422,7 @@ LinearLayer::LinearLayer(const std::string& layer_prefix,
                          std::string layer_name) : 
     Layer(engine_config, std::move(layer_name)),
     cublaslt_handle_(nullptr),
+    prefill_linear_source_op_(std::make_unique<PrefillLinearSourceOp>(engine_config)),
     in_features_(in_features),
     out_features_(out_features),
     layer_prefix_(layer_prefix),

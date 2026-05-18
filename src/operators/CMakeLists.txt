@@ -9,6 +9,8 @@ set(OPERATORS_SOURCES
 if(ENABLE_CUDA)
     list(APPEND OPERATORS_SOURCES
         linear_impl.cu
+        prefill_linear_source_op.cu
+        prefill_mlp_source_op.cu
         attention_op.cu
         norm_op.cu
         activation_op.cu
@@ -57,6 +59,16 @@ if(ENABLE_CUDA)
         CUDA::cublas
         CUDA::cublasLt
     )
+    if(EDGE_FM_ENABLE_TRT_PLUGIN_OPS)
+        target_include_directories(edge_fm_operators PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/TensorRT-Edge-LLM/cpp
+            ${TRT_INCLUDE_DIR}
+        )
+        target_link_libraries(edge_fm_operators PUBLIC
+            ${TRT_EDGELLM_PLUGIN_LIBRARY}
+            ${TRT_NVINFER_LIBRARY}
+        )
+    endif()
     target_include_directories(edge_fm_operators PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 

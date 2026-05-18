@@ -500,9 +500,17 @@ PYBIND11_MODULE(edge_fm, m) {
                                    const Tensor& v,
                                    Tensor& o,
                                    bool causal = true,
-                                   uintptr_t stream_ptr = 0) {
+                                   uintptr_t stream_ptr = 0,
+                                   uint32_t q_stride_n = 0,
+                                   uint32_t q_stride_h = 0,
+                                   uint32_t kv_stride_n = 0,
+                                   uint32_t kv_stride_h = 0,
+                                   uint32_t k_stride_n = 0,
+                                   uint32_t k_stride_h = 0) {
                 cudaStream_t stream = (stream_ptr == 0) ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
-                self.forward_prefill(q, k, v, o, causal, stream);
+                self.forward_prefill(
+                    q, k, v, o, causal, stream, q_stride_n, q_stride_h, kv_stride_n, kv_stride_h,
+                    k_stride_n, k_stride_h);
             },
             py::arg("q"),
             py::arg("k"),
@@ -510,6 +518,12 @@ PYBIND11_MODULE(edge_fm, m) {
             py::arg("o"),
             py::arg("causal") = true,
             py::arg("stream") = 0,
+            py::arg("q_stride_n") = 0,
+            py::arg("q_stride_h") = 0,
+            py::arg("kv_stride_n") = 0,
+            py::arg("kv_stride_h") = 0,
+            py::arg("k_stride_n") = 0,
+            py::arg("k_stride_h") = 0,
             "执行 Prefill 模式的前向传播\n\n"
             "参数:\n"
             "    q: 查询张量，形状 [qo_len, num_qo_heads, head_dim]\n"
@@ -517,7 +531,13 @@ PYBIND11_MODULE(edge_fm, m) {
             "    v: 值张量，形状 [kv_len, num_kv_heads, head_dim]\n"
             "    o: 输出张量，形状 [qo_len, num_qo_heads, head_dim]（用于存储输出）\n"
             "    causal: 是否使用因果 mask（默认: True）\n"
-            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n\n"
+            "    stream: CUDA stream 指针地址（整数），0 表示默认 stream\n"
+            "    q_stride_n: 可选 Q token stride（元素数），0 表示连续 Q\n"
+            "    q_stride_h: 可选 Q head stride（元素数），0 表示连续 head_dim\n"
+            "    kv_stride_n: 可选 K/V token stride（元素数），0 表示连续 K/V\n"
+            "    kv_stride_h: 可选 K/V head stride（元素数），0 表示连续 head_dim\n"
+            "    k_stride_n: 可选 K-only token stride（元素数），覆盖 K 的 kv_stride_n\n"
+            "    k_stride_h: 可选 K-only head stride（元素数），覆盖 K 的 kv_stride_h\n\n"
             "注意:\n"
             "    - 函数本身是异步的，kernel 启动后立即返回\n"
             "    - 如果需要在函数返回后立即使用结果，需要手动调用 stream.synchronize() 或 cudaDeviceSynchronize()\n\n"

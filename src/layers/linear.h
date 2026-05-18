@@ -15,8 +15,10 @@ namespace edge_fm {
 class LinearOpRegistry;
 class LinearCublasLtImpl;
 class LinearCutlassImpl;
+class LinearPrefillSourceOpImpl;
 class LinearCutileImpl;
 class LinearAgentImpl;
+class PrefillLinearSourceOp;
 class FusedGateUpActivationOp;
 struct FusedGateUpActivationOpContext;
 struct FusedGateUpActivationOpState;
@@ -85,6 +87,7 @@ protected:
     friend class LinearOpRegistry;
     friend class LinearCublasLtImpl;
     friend class LinearCutlassImpl;
+    friend class LinearPrefillSourceOpImpl;
     friend class LinearCutileImpl;
     friend class LinearAgentImpl;
 
@@ -227,6 +230,8 @@ protected:
     WeightSet decode_weights_;
     // CUBLASLt handle for FP16/BF16 operations with bias support
     cublasLtHandle_t cublaslt_handle_;
+    // Optional prefill source-op selected through operator_impl_table.
+    std::unique_ptr<PrefillLinearSourceOp> prefill_linear_source_op_;
     // Cached descriptors: prefill per-m (different slot sizes), decode m=1 only
     std::unordered_map<int, CachedDescriptors> prefill_descriptors_map_;
     CachedDescriptors decode_descriptors_;
