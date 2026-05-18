@@ -459,6 +459,12 @@ edge-fm/
 
 EdgeFM 针对边缘端大模型推理场景，从多个维度进行深度优化，实现极致性能：
 
+新硬件平台的 CUDA/CUTLASS kernel 调优流程见
+[EdgeFM CUDA Kernel Optimizer 使用指南](doc/cuda_kernel_optimizer_guide.md)。
+该指南覆盖 skill 安装、GPU profiling 环境、EdgeFM vs TRT-Edge-LLM
+对齐 benchmark、NSYS/NCU 归因、operator table/source-op 调优，以及
+Humanize + KernelPilot 长循环。
+
 ### 高效算子实现
 
 - **高性能算子库集成**：深度集成 FlashInfer 等业界领先的高性能算子库，提供优化的注意力机制和矩阵运算

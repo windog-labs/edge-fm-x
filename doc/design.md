@@ -240,8 +240,9 @@ TensorRT `.engine` planner stages are expected to plug into this same
 for a fixture-backed follow-up so the first planner policy layer can stay
 backend-neutral and regression-safe.
 
-The local flow-matching trajectory-planning reference paper used for this
-planner-policy shape is stored at `doc/papers/2503.05689v6.pdf`.
+The flow-matching trajectory-planning reference used for this planner-policy
+shape is GoalFlow / arXiv 2503.05689; the repository does not keep the PDF
+artifact under `doc/`.
 
 Example mock config:
 

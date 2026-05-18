@@ -7,6 +7,7 @@
 ## 核心文档
 
 - `doc/design.md` - 代码结构、运行时分层、配置与调度
+- `doc/cuda_kernel_optimizer_guide.md` - 使用 EdgeFM CUDA Kernel Optimizer 做新硬件平台性能调优
 - `doc/edge_fm_benchmark_tables.md` - 当前维护中的 benchmark 数据表
 - `doc/orin_r36.4.3_qwen_benchmark_guide.md` - Jetson Orin benchmark 指南
 - `doc/smolvla_phase1_horizon_usage.md` - SmolVLA phase-1 Horizon 双 stage 导出与 `prefill`/`decode` 调用示例
@@ -27,7 +28,8 @@ serialized TensorRT engine bridge。
 `TRT-Edge-LLM`，0.5B 和 3B 全 shape 快于 TRT reference，唯一稳定正差距是
 `1.5B 512x64` 约 `+0.9 ms`。`1.5B 512x32` 在高 runs 复核中已接近
 测量噪声（avg `+0.197 ms`，median `+0.135 ms`）。当前保留的性能数据
-入口是 `README.md` 和 `doc/edge_fm_benchmark_tables.md`。
+入口是 `README.md` 和 `doc/edge_fm_benchmark_tables.md`。后续新硬件平台
+调优流程见 `doc/cuda_kernel_optimizer_guide.md`。
 
 ## 当前代码结构速览
 
