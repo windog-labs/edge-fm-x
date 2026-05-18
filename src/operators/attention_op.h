@@ -23,10 +23,17 @@ struct AttentionOpContext {
     uint32_t head_dim = 0;
     uint32_t q_stride_n = 0;
     uint32_t q_stride_h = 0;
+    uint32_t k_stride_n = 0;
+    uint32_t k_stride_h = 0;
+    uint32_t kv_stride_n = 0;
+    uint32_t kv_stride_h = 0;
     float rope_scale = 1.0f;
     float rope_theta = 1000000.0f;
+    uint32_t q_rope_pos_offset = 0;
+    uint32_t k_rope_pos_offset = 0;
     DType dtype = DType::Float16;
     AttentionPosEncoding pos_encoding = AttentionPosEncoding::kRoPELlama;
+    bool k_already_prerotated = false;
     int32_t device_id = 0;
     nlohmann::json impl_params = nlohmann::json::object();
 };

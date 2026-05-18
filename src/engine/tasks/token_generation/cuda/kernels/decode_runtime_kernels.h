@@ -43,5 +43,16 @@ void launch_decode_mrope_apply_q_write_kv(const void* q_src,
                                           DType dtype,
                                           const uint32_t* d_kv_len,
                                           cudaStream_t stream);
+void launch_prefill_copy_k_and_prerotate(const void* k_src,
+                                         void* k_cache_dst,
+                                         void* k_rot_dst,
+                                         int seq_len,
+                                         int num_kv_heads,
+                                         int head_dim,
+                                         int qkv_stride_n,
+                                         float rope_theta,
+                                         float rope_scale,
+                                         DType dtype,
+                                         cudaStream_t stream);
 
 } // namespace edge_fm

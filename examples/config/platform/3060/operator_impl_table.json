@@ -1221,9 +1221,9 @@
       "impl_id": "flashinfer_attention_decode_sm80_tuned",
       "impl_params": {
         "short_seq_bdz": 4,
-        "long_seq_bdz": 3,
-        "long_seq_threshold": 1536,
-        "no_split_kv_threshold": 192,
+        "long_seq_bdz": 4,
+        "long_seq_threshold": 1024,
+        "no_split_kv_threshold": 256,
         "min_chunk_size": 64,
         "chunk_alignment": 64,
         "chunk_candidates": [

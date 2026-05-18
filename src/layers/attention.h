@@ -51,7 +51,14 @@ public:
         bool causal,
         cudaStream_t stream,
         uint32_t q_stride_n = 0,
-        uint32_t q_stride_h = 0) const;
+        uint32_t q_stride_h = 0,
+        uint32_t kv_stride_n = 0,
+        uint32_t kv_stride_h = 0,
+        uint32_t k_stride_n = 0,
+        uint32_t k_stride_h = 0,
+        bool k_already_prerotated = false,
+        uint32_t q_rope_pos_offset = 0,
+        uint32_t k_rope_pos_offset = 0) const;
 
     void forward_decode(
         const Tensor& q,  // [1, num_qo_heads, head_dim]

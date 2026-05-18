@@ -131,6 +131,15 @@ bool decode_swiglu_autotune_enabled() {
     return std::string(env) != "0" && std::string(env) != "false" && std::string(env) != "False";
 }
 
+bool decode_swiglu_env_flag_enabled(const char* name) {
+    const char* env = std::getenv(name);
+    if (env == nullptr || *env == '\0') {
+        return false;
+    }
+    const std::string value(env);
+    return value == "1" || value == "true" || value == "True" || value == "yes" || value == "on";
+}
+
 bool try_get_decode_swiglu_kernel_override(DecodeSwigluKernelConfigId& config_id) {
     const char* env = std::getenv("EDGE_FM_DECODE_SWIGLU_CONFIG");
     if (env == nullptr || *env == '\0') {
@@ -148,7 +157,13 @@ bool try_get_decode_swiglu_kernel_override(DecodeSwigluKernelConfigId& config_id
 }
 
 bool decode_swiglu_device_supported(int sm) {
-    return sm == 80;
+    if (sm == 80) {
+        return true;
+    }
+    if (sm == 86 && decode_swiglu_env_flag_enabled("EDGE_FM_DECODE_SWIGLU_ALLOW_SM86")) {
+        return true;
+    }
+    return false;
 }
 
 int sm_version_for_device(int device_id) {
@@ -681,9 +696,9 @@ public:
 
         try {
             const int sm = sm_version_for_device(ctx.device_id);
-            // This path instantiates TensorRT-LLM's sm80 fused-MoE kernel. On
-            // RTX 3060 (SM86) it is fast but not numerically equivalent to the
-            // two-stage BF16 gate/up + SiLU path, which breaks greedy decode.
+            // This path instantiates TensorRT-LLM's sm80 fused-MoE kernel. SM86
+            // remains experimental and must be enabled explicitly because older
+            // probes found token alignment regressions on RTX 3060.
             return decode_swiglu_device_supported(sm);
         } catch (const std::exception&) {
             return false;
