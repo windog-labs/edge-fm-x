@@ -250,7 +250,18 @@ generated_tokens = response.token_ids()
 | Qwen2.5 | ✅ 已支持 | 通义千问2.5系列模型<br>支持模型文件格式转换（参考 `scripts/convert_qwen3.py`） |
 | 更多模型 | 🔄 计划支持 | 更多模型支持正在开发中... |
 
-## 3060 性能现状
+## 性能测试
+
+### 推理性能
+
+以下性能数据基于 EdgeFM 与 TRT-Edge-LLM 在不同硬件平台上的对比测试结果（单位：ms）。Shape 格式为 `Prefix/Suffix`，Gap 为 EdgeFM 相对 TRT-Edge-LLM 的差值百分比，负值表示 EdgeFM 更快。
+
+<p align="center">
+  <img src="doc/图3.PNG" width="80%" />
+  <br><em>性能指标对比（x86 / Orin / J6M）</em>
+</p>
+
+### RTX 3060 Qwen2.5 LLM
 
 RTX 3060 上的 Qwen2.5 LLM 默认路径已经不再使用内部 TensorRT engine
 bridge：`qwen2_5` 运行时不加载 serialized TensorRT plan，也不创建
@@ -302,17 +313,6 @@ Python 模块和 `tests/data/trt_edgellm_workspace/*/llm.engine` 只用于对照
 （avg `+0.197 ms`，median `+0.135 ms`）。完整调优日志、rejected
 路线和 raw artifact 见 [3060_tuning_log.md](doc/3060_tuning_log.md)，当前
 队列和验收标准见 [3060_tuning_plan.md](doc/3060_tuning_plan.md)。
-
-## 性能测试
-
-### 推理性能
-
-以下性能数据基于 EdgeFM 与 TRT-Edge-LLM 在不同硬件平台上的对比测试结果（单位：ms）。Shape 格式为 `Prefix/Suffix`，Gap 为 EdgeFM 相对 TRT-Edge-LLM 的差值百分比，负值表示 EdgeFM 更快。
-
-<p align="center">
-  <img src="doc/图3.PNG" width="80%" />
-  <br><em>性能指标对比（x86 / Orin / J6M）</em>
-</p>
 
 ### x86 (A800)
 
