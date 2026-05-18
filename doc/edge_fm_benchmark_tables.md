@@ -6,6 +6,42 @@
 - Gap definition: `(EdgeFM - TRT) / TRT`
 - Negative `%` means `EdgeFM` is faster than `TRT-Edge-LLM`
 
+## RTX 3060 Qwen2.5 LLM Current Matrix
+
+This is the current 3060 LLM checkpoint after removing the internal TensorRT
+engine prefill bridge from the EdgeFM default path and selecting source-op
+CUTLASS/CUDA operators through the 3060 operator table.
+
+- Artifact: `.tmp_codex/bench/stage3_20260518_134317_full_matrix_after_0p5b_q12_accept_retry/`
+- Shape format: `prefill x decode`
+- Gap definition: `EdgeFM total - TRT-Edge-LLM total`
+- Negative gap means `EdgeFM(cuda graph)` is faster.
+
+| Model | Shape | EdgeFM total (ms) | EdgeFM prefill (ms) | EdgeFM decode (ms) | TRT total (ms) | Gap (ms) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 0.5B | 512x32 | 126.609 | 12.771 | 113.713 | 134.979 | -8.370 |
+| 0.5B | 512x64 | 242.668 | 12.581 | 229.936 | 248.447 | -5.778 |
+| 0.5B | 1024x32 | 140.586 | 24.929 | 115.542 | 141.554 | -0.969 |
+| 0.5B | 1024x64 | 257.486 | 24.545 | 232.790 | 257.671 | -0.185 |
+| 0.5B | 2048x32 | 168.178 | 48.647 | 119.411 | 168.969 | -0.791 |
+| 0.5B | 2048x64 | 290.109 | 48.293 | 241.652 | 292.024 | -1.915 |
+| 1.5B | 512x32 | 346.130 | 37.051 | 308.966 | 345.300 | +0.830 |
+| 1.5B | 512x64 | 664.482 | 36.460 | 627.861 | 663.594 | +0.888 |
+| 1.5B | 1024x32 | 384.591 | 73.272 | 311.203 | 384.730 | -0.139 |
+| 1.5B | 1024x64 | 705.402 | 73.131 | 632.115 | 708.590 | -3.188 |
+| 1.5B | 2048x32 | 466.729 | 147.361 | 319.242 | 469.011 | -2.282 |
+| 1.5B | 2048x64 | 796.607 | 147.445 | 648.996 | 805.288 | -8.681 |
+| 3B | 512x32 | 681.482 | 78.387 | 602.979 | 686.182 | -4.700 |
+| 3B | 512x64 | 1303.951 | 78.493 | 1225.296 | 1316.090 | -12.139 |
+| 3B | 1024x32 | 757.754 | 146.907 | 610.708 | 758.143 | -0.389 |
+| 3B | 1024x64 | 1388.178 | 147.160 | 1240.852 | 1395.001 | -6.824 |
+| 3B | 2048x32 | 917.042 | 297.759 | 619.143 | 919.372 | -2.330 |
+| 3B | 2048x64 | 1557.436 | 298.517 | 1258.738 | 1571.146 | -13.710 |
+
+Summary: `16/18` shapes are faster than `TRT-Edge-LLM`. A high-run recheck
+puts `1.5B 512x32` at practical parity, leaving `1.5B 512x64` as the only
+stable positive row at about `+0.9 ms`.
+
 ## Qwen2.5-0.5B-Instruct
 
 | Shape | EdgeFM prefill (ms) | TRT prefill (ms) | Prefill gap (ms) | Prefill gap (%) | EdgeFM decode (ms) | TRT decode (ms) | Decode gap (ms) | Decode gap (%) | EdgeFM decode-step (ms) | TRT decode-step (ms) | Decode-step gap (ms) | Decode-step gap (%) | EdgeFM total (ms) | TRT total (ms) | Total gap (ms) | Total gap (%) |
