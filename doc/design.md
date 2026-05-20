@@ -527,7 +527,7 @@ flowchart TD
 
 - 按硬件选择 linear algorithm。
 - 按 shape 配置 attention tuning record。
-- 后续接入 `cutile` 等 generated kernel。
+- 后续接入经过离线验证的 generated/CUTLASS kernel。
 - 可选接入 `fused_gate_up_activation` 等 decode fast path。
 
 同时不要求 model-layer 代码理解 vendor-specific kernel。

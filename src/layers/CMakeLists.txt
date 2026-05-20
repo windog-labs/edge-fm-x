@@ -91,6 +91,7 @@ if(ENABLE_CUDA)
         target_include_directories(sampler PUBLIC ${CUDA_LIBCPP_INCLUDE_DIR})
     endif()
     target_link_libraries(sampler PUBLIC layer)
+    target_link_libraries(sampler PRIVATE edge_fm_flashinfer_headers)
 
     # linear
     add_library(linear STATIC

@@ -33,6 +33,8 @@ if(ENABLE_CUDA)
     target_link_libraries(edge_fm_utils PUBLIC 
         CUDA::cudart
         CUDA::nvToolsExt
+    )
+    target_link_libraries(edge_fm_utils PRIVATE
         safetensors_cpp
     )
 endif()

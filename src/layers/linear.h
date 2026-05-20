@@ -16,7 +16,6 @@ class LinearOpRegistry;
 class LinearCublasLtImpl;
 class LinearCutlassImpl;
 class LinearPrefillSourceOpImpl;
-class LinearCutileImpl;
 class LinearAgentImpl;
 class PrefillLinearSourceOp;
 class FusedGateUpActivationOp;
@@ -88,7 +87,6 @@ protected:
     friend class LinearCublasLtImpl;
     friend class LinearCutlassImpl;
     friend class LinearPrefillSourceOpImpl;
-    friend class LinearCutileImpl;
     friend class LinearAgentImpl;
 
     // Quantization type enumeration (protected for subclass access)

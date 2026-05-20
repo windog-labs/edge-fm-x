@@ -59,6 +59,9 @@ if(ENABLE_CUDA)
         CUDA::cublas
         CUDA::cublasLt
     )
+    target_link_libraries(edge_fm_operators PRIVATE
+        edge_fm_flashinfer_headers
+    )
     if(EDGE_FM_ENABLE_TRT_PLUGIN_OPS)
         target_include_directories(edge_fm_operators PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/TensorRT-Edge-LLM/cpp
