@@ -444,6 +444,24 @@ edge-fm/
 
 EdgeFM 针对边缘端大模型推理场景，从多个维度进行深度优化，实现极致性能：
 
+### 调优方式
+
+EdgeFM 支持分层调优，避免把运行时选择、平台配置和离线 kernel 搜索混在一起：
+
+- **内置 config-driven tuning**：CUDA Qwen2.5 / Qwen2.5-VL 路径可以通过
+  `engine.tune()` 或配置 `tuning.enabled=true` 生成轻量的
+  `cuda_operator_tuning` cache、`operator_impl_table.json` 和
+  `tuning_report.json`。当前内置 tuner 只覆盖无需重新编译的候选，
+  主要包括 FlashInfer attention 参数和 cuBLASLt linear `algo_index`。
+- **operator table 固化选择**：平台配置可以通过 `operator_impl_table`
+  按 model、hardware profile、stage、shape 固定已经验证过的 operator
+  implementation 和参数。运行时只消费这些记录，不现场生成或编译 kernel。
+- **离线 CUDA/CUTLASS 持续优化**：CUTLASS/source-op kernel 调优通常涉及
+  代码生成、模板实例化、编译、NSYS/NCU profiling 和多轮 correctness /
+  benchmark 验证，不作为 EdgeFM runtime 自动 tuner 的职责。此类优化应使用
+  `$edge-fm-cuda-kernel-optimizer` 离线完成，accepted 结果再回迁到
+  `src/operators`、`src/layers` 或 `operator_impl_table`。
+
 新硬件平台的 CUDA/CUTLASS kernel 调优流程见
 [EdgeFM CUDA Kernel Optimizer 使用指南](doc/cuda_kernel_optimizer_guide.md)。
 该指南覆盖 skill 安装、GPU profiling 环境、EdgeFM vs TRT-Edge-LLM
