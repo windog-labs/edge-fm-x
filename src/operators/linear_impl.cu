@@ -769,33 +769,6 @@ public:
     }
 };
 
-class LinearCutileImpl final : public LinearLayer::LinearImpl {
-public:
-    std::string impl_id() const override { return "cutile"; }
-    bool supports(const LinearLayer::LinearOpContext&, const LinearLayer::WeightSet&) const override { return false; }
-    void prepare(
-        LinearLayer&,
-        const LinearLayer::LinearOpContext&,
-        const LinearLayer::WeightSet&,
-        const Tensor&,
-        Tensor&,
-        cudaStream_t,
-        LinearLayer::CachedDescriptors&) override {}
-    void forward(
-        LinearLayer&,
-        const LinearLayer::LinearOpContext&,
-        const LinearLayer::WeightSet&,
-        const Tensor&,
-        Tensor&,
-        cudaStream_t,
-        LinearLayer::CachedDescriptors&) override
-    {
-        throw InternalError(
-            "cutile linear impl is not implemented in this build. "
-            "Expected a generated kernel artifact / launcher integration.");
-    }
-};
-
 class LinearAgentImpl final : public LinearLayer::LinearImpl {
 public:
     std::string impl_id() const override { return "agent"; }
@@ -825,7 +798,6 @@ LinearOpRegistry::LinearOpRegistry() {
     impls_.emplace_back(std::make_unique<LinearCublasLtImpl>());
     impls_.emplace_back(std::make_unique<LinearCutlassImpl>());
     impls_.emplace_back(std::make_unique<LinearPrefillSourceOpImpl>());
-    impls_.emplace_back(std::make_unique<LinearCutileImpl>());
     impls_.emplace_back(std::make_unique<LinearAgentImpl>());
 }
 

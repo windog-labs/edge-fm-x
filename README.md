@@ -468,6 +468,10 @@ EdgeFM 支持分层调优，避免把运行时选择、平台配置和离线 ker
 对齐 benchmark、NSYS/NCU 归因、operator table/source-op 调优，以及
 Humanize + KernelPilot 长循环。
 
+J6M/Horizon 构建保持最小依赖：默认只配置 core 公共依赖，不发现或引入
+CUDA、CUTLASS、FlashInfer、safetensors-cpp、TensorRT 或 Python 绑定相关依赖。
+CUDA 平台仍保留 CUTLASS/source-op 作为高性能 kernel 的离线优化与回迁路线。
+
 ### 高效算子实现
 
 - **高性能算子库集成**：深度集成 FlashInfer 等业界领先的高性能算子库，提供优化的注意力机制和矩阵运算
