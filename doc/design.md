@@ -31,7 +31,7 @@
 
 1. `engine.json` 必须显式声明 `model_name`。runtime 不从 checkpoint 目录结构推断模型家族。
 2. CUDA 主执行路径不构建也不执行通用 IR。
-3. runtime tuning 不再依赖线上 benchmark。算子选择通过 operator table 和 registry fallback 完成。
+3. 请求热路径不做线上 autotuning。显式 `tune()` 只生成 operator table tuning cache；请求执行时的算子选择通过 operator table 和 registry fallback 完成。
 4. 源码按职责拆分：
    - `engine/`：facade dispatch、config/factory 逻辑，以及 `engine/tasks/` 下的 task engine。
    - `engine/tasks/token_generation/`：`generate()`、KV cache 管理、scheduler、compact vocab 和 token generation runtime 状态。
@@ -333,14 +333,14 @@ flowchart TD
 
 ### 5.5 CUDA 上的 `tune()` 语义
 
-在 CUDA 路径上，`StandardEngine::tune()` 现在只是轻量 validation/preparation：
+在 CUDA 路径上，`StandardEngine::tune()` 是 config-driven operator-table tuning/preparation：
 
 - 通过 `EngineConfig` 解析 model name 和 hardware profile。
-- 强制加载并解析 operator table。
-- 不 benchmark kernel。
-- 不生成 CUDA 专属 tuning cache。
+- 加载当前 operator table，并在缓存目录生成 `cuda_operator_tuning/operator_impl_table.json` 与 `tuning_report.json`。
+- 对无需重新编译的候选做轻量 benchmark sweep：当前覆盖 FlashInfer attention 参数和 cuBLASLt linear `algo_index`。
+- 不自动生成、编译或搜索 CUTLASS/source-op kernel；这类持续优化通过离线 `$edge-fm-cuda-kernel-optimizer` 流程完成，结果再回迁到 `src/operators`、`src/layers` 或 operator table。
 
-因此 `tune()` 仍属于 API surface，但语义已经从“在线 autotuning”变成“静态准备”。
+因此 `tune()` 仍属于 API surface，但语义是显式准备阶段的 operator-table tuning，而不是请求热路径上的 kernel autotuning。
 
 ## 6. Qwen2.5 运行时和模型结构
 
@@ -651,7 +651,7 @@ Whole-model backend 可以通过以下接口暴露 tensor-in/tensor-out stage：
 当前代码有意不做以下事情：
 
 - CUDA 路径不引入通用 runtime IR。
-- 不做 benchmark-based runtime tuning。
+- 不在请求热路径做 benchmark-based tuning。
 - 不通过 `EdgeFM` 公开 speculative decoding。
 - Horizon token/action generation loop 尚未公开；当前只具备 HBM I/O discovery。
 - 不从 checkpoint 命名或文件布局推断模型家族。
