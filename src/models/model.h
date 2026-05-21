@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 #include <cuda_runtime.h>
+#include "engine/model_runtime_spec.h"
 
 namespace edge_fm {
 
@@ -99,6 +100,8 @@ public:
     int32_t hidden_size() const { return hidden_size_; }
     int32_t vocab_size() const { return vocab_size_; }
     DType dtype() const { return dtype_; }
+    const ModelRuntimeSpec& runtime_spec() const { return runtime_spec_; }
+    virtual bool supports_decode_cuda_graph() const { return runtime_spec_.supports_decode_cuda_graph; }
 
     static std::unique_ptr<Model> create(const EngineConfig& config);
 
@@ -109,6 +112,7 @@ protected:
     int32_t hidden_size_;
     int32_t vocab_size_;
     DType dtype_;
+    ModelRuntimeSpec runtime_spec_;
     
     bool model_loaded_;
 };

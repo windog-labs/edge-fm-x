@@ -160,8 +160,10 @@ DecodeWritePtrs collect_decode_write_ptrs_from_tensors(Context& context, int32_t
     write_ptrs.k.resize(num_layers);
     write_ptrs.v.resize(num_layers);
     for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
-        write_ptrs.k[layer_id] = tensors.at(ModelTensors::k_write_layer(layer_id)).data_ptr();
-        write_ptrs.v[layer_id] = tensors.at(ModelTensors::v_write_layer(layer_id)).data_ptr();
+        auto k_it = tensors.find(ModelTensors::k_write_layer(layer_id));
+        auto v_it = tensors.find(ModelTensors::v_write_layer(layer_id));
+        write_ptrs.k[layer_id] = (k_it != tensors.end()) ? k_it->second.data_ptr() : nullptr;
+        write_ptrs.v[layer_id] = (v_it != tensors.end()) ? v_it->second.data_ptr() : nullptr;
     }
     return write_ptrs;
 }
@@ -192,6 +194,11 @@ DecodeWritePtrs collect_decode_write_ptrs_from_context(
     for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
         void* read_ptr = kv_read_ptrs[layer_id];
         void* write_ptr = kv_write_ptrs[layer_id];
+        if (read_ptr == nullptr || write_ptr == nullptr) {
+            write_ptrs.k[layer_id] = nullptr;
+            write_ptrs.v[layer_id] = nullptr;
+            continue;
+        }
         size_t offset_bytes = static_cast<uint8_t*>(write_ptr) - static_cast<uint8_t*>(read_ptr);
         write_ptrs.k[layer_id] = write_ptr;
         write_ptrs.v[layer_id] = static_cast<uint8_t*>(read_ptr)
@@ -514,7 +521,10 @@ bool lm_head_top1_token_ready(const Context& context) {
 
 void StandardEngine::warmup() {
     KVManagerStatus kv_status = kv_manager_->get_status();
-    bool need_decode_graph_capture = config_.use_cuda_graph() && !cuda_graph_manager_.is_decode_captured();
+    bool need_decode_graph_capture =
+        config_.use_cuda_graph() &&
+        model_->supports_decode_cuda_graph() &&
+        !cuda_graph_manager_.is_decode_captured();
 
     for (const auto& slot : kv_status.slots) {
         if (slot.prefix_token_ids.empty() || slot.prefix_size == 0) {
@@ -567,6 +577,9 @@ void StandardEngine::run_sampler(const Tensor& logits,
 
 bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
     if (!config_.use_cuda_graph()) {
+        return false;
+    }
+    if (!model_->supports_decode_cuda_graph()) {
         return false;
     }
     if (kv_manager_->get_attention_type() == AttentionType::MLA) {
@@ -770,7 +783,8 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
 }
 
 void StandardEngine::ensure_decode_graph_captured(Context& context) {
-    if (!config_.use_cuda_graph() || cuda_graph_manager_.is_decode_captured()) {
+    if (!config_.use_cuda_graph() || !model_->supports_decode_cuda_graph() ||
+        cuda_graph_manager_.is_decode_captured()) {
         return;
     }
 
@@ -883,9 +897,10 @@ Response StandardEngine::generate(const Request& request) {
         active_request = &(*remapped_request);
     }
 
+    const bool decode_cuda_graph_enabled = config_.use_cuda_graph() && model_->supports_decode_cuda_graph();
     GenerateMetricsAccum metrics;
     last_generate_metrics_ = make_generate_metrics_map(
-        metrics, 0.0, 0.0, 0, 0, 0, config_.use_cuda_graph(), config_.lm_head_top1_enabled());
+        metrics, 0.0, 0.0, 0, 0, 0, decode_cuda_graph_enabled, config_.lm_head_top1_enabled());
 
     Response response;
     Context context = scheduler_->create_context(*active_request, &response);
@@ -980,7 +995,7 @@ Response StandardEngine::generate(const Request& request) {
             }
 
             const bool skip_decode_prepare =
-                config_.use_cuda_graph() &&
+                decode_cuda_graph_enabled &&
                 cuda_graph_manager_.is_decode_captured() &&
                 context.decode_tensors_initialized() &&
                 model_->has_static_decode_runtime_tensors();
@@ -991,7 +1006,7 @@ Response StandardEngine::generate(const Request& request) {
             }
             void* decode_write_ptr = context.get_response_token_write_ptr();
 
-            if (config_.use_cuda_graph()) {
+            if (decode_cuda_graph_enabled) {
                 ensure_decode_graph_captured(context);
                 sync_decode_graph(context);
                 {
@@ -1027,7 +1042,7 @@ Response StandardEngine::generate(const Request& request) {
             {
                 NVTX::Range finalize_range("EDGEFM_DECODE_FINALIZE", NVTXColor::YELLOW);
                 metric_recorder.measure(stream, metrics.decode_finalize_ms, [&]() {
-                    finalize_decode_token(context, decode_write_ptr, stream, !config_.use_cuda_graph());
+                    finalize_decode_token(context, decode_write_ptr, stream, !decode_cuda_graph_enabled);
                 });
             }
 
@@ -1087,7 +1102,7 @@ Response StandardEngine::generate(const Request& request) {
         executed_num_generated,
         returned_num_generated,
         context.max_generated_tokens(),
-        config_.use_cuda_graph(),
+        decode_cuda_graph_enabled,
         config_.lm_head_top1_enabled());
 
     return response;
@@ -1128,8 +1143,13 @@ void StandardEngine::prepare_kvcache_tensors(
     int32_t generated_tokens = context.get_generated_tokens();
     int32_t cache_kv_len;
     if (generated_tokens == 0) {
-        bool has_prefix_in_cache = (!kv_write_ptrs.empty() && !kv_read_ptrs.empty()
-                                    && kv_write_ptrs[0] != kv_read_ptrs[0]);
+        bool has_prefix_in_cache = false;
+        for (size_t i = 0; i < kv_write_ptrs.size() && i < kv_read_ptrs.size(); ++i) {
+            if (kv_write_ptrs[i] != nullptr && kv_read_ptrs[i] != nullptr) {
+                has_prefix_in_cache = (kv_write_ptrs[i] != kv_read_ptrs[i]);
+                break;
+            }
+        }
         cache_kv_len = (has_prefix_in_cache ? static_cast<int32_t>(prefix_size) : 0) + seq_len;
     } else {
         int32_t prefill_len = static_cast<int32_t>(context.request()->token_ids().size());
@@ -1146,9 +1166,15 @@ void StandardEngine::prepare_kvcache_tensors(
         int64_t stride_elems = static_cast<int64_t>(token_stride / get_dtype_size(kv_dtype));
         for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
             void* context_read_ptr = kv_read_ptrs[layer_id];
+            void* context_write_ptr = kv_write_ptrs[layer_id];
+            if (context_read_ptr == nullptr || context_write_ptr == nullptr) {
+                tensors.erase(ModelTensors::context_write_layer(layer_id));
+                tensors.erase(ModelTensors::context_cache_layer(layer_id));
+                continue;
+            }
 
             tensors[ModelTensors::context_write_layer(layer_id)] = Tensor::view(
-                kv_write_ptrs[layer_id], {seq_len, stride_elems}, kv_dtype, device_, device_id_);
+                context_write_ptr, {seq_len, stride_elems}, kv_dtype, device_, device_id_);
 
             tensors[ModelTensors::context_cache_layer(layer_id)] = Tensor::view(
                 context_read_ptr, {cache_kv_len, stride_elems}, kv_dtype, device_, device_id_);
@@ -1176,6 +1202,15 @@ void StandardEngine::prepare_kvcache_tensors(
         for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
             void* read_ptr = kv_read_ptrs[layer_id];
             void* write_ptr = kv_write_ptrs[layer_id];
+            if (read_ptr == nullptr || write_ptr == nullptr) {
+                tensors.erase(ModelTensors::k_write_layer(layer_id));
+                tensors.erase(ModelTensors::v_write_layer(layer_id));
+                if (!is_decode || init_decode_static) {
+                    tensors.erase(ModelTensors::k_cache_layer(layer_id));
+                    tensors.erase(ModelTensors::v_cache_layer(layer_id));
+                }
+                continue;
+            }
 
             size_t offset_bytes = static_cast<uint8_t*>(write_ptr) - static_cast<uint8_t*>(read_ptr);
             void* k_write_ptr = write_ptr;
@@ -1223,7 +1258,7 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     auto model_config = config_.prefill_model_config();
     int32_t num_attention_heads = model_config.value("num_attention_heads", 32);
     int32_t num_kv_heads = model_config.value("num_key_value_heads", num_attention_heads);
-    int32_t head_dim = hidden_size / num_attention_heads;
+    int32_t head_dim = model_config.value("head_dim", hidden_size / num_attention_heads);
     
     prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, prefix_size);
     
@@ -1496,7 +1531,7 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     auto model_config = config_.prefill_model_config();
     int32_t num_attention_heads = model_config.value("num_attention_heads", 32);
     int32_t num_kv_heads = model_config.value("num_key_value_heads", num_attention_heads);
-    int32_t head_dim = hidden_size / num_attention_heads;
+    int32_t head_dim = model_config.value("head_dim", hidden_size / num_attention_heads);
     
     // prepare kvcache tensors(write buffers and read buffers)
     prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, context.prefix_size());

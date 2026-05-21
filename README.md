@@ -248,6 +248,7 @@ generated_tokens = response.token_ids()
 | 模型系列 | 状态 | 说明 |
 |---------|------|------|
 | Qwen2.5 | ✅ 已支持 | 通义千问2.5系列模型<br>支持模型文件格式转换（参考 `scripts/convert_qwen3.py`） |
+| Qwen3.5 | ✅ Runtime 已支持 | 支持 `examples/qwen3.5-0.8b`、`examples/qwen3.5-2b` text-only greedy generation；CUDA graph decode 暂按非 graph 路径 fallback |
 | 更多模型 | 🔄 计划支持 | 更多模型支持正在开发中... |
 
 ## 性能测试
@@ -432,7 +433,8 @@ edge-fm/
 │   └── edge-fm.cpp      # 主实现
 ├── examples/             # 使用示例
 │   ├── config/           # 配置文件示例
-│   └── qwen2.5-vl/       # Qwen2.5-VL 示例
+│   ├── qwen2.5-vl/       # Qwen2.5-VL 示例
+│   └── qwen3.5-*/        # Qwen3.5 checkpoint 下载与 EdgeFM/HF smoke 示例
 ├── tests/                # 测试文件
 │   ├── benchmark/        # 性能测试
 │   └── models/           # 模型测试

@@ -38,6 +38,7 @@ def create_engine_config(model_config, kvcache_config, temp_dir):
     
     # 创建 engine_config.json
     engine_config = {
+        "model_name": model_config.get("_engine_model_name", "Qwen2.5"),
         "runtime": {
             "device": "cuda",
             "device_id": 0
@@ -49,6 +50,75 @@ def create_engine_config(model_config, kvcache_config, temp_dir):
         json.dump(engine_config, f)
     
     return engine_config_path
+
+
+def test_qwen3_5_kvcache_uses_full_attention_layers_and_explicit_head_dim():
+    """Qwen3.5 only allocates KV cache for full_attention layers and uses config head_dim."""
+    temp_dir = tempfile.mkdtemp()
+
+    model_config = {
+        "_engine_model_name": "Qwen3.5",
+        "model_type": "qwen3_5",
+        "text_config": {
+            "model_type": "qwen3_5_text",
+            "num_hidden_layers": 24,
+            "num_attention_heads": 8,
+            "num_key_value_heads": 2,
+            "hidden_size": 1024,
+            "head_dim": 256,
+            "vocab_size": 248320,
+            "layer_types": [
+                "linear_attention",
+                "linear_attention",
+                "linear_attention",
+                "full_attention",
+                "linear_attention",
+                "linear_attention",
+                "linear_attention",
+                "full_attention",
+                "linear_attention",
+                "linear_attention",
+                "linear_attention",
+                "full_attention",
+                "linear_attention",
+                "linear_attention",
+                "linear_attention",
+                "full_attention",
+                "linear_attention",
+                "linear_attention",
+                "linear_attention",
+                "full_attention",
+                "linear_attention",
+                "linear_attention",
+                "linear_attention",
+                "full_attention",
+            ],
+        },
+    }
+
+    kvcache_config = {
+        "attention_type": "gqa",
+        "dtype": "fp16",
+        "requests": [{"request_id": 0, "max_tokens": 128, "prefix_token_ids": [11]}],
+    }
+
+    engine_config_path = create_engine_config(model_config, kvcache_config, temp_dir)
+    kv_manager = edge_fm.KVManager(engine_config_path)
+
+    read_ptrs = kv_manager.get_read_kvcache(0)
+    write_ptrs = kv_manager.get_write_kvcache(0)
+
+    assert len(read_ptrs) == 24
+    assert len(write_ptrs) == 24
+    full_attention_layers = {3, 7, 11, 15, 19, 23}
+    for layer_id, (read_ptr, write_ptr) in enumerate(zip(read_ptrs, write_ptrs)):
+        if layer_id in full_attention_layers:
+            assert read_ptr > 0
+            assert write_ptr > read_ptr
+            assert write_ptr - read_ptr == 2 * 256 * 2
+        else:
+            assert read_ptr == 0
+            assert write_ptr == 0
 
 
 # ============================================================================

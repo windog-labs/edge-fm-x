@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include "models/qwen2_5/qwen2_5.h"
+#include "models/qwen3_5/qwen3_5.h"
 
 namespace edge_fm {
 
@@ -52,21 +53,21 @@ Model::Model(const EngineConfig& config)
     , dtype_(DType::Float16)  // Default to Float16
     , model_loaded_(false)
 {
+    runtime_spec_ = resolve_model_runtime_spec(engine_config_);
+
     // 从 prefill_model_config 中读取模型参数
     nlohmann::json model_config = engine_config_.prefill_model_config();
     
-    num_layers_ = model_config.value("num_hidden_layers", 0);
-    check(num_layers_ != 0, "num_hidden_layers is required in model config.json");
-    
-    hidden_size_ = model_config.value("hidden_size", 0);
-    check(hidden_size_ != 0, "hidden_size is required in model config.json");
-    
-    vocab_size_ = model_config.value("vocab_size", 0);
-    check(vocab_size_ != 0, "vocab_size is required in model config.json");
+    num_layers_ = runtime_spec_.num_layers;
+    hidden_size_ = runtime_spec_.hidden_size;
+    vocab_size_ = runtime_spec_.vocab_size;
+    check<ConfigurationError>(vocab_size_ > 0, "vocab_size is required in model config.json");
     
     // 读取 torch_dtype 并转换为 DType
-    if (model_config.contains("torch_dtype")) {
-        std::string torch_dtype_str = model_config["torch_dtype"].get<std::string>();
+    if (model_config.contains("torch_dtype") || model_config.contains("dtype")) {
+        std::string torch_dtype_str = model_config.value(
+            "torch_dtype",
+            model_config.value("dtype", std::string("float16")));
         dtype_ = dtype_from_string(torch_dtype_str);
     }
 }
@@ -76,10 +77,13 @@ std::unique_ptr<Model> Model::create(const EngineConfig& config) {
     if (resolved_name == "qwen2_5" || resolved_name == "qwen2_5_vl") {
         return std::make_unique<Qwen2_5>(config);
     }
+    if (resolved_name == "qwen3_5") {
+        return std::make_unique<Qwen3_5>(config);
+    }
 
     throw ConfigurationError(
         "Unsupported model_name: " + resolved_name +
-        ". This build currently supports: qwen2_5, qwen2_5_vl");
+        ". This build currently supports: qwen2_5, qwen2_5_vl, qwen3_5");
 }
 
 } // namespace edge_fm

@@ -167,7 +167,9 @@ AttentionLayer::AttentionLayer(const EngineConfig& engine_config, std::string la
 {
     nlohmann::json model_config = engine_config_.prefill_model_config();
 
-    const std::string torch_dtype_str = model_config.value("torch_dtype", "float16");
+    const std::string torch_dtype_str = model_config.value(
+        "torch_dtype",
+        model_config.value("dtype", std::string("float16")));
     dtype_ = dtype_from_string(torch_dtype_str);
     check<ConfigurationError>(
         dtype_ == DType::Float16 || dtype_ == DType::BFloat16,
@@ -176,12 +178,11 @@ AttentionLayer::AttentionLayer(const EngineConfig& engine_config, std::string la
     num_qo_heads_ = model_config.value("num_attention_heads", 32U);
     num_kv_heads_ = model_config.value("num_key_value_heads", num_qo_heads_);
     hidden_size_ = model_config.value("hidden_size", 4096U);
-    head_dim_ = hidden_size_ / num_qo_heads_;
+    head_dim_ = model_config.value("head_dim", hidden_size_ / num_qo_heads_);
 
     check<ConfigurationError>(
-        head_dim_ * num_qo_heads_ == hidden_size_,
-        "hidden_size must be divisible by num_attention_heads. Got hidden_size=" +
-            std::to_string(hidden_size_) + ", num_attention_heads=" + std::to_string(num_qo_heads_));
+        head_dim_ > 0,
+        "head_dim must be positive. Got head_dim=" + std::to_string(head_dim_));
 
     rope_theta_ = model_config.value("rope_theta", 1000000.0f);
     rope_scale_ = 1.0f;
@@ -196,6 +197,15 @@ AttentionLayer::AttentionLayer(const EngineConfig& engine_config, std::string la
             "type", rope_scaling.value("rope_type", std::string("")));
         if (rope_type == "mrope") {
             rope_mode_ = RoPEMode::kMRoPE;
+        }
+    }
+    if (model_config.contains("rope_parameters") && model_config["rope_parameters"].is_object()) {
+        const auto rope_parameters = model_config["rope_parameters"];
+        if (rope_parameters.value("mrope_interleaved", false)) {
+            rope_mode_ = RoPEMode::kMRoPE;
+        }
+        if (rope_parameters.contains("rope_theta")) {
+            rope_theta_ = rope_parameters["rope_theta"].get<float>();
         }
     }
 }
@@ -260,8 +270,16 @@ AttentionOp* AttentionLayer::resolve_impl(ModelStage stage) const {
             // registry default instead of hard-failing the whole model.
             selected_impl_id.clear();
         } else {
-            throw ConfigurationError(
-                "AttentionLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
+            if (resolved->impl_id == "trt_context_fmha_plugin_attention") {
+                // This optional plugin is compiled only when TRT plugin ops are
+                // enabled. Platform tables may still carry the tuned record, so
+                // treat an unregistered plugin like an unsupported impl and use
+                // the default attention path.
+                selected_impl_id.clear();
+            } else {
+                throw ConfigurationError(
+                    "AttentionLayer: operator_impl_table selected unknown impl '" + resolved->impl_id + "'");
+            }
         }
     }
 
@@ -387,10 +405,23 @@ void AttentionLayer::forward_prefill(
     ctx.device_id = device_id_;
 
     AttentionOp* impl = resolve_impl(ModelStage::Prefill);
+    bool using_runtime_prerotate_fallback = false;
+    if ((k_already_prerotated || k_stride_n != 0 || k_stride_h != 0) &&
+        impl->impl_id() != "flashinfer_attention_prefill_prerotate") {
+        AttentionOp* prerotate_impl =
+            AttentionOpRegistry::instance().find_impl_by_id("flashinfer_attention_prefill_prerotate");
+        if (prerotate_impl != nullptr && prerotate_impl->supports(ctx)) {
+            impl = prerotate_impl;
+            ctx.impl_params = nlohmann::json::object();
+            using_runtime_prerotate_fallback = true;
+        }
+    }
     check<ConfigurationError>(
         !k_already_prerotated || impl->impl_id() == "flashinfer_attention_prefill_prerotate",
         "AttentionLayer: k_already_prerotated requires flashinfer_attention_prefill_prerotate");
-    ctx.impl_params = selected_impl_params_[stage_slot(ModelStage::Prefill)];
+    if (!using_runtime_prerotate_fallback) {
+        ctx.impl_params = selected_impl_params_[stage_slot(ModelStage::Prefill)];
+    }
     impl->forward_prefill(ctx, q, k, v, o, causal, stream);
 }
 

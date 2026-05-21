@@ -5,6 +5,8 @@
 set(ENGINE_SOURCES
     engine.cpp
     engine_factory.cpp
+    model_runtime_spec.cpp
+    runtime_state_arena.cpp
     tasks/stage_execution/mock_stage_runner.cpp
     tasks/token_generation/compact_vocab.cpp
     tasks/token_generation/kv_manager.cpp

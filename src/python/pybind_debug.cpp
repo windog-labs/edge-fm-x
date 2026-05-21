@@ -16,6 +16,9 @@
 #include "layers/embed_head.h"
 #include "layers/linear.h"
 #include "engine/engine.h"
+#include "engine/model_runtime_spec.h"
+#include "engine/runtime_state_arena.h"
+#include "operators/qwen3_5/qwen3_5_ops.h"
 #include "models/model.h"
 #include "engine/tasks/token_generation/kv_manager.h"
 #include "utils/device/weight_loader.h"
@@ -48,9 +51,15 @@ std::vector<std::string> collect_safetensors_files(const std::string& model_dir)
     for (const auto& entry : std::filesystem::directory_iterator(dir)) {
         if (!entry.is_regular_file()) continue;
         const std::string name = entry.path().filename().string();
-        if (name.size() > 18 && name.compare(0, 6, "model-") == 0 &&
+        const bool hf_split_name =
+            name.size() > 18 && name.compare(0, 6, "model-") == 0 &&
             name.find("-of-") != std::string::npos &&
-            name.size() >= 12 && name.compare(name.size() - 12, 12, ".safetensors") == 0) {
+            name.size() >= 12 && name.compare(name.size() - 12, 12, ".safetensors") == 0;
+        const bool qwen3_5_split_name =
+            name.rfind("model.safetensors-", 0) == 0 &&
+            name.find("-of-") != std::string::npos &&
+            name.size() >= 12 && name.compare(name.size() - 12, 12, ".safetensors") == 0;
+        if (hf_split_name || qwen3_5_split_name) {
             out.push_back(entry.path().string());
         }
     }
@@ -77,7 +86,9 @@ const std::unordered_map<std::string, Tensor>& load_stage_weights_for_debug_laye
         throw ConfigurationError("No model.safetensors or model-*-of-*.safetensors found in: " + model_path);
     }
 
-    const bool is_vlm = (config.resolved_model_name() == "qwen2_5_vl");
+    const std::string resolved_model_name = config.resolved_model_name();
+    const bool is_vlm = (resolved_model_name == "qwen2_5_vl");
+    const bool is_qwen3_5 = (resolved_model_name == "qwen3_5");
     if (is_vlm) {
         auto vlm_filter = [](const std::string& name) {
             return name.rfind("model.", 0) == 0 ||
@@ -95,6 +106,21 @@ const std::unordered_map<std::string, Tensor>& load_stage_weights_for_debug_laye
         };
         for (const auto& file : safetensors_files) {
             loader.load_weights_from_file(stage, file, Device::GPU, runtime_device_id, true, vlm_filter, vlm_key_mapper);
+        }
+    } else if (is_qwen3_5) {
+        auto qwen3_5_filter = [](const std::string& name) {
+            return name.rfind("model.language_model.", 0) == 0 ||
+                   name.rfind("lm_head.", 0) == 0;
+        };
+        auto qwen3_5_key_mapper = [](const std::string& name) {
+            constexpr const char* kPrefix = "model.language_model.";
+            if (name.rfind(kPrefix, 0) == 0) {
+                return std::string("model.") + name.substr(std::string(kPrefix).size());
+            }
+            return name;
+        };
+        for (const auto& file : safetensors_files) {
+            loader.load_weights_from_file(stage, file, Device::GPU, runtime_device_id, true, qwen3_5_filter, qwen3_5_key_mapper);
         }
     } else {
         for (const auto& file : safetensors_files) {
@@ -310,6 +336,20 @@ py::object tensor_to_dlpack_capsule(const Tensor& tensor) {
 
 static WeightLoader& loader = WeightLoader::instance();
 
+py::dict model_runtime_spec_to_py_dict(const ModelRuntimeSpec& spec) {
+    py::dict out;
+    out["model_name"] = spec.model_name;
+    out["num_layers"] = spec.num_layers;
+    out["hidden_size"] = spec.hidden_size;
+    out["vocab_size"] = spec.vocab_size;
+    out["num_attention_heads"] = spec.num_attention_heads;
+    out["num_key_value_heads"] = spec.num_kv_heads;
+    out["head_dim"] = spec.head_dim;
+    out["kv_cache_layers"] = spec.kv_cache_layer_ids();
+    out["supports_decode_cuda_graph"] = spec.supports_decode_cuda_graph;
+    return out;
+}
+
 PYBIND11_MODULE(edge_fm, m) {
     m.doc() = "EdgeFM: 边缘端基础模型推理引擎";
 
@@ -357,6 +397,14 @@ PYBIND11_MODULE(edge_fm, m) {
         .value("OwnCudaMalloc", MemoryOwnership::OwnCudaMalloc, "GPU 内存（cudaFree 释放）")
         .value("OwnCudaPool", MemoryOwnership::OwnCudaPool, "GPU 内存池（cudaFreeAsync 释放）")
         .export_values();
+
+    m.def("resolve_model_runtime_spec",
+          [](const std::string& config_path) {
+              EngineConfig config(config_path);
+              return model_runtime_spec_to_py_dict(resolve_model_runtime_spec(config));
+          },
+          py::arg("config_path"),
+          "解析模型 runtime spec，用于测试显式 head_dim、per-layer KV cache plan 和 CUDA graph 能力。");
 
     // ============================================================================
     // Tensor 类绑定
@@ -479,6 +527,209 @@ PYBIND11_MODULE(edge_fm, m) {
              "注意:\n"
              "    文件格式为文本格式，包含元数据（形状、数据类型等）和数据。\n"
              "    对于 GPU 张量，数据会先复制到 CPU。");
+
+    py::class_<RuntimeStateArena>(m, "RuntimeStateArena", "按名称管理 per-request runtime state tensor 的通用 arena")
+        .def(py::init<>())
+        .def("get_or_create",
+             [](RuntimeStateArena& self,
+                const std::string& name,
+                const std::vector<int64_t>& shape,
+                DType dtype,
+                Device device,
+                int32_t device_id,
+                MemoryOwnership ownership,
+                uintptr_t stream_handle) -> Tensor& {
+                 return self.get_or_create(name,
+                                           shape,
+                                           dtype,
+                                           device,
+                                           device_id,
+                                           ownership,
+                                           reinterpret_cast<void*>(stream_handle));
+             },
+             py::arg("name"),
+             py::arg("shape"),
+             py::arg("dtype"),
+             py::arg("device"),
+             py::arg("device_id") = 0,
+             py::arg("ownership") = MemoryOwnership::ViewExternal,
+             py::arg("stream_handle") = 0,
+             py::return_value_policy::reference_internal,
+             "获取或创建 named runtime state tensor。ownership=ViewExternal 表示按 device 自动选择拥有型分配。")
+        .def("view",
+             &RuntimeStateArena::view,
+             py::arg("name"),
+             py::arg("shape"),
+             "创建同一底层 buffer 的非拥有 shape view。")
+        .def("contains", &RuntimeStateArena::contains, py::arg("name"))
+        .def("names", &RuntimeStateArena::names)
+        .def("clear", &RuntimeStateArena::clear);
+
+    m.def("qwen3_5_rmsnorm",
+          [](const Tensor& input, const Tensor& weight, Tensor& output, float eps, uintptr_t stream_ptr) {
+              cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+              qwen3_5_rmsnorm_forward(input, weight, output, eps, stream);
+          },
+          py::arg("input"),
+          py::arg("weight"),
+          py::arg("output"),
+          py::arg("eps") = 1e-6f,
+          py::arg("stream") = 0,
+          "Qwen3.5 RMSNorm: output = rmsnorm(input) * (1 + weight)。")
+        .def("qwen3_5_add",
+             [](const Tensor& lhs,
+                const Tensor& rhs,
+                Tensor& output,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_add_forward(lhs, rhs, output, stream);
+             },
+             py::arg("lhs"),
+             py::arg("rhs"),
+             py::arg("output"),
+             py::arg("stream") = 0,
+             "Qwen3.5 elementwise add.")
+        .def("qwen3_5_mul_sigmoid",
+             [](const Tensor& input,
+                const Tensor& gate,
+                Tensor& output,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_mul_sigmoid_forward(input, gate, output, stream);
+             },
+             py::arg("input"),
+             py::arg("gate"),
+             py::arg("output"),
+             py::arg("stream") = 0,
+             "Qwen3.5 elementwise input * sigmoid(gate).")
+        .def("qwen3_5_split_q_gate",
+             [](const Tensor& q_proj,
+                Tensor& query,
+                Tensor& gate,
+                int32_t num_heads,
+                int32_t head_dim,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_split_q_gate_forward(q_proj, query, gate, num_heads, head_dim, stream);
+             },
+             py::arg("q_proj"),
+             py::arg("query"),
+             py::arg("gate"),
+             py::arg("num_heads"),
+             py::arg("head_dim"),
+             py::arg("stream") = 0,
+             "Split Qwen3.5 q_proj into query and sigmoid gate input.")
+        .def("qwen3_5_depthwise_causal_conv1d",
+             [](const Tensor& input,
+                const Tensor& weight,
+                Tensor& conv_state,
+                Tensor& output,
+                bool update_state,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_depthwise_causal_conv1d_forward(input, weight, conv_state, output, update_state, stream);
+             },
+             py::arg("input"),
+             py::arg("weight"),
+             py::arg("conv_state"),
+             py::arg("output"),
+             py::arg("update_state") = true,
+             py::arg("stream") = 0,
+             "Qwen3.5 depthwise causal conv1d with optional state update.")
+        .def("qwen3_5_compute_g_beta",
+             [](const Tensor& a,
+                const Tensor& b,
+                const Tensor& a_log,
+                const Tensor& dt_bias,
+                Tensor& g,
+                Tensor& beta,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_compute_g_beta_forward(a, b, a_log, dt_bias, g, beta, stream);
+             },
+             py::arg("a"),
+             py::arg("b"),
+             py::arg("a_log"),
+             py::arg("dt_bias"),
+             py::arg("g"),
+             py::arg("beta"),
+             py::arg("stream") = 0,
+             "Compute Qwen3.5 GatedDeltaNet g and beta.")
+        .def("qwen3_5_gated_rmsnorm",
+             [](const Tensor& input,
+                const Tensor& gate,
+                const Tensor& weight,
+                Tensor& output,
+                float eps,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_gated_rmsnorm_forward(input, gate, weight, output, eps, stream);
+             },
+             py::arg("input"),
+             py::arg("gate"),
+             py::arg("weight"),
+             py::arg("output"),
+             py::arg("eps") = 1e-6f,
+             py::arg("stream") = 0,
+             "Qwen3.5 gated RMSNorm used by GatedDeltaNet.")
+        .def("qwen3_5_gated_delta_recurrent_step",
+             [](const Tensor& query,
+                const Tensor& key,
+                const Tensor& value,
+                const Tensor& g,
+                const Tensor& beta,
+                Tensor& recurrent_state,
+                Tensor& output,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_gated_delta_recurrent_step(query, key, value, g, beta, recurrent_state, output, stream);
+             },
+             py::arg("query"),
+             py::arg("key"),
+             py::arg("value"),
+             py::arg("g"),
+             py::arg("beta"),
+             py::arg("recurrent_state"),
+             py::arg("output"),
+             py::arg("stream") = 0,
+             "Qwen3.5 GatedDeltaNet single-token recurrent update.")
+        .def("qwen3_5_gated_delta_sequence",
+             [](const Tensor& mixed_qkv,
+                const Tensor& g,
+                const Tensor& beta,
+                Tensor& recurrent_state,
+                Tensor& output,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_gated_delta_sequence_forward(mixed_qkv, g, beta, recurrent_state, output, stream);
+             },
+             py::arg("mixed_qkv"),
+             py::arg("g"),
+             py::arg("beta"),
+             py::arg("recurrent_state"),
+             py::arg("output"),
+             py::arg("stream") = 0,
+             "Qwen3.5 GatedDeltaNet sequential recurrent update.")
+        .def("qwen3_5_apply_partial_interleaved_mrope",
+             [](Tensor& query,
+                Tensor& key,
+                const Tensor& position_ids,
+                const std::vector<int32_t>& mrope_section,
+                float rope_theta,
+                int32_t rotary_dim,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_apply_partial_interleaved_mrope(
+                     query, key, position_ids, mrope_section, rope_theta, rotary_dim, stream);
+             },
+             py::arg("query"),
+             py::arg("key"),
+             py::arg("position_ids"),
+             py::arg("mrope_section"),
+             py::arg("rope_theta"),
+             py::arg("rotary_dim"),
+             py::arg("stream") = 0,
+             "Qwen3.5 partial rotary interleaved M-RoPE for Q/K tensors.");
 
     // ============================================================================
     // AttentionLayer 类绑定

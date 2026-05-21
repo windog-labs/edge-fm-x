@@ -37,9 +37,15 @@ std::vector<std::string> collect_safetensors_files(const std::string& model_dir)
             continue;
         }
         std::string name = entry.path().filename().string();
-        if (name.size() > 18 && name.compare(0, 6, "model-") == 0 &&
+        const bool hf_split_name =
+            name.size() > 18 && name.compare(0, 6, "model-") == 0 &&
             name.find("-of-") != std::string::npos &&
-            name.size() >= 12 && name.compare(name.size() - 12, 12, ".safetensors") == 0) {
+            name.size() >= 12 && name.compare(name.size() - 12, 12, ".safetensors") == 0;
+        const bool qwen3_5_split_name =
+            name.rfind("model.safetensors-", 0) == 0 &&
+            name.find("-of-") != std::string::npos &&
+            name.size() >= 12 && name.compare(name.size() - 12, 12, ".safetensors") == 0;
+        if (hf_split_name || qwen3_5_split_name) {
             out.push_back(entry.path().string());
         }
     }
@@ -54,7 +60,9 @@ void load_cuda_weights(const EngineConfig& config) {
 
     const std::string prefill_path = config.prefill_model_path();
     const int32_t device_id = config.runtime_device_id();
-    const bool is_vlm = config.resolved_model_name() == "qwen2_5_vl";
+    const std::string resolved_model_name = config.resolved_model_name();
+    const bool is_vlm = resolved_model_name == "qwen2_5_vl";
+    const bool is_qwen3_5 = resolved_model_name == "qwen3_5";
 
     std::vector<std::string> prefill_files = collect_safetensors_files(prefill_path);
     if (prefill_files.empty()) {
@@ -93,6 +101,31 @@ void load_cuda_weights(const EngineConfig& config) {
             for (const auto& file : decode_files) {
                 loader.load_weights_from_file(
                     ModelStage::Decode, file, Device::GPU, device_id, true, vlm_filter, vlm_key_mapper);
+            }
+        }
+        return;
+    }
+
+    if (is_qwen3_5) {
+        auto qwen3_5_filter = [](const std::string& name) {
+            return name.rfind("model.language_model.", 0) == 0 ||
+                   name.rfind("lm_head.", 0) == 0;
+        };
+        auto qwen3_5_key_mapper = [](const std::string& name) {
+            constexpr const char* kPrefix = "model.language_model.";
+            if (name.rfind(kPrefix, 0) == 0) {
+                return std::string("model.") + name.substr(std::string(kPrefix).size());
+            }
+            return name;
+        };
+        for (const auto& file : prefill_files) {
+            loader.load_weights_from_file(
+                ModelStage::Prefill, file, Device::GPU, device_id, true, qwen3_5_filter, qwen3_5_key_mapper);
+        }
+        if (!share_prefill_decode_weights) {
+            for (const auto& file : decode_files) {
+                loader.load_weights_from_file(
+                    ModelStage::Decode, file, Device::GPU, device_id, true, qwen3_5_filter, qwen3_5_key_mapper);
             }
         }
         return;

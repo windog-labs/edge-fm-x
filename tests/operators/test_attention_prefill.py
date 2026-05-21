@@ -164,6 +164,50 @@ def test_attention_prefill_prerotate_impl_matches_flashinfer_rope():
     torch.testing.assert_close(candidate_out, baseline_out, rtol=8e-2, atol=8e-2)
 
 
+def test_attention_prefill_optional_trt_plugin_record_falls_back_to_default():
+    ensure_cuda()
+    device = torch_device()
+    seq_len = 64
+
+    torch.manual_seed(19)
+    q = torch.randn(seq_len, NUM_QO_HEADS, HEAD_DIM, device=device, dtype=torch.bfloat16)
+    k = torch.randn(seq_len, NUM_KV_HEADS, HEAD_DIM, device=device, dtype=torch.bfloat16)
+    v = torch.randn(seq_len, NUM_KV_HEADS, HEAD_DIM, device=device, dtype=torch.bfloat16)
+
+    baseline_layer = _make_attention_layer()
+    baseline_out = torch.empty_like(q)
+    baseline_layer.forward_prefill(
+        tensor_to_edge_fm_tensor(q),
+        tensor_to_edge_fm_tensor(k),
+        tensor_to_edge_fm_tensor(v),
+        tensor_to_edge_fm_tensor(baseline_out),
+        True,
+    )
+
+    candidate_layer = _make_attention_layer_with_table([
+        {
+            "model_name": "qwen2_5",
+            "hw_profile": CUDA_HW_PROFILE,
+            "op_kind": "attention",
+            "stage": "prefill",
+            "shape_sig": "num_qo_heads=12|num_kv_heads=2|head_dim=128",
+            "impl_id": "trt_context_fmha_plugin_attention",
+            "impl_params": {},
+        }
+    ])
+    candidate_out = torch.empty_like(q)
+    candidate_layer.forward_prefill(
+        tensor_to_edge_fm_tensor(q),
+        tensor_to_edge_fm_tensor(k),
+        tensor_to_edge_fm_tensor(v),
+        tensor_to_edge_fm_tensor(candidate_out),
+        True,
+    )
+
+    torch.cuda.synchronize()
+    torch.testing.assert_close(candidate_out, baseline_out, rtol=8e-2, atol=8e-2)
+
+
 def test_attention_prefill_accepts_strided_qkv_views():
     ensure_cuda()
     device = torch_device()

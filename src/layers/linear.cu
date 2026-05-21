@@ -430,8 +430,10 @@ LinearLayer::LinearLayer(const std::string& layer_prefix,
 {
     // Check if we need CUBLASLt handle based on model dtype
     auto check_dtype_needs_cublaslt = [](const nlohmann::json& config) -> bool {
-        if (config.contains("torch_dtype")) {
-            std::string dtype_str = config["torch_dtype"].get<std::string>();
+        if (config.contains("torch_dtype") || config.contains("dtype")) {
+            std::string dtype_str = config.value(
+                "torch_dtype",
+                config.value("dtype", std::string("")));
             return dtype_str == "float16" || dtype_str == "fp16" || 
                    dtype_str == "bfloat16" || dtype_str == "bf16";
         }

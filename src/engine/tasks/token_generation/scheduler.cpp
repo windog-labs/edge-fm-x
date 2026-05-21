@@ -16,7 +16,9 @@ Context& Context::operator++() {
     
     // 更新 kv_write_ptrs_：前进一个token的kvcache位置
     for (auto& ptr : kv_write_ptrs_) {
-        ptr = static_cast<uint8_t*>(ptr) + token_stride_;
+        if (ptr != nullptr) {
+            ptr = static_cast<uint8_t*>(ptr) + token_stride_;
+        }
     }
     
     return *this;
@@ -27,7 +29,9 @@ void Context::advance_after_prefill(int32_t seq_len) {
     generated_tokens_++;
     size_t stride = static_cast<size_t>(seq_len) * static_cast<size_t>(token_stride_);
     for (auto& ptr : kv_write_ptrs_) {
-        ptr = static_cast<uint8_t*>(ptr) + stride;
+        if (ptr != nullptr) {
+            ptr = static_cast<uint8_t*>(ptr) + stride;
+        }
     }
 }
 
