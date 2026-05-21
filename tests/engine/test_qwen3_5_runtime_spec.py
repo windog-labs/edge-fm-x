@@ -90,7 +90,7 @@ def test_qwen3_5_runtime_spec_uses_explicit_head_dim_and_layer_types():
     assert spec["num_attention_heads"] == 8
     assert spec["num_key_value_heads"] == 2
     assert spec["kv_cache_layers"] == [3, 7, 11, 15, 19, 23]
-    assert spec["supports_decode_cuda_graph"] is False
+    assert spec["supports_decode_cuda_graph"] is True
 
 
 def test_qwen2_5_runtime_spec_keeps_all_layers_and_decode_graph():

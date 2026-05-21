@@ -253,7 +253,11 @@ private:
                   const std::string& cache_key,
                   int32_t device_id)
     {
-        const Tensor& original = tensors_.at(tensor_name);
+        auto it = tensors_.find(tensor_name);
+        if (it == tensors_.end()) {
+            return;
+        }
+        const Tensor& original = it->second;
         saved_.push_back(SavedTensor{tensor_name, make_tensor_view(original)});
 
         void* tmp_ptr = StaticBufferManager::get_cache_buf(cache_key, tensor_nbytes(original), device_id);
@@ -579,7 +583,7 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
     if (!config_.use_cuda_graph()) {
         return false;
     }
-    if (!model_->supports_decode_cuda_graph()) {
+    if (!model_->supports_prefill_cuda_graph()) {
         return false;
     }
     if (kv_manager_->get_attention_type() == AttentionType::MLA) {
@@ -795,6 +799,8 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
     auto& tensors = context.tensors();
     cudaStream_t stream = cuda_stream(context);
 
+    model_->backup_decode_runtime_tensors(context, stream);
+
     // Run one uncaptured decode into temporary KV buffers so lazy allocations
     // happen before capture and the real cache stays untouched. Sampler output
     // is redirected as well so the stable decode token buffer is not clobbered.
@@ -833,6 +839,11 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
 
         tensors[ModelTensors::SAMPLER_TOKEN_OUT] = std::move(sampler_out_saved);
     }
+    model_->restore_decode_runtime_tensors(context, stream);
+    if (stream != nullptr) {
+        CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
+                         "Failed to sync restored decode runtime state before CUDA graph capture");
+    }
 
     (void)cudaGetLastError();
 
@@ -851,6 +862,7 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
         advance_decode_runtime_state(context, stream);
     }, write_ptrs.k, write_ptrs.v);
     decode_graph_lm_head_top1_ = captured_lm_head_top1;
+    model_->restore_decode_runtime_tensors(context, stream);
 
     // Stream capture executes the captured work, so restore the first decode
     // step's input state before the first graph replay.

@@ -20,6 +20,14 @@ void Model::advance_decode_runtime_tensors(Context& /*context*/, cudaStream_t /*
     // Default: no-op. Models with decode-time runtime state can override.
 }
 
+void Model::backup_decode_runtime_tensors(Context& /*context*/, cudaStream_t /*stream*/) {
+    // Default: no-op. Models with mutable recurrent decode state can override.
+}
+
+void Model::restore_decode_runtime_tensors(Context& /*context*/, cudaStream_t /*stream*/) {
+    // Default: no-op. Models with mutable recurrent decode state can override.
+}
+
 bool Model::has_static_decode_runtime_tensors() const {
     return false;
 }

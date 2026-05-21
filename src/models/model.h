@@ -81,6 +81,12 @@ public:
     /// 就地推进稳定地址缓冲（例如 M-RoPE position_ids）。
     virtual void advance_decode_runtime_tensors(Context& context, cudaStream_t stream);
 
+    /// 模型特定的 decode 运行时状态快照/恢复。CUDA graph capture 会执行
+    /// warmup/capture decode step，带 recurrent state 的模型需要在 capture 前后
+    /// 恢复状态，避免首个 graph replay 从被推进过的 state 开始。
+    virtual void backup_decode_runtime_tensors(Context& context, cudaStream_t stream);
+    virtual void restore_decode_runtime_tensors(Context& context, cudaStream_t stream);
+
     /// 当 decode graph steady-state 完全依赖稳定设备端 buffer 且不需要每步
     /// 重新构建 tensor 视图时返回 true，Engine 可跳过重复 prepare_decode_tensors。
     virtual bool has_static_decode_runtime_tensors() const;
@@ -101,6 +107,7 @@ public:
     int32_t vocab_size() const { return vocab_size_; }
     DType dtype() const { return dtype_; }
     const ModelRuntimeSpec& runtime_spec() const { return runtime_spec_; }
+    virtual bool supports_prefill_cuda_graph() const { return supports_decode_cuda_graph(); }
     virtual bool supports_decode_cuda_graph() const { return runtime_spec_.supports_decode_cuda_graph; }
 
     static std::unique_ptr<Model> create(const EngineConfig& config);

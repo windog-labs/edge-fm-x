@@ -84,7 +84,7 @@ ModelRuntimeSpec resolve_model_runtime_spec(const EngineConfig& config) {
 
     if (spec.model_name == "qwen3_5") {
         spec.layer_uses_kv_cache = qwen3_5_kv_cache_plan(model_config, spec.num_layers);
-        spec.supports_decode_cuda_graph = false;
+        spec.supports_decode_cuda_graph = true;
     } else {
         spec.layer_uses_kv_cache = all_layers_use_kv_cache(spec.num_layers);
         spec.supports_decode_cuda_graph = true;

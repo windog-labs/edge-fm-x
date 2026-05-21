@@ -387,7 +387,7 @@ def make_engine_config(
     lm_head_top1: bool,
 ) -> Path:
     config = load_engine_text_config(model_path)
-    torch_dtype = str(config.get("torch_dtype", "float16")).lower()
+    torch_dtype = str(config.get("torch_dtype", config.get("dtype", "float16"))).lower()
     kvcache_dtype = "bf16" if ("bfloat" in torch_dtype or "bf16" in torch_dtype) else "fp16"
     num_heads = int(config.get("num_attention_heads", 8))
     num_kv_heads = int(config.get("num_key_value_heads", num_heads))

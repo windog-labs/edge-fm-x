@@ -22,7 +22,13 @@ public:
 
     void prefill(const Context& context) override;
     void decode_step(const Context& context) override;
-    bool supports_decode_cuda_graph() const override { return false; }
+    void prepare_decode_position_ids(Context& context, Device device, int32_t device_id) override;
+    void advance_decode_runtime_tensors(Context& context, cudaStream_t stream) override;
+    void backup_decode_runtime_tensors(Context& context, cudaStream_t stream) override;
+    void restore_decode_runtime_tensors(Context& context, cudaStream_t stream) override;
+    bool has_static_decode_runtime_tensors() const override { return true; }
+    bool supports_prefill_cuda_graph() const override { return false; }
+    bool supports_decode_cuda_graph() const override { return true; }
     void reset_operator_impl_caches() override;
 
 private:

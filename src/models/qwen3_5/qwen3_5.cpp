@@ -1,6 +1,7 @@
 #include "models/qwen3_5/qwen3_5.h"
 
 #include "engine/tasks/token_generation/cuda/scheduler.h"
+#include "engine/tasks/token_generation/cuda/kernels/decode_runtime_kernels.h"
 #include "operators/qwen3_5/qwen3_5_ops.h"
 #include "utils/check.h"
 #include "utils/device/cuda_utils.h"
@@ -59,6 +60,18 @@ size_t shape_nbytes(const std::vector<int64_t>& shape, DType dtype) {
         elements *= static_cast<size_t>(dim);
     }
     return elements * get_dtype_size(dtype);
+}
+
+std::string conv_state_name(int32_t layer_id) {
+    return "qwen3_5.layer." + std::to_string(layer_id) + ".conv_state";
+}
+
+std::string recurrent_state_name(int32_t layer_id) {
+    return "qwen3_5.layer." + std::to_string(layer_id) + ".recurrent_state";
+}
+
+std::string graph_backup_name(const std::string& state_name) {
+    return state_name + ".decode_graph_backup";
 }
 
 } // namespace
@@ -274,6 +287,19 @@ Tensor Qwen3_5::make_position_ids(
     cudaStream_t stream,
     ModelStage stage) const
 {
+    if (stage == ModelStage::Decode) {
+        auto& tensors = const_cast<std::unordered_map<std::string, Tensor>&>(context.tensors());
+        auto it = tensors.find(ModelTensors::POSITION_IDS);
+        if (it != tensors.end()) {
+            return Tensor::view(
+                it->second.data_ptr(),
+                {3, seq_len},
+                DType::Int32,
+                Device::GPU,
+                engine_config_.runtime_device_id());
+        }
+    }
+
     int32_t start = 0;
     if (stage == ModelStage::Prefill) {
         start = static_cast<int32_t>(context.prefix_size());
@@ -400,8 +426,45 @@ void Qwen3_5::run_full_attention_layer(
         rms_norm_eps_,
         stream);
 
-    Tensor& k_write = tensors.at(ModelTensors::k_write_layer(layer_id));
-    Tensor& v_write = tensors.at(ModelTensors::v_write_layer(layer_id));
+    uint32_t* d_kv_len = nullptr;
+    Tensor* k_cache_ptr = nullptr;
+    Tensor* v_cache_ptr = nullptr;
+    if (stage == ModelStage::Decode) {
+        auto dkv_it = tensors.find(ModelTensors::D_KV_LEN);
+        auto k_cache_it = tensors.find(ModelTensors::k_cache_layer(layer_id));
+        auto v_cache_it = tensors.find(ModelTensors::v_cache_layer(layer_id));
+        if (dkv_it != tensors.end() && k_cache_it != tensors.end() && v_cache_it != tensors.end()) {
+            d_kv_len = static_cast<uint32_t*>(dkv_it->second.data_ptr());
+            k_cache_ptr = &k_cache_it->second;
+            v_cache_ptr = &v_cache_it->second;
+        }
+    }
+    const bool write_decode_cache_slot = (d_kv_len != nullptr && k_cache_ptr != nullptr && v_cache_ptr != nullptr);
+
+    Tensor k_write = write_decode_cache_slot
+        ? workspace_tensor(
+              "full_k_decode_scratch_L" + std::to_string(layer_id),
+              {seq_len, num_kv_heads_, head_dim_},
+              dtype_,
+              device_id)
+        : Tensor::view(
+              tensors.at(ModelTensors::k_write_layer(layer_id)).data_ptr(),
+              tensors.at(ModelTensors::k_write_layer(layer_id)).shape(),
+              tensors.at(ModelTensors::k_write_layer(layer_id)).dtype(),
+              Device::GPU,
+              device_id);
+    Tensor v_write = write_decode_cache_slot
+        ? workspace_tensor(
+              "full_v_decode_scratch_L" + std::to_string(layer_id),
+              {seq_len, num_kv_heads_, head_dim_},
+              dtype_,
+              device_id)
+        : Tensor::view(
+              tensors.at(ModelTensors::v_write_layer(layer_id)).data_ptr(),
+              tensors.at(ModelTensors::v_write_layer(layer_id)).shape(),
+              tensors.at(ModelTensors::v_write_layer(layer_id)).dtype(),
+              Device::GPU,
+              device_id);
     Tensor k_write_2d = Tensor::view(
         k_write.data_ptr(),
         {seq_len, num_kv_heads_ * head_dim_},
@@ -440,6 +503,25 @@ void Qwen3_5::run_full_attention_layer(
         rotary_dim_,
         stream);
 
+    if (write_decode_cache_slot) {
+        launch_copy_decode_cache_slot(
+            k_write.data_ptr(),
+            k_cache_ptr->data_ptr(),
+            num_kv_heads_ * head_dim_,
+            dtype_,
+            d_kv_len,
+            stream);
+        CUDA_CHECK_THROW(cudaGetLastError(), "Qwen3_5: copy decode K to cache slot");
+        launch_copy_decode_cache_slot(
+            v_write.data_ptr(),
+            v_cache_ptr->data_ptr(),
+            num_kv_heads_ * head_dim_,
+            dtype_,
+            d_kv_len,
+            stream);
+        CUDA_CHECK_THROW(cudaGetLastError(), "Qwen3_5: copy decode V to cache slot");
+    }
+
     if (stage == ModelStage::Prefill) {
         Tensor& k_cache = tensors.at(ModelTensors::k_cache_layer(layer_id));
         Tensor& v_cache = tensors.at(ModelTensors::v_cache_layer(layer_id));
@@ -451,13 +533,10 @@ void Qwen3_5::run_full_attention_layer(
             true,
             stream);
     } else {
-        Tensor& k_cache = tensors.at(ModelTensors::k_cache_layer(layer_id));
-        Tensor& v_cache = tensors.at(ModelTensors::v_cache_layer(layer_id));
-        uint32_t* d_kv_len = nullptr;
+        Tensor& k_cache = (k_cache_ptr != nullptr) ? *k_cache_ptr : tensors.at(ModelTensors::k_cache_layer(layer_id));
+        Tensor& v_cache = (v_cache_ptr != nullptr) ? *v_cache_ptr : tensors.at(ModelTensors::v_cache_layer(layer_id));
         uint32_t max_kv_len = 0;
-        auto dkv_it = tensors.find(ModelTensors::D_KV_LEN);
-        if (dkv_it != tensors.end()) {
-            d_kv_len = static_cast<uint32_t*>(dkv_it->second.data_ptr());
+        if (d_kv_len != nullptr) {
             max_kv_len = static_cast<uint32_t>(k_cache.shape()[0]);
         }
         attention_layer(layer_id).forward_decode(
@@ -554,13 +633,13 @@ void Qwen3_5::run_linear_attention_layer(
 
     auto& arena = const_cast<Context&>(context).runtime_state_arena();
     Tensor& conv_state = arena.get_or_create(
-        "qwen3_5.layer." + std::to_string(layer_id) + ".conv_state",
+        conv_state_name(layer_id),
         {linear_conv_dim_, linear_conv_kernel_dim_},
         dtype_,
         Device::GPU,
         device_id);
     Tensor& recurrent_state = arena.get_or_create(
-        "qwen3_5.layer." + std::to_string(layer_id) + ".recurrent_state",
+        recurrent_state_name(layer_id),
         {linear_num_value_heads_, linear_key_head_dim_, linear_value_head_dim_},
         DType::Float32,
         Device::GPU,
@@ -737,6 +816,109 @@ void Qwen3_5::prefill(const Context& context) {
 
 void Qwen3_5::decode_step(const Context& context) {
     forward_impl(context, 1, ModelStage::Decode);
+}
+
+void Qwen3_5::prepare_decode_position_ids(Context& context, Device device, int32_t device_id) {
+    const Request* request = context.request();
+    check<InternalError>(request != nullptr, "Qwen3_5: context request must not be null");
+
+    const int32_t pos = static_cast<int32_t>(request->token_ids().size()) +
+        context.get_generated_tokens() - 1;
+    int32_t host_position_ids[3] = {pos, pos, pos};
+    auto& tensors = context.tensors();
+    void* pos_ptr = nullptr;
+    auto it = tensors.find(ModelTensors::POSITION_IDS);
+    if (it != tensors.end()) {
+        pos_ptr = it->second.data_ptr();
+    } else {
+        pos_ptr = StaticBufferManager::get_cache_buf(
+            "qwen3_5_decode_position_ids",
+            3 * sizeof(int32_t),
+            device_id);
+        tensors[ModelTensors::POSITION_IDS] = Tensor::view(
+            pos_ptr,
+            {3, 1},
+            DType::Int32,
+            device,
+            device_id);
+    }
+    CUDA_CHECK_THROW(cudaMemcpyAsync(
+                         pos_ptr,
+                         host_position_ids,
+                         3 * sizeof(int32_t),
+                         cudaMemcpyHostToDevice,
+                         cuda_stream(context)),
+                     "Qwen3_5: copy decode position_ids");
+}
+
+void Qwen3_5::advance_decode_runtime_tensors(Context& context, cudaStream_t stream) {
+    auto& tensors = context.tensors();
+    auto it = tensors.find(ModelTensors::POSITION_IDS);
+    if (it == tensors.end()) {
+        return;
+    }
+    launch_increment_int32_triplet(static_cast<int32_t*>(it->second.data_ptr()), stream);
+    CUDA_CHECK_THROW(cudaGetLastError(), "Qwen3_5: advance decode position_ids");
+}
+
+void Qwen3_5::backup_decode_runtime_tensors(Context& context, cudaStream_t stream) {
+    auto& arena = context.runtime_state_arena();
+    for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
+        if (is_full_attention_layer(layer_id)) {
+            continue;
+        }
+        for (const std::string& name : {conv_state_name(layer_id), recurrent_state_name(layer_id)}) {
+            Tensor* state = arena.find(name);
+            if (state == nullptr) {
+                continue;
+            }
+            auto [device, device_id] = state->device();
+            Tensor& backup = arena.get_or_create(
+                graph_backup_name(name),
+                state->shape(),
+                state->dtype(),
+                device,
+                device_id);
+            const size_t nbytes = shape_nbytes(state->shape(), state->dtype());
+            if (nbytes == 0) {
+                continue;
+            }
+            CUDA_CHECK_THROW(cudaMemcpyAsync(
+                                 backup.data_ptr(),
+                                 state->data_ptr(),
+                                 nbytes,
+                                 cudaMemcpyDeviceToDevice,
+                                 stream),
+                             "Qwen3_5: backup decode runtime state");
+        }
+    }
+}
+
+void Qwen3_5::restore_decode_runtime_tensors(Context& context, cudaStream_t stream) {
+    auto& arena = context.runtime_state_arena();
+    for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
+        if (is_full_attention_layer(layer_id)) {
+            continue;
+        }
+        for (const std::string& name : {conv_state_name(layer_id), recurrent_state_name(layer_id)}) {
+            Tensor* state = arena.find(name);
+            Tensor* backup = arena.find(graph_backup_name(name));
+            if (state == nullptr || backup == nullptr) {
+                continue;
+            }
+            const size_t nbytes = shape_nbytes(state->shape(), state->dtype());
+            if (nbytes == 0) {
+                continue;
+            }
+            CUDA_CHECK_THROW(cudaMemcpyAsync(
+                                 state->data_ptr(),
+                                 backup->data_ptr(),
+                                 nbytes,
+                                 cudaMemcpyDeviceToDevice,
+                                 stream),
+                             "Qwen3_5: restore decode runtime state");
+        }
+    }
 }
 
 void Qwen3_5::reset_operator_impl_caches() {

@@ -174,7 +174,7 @@ def test_qwen3_5_generate_token_alignment(
 
 
 @pytest.mark.parametrize(("label", "model_path", "dump_env_key", "default_dump_dir"), MODEL_CASES)
-def test_qwen3_5_cuda_graph_config_falls_back_to_regular_decode(
+def test_qwen3_5_cuda_graph_config_enables_decode_graph(
     label: str,
     model_path: Path,
     dump_env_key: str,
@@ -203,4 +203,41 @@ def test_qwen3_5_cuda_graph_config_falls_back_to_regular_decode(
 
     assert got_tokens == decode_tokens[:num_steps]
     metrics = engine.last_generate_metrics()
-    assert float(metrics["cuda_graph_enabled"]) == 0.0
+    assert float(metrics["cuda_graph_enabled"]) == 1.0
+
+
+@pytest.mark.parametrize(("label", "model_path", "dump_env_key", "default_dump_dir"), MODEL_CASES)
+def test_qwen3_5_cuda_graph_tokens_match_regular_decode(
+    label: str,
+    model_path: Path,
+    dump_env_key: str,
+    default_dump_dir: str,
+):
+    if not _has_qwen3_5_weights(model_path):
+        pytest.skip(f"Qwen3.5-{label} checkpoint is not available")
+    dump_dir = _resolve_dump_dir(dump_env_key, default_dump_dir)
+    _ensure_reference_dump(label, model_path, dump_dir)
+
+    token_ids = np.load(dump_dir / "input_ids.npy").astype(np.int32).flatten().tolist()
+    decode_tokens = np.load(dump_dir / "decode_tokens.npy").astype(np.int32).flatten().tolist()
+    num_steps = len(decode_tokens)
+
+    regular_engine = edge_fm.EdgeFM(_create_engine_config(model_path, seq_len=len(token_ids), num_steps=num_steps))
+    regular_request = edge_fm.Request(0, token_ids)
+    regular_request.set_ignore_stop_tokens(True)
+    regular_tokens = regular_engine.generate(regular_request).token_ids()[:num_steps]
+
+    graph_engine = edge_fm.EdgeFM(_create_engine_config(
+        model_path,
+        seq_len=len(token_ids),
+        num_steps=num_steps,
+        use_cuda_graph=True,
+    ))
+    graph_request = edge_fm.Request(0, token_ids)
+    graph_request.set_ignore_stop_tokens(True)
+    graph_response = graph_engine.generate(graph_request)
+    graph_tokens = graph_response.token_ids()[:num_steps]
+
+    assert regular_tokens == decode_tokens[:num_steps]
+    assert graph_tokens == regular_tokens
+    assert float(graph_engine.last_generate_metrics()["cuda_graph_enabled"]) == 1.0
