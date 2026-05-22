@@ -90,6 +90,10 @@ public:
     /// 当 decode graph steady-state 完全依赖稳定设备端 buffer 且不需要每步
     /// 重新构建 tensor 视图时返回 true，Engine 可跳过重复 prepare_decode_tensors。
     virtual bool has_static_decode_runtime_tensors() const;
+    /// 当 decode CUDA graph 捕获的所有设备地址可跨 generate Context 复用时返回 true。
+    /// 如果模型在 graph 内使用 per-context state 指针，应返回 false，让 Engine
+    /// 在新请求开始时重新捕获 decode graph。
+    virtual bool can_reuse_decode_cuda_graph_across_requests() const { return true; }
     virtual void reset_operator_impl_caches();
 
     /// 某些模型（例如 VLM 的 M-RoPE 路径）要求 prefill 阶段的 Q 使用独立连续缓冲。

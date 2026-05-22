@@ -74,6 +74,12 @@ void check_tensor_metadata(const std::string& name,
         "RuntimeStateArena tensor '" + name + "' already exists with incompatible metadata");
 }
 
+void check_tensor_data_ptr(const std::string& name, const Tensor& tensor, const void* data_ptr) {
+    check<InvalidRequestError>(
+        tensor.data_ptr() == data_ptr,
+        "RuntimeStateArena tensor '" + name + "' already exists with a different data pointer");
+}
+
 } // namespace
 
 Tensor& RuntimeStateArena::get_or_create(const std::string& name,
@@ -114,6 +120,29 @@ Tensor& RuntimeStateArena::get_or_create(const std::string& name,
                                     stream_handle);
     }
 
+    auto inserted = tensors_.emplace(name, std::move(tensor));
+    return inserted.first->second;
+}
+
+Tensor& RuntimeStateArena::bind_external_view(const std::string& name,
+                                              void* data_ptr,
+                                              const std::vector<int64_t>& shape,
+                                              DType dtype,
+                                              Device device,
+                                              int32_t device_id) {
+    check<InvalidRequestError>(!name.empty(), "RuntimeStateArena tensor name must not be empty");
+    if (num_elements(shape) > 0) {
+        check<InvalidRequestError>(data_ptr != nullptr, "RuntimeStateArena external view data_ptr must not be null");
+    }
+
+    auto it = tensors_.find(name);
+    if (it != tensors_.end()) {
+        check_tensor_metadata(name, it->second, shape, dtype, device, device_id);
+        check_tensor_data_ptr(name, it->second, data_ptr);
+        return it->second;
+    }
+
+    Tensor tensor = Tensor::view(data_ptr, shape, dtype, device, device_id);
     auto inserted = tensors_.emplace(name, std::move(tensor));
     return inserted.first->second;
 }

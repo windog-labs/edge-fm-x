@@ -54,6 +54,24 @@ std::vector<int32_t> parse_mrope_section(const nlohmann::json& model_config) {
     return section;
 }
 
+bool qwen3_5_lm_head_top1_requested(const EngineConfig& engine_config) {
+    const nlohmann::json runtime_config = engine_config.runtime();
+    if (runtime_config.contains("lm_head_top1")) {
+        const auto& value = runtime_config["lm_head_top1"];
+        if (value.is_boolean()) {
+            return value.get<bool>();
+        }
+        if (value.is_object() && value.contains("enabled") && value["enabled"].is_boolean()) {
+            return value["enabled"].get<bool>();
+        }
+        return false;
+    }
+    if (runtime_config.contains("lm_head_top1_enabled") && runtime_config["lm_head_top1_enabled"].is_boolean()) {
+        return runtime_config["lm_head_top1_enabled"].get<bool>();
+    }
+    return true;
+}
+
 size_t shape_nbytes(const std::vector<int64_t>& shape, DType dtype) {
     size_t elements = 1;
     for (int64_t dim : shape) {
@@ -72,6 +90,10 @@ std::string recurrent_state_name(int32_t layer_id) {
 
 std::string graph_backup_name(const std::string& state_name) {
     return state_name + ".decode_graph_backup";
+}
+
+std::string graph_stable_state_name(const std::string& state_name) {
+    return state_name + ".graph_stable";
 }
 
 } // namespace
@@ -127,6 +149,9 @@ Qwen3_5::Qwen3_5(const EngineConfig& config)
         static_cast<uint32_t>(hidden_size_),
         static_cast<uint32_t>(vocab_size_),
         "Qwen3_5_LMHead");
+    lm_head_top1_enabled_ =
+        qwen3_5_lm_head_top1_requested(engine_config_) &&
+        engine_config_.sampling_temperature() < 1e-6f;
     activation_layer_ = std::make_unique<ActivationLayer>(config, "Qwen3_5_Activation");
 
     for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
@@ -601,7 +626,7 @@ void Qwen3_5::run_linear_attention_layer(
         {seq_len, linear_num_value_heads_},
         dtype_,
         device_id);
-    Tensor g = workspace_tensor(
+    Tensor g_or_decay = workspace_tensor(
         "linear_g_L" + std::to_string(layer_id),
         {seq_len, linear_num_value_heads_},
         DType::Float32,
@@ -632,18 +657,73 @@ void Qwen3_5::run_linear_attention_layer(
         norm_output, a, stream, stage);
 
     auto& arena = const_cast<Context&>(context).runtime_state_arena();
-    Tensor& conv_state = arena.get_or_create(
-        conv_state_name(layer_id),
-        {linear_conv_dim_, linear_conv_kernel_dim_},
-        dtype_,
-        Device::GPU,
-        device_id);
-    Tensor& recurrent_state = arena.get_or_create(
-        recurrent_state_name(layer_id),
-        {linear_num_value_heads_, linear_key_head_dim_, linear_value_head_dim_},
-        DType::Float32,
-        Device::GPU,
-        device_id);
+    const std::vector<int64_t> conv_state_shape = {linear_conv_dim_, linear_conv_kernel_dim_};
+    const std::vector<int64_t> recurrent_state_shape = {
+        linear_num_value_heads_,
+        linear_key_head_dim_,
+        linear_value_head_dim_,
+    };
+    Tensor* conv_state_ptr = nullptr;
+    Tensor* recurrent_state_ptr = nullptr;
+    if (engine_config_.use_cuda_graph()) {
+        const std::string conv_name = conv_state_name(layer_id);
+        const std::string recurrent_name = recurrent_state_name(layer_id);
+        void* conv_data = StaticBufferManager::get_cache_buf(
+            graph_stable_state_name(conv_name),
+            shape_nbytes(conv_state_shape, dtype_),
+            device_id);
+        void* recurrent_data = StaticBufferManager::get_cache_buf(
+            graph_stable_state_name(recurrent_name),
+            shape_nbytes(recurrent_state_shape, DType::Float32),
+            device_id);
+        conv_state_ptr = &arena.bind_external_view(
+            conv_name,
+            conv_data,
+            conv_state_shape,
+            dtype_,
+            Device::GPU,
+            device_id);
+        recurrent_state_ptr = &arena.bind_external_view(
+            recurrent_name,
+            recurrent_data,
+            recurrent_state_shape,
+            DType::Float32,
+            Device::GPU,
+            device_id);
+        if (stage == ModelStage::Prefill) {
+            CUDA_CHECK_THROW(cudaMemsetAsync(
+                                 conv_state_ptr->data_ptr(),
+                                 0,
+                                 shape_nbytes(conv_state_shape, dtype_),
+                                 stream),
+                             "Qwen3_5: clear graph-stable conv state");
+            CUDA_CHECK_THROW(cudaMemsetAsync(
+                                 recurrent_state_ptr->data_ptr(),
+                                 0,
+                                 shape_nbytes(recurrent_state_shape, DType::Float32),
+                                 stream),
+                             "Qwen3_5: clear graph-stable recurrent state");
+        }
+    } else {
+        conv_state_ptr = &arena.get_or_create(
+            conv_state_name(layer_id),
+            conv_state_shape,
+            dtype_,
+            Device::GPU,
+            device_id,
+            MemoryOwnership::ViewExternal,
+            stream);
+        recurrent_state_ptr = &arena.get_or_create(
+            recurrent_state_name(layer_id),
+            recurrent_state_shape,
+            DType::Float32,
+            Device::GPU,
+            device_id,
+            MemoryOwnership::ViewExternal,
+            stream);
+    }
+    Tensor& conv_state = *conv_state_ptr;
+    Tensor& recurrent_state = *recurrent_state_ptr;
 
     qwen3_5_depthwise_causal_conv1d_forward(
         mixed_qkv,
@@ -652,21 +732,50 @@ void Qwen3_5::run_linear_attention_layer(
         conv_out,
         true,
         stream);
-    qwen3_5_compute_g_beta_forward(
-        a,
-        b,
-        required_weight(weight_prefix + ".A_log"),
-        required_weight(weight_prefix + ".dt_bias"),
-        g,
-        beta,
-        stream);
-    qwen3_5_gated_delta_sequence_forward(
-        conv_out,
-        g,
-        beta,
-        recurrent_state,
-        delta_out,
-        stream);
+    if (stage == ModelStage::Prefill && seq_len > 1) {
+        Tensor query_norm = workspace_tensor(
+            "linear_q_norm_L" + std::to_string(layer_id),
+            {seq_len, linear_num_value_heads_, linear_key_head_dim_},
+            DType::Float32,
+            device_id);
+        Tensor key_norm = workspace_tensor(
+            "linear_k_norm_L" + std::to_string(layer_id),
+            {seq_len, linear_num_value_heads_, linear_key_head_dim_},
+            DType::Float32,
+            device_id);
+        qwen3_5_compute_decay_beta_forward(
+            a,
+            b,
+            required_weight(weight_prefix + ".A_log"),
+            required_weight(weight_prefix + ".dt_bias"),
+            g_or_decay,
+            beta,
+            stream);
+        qwen3_5_precompute_gated_delta_qk_forward(
+            conv_out,
+            query_norm,
+            key_norm,
+            stream);
+        qwen3_5_gated_delta_sequence_precomputed_decay_forward(
+            conv_out,
+            g_or_decay,
+            beta,
+            query_norm,
+            key_norm,
+            recurrent_state,
+            delta_out,
+            stream);
+    } else {
+        qwen3_5_gated_delta_sequence_from_ab_forward(
+            conv_out,
+            a,
+            b,
+            required_weight(weight_prefix + ".A_log"),
+            required_weight(weight_prefix + ".dt_bias"),
+            recurrent_state,
+            delta_out,
+            stream);
+    }
 
     Tensor delta_2d = Tensor::view(
         delta_out.data_ptr(),
@@ -704,9 +813,6 @@ void Qwen3_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
     auto& tensors = const_cast<std::unordered_map<std::string, Tensor>&>(context.tensors());
     cudaStream_t stream = cuda_stream(context);
     const int32_t device_id = engine_config_.runtime_device_id();
-    const size_t hidden_bytes =
-        static_cast<size_t>(seq_len) * static_cast<size_t>(hidden_size_) * get_dtype_size(dtype_);
-
     auto embed_inputs = context.make_layer_inputs({{"token_ids", ModelTensors::TOKEN_IDS}});
     auto embed_outputs = context.make_layer_outputs({{"output", ModelTensors::HIDDEN_STATES}});
     embed_head_->forward(embed_inputs, embed_outputs, stream, stage);
@@ -718,7 +824,6 @@ void Qwen3_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         dtype_,
         Device::GPU,
         device_id);
-    Tensor residual = workspace_tensor("residual", {seq_len, hidden_size_}, dtype_, device_id);
     Tensor norm_output = workspace_tensor("norm_output", {seq_len, hidden_size_}, dtype_, device_id);
     Tensor post_norm_output = workspace_tensor("post_norm_output", {seq_len, hidden_size_}, dtype_, device_id);
     Tensor mixer_output = workspace_tensor("mixer_output", {seq_len, hidden_size_}, dtype_, device_id);
@@ -726,13 +831,6 @@ void Qwen3_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
 
     for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
         const std::string weight_prefix = "model.layers." + std::to_string(layer_id);
-        CUDA_CHECK_THROW(cudaMemcpyAsync(
-                             residual.data_ptr(),
-                             hidden.data_ptr(),
-                             hidden_bytes,
-                             cudaMemcpyDeviceToDevice,
-                             stream),
-                         "Qwen3_5: copy attention residual");
         qwen3_5_rmsnorm_forward(
             hidden,
             required_weight(weight_prefix + ".input_layernorm.weight"),
@@ -759,15 +857,7 @@ void Qwen3_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
                 stream,
                 stage);
         }
-        qwen3_5_add_forward(residual, mixer_output, hidden, stream);
-
-        CUDA_CHECK_THROW(cudaMemcpyAsync(
-                             residual.data_ptr(),
-                             hidden.data_ptr(),
-                             hidden_bytes,
-                             cudaMemcpyDeviceToDevice,
-                             stream),
-                         "Qwen3_5: copy mlp residual");
+        qwen3_5_add_forward(hidden, mixer_output, hidden, stream);
         qwen3_5_rmsnorm_forward(
             hidden,
             required_weight(weight_prefix + ".post_attention_layernorm.weight"),
@@ -775,7 +865,7 @@ void Qwen3_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
             rms_norm_eps_,
             stream);
         run_mlp(layer_id, seq_len, post_norm_output, mixer_output, stream, stage);
-        qwen3_5_add_forward(residual, mixer_output, hidden, stream);
+        qwen3_5_add_forward(hidden, mixer_output, hidden, stream);
     }
 
     qwen3_5_rmsnorm_forward(
@@ -805,6 +895,23 @@ void Qwen3_5::forward_impl(const Context& context, int32_t seq_len, ModelStage s
         logits.dtype(),
         Device::GPU,
         device_id);
+    tensors.erase(ModelTensors::LM_HEAD_TOP1_DONE);
+    if ((stage == ModelStage::Prefill || stage == ModelStage::Decode) &&
+        lm_head_top1_enabled_ &&
+        lm_head_rows == 1 &&
+        tensors.count(ModelTensors::SAMPLER_TOKEN_OUT) > 0)
+    {
+        Tensor& token_out = tensors[ModelTensors::SAMPLER_TOKEN_OUT];
+        if (lm_head_->try_forward_top1(lm_head_input, token_out, stream, stage)) {
+            tensors[ModelTensors::LM_HEAD_TOP1_DONE] = Tensor::view(
+                token_out.data_ptr(),
+                {1},
+                DType::Int32,
+                Device::GPU,
+                device_id);
+            return;
+        }
+    }
     lm_head_->forward_fp16_bf16(lm_head_input, logits_2d, stream, stage);
 }
 
@@ -878,7 +985,9 @@ void Qwen3_5::backup_decode_runtime_tensors(Context& context, cudaStream_t strea
                 state->shape(),
                 state->dtype(),
                 device,
-                device_id);
+                device_id,
+                MemoryOwnership::ViewExternal,
+                stream);
             const size_t nbytes = shape_nbytes(state->shape(), state->dtype());
             if (nbytes == 0) {
                 continue;

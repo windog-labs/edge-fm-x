@@ -95,6 +95,7 @@ private:
     float rope_theta_ = 10000000.0f;
     int32_t rotary_dim_ = 0;
     std::vector<int32_t> mrope_section_;
+    bool lm_head_top1_enabled_ = false;
 };
 
 } // namespace edge_fm

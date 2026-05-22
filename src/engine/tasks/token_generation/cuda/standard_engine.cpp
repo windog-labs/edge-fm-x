@@ -396,6 +396,7 @@ struct GenerateMetricsAccum {
     double stop_check_host_ms = 0.0;
     double response_copy_ms = 0.0;
     double lm_head_top1_decode_steps = 0.0;
+    double decode_graph_captures = 0.0;
 };
 
 class ScopedHostMetric {
@@ -512,6 +513,7 @@ std::unordered_map<std::string, double> make_generate_metrics_map(
         {"cuda_graph_enabled", cuda_graph_enabled ? 1.0 : 0.0},
         {"lm_head_top1_enabled", lm_head_top1_enabled ? 1.0 : 0.0},
         {"lm_head_top1_decode_steps", accum.lm_head_top1_decode_steps},
+        {"decode_graph_captures", accum.decode_graph_captures},
     };
     metrics.emplace("response_tokens_capacity", static_cast<double>(response_tokens_capacity));
     return metrics;
@@ -553,13 +555,15 @@ void StandardEngine::warmup() {
             continue;
         }
 
-        const Tensor& logits_prefill = context.tensors().at(ModelTensors::LOGITS);
         int32_t seq_len = prefill_token_count(context);
-        run_sampler(
-            last_token_logits_view(logits_prefill),
-            context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT),
-            stream,
-            ModelStage::Prefill);
+        if (!lm_head_top1_token_ready(context)) {
+            const Tensor& logits_prefill = context.tensors().at(ModelTensors::LOGITS);
+            run_sampler(
+                last_token_logits_view(logits_prefill),
+                context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Prefill);
+        }
         context.advance_after_prefill(seq_len);
         prepare_tensors(ModelStage::Decode, context);
         ensure_decode_graph_captured(context);
@@ -759,11 +763,13 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
             sampler_device_id);
 
         model_->prefill(context);
-        run_sampler(
-            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
-            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-            stream,
-            ModelStage::Prefill);
+        if (!lm_head_top1_token_ready(context)) {
+            run_sampler(
+                last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Prefill);
+        }
         if (stream != nullptr) {
             CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
                              "Failed to sync stream before prefill CUDA graph capture");
@@ -776,11 +782,13 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
 
     runner.begin_capture(stream);
     model_->prefill(context);
-    run_sampler(
-        last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
-        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-        stream,
-        ModelStage::Prefill);
+    if (!lm_head_top1_token_ready(context)) {
+        run_sampler(
+            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+            stream,
+            ModelStage::Prefill);
+    }
     runner.end_capture(stream);
     runner.launch(stream);
     return true;
@@ -910,6 +918,11 @@ Response StandardEngine::generate(const Request& request) {
     }
 
     const bool decode_cuda_graph_enabled = config_.use_cuda_graph() && model_->supports_decode_cuda_graph();
+    if (decode_cuda_graph_enabled && !model_->can_reuse_decode_cuda_graph_across_requests() &&
+        cuda_graph_manager_.is_decode_captured()) {
+        cuda_graph_manager_.reset_decode();
+        decode_graph_lm_head_top1_ = false;
+    }
     GenerateMetricsAccum metrics;
     last_generate_metrics_ = make_generate_metrics_map(
         metrics, 0.0, 0.0, 0, 0, 0, decode_cuda_graph_enabled, config_.lm_head_top1_enabled());
@@ -979,11 +992,13 @@ Response StandardEngine::generate(const Request& request) {
             {
                 NVTX::Range sampler_range("EDGEFM_PREFILL_SAMPLER", NVTXColor::ORANGE);
                 metric_recorder.measure(stream, metrics.prefill_sampler_ms, [&]() {
-                    run_sampler(
-                        last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
-                        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-                        stream,
-                        ModelStage::Prefill);
+                    if (!lm_head_top1_token_ready(context)) {
+                        run_sampler(
+                            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+                            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                            stream,
+                            ModelStage::Prefill);
+                    }
                 });
             }
         }
@@ -1019,7 +1034,11 @@ Response StandardEngine::generate(const Request& request) {
             void* decode_write_ptr = context.get_response_token_write_ptr();
 
             if (decode_cuda_graph_enabled) {
+                const bool capture_needed = !cuda_graph_manager_.is_decode_captured();
                 ensure_decode_graph_captured(context);
+                if (capture_needed && cuda_graph_manager_.is_decode_captured()) {
+                    metrics.decode_graph_captures += 1.0;
+                }
                 sync_decode_graph(context);
                 {
                     NVTX::Range replay_range("EDGEFM_DECODE_GRAPH_REPLAY", NVTXColor::PURPLE);
@@ -1115,7 +1134,7 @@ Response StandardEngine::generate(const Request& request) {
         returned_num_generated,
         context.max_generated_tokens(),
         decode_cuda_graph_enabled,
-        config_.lm_head_top1_enabled());
+        config_.lm_head_top1_enabled() || metrics.lm_head_top1_decode_steps > 0.0);
 
     return response;
 }

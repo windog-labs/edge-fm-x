@@ -6,6 +6,31 @@
 - Gap definition: `(EdgeFM - TRT) / TRT`
 - Negative `%` means `EdgeFM` is faster than `TRT-Edge-LLM`
 
+## Qwen3.5 EdgeFM-Only Current Matrix
+
+Qwen3.5 support currently covers text-only greedy generation on CUDA. These
+numbers are EdgeFM-only because the TensorRT-Edge-LLM Qwen3.5 linear-attention
+runtime/plugin port is still a separate blocker. The Qwen3.5 path uses CUDA
+graph decode, default greedy `lm_head_top1`, and the Iter97 P0 precomputed
+GatedDeltaNet vectorized state update.
+
+- Artifact: `deliverables/kernel_opt/qwen3_5_phase2_20260521_162140/benchmarks/iter97_vectorized_state_update/`
+- Hardware: RTX 3060
+- Shape format: `prefill/decode`
+- Unit: ms
+
+| Model | Shape | EdgeFM total avg | Prefill | Decode | Decode step avg | CUDA graph | Notes |
+| --- | ---: | ---: | ---: | ---: | ---: | :---: | --- |
+| Qwen3.5-0.8B | 128/32 | 205.148 | 31.394 | 173.609 | 5.600 | on | 0.8B target acceptance case |
+| Qwen3.5-2B | 128/32 | 433.192 | 44.654 | 388.406 | 12.529 | on | 2B short-prefill target acceptance case |
+| Qwen3.5-2B | 1024/128 | 1897.618 | 296.433 | 1600.816 | 12.605 | on | 2B long-prefill validation case |
+
+Correctness gate for the accepted Qwen3.5 performance state:
+
+- `cmake --build build --target edge_fm_python -j$(nproc)` passed.
+- `EDGE_FM_BUILD_DIR=build pytest -q tests/operators/test_qwen3_5_runtime_ops.py -q` -> `15 passed`.
+- `EDGE_FM_BUILD_DIR=build EDGE_FM_QWEN3_5_REGENERATE_DUMP=1 pytest -q tests/engine/test_qwen3_5_generate.py -s` -> `13 passed`.
+
 ## RTX 3060 Qwen2.5 LLM Current Matrix
 
 This is the current 3060 LLM checkpoint after removing the internal TensorRT
@@ -107,3 +132,34 @@ stable positive row at about `+0.9 ms`.
 | 1024/64 | 59.147 | 58.231 | +0.916 | +1.57% | 612.849 | 619.895 | -7.046 | -1.14% | 9.728 | 9.840 | -0.112 | -1.14% | 671.999 | 678.276 | -6.277 | -0.93% |
 | 2048/32 | 122.623 | 121.032 | +1.591 | +1.31% | 302.249 | 315.303 | -13.054 | -4.14% | 9.750 | 10.171 | -0.421 | -4.14% | 424.741 | 436.335 | -11.594 | -2.66% |
 | 2048/64 | 122.279 | 120.744 | +1.534 | +1.27% | 613.306 | 638.824 | -25.517 | -3.99% | 9.735 | 10.140 | -0.405 | -3.99% | 735.763 | 759.738 | -23.975 | -3.16% |
+
+## Jetson Orin Qwen2.5-VL-0.5B Snapshot
+
+These rows are kept here instead of in `README.md` so the README can stay as a
+short overview.
+
+| Shape | EdgeFM prefill (ms) | TRT prefill (ms) | Prefill gap (%) | EdgeFM decode (ms) | TRT decode (ms) | Decode gap (%) | EdgeFM total (ms) | TRT total (ms) | Total gap (%) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 512/32 | 42.5 | 49.5 | -14.14% | 381.1 | 580.5 | -34.35% | 423.6 | 630.0 | -32.76% |
+| 1024/32 | 86.5 | 90.7 | -4.63% | 401.0 | 583.5 | -31.28% | 487.5 | 674.2 | -27.69% |
+
+## Horizon J6M SmolVLA-0.45B Snapshot
+
+### Prefill
+
+| Prefix | Mean latency (ms) |
+| ---: | ---: |
+| 512 | 74.26 |
+| 1024 | 248.27 |
+| 2048 | 899.39 |
+
+### Action Expert Decode
+
+| Prefix | Suffix | Mean (ms) | Median (ms) | Min (ms) | Max (ms) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 512 | 32 | 12.51 | 12.42 | 12.31 | 12.89 |
+| 512 | 64 | 15.00 | 14.89 | 14.79 | 15.47 |
+| 1024 | 32 | 19.48 | 19.32 | 19.13 | 20.62 |
+| 1024 | 64 | 23.25 | 23.13 | 22.91 | 23.62 |
+| 2048 | 32 | 38.38 | 38.41 | 37.86 | 38.75 |
+| 2048 | 64 | 49.43 | 49.43 | 48.92 | 50.49 |

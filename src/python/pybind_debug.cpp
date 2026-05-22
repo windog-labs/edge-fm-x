@@ -655,6 +655,25 @@ PYBIND11_MODULE(edge_fm, m) {
              py::arg("beta"),
              py::arg("stream") = 0,
              "Compute Qwen3.5 GatedDeltaNet g and beta.")
+        .def("qwen3_5_compute_decay_beta",
+             [](const Tensor& a,
+                const Tensor& b,
+                const Tensor& a_log,
+                const Tensor& dt_bias,
+                Tensor& decay,
+                Tensor& beta,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_compute_decay_beta_forward(a, b, a_log, dt_bias, decay, beta, stream);
+             },
+             py::arg("a"),
+             py::arg("b"),
+             py::arg("a_log"),
+             py::arg("dt_bias"),
+             py::arg("decay"),
+             py::arg("beta"),
+             py::arg("stream") = 0,
+             "Compute Qwen3.5 GatedDeltaNet decay=exp(g) and beta.")
         .def("qwen3_5_gated_rmsnorm",
              [](const Tensor& input,
                 const Tensor& gate,
@@ -710,6 +729,85 @@ PYBIND11_MODULE(edge_fm, m) {
              py::arg("output"),
              py::arg("stream") = 0,
              "Qwen3.5 GatedDeltaNet sequential recurrent update.")
+        .def("qwen3_5_gated_delta_sequence_from_ab",
+             [](const Tensor& mixed_qkv,
+                const Tensor& a,
+                const Tensor& b,
+                const Tensor& a_log,
+                const Tensor& dt_bias,
+                Tensor& recurrent_state,
+                Tensor& output,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_gated_delta_sequence_from_ab_forward(
+                     mixed_qkv, a, b, a_log, dt_bias, recurrent_state, output, stream);
+             },
+             py::arg("mixed_qkv"),
+             py::arg("a"),
+             py::arg("b"),
+             py::arg("a_log"),
+             py::arg("dt_bias"),
+             py::arg("recurrent_state"),
+             py::arg("output"),
+             py::arg("stream") = 0,
+             "Qwen3.5 GatedDeltaNet sequential update computing g/beta from a/b in-kernel.")
+        .def("qwen3_5_precompute_gated_delta_qk",
+             [](const Tensor& mixed_qkv,
+                Tensor& query_norm,
+                Tensor& key_norm,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_precompute_gated_delta_qk_forward(mixed_qkv, query_norm, key_norm, stream);
+             },
+             py::arg("mixed_qkv"),
+             py::arg("query_norm"),
+             py::arg("key_norm"),
+             py::arg("stream") = 0,
+             "Precompute Qwen3.5 GatedDeltaNet normalized q/k tensors.")
+        .def("qwen3_5_gated_delta_sequence_precomputed",
+             [](const Tensor& mixed_qkv,
+                const Tensor& g,
+                const Tensor& beta,
+                const Tensor& query_norm,
+                const Tensor& key_norm,
+                Tensor& recurrent_state,
+                Tensor& output,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_gated_delta_sequence_precomputed_forward(
+                     mixed_qkv, g, beta, query_norm, key_norm, recurrent_state, output, stream);
+             },
+             py::arg("mixed_qkv"),
+             py::arg("g"),
+             py::arg("beta"),
+             py::arg("query_norm"),
+             py::arg("key_norm"),
+             py::arg("recurrent_state"),
+             py::arg("output"),
+             py::arg("stream") = 0,
+             "Qwen3.5 GatedDeltaNet sequential update using precomputed normalized q/k.")
+        .def("qwen3_5_gated_delta_sequence_precomputed_decay",
+             [](const Tensor& mixed_qkv,
+                const Tensor& decay,
+                const Tensor& beta,
+                const Tensor& query_norm,
+                const Tensor& key_norm,
+                Tensor& recurrent_state,
+                Tensor& output,
+                uintptr_t stream_ptr) {
+                 cudaStream_t stream = stream_ptr == 0 ? nullptr : reinterpret_cast<cudaStream_t>(stream_ptr);
+                 qwen3_5_gated_delta_sequence_precomputed_decay_forward(
+                     mixed_qkv, decay, beta, query_norm, key_norm, recurrent_state, output, stream);
+             },
+             py::arg("mixed_qkv"),
+             py::arg("decay"),
+             py::arg("beta"),
+             py::arg("query_norm"),
+             py::arg("key_norm"),
+             py::arg("recurrent_state"),
+             py::arg("output"),
+             py::arg("stream") = 0,
+             "Qwen3.5 GatedDeltaNet sequential update using precomputed decay and normalized q/k.")
         .def("qwen3_5_apply_partial_interleaved_mrope",
              [](Tensor& query,
                 Tensor& key,

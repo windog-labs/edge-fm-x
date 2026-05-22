@@ -26,6 +26,13 @@ public:
                           MemoryOwnership ownership = MemoryOwnership::ViewExternal,
                           void* stream_handle = nullptr);
 
+    Tensor& bind_external_view(const std::string& name,
+                               void* data_ptr,
+                               const std::vector<int64_t>& shape,
+                               DType dtype,
+                               Device device,
+                               int32_t device_id = 0);
+
     Tensor view(const std::string& name, const std::vector<int64_t>& shape) const;
 
     Tensor* find(const std::string& name);

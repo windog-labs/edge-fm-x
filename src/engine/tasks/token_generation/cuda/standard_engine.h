@@ -82,6 +82,12 @@ public:
         prefill_runners_.clear();
     }
 
+    void reset_decode() {
+        decode_.reset();
+        k_memcpy_.clear();
+        v_memcpy_.clear();
+    }
+
 private:
     static uint64_t prefill_key(int32_t request_id, int32_t seq_len) {
         return (static_cast<uint64_t>(static_cast<uint32_t>(request_id)) << 32)

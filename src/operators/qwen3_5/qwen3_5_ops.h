@@ -61,6 +61,15 @@ void qwen3_5_compute_g_beta_forward(
     Tensor& beta,
     cudaStream_t stream = nullptr);
 
+void qwen3_5_compute_decay_beta_forward(
+    const Tensor& a,
+    const Tensor& b,
+    const Tensor& a_log,
+    const Tensor& dt_bias,
+    Tensor& decay,
+    Tensor& beta,
+    cudaStream_t stream = nullptr);
+
 void qwen3_5_gated_delta_recurrent_step(
     const Tensor& query,
     const Tensor& key,
@@ -75,6 +84,42 @@ void qwen3_5_gated_delta_sequence_forward(
     const Tensor& mixed_qkv,
     const Tensor& g,
     const Tensor& beta,
+    Tensor& recurrent_state,
+    Tensor& output,
+    cudaStream_t stream = nullptr);
+
+void qwen3_5_gated_delta_sequence_from_ab_forward(
+    const Tensor& mixed_qkv,
+    const Tensor& a,
+    const Tensor& b,
+    const Tensor& a_log,
+    const Tensor& dt_bias,
+    Tensor& recurrent_state,
+    Tensor& output,
+    cudaStream_t stream = nullptr);
+
+void qwen3_5_precompute_gated_delta_qk_forward(
+    const Tensor& mixed_qkv,
+    Tensor& query_norm,
+    Tensor& key_norm,
+    cudaStream_t stream = nullptr);
+
+void qwen3_5_gated_delta_sequence_precomputed_forward(
+    const Tensor& mixed_qkv,
+    const Tensor& g,
+    const Tensor& beta,
+    const Tensor& query_norm,
+    const Tensor& key_norm,
+    Tensor& recurrent_state,
+    Tensor& output,
+    cudaStream_t stream = nullptr);
+
+void qwen3_5_gated_delta_sequence_precomputed_decay_forward(
+    const Tensor& mixed_qkv,
+    const Tensor& decay,
+    const Tensor& beta,
+    const Tensor& query_norm,
+    const Tensor& key_norm,
     Tensor& recurrent_state,
     Tensor& output,
     cudaStream_t stream = nullptr);

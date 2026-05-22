@@ -142,7 +142,7 @@ def load_model_attention_dims(model_path: Path) -> dict:
     num_qo_heads = int(config["num_attention_heads"])
     num_kv_heads = int(config["num_key_value_heads"])
     hidden_size = int(config["hidden_size"])
-    head_dim = hidden_size // num_qo_heads
+    head_dim = int(config.get("head_dim") or (hidden_size // num_qo_heads))
     return {
         "num_qo_heads": num_qo_heads,
         "num_kv_heads": num_kv_heads,

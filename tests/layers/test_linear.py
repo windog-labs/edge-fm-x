@@ -672,8 +672,9 @@ class TestLinear:
         )
 
     @pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
-    def test_lm_head_top1_matches_full_logits_argmax(self, dtype):
-        """decode-only lm_head_top1 应与 full-logits greedy argmax 选择同一 token。"""
+    @pytest.mark.parametrize("stage", ["Prefill", "Decode"])
+    def test_lm_head_top1_matches_full_logits_argmax(self, dtype, stage):
+        """lm_head_top1 应与 full-logits greedy argmax 选择同一 token。"""
         in_features = 96
         out_features = 257
 
@@ -693,8 +694,8 @@ class TestLinear:
             torch.empty(1, device="cuda:0", dtype=torch.int32)
         )
 
-        layer.forward_fp16_bf16(input_efm, logits_efm, 0, "Decode")
-        assert layer.try_forward_top1(input_efm, token_efm, 0, "Decode")
+        layer.forward_fp16_bf16(input_efm, logits_efm, 0, stage)
+        assert layer.try_forward_top1(input_efm, token_efm, 0, stage)
         torch.cuda.synchronize()
 
         logits = torch.from_dlpack(logits_efm.to_dlpack())

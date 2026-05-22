@@ -201,7 +201,7 @@ def parse_args() -> argparse.Namespace:
         "--lm-head-top1",
         action="store_true",
         default=False,
-        help="Enable the default-off experimental greedy decode lm_head_top1 path.",
+        help="Request the greedy decode lm_head_top1 path when the model does not enable it by default.",
     )
     parser.add_argument(
         "--edgefm-mode",
@@ -394,19 +394,22 @@ def make_engine_config(
     attention_type = "gqa" if num_kv_heads < num_heads else "mha"
     max_tokens = prefill_len + decode_len - 1
 
+    runtime = {
+        "device": "cuda",
+        "device_id": device_id,
+        "hw_profile": CUDA_HW_PROFILE,
+        "use_cuda_graph": use_cuda_graph,
+    }
+    if lm_head_top1:
+        runtime["lm_head_top1"] = {"enabled": True}
+
     payload = {
         "model_name": resolve_engine_model_name(
             model_path,
             explicit_model_name=model_name or None,
             config=config,
         ),
-        "runtime": {
-            "device": "cuda",
-            "device_id": device_id,
-            "hw_profile": CUDA_HW_PROFILE,
-            "use_cuda_graph": use_cuda_graph,
-            "lm_head_top1": {"enabled": lm_head_top1},
-        },
+        "runtime": runtime,
         "operator_impl_table_path": str(
             resolve_operator_table_path(
                 Path(operator_impl_table_path).resolve() if operator_impl_table_path else None,
