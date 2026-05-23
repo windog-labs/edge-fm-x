@@ -98,6 +98,34 @@ void qwen3_5_gated_delta_sequence_from_ab_forward(
     Tensor& output,
     cudaStream_t stream = nullptr);
 
+void qwen3_5_gated_delta_sequence_from_ab_gated_rmsnorm_forward(
+    const Tensor& mixed_qkv,
+    const Tensor& a,
+    const Tensor& b,
+    const Tensor& a_log,
+    const Tensor& dt_bias,
+    const Tensor& gate,
+    const Tensor& norm_weight,
+    Tensor& recurrent_state,
+    Tensor& output,
+    float eps,
+    cudaStream_t stream = nullptr);
+
+void qwen3_5_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm_forward(
+    const Tensor& mixed_qkv,
+    const Tensor& conv_weight,
+    Tensor& conv_state,
+    const Tensor& a,
+    const Tensor& b,
+    const Tensor& a_log,
+    const Tensor& dt_bias,
+    const Tensor& gate,
+    const Tensor& norm_weight,
+    Tensor& recurrent_state,
+    Tensor& output,
+    float eps,
+    cudaStream_t stream = nullptr);
+
 void qwen3_5_precompute_gated_delta_qk_forward(
     const Tensor& mixed_qkv,
     Tensor& query_norm,

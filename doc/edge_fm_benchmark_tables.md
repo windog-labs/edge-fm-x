@@ -11,25 +11,46 @@
 Qwen3.5 support currently covers text-only greedy generation on CUDA. These
 numbers are EdgeFM-only because the TensorRT-Edge-LLM Qwen3.5 linear-attention
 runtime/plugin port is still a separate blocker. The Qwen3.5 path uses CUDA
-graph decode, default greedy `lm_head_top1`, and the Iter97 P0 precomputed
-GatedDeltaNet vectorized state update.
+graph decode, default greedy `lm_head_top1`, the Iter100 P0 precomputed
+GatedDeltaNet tile32 shared-q/k + vectorized state update, Iter105 qmem-output
+algebra, Iter107/Iter114 Qwen3.5 2B decode linear cuBLASLt tactic records,
+Iter116 Qwen3.5 0.8B safe decode linear cuBLASLt tactic records, Iter112
+decode conv1d + GatedDelta + gated RMSNorm launch fusion, and Iter121
+Qwen3.5/SM86 decode GateUp+SwiGLU warp GEMV records.
 
-- Artifact: `deliverables/kernel_opt/qwen3_5_phase2_20260521_162140/benchmarks/iter97_vectorized_state_update/`
+- Artifact: Iter112 full matrix plus Iter114 2B, Iter116 0.8B, and Iter121 p128 graph-on gates in `deliverables/kernel_opt/qwen3_5_phase2_20260521_162140/benchmarks/`
 - Hardware: RTX 3060
 - Shape format: `prefill/decode`
 - Unit: ms
 
-| Model | Shape | EdgeFM total avg | Prefill | Decode | Decode step avg | CUDA graph | Notes |
-| --- | ---: | ---: | ---: | ---: | ---: | :---: | --- |
-| Qwen3.5-0.8B | 128/32 | 205.148 | 31.394 | 173.609 | 5.600 | on | 0.8B target acceptance case |
-| Qwen3.5-2B | 128/32 | 433.192 | 44.654 | 388.406 | 12.529 | on | 2B short-prefill target acceptance case |
-| Qwen3.5-2B | 1024/128 | 1897.618 | 296.433 | 1600.816 | 12.605 | on | 2B long-prefill validation case |
+| Model | Shape | Graph off total | Graph on total | Prefill | Decode | Decode step avg | CUDA graph |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| Qwen3.5-0.8B | 128/128 | 769.482 | 711.708 | 19.387 | 691.943 | 5.448 | on |
+| Qwen3.5-0.8B | 512/128 | 822.184 | 766.434 | 63.815 | 702.352 | 5.530 | on |
+| Qwen3.5-0.8B | 1024/128 | 887.597 | 830.181 | 127.535 | 702.371 | 5.530 | on |
+| Qwen3.5-2B | 128/128 | 1616.000 | 1563.125 | 32.922 | 1529.806 | 12.046 | on |
+| Qwen3.5-2B | 512/128 | 1693.494 | 1648.430 | 103.371 | 1544.722 | 12.163 | on |
+| Qwen3.5-2B | 1024/128 | 1793.715 | 1748.435 | 202.427 | 1545.686 | 12.171 | on |
+
+Graph-off rows for Qwen3.5 are still the Iter112 full-matrix values; graph-on
+0.8B p512/p1024 rows include the Iter116 table-only update, graph-on 2B
+p512/p1024 rows include the Iter114 table-only update, and p128 rows include
+the Iter121 GateUp+SwiGLU warp update.
+
+Short target cases after Iter112:
+
+| Model | Shape | EdgeFM total avg | Prefill | Decode | Decode step avg | CUDA graph |
+| --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| Qwen3.5-0.8B | 128/32 | 188.130 | 19.647 | 168.336 | 5.430 | on |
+| Qwen3.5-2B | 128/32 | 405.948 | 33.126 | 372.627 | 12.020 | on |
+| Qwen3.5-2B | 1024/128 | 1748.435 | 202.427 | 1545.686 | 12.171 | on |
 
 Correctness gate for the accepted Qwen3.5 performance state:
 
-- `cmake --build build --target edge_fm_python -j$(nproc)` passed.
-- `EDGE_FM_BUILD_DIR=build pytest -q tests/operators/test_qwen3_5_runtime_ops.py -q` -> `15 passed`.
-- `EDGE_FM_BUILD_DIR=build EDGE_FM_QWEN3_5_REGENERATE_DUMP=1 pytest -q tests/engine/test_qwen3_5_generate.py -s` -> `13 passed`.
+- Latest C++ kernel/generate gate after Iter121: `cmake --build build --target edge_fm_python -j$(nproc)` passed, `python3 scripts/operator_table/validate_operator_tables.py --platform 3060` passed, `EDGE_FM_BUILD_DIR=build pytest -q tests/operators/test_qwen3_5_runtime_ops.py -q` -> `17 passed`, and `EDGE_FM_BUILD_DIR=build EDGE_FM_QWEN3_5_REGENERATE_DUMP=1 pytest -q tests/engine/test_qwen3_5_generate.py -s` -> `13 passed`.
+- Latest operator-table gate after Iter116: `python3 scripts/operator_table/validate_operator_tables.py --platform 3060` passed; `python3 -m py_compile scripts/tune/tune_qwen_cublaslt.py` passed; Qwen3.5 0.8B/2B fresh-dump generate remained `13 passed`.
+- Qwen2.5 guard after Iter121 shared operator change: `EDGE_FM_BUILD_DIR=build pytest -q tests/engine/test_qwen2_generate.py -k "token_alignment or kvcache" -s` -> `8 passed, 12 deselected`.
+- Qwen2.5 guard after Iter100: `EDGE_FM_BUILD_DIR=build pytest -q tests/engine/test_qwen2_generate.py -k "token_alignment or kvcache" -s` -> `8 passed, 12 deselected`; 0.5B/1.5B `512/32` graph-on smoke measured `127.077 ms` / `346.059 ms`, showing no measurable performance regression.
 
 ## RTX 3060 Qwen2.5 LLM Current Matrix
 

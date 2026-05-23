@@ -470,6 +470,120 @@ def test_qwen3_5_sequence_from_ab_matches_separate_decode_path():
     torch.testing.assert_close(state_fused, state, rtol=0, atol=0)
 
 
+def test_qwen3_5_fused_sequence_from_ab_gated_rmsnorm_matches_separate_decode_path():
+    ensure_cuda()
+    device = torch_device()
+    torch.manual_seed(162)
+    seq_len, heads, k_dim, v_dim = 1, 16, 128, 128
+    mixed = torch.randn(seq_len, heads * (2 * k_dim + v_dim), device=device, dtype=torch.bfloat16) * 0.1
+    a = torch.randn(seq_len, heads, device=device, dtype=torch.bfloat16) * 0.1
+    b = torch.randn(seq_len, heads, device=device, dtype=torch.bfloat16) * 0.1
+    a_log = torch.randn(heads, device=device, dtype=torch.float32) * 0.1
+    dt_bias = torch.randn(heads, device=device, dtype=torch.bfloat16) * 0.1
+    gate = torch.randn(heads, v_dim, device=device, dtype=torch.bfloat16) * 0.1
+    norm_weight = torch.randn(v_dim, device=device, dtype=torch.float32) * 0.1
+    state_separate = torch.randn(heads, k_dim, v_dim, device=device, dtype=torch.float32) * 0.001
+    state_fused = state_separate.clone()
+    delta = torch.empty(seq_len, heads * v_dim, device=device, dtype=torch.bfloat16)
+    separate_out = torch.empty(heads, v_dim, device=device, dtype=torch.bfloat16)
+    fused_out = torch.empty_like(separate_out)
+
+    edge_fm.qwen3_5_gated_delta_sequence_from_ab(
+        tensor_to_edge_fm_tensor(mixed),
+        tensor_to_edge_fm_tensor(a),
+        tensor_to_edge_fm_tensor(b),
+        tensor_to_edge_fm_tensor(a_log),
+        tensor_to_edge_fm_tensor(dt_bias),
+        tensor_to_edge_fm_tensor(state_separate),
+        tensor_to_edge_fm_tensor(delta),
+    )
+    edge_fm.qwen3_5_gated_rmsnorm(
+        tensor_to_edge_fm_tensor(delta.view(heads, v_dim)),
+        tensor_to_edge_fm_tensor(gate),
+        tensor_to_edge_fm_tensor(norm_weight),
+        tensor_to_edge_fm_tensor(separate_out),
+        1e-6,
+    )
+    edge_fm.qwen3_5_gated_delta_sequence_from_ab_gated_rmsnorm(
+        tensor_to_edge_fm_tensor(mixed),
+        tensor_to_edge_fm_tensor(a),
+        tensor_to_edge_fm_tensor(b),
+        tensor_to_edge_fm_tensor(a_log),
+        tensor_to_edge_fm_tensor(dt_bias),
+        tensor_to_edge_fm_tensor(gate),
+        tensor_to_edge_fm_tensor(norm_weight),
+        tensor_to_edge_fm_tensor(state_fused),
+        tensor_to_edge_fm_tensor(fused_out),
+        1e-6,
+    )
+    torch.cuda.synchronize()
+
+    torch.testing.assert_close(fused_out, separate_out, rtol=0, atol=0)
+    torch.testing.assert_close(state_fused, state_separate, rtol=0, atol=0)
+
+
+def test_qwen3_5_fused_conv_sequence_from_ab_gated_rmsnorm_matches_separate_decode_path():
+    ensure_cuda()
+    device = torch_device()
+    torch.manual_seed(163)
+    seq_len, heads, k_dim, v_dim = 1, 16, 128, 128
+    conv_dim = heads * (2 * k_dim + v_dim)
+    mixed = torch.randn(seq_len, conv_dim, device=device, dtype=torch.bfloat16) * 0.1
+    conv_weight = torch.randn(conv_dim, 1, 4, device=device, dtype=torch.bfloat16) * 0.1
+    conv_state_separate = torch.randn(conv_dim, 4, device=device, dtype=torch.bfloat16) * 0.01
+    conv_state_fused = conv_state_separate.clone()
+    a = torch.randn(seq_len, heads, device=device, dtype=torch.bfloat16) * 0.1
+    b = torch.randn(seq_len, heads, device=device, dtype=torch.bfloat16) * 0.1
+    a_log = torch.randn(heads, device=device, dtype=torch.float32) * 0.1
+    dt_bias = torch.randn(heads, device=device, dtype=torch.bfloat16) * 0.1
+    gate = torch.randn(heads, v_dim, device=device, dtype=torch.bfloat16) * 0.1
+    norm_weight = torch.randn(v_dim, device=device, dtype=torch.float32) * 0.1
+    state_separate = torch.randn(heads, k_dim, v_dim, device=device, dtype=torch.float32) * 0.001
+    state_fused = state_separate.clone()
+    conv_out = torch.empty_like(mixed)
+    separate_out = torch.empty(heads, v_dim, device=device, dtype=torch.bfloat16)
+    fused_out = torch.empty_like(separate_out)
+
+    edge_fm.qwen3_5_depthwise_causal_conv1d(
+        tensor_to_edge_fm_tensor(mixed),
+        tensor_to_edge_fm_tensor(conv_weight),
+        tensor_to_edge_fm_tensor(conv_state_separate),
+        tensor_to_edge_fm_tensor(conv_out),
+        True,
+    )
+    edge_fm.qwen3_5_gated_delta_sequence_from_ab_gated_rmsnorm(
+        tensor_to_edge_fm_tensor(conv_out),
+        tensor_to_edge_fm_tensor(a),
+        tensor_to_edge_fm_tensor(b),
+        tensor_to_edge_fm_tensor(a_log),
+        tensor_to_edge_fm_tensor(dt_bias),
+        tensor_to_edge_fm_tensor(gate),
+        tensor_to_edge_fm_tensor(norm_weight),
+        tensor_to_edge_fm_tensor(state_separate),
+        tensor_to_edge_fm_tensor(separate_out),
+        1e-6,
+    )
+    edge_fm.qwen3_5_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm(
+        tensor_to_edge_fm_tensor(mixed),
+        tensor_to_edge_fm_tensor(conv_weight),
+        tensor_to_edge_fm_tensor(conv_state_fused),
+        tensor_to_edge_fm_tensor(a),
+        tensor_to_edge_fm_tensor(b),
+        tensor_to_edge_fm_tensor(a_log),
+        tensor_to_edge_fm_tensor(dt_bias),
+        tensor_to_edge_fm_tensor(gate),
+        tensor_to_edge_fm_tensor(norm_weight),
+        tensor_to_edge_fm_tensor(state_fused),
+        tensor_to_edge_fm_tensor(fused_out),
+        1e-6,
+    )
+    torch.cuda.synchronize()
+
+    torch.testing.assert_close(fused_out, separate_out, rtol=0, atol=0)
+    torch.testing.assert_close(state_fused, state_separate, rtol=0, atol=0)
+    torch.testing.assert_close(conv_state_fused, conv_state_separate, rtol=0, atol=0)
+
+
 def test_qwen3_5_sequence_delta_matches_reference_at_model_geometry():
     ensure_cuda()
     device = torch_device()

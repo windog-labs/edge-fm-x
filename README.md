@@ -273,9 +273,12 @@ generated_tokens = response.token_ids()
 
 | 模型 | Shape | Total avg | Prefill | Decode step |
 |---|---:|---:|---:|---:|
-| Qwen3.5-0.8B | 128/32 | 205.148 | 31.394 | 5.600 |
-| Qwen3.5-2B | 128/32 | 433.192 | 44.654 | 12.529 |
-| Qwen3.5-2B | 1024/128 | 1897.618 | 296.433 | 12.605 |
+| Qwen3.5-0.8B | 128/32 | 188.130 | 19.647 | 5.430 |
+| Qwen3.5-0.8B | 1024/128 | 830.181 | 127.535 | 5.530 |
+| Qwen3.5-2B | 128/32 | 405.948 | 33.126 | 12.020 |
+| Qwen3.5-2B | 1024/128 | 1748.435 | 202.427 | 12.171 |
+
+完整 Qwen3.5 graph-on/off 矩阵见 [doc/edge_fm_benchmark_tables.md](doc/edge_fm_benchmark_tables.md)。
 
 ### 运行性能测试
 

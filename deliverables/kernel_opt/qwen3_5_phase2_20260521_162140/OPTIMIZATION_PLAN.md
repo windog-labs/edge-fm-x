@@ -4,7 +4,7 @@
 - Scope: Qwen3.5 text-only greedy generation for `examples/qwen3.5-0.8b/qwen3.5-0.8b` and `examples/qwen3.5-2b/qwen3.5-2b`
 - Tooling: Edge-FM CUDA Optimizer workflow, NSYS for attribution, NCU for roofline/counter evidence
 - Constraint: no large runtime rewrite; optimize model/operator kernels and narrow model-local wiring only
-- Stage status: local ceiling/blocker phase completed at `2026-05-22T14:46:14+08:00`. Iter97 is accepted; do not start another automatic long-loop unless the user explicitly resumes optimization.
+- Stage status: Iter122 closes the local kernel phase at `2026-05-23T18:36:00+08:00`; the long-loop closure pass also recommends convergence for this phase. Iter118 rejected a standalone BF16x2 / launch-shape LMHead top1 sweep because it was exact but only `~0.2%` faster than scalar24. The local P0 current-layout path has been pushed to a recurrence-aware ceiling (`tile32` after shared q/k staging and qmem-output algebra), Qwen3.5 decode dense-linear cuBLASLt tactic records now cover the accepted 2B `mlp_down`, generic `2048->2048`, full-attention `o/k/v` gaps, plus the 0.8B safe `mlp_down 3584->1024` and `linear 2048->1024` pair. The P1 decode conv1d + GatedDelta + gated RMSNorm fusion is accepted as a small/no-regression local win, Iter121 adds a non-default Qwen3.5/SM86 GateUp+SwiGLU warp GEMV selected by exact operator-table records, and Iter122 measures that accepted GateUp kernel at DRAM `95.34%`. LMHead top1 is DRAM-roofline limited; continue only under a new spec with a qualitatively different exact search/indexing method, an accepted approximation/quantization contract, compressed/custom GEMV, or a runtime scheduling redesign.
 
 ## Goal
 
@@ -28,10 +28,25 @@ Target status labels:
 
 Current stop condition:
 
-- P0 GatedDeltaNet prefill: Iter97 is the best accepted local current-layout implementation. Remaining raw SOL gap is recurrence/barrier/low-wave limited and requires a new standalone algorithm/layout search.
-- LMHead greedy top1: accepted default path is memory-roofline limited by prior NCU (`DRAM 97.46%`, occupancy `94.50%`).
-- Decode `from_ab`, fixed RMSNorm, attention, and add: local candidates are either accepted, flat, token-risky, or cross-model rejected.
-- Further meaningful gains are out of this phase and belong to a larger Humanize + KernelPilot/standalone algorithm search.
+- P0 GatedDeltaNet prefill: Iter105 is the best accepted local current-layout implementation. Remaining raw SOL gap is recurrence/barrier/small-grid limited and requires a new standalone algorithm/layout search.
+- LMHead greedy top1: accepted default path is memory-roofline limited by prior NCU (`DRAM 97.60%`, active warps `97.79%`). Iter117 simple exact row-norm/Cauchy pruning is blocked because it prunes `0 / 248320` rows even with the final true best logit. Iter118 standalone BF16x2/launch-shape retune is exact but flat (`~0.2%`), so production migration is rejected.
+- Dense linear: Qwen3.5 2B decode `mlp_down` and generic `2048->2048` records are accepted in Iter107 after local tuner margins and full-matrix transfer; Iter114 adds the remaining 2B full-attention `attention_output 2048->2048` and `linear 2048->512` records after fresh-dump alignment and 2B graph-on gate improvements; Iter116 adds the 0.8B safe `mlp_down 3584->1024` and `linear 2048->1024` explicit records after combination isolation and 0.8B graph-on gate improvements. The 0.8B `attention_output 2048->1024` sibling tactic is rejected in combination due token divergence.
+- Decode conv1d + `from_ab` + gated RMSNorm: Iter112 launch fusion is accepted but small; the local one-token launch-fusion tier is now mostly closed.
+- Decode fused SwiGLU: Iter119 confirms the existing SM86 env-enabled TRT-LLM path is not a production candidate. 0.8B aligns but is flat, while 2B remains a known token-divergence blocker from Iter115. Iter121 accepts a separate Qwen3.5-safe warp-level GateUp GEMV+SwiGLU implementation selected only by exact 0.8B/2B GateUp table records; Iter122 profiles it at DRAM `95.34%`, so this current exact-BF16 path is at ceiling. Larger wins need a compressed/custom GEMV+activation design or a changed precision/approximation contract.
+- Prefill fused SwiGLU: Iter120 confirms the existing env-enabled CUTLASS path is token-safe for Qwen3.5 but slower on representative 0.8B/2B graph-on cases; keep default-off.
+- Fixed RMSNorm, attention, add, and GateUp GEMV+SwiGLU: local candidates are either accepted at operator-specific ceiling, flat, token-risky, or cross-model rejected.
+- Further large gains are out of the narrow local-retile phase and belong to a larger Humanize + KernelPilot/standalone algorithm search, likely around a compressed/custom GEMV/fused-projection design or a nontrivial exact/approximate LMHead method.
+
+Resumed long-loop condition:
+
+- Continue only with standalone candidates that test a new algorithmic/layout hypothesis rather than repeating closed local edits.
+- Keep production runtime unchanged unless the candidate first improves the standalone recurrence benchmark and then improves affected full-generate benchmarks.
+- If two consecutive standalone candidates are correct but improve less than `1%`, expand KernelPilot source research and record the plateau before the next edit.
+
+Closure note:
+
+- The 2026-05-23 long-loop closure pass is recorded in `long_loop/closure/LONG_LOOP_CLOSURE.md`.
+- Current phase is ready to commit/push. Future optimization should start as a separate algorithm/contract project, not as another local BF16 micro-tuning loop.
 
 ## Source-Of-Truth Policy
 
@@ -121,13 +136,13 @@ Current status:
 - Original NSYS: `99.7%` of prefill GPU time on 0.8B p128/d32.
 - Original NCU: `275.57 ms`, SM throughput `5.96%`, achieved occupancy `2.08%`, active threads/warp `1.00`.
 - Iter3 NCU: `3.45 ms`, SM throughput `27.82%`, achieved occupancy `19.06%`, active threads/warp `28.42`.
-- Current accepted prefill path is `gated_delta_sequence_precomputed_kernel<bf16,true,16>` with the Iter39 token-boundary barrier and Iter59 tile16/thread256 layout.
-- Iter66 ceiling refresh: production tile16 NCU and barrier-safe standalone tile16 NCU both measured `1.85 ms`; this is the current token-safe recurrence ceiling for the accepted layout.
-- Iter95 tile24 improved standalone event/NCU slightly but regressed full Qwen3.5 generate, especially 2B long-prefill, so standalone-only gains are not accepted.
+- Current accepted prefill path is `gated_delta_sequence_precomputed_kernel<bf16,true,32>` with the Iter39 token-boundary barrier, Iter98 shared q/k staging, Iter100 tile32/thread256 layout, and Iter105 qmem-output algebra.
+- Iter105 production NCU measured `705.70 us`, compute throughput `33.72%`, memory throughput `55.33%`, achieved occupancy `38.31%`, grid/block `64/256`. NCU still flags small-grid and barrier stalls, so raw hardware peak is not a valid acceptance target.
+- Iter95 tile24 and Iter99 fused update+output improved isolated signals but regressed full Qwen3.5 generate; standalone-only gains are not accepted.
 
 Next work:
 
-- Treat the accepted tile16/thread256 layout as `at_ceiling` for its current recurrence-safe design.
+- Treat the accepted tile32/thread256 qmem-output layout as `at_ceiling` for its current recurrence-safe design until a fresh hotspot/profile or standalone algorithm shows a new transferable path.
 - Continue only with a new standalone token-stable algorithm/layout that can plausibly transfer to full generate. Do not repeat simple retile, q/k+decay precompute fusion, paired q/k precompute, explicit FMA, or reduction-order changes already rejected in the ledger.
 - Continue improving occupancy and reducing sync/stall overhead only when the candidate preserves token recurrence semantics and has full-generate evidence.
 - Candidate directions:
@@ -138,7 +153,7 @@ Next work:
 Acceptance:
 
 - Keep token alignment exactly matching Transformers.
-- For the current layout, `>=95%` is already satisfied by the Iter66 apples-to-apples ceiling. A new P0 production transfer must improve affected full-generate benchmarks, not just standalone NCU.
+- For the current layout, `>=95%` is defined against the best recurrence-aware, token-safe current-layout result (Iter105), not raw hardware SOL. A new P0 production transfer must improve affected full-generate benchmarks, not just standalone NCU.
 
 ### P1: Decode Linear-Attention One-Step Chain
 
@@ -162,7 +177,7 @@ Candidate directions:
 Acceptance:
 
 - Raw hardware peak is not a valid target for tiny-grid one-token recurrent kernels. Use a shape-identical standalone/replay ceiling and require 0.8B/2B graph-on generate improvement.
-- Current `from_ab` path is `plateaued` after Iter91/94 unless a new standalone candidate beats the column-fused 128-thread schedule and transfers to full generate.
+- Current fused `conv1d + from_ab + gated RMSNorm` path is `plateaued` for simple local launch fusion after Iter112 unless a new standalone candidate fuses a larger decode chain, restructures GEMV-producing inputs/output projection, or beats the column-fused 128-thread schedule and transfers to full generate.
 
 ### P2: Dense Linear / LM Head
 
@@ -177,7 +192,11 @@ Candidate work:
 Acceptance:
 
 - target cuBLAS/cuBLASLt tactic should be within `95%` of best measured library tactic for the exact shape/dtype.
-- For default greedy Qwen3.5, `lm_head_top1` is the accepted path. Its stage1 NCU is already memory-roofline (`DRAM 97.46%`, achieved occupancy `94.50%`), so further work requires an algorithmic top1 replacement that reduces required bytes rather than launch-shape retuning.
+- Iter107 accepted Qwen3.5 2B decode `mlp_down` `6144->2048` `algo_index=1` and generic linear `2048->2048` `algo_index=2`, because tuner gains were `~9%-15%` and transferred to `~2.7%-3.2%` full-matrix 2B gains. Do not repeat weak single-shape records like Iter106 unless the local margin is large enough and the affected generate cases improve.
+- Iter114 accepted Qwen3.5 2B full-attention decode `attention_output 2048->2048` `algo_index=2` and `linear 2048->512` `algo_index=11`, because they passed token alignment and improved 2B graph-on p128/p512/p1024 d128 gates. The tested `qwen3_linear_qkv 2048->6144` and `self_attn_q 2048->4096` shapes were baseline-best, so the low-risk cublasLt table path is now closed for these visible full-attention gaps.
+- Iter116 accepted Qwen3.5 0.8B decode `mlp_down 3584->1024` and `linear 2048->1024` explicit cublasLt configs after isolating combination correctness. Each of `mlp_down`, `linear_out`, and `attention_output` was individually token-safe, but `mlp_down+attention_output` and all three records diverged at decode token index 8, so only the higher-value safe pair is kept. This closes the low-risk 0.8B cublasLt table path for the scanned decode shapes.
+- Iter121 accepted a separate Qwen3.5-safe decode GateUp+SwiGLU warp GEMV after standalone direction evidence and 0.8B/2B p128 graph-on wins of `~0.5%-0.6%`. Iter122 then measured the accepted 2B launch at DRAM `95.34%`, so this exact BF16 GEMV+SwiGLU path is at the documented memory-bandwidth ceiling. Larger wins require fewer bytes or a different algorithm/contract rather than another launch-shape tweak.
+- For default greedy Qwen3.5, `lm_head_top1` is the accepted path. Its stage1 NCU is already memory-roofline (`DRAM 97.60%`, active warps `97.79%`). Iter117 shows simple exact row-norm pruning has no useful byte-reduction headroom, and Iter118 shows BF16x2/warps-per-block launch-shape retuning is exact but only `~0.2%` faster in standalone. Further work requires a qualitatively different exact search/indexing method or an explicit approximation/quantization contract.
 
 ### P3: Full-Attention Layers
 

@@ -15,7 +15,7 @@ namespace edge_fm {
 namespace {
 
 constexpr int32_t kGatedDeltaSequenceValueTile = 32;
-constexpr int32_t kGatedDeltaPrecomputedValueTile = 16;
+constexpr int32_t kGatedDeltaPrecomputedValueTile = 32;
 constexpr int32_t kGatedDeltaSequenceThreads = 256;
 constexpr int32_t kGatedDeltaPrecomputeThreads = 128;
 
@@ -370,6 +370,29 @@ __global__ void depthwise_causal_conv1d_kernel4_single_token_update(const T* __r
     state[1] = s2;
     state[2] = s3;
     state[3] = x;
+}
+
+template <typename T>
+__device__ float depthwise_conv4_single_token_update_value(const T* __restrict__ input,
+                                                           const T* __restrict__ weight,
+                                                           T* __restrict__ conv_state,
+                                                           int64_t channel) {
+    T* state = conv_state + channel * 4;
+    const int64_t weight_base = channel * 4;
+    const T s1 = state[1];
+    const T s2 = state[2];
+    const T s3 = state[3];
+    const T x = input[channel];
+    float acc = 0.0f;
+    acc += load_as_float(weight, weight_base + 0) * static_cast<float>(s1);
+    acc += load_as_float(weight, weight_base + 1) * static_cast<float>(s2);
+    acc += load_as_float(weight, weight_base + 2) * static_cast<float>(s3);
+    acc += load_as_float(weight, weight_base + 3) * static_cast<float>(x);
+    state[0] = s1;
+    state[1] = s2;
+    state[2] = s3;
+    state[3] = x;
+    return round_to_dtype<T>(silu(acc));
 }
 
 template <typename T>
@@ -926,6 +949,241 @@ __global__ void gated_delta_sequence_from_ab_single_token_128_kernel(const T* __
     }
 }
 
+template <typename T, typename BiasT, typename WeightT>
+__global__ void gated_delta_sequence_from_ab_gated_rmsnorm_single_token_128_kernel(
+    const T* __restrict__ mixed_qkv,
+    const T* __restrict__ a,
+    const T* __restrict__ b,
+    const float* __restrict__ a_log,
+    const BiasT* __restrict__ dt_bias,
+    const T* __restrict__ gate,
+    const WeightT* __restrict__ norm_weight,
+    float* __restrict__ recurrent_state,
+    T* __restrict__ output,
+    int32_t num_heads,
+    float eps) {
+    constexpr int32_t kKeyDim = 128;
+    constexpr int32_t kValueDim = 128;
+    constexpr int32_t kBlockThreads = 128;
+    const int32_t head = blockIdx.x;
+    if (head >= num_heads) {
+        return;
+    }
+
+    const int32_t key_total = num_heads * kKeyDim;
+    float* state_h = recurrent_state + static_cast<int64_t>(head) * kKeyDim * kValueDim;
+    extern __shared__ float shared[];
+    float* q_norm_s = shared;
+    float* k_norm_s = q_norm_s + kBlockThreads;
+    float* output_s = k_norm_s + kBlockThreads;
+    float* scalar_s = output_s + kValueDim;
+    constexpr int32_t kQInvNorm = 0;
+    constexpr int32_t kKInvNorm = 1;
+    constexpr int32_t kDecay = 2;
+    constexpr int32_t kBeta = 3;
+    constexpr int32_t kRmsInv = 4;
+    const float q_scale = rsqrtf(static_cast<float>(kKeyDim));
+
+    const T* query_h = mixed_qkv + static_cast<int64_t>(head) * kKeyDim;
+    const T* key_h = mixed_qkv + static_cast<int64_t>(key_total) + static_cast<int64_t>(head) * kKeyDim;
+    const T* value_h = mixed_qkv + static_cast<int64_t>(2 * key_total) + static_cast<int64_t>(head) * kValueDim;
+    const T* gate_h = gate + static_cast<int64_t>(head) * kValueDim;
+    T* output_h = output + static_cast<int64_t>(head) * kValueDim;
+
+    const int32_t tid = static_cast<int32_t>(threadIdx.x);
+    const float q = load_as_float(query_h, tid);
+    const float k = load_as_float(key_h, tid);
+    q_norm_s[tid] = round_to_dtype<T>(q * q);
+    k_norm_s[tid] = round_to_dtype<T>(k * k);
+    __syncthreads();
+    for (uint32_t stride = kBlockThreads / 2; stride > 0; stride >>= 1) {
+        if (tid < static_cast<int32_t>(stride)) {
+            q_norm_s[tid] += q_norm_s[tid + stride];
+            k_norm_s[tid] += k_norm_s[tid + stride];
+        }
+        __syncthreads();
+    }
+    if (tid == 0) {
+        scalar_s[kQInvNorm] =
+            l2norm_inv_for_transformers_dtype<T>(
+                round_to_dtype<T>(q_norm_s[0]),
+                1e-6f);
+        scalar_s[kKInvNorm] =
+            l2norm_inv_for_transformers_dtype<T>(
+                round_to_dtype<T>(k_norm_s[0]),
+                1e-6f);
+        const float a_val = load_as_float(a, head);
+        const float b_val = load_as_float(b, head);
+        const float dt = load_as_float(dt_bias, head);
+        const float g_value = -expf(a_log[head]) * softplus(a_val + dt);
+        scalar_s[kDecay] = expf(g_value);
+        scalar_s[kBeta] = sigmoid(b_val);
+    }
+    __syncthreads();
+
+    q_norm_s[tid] =
+        l2norm_value_for_transformers_dtype(query_h, tid, scalar_s[kQInvNorm]) *
+        q_scale;
+    k_norm_s[tid] =
+        l2norm_value_for_transformers_dtype(key_h, tid, scalar_s[kKInvNorm]);
+    __syncthreads();
+
+    float kv_mem = 0.0f;
+    for (int32_t k_idx = 0; k_idx < kKeyDim; ++k_idx) {
+        float* state_ptr = state_h + static_cast<int64_t>(k_idx) * kValueDim + tid;
+        const float state_value = *state_ptr * scalar_s[kDecay];
+        *state_ptr = state_value;
+        kv_mem += state_value * k_norm_s[k_idx];
+    }
+    const float delta = (load_as_float(value_h, tid) - kv_mem) * scalar_s[kBeta];
+    float acc = 0.0f;
+    for (int32_t k_idx = 0; k_idx < kKeyDim; ++k_idx) {
+        float* state_ptr = state_h + static_cast<int64_t>(k_idx) * kValueDim + tid;
+        const float state_value = *state_ptr + k_norm_s[k_idx] * delta;
+        *state_ptr = state_value;
+        acc += state_value * q_norm_s[k_idx];
+    }
+    output_s[tid] = round_to_dtype<T>(acc);
+    __syncthreads();
+
+    if (tid < 32) {
+        float sum_sq = 0.0f;
+        for (int32_t col = tid; col < kValueDim; col += 32) {
+            const float x = output_s[col];
+            sum_sq += x * x;
+        }
+        for (int offset = 16; offset > 0; offset >>= 1) {
+            sum_sq += __shfl_down_sync(0xffffffffu, sum_sq, offset);
+        }
+        if (tid == 0) {
+            scalar_s[kRmsInv] = rsqrtf(sum_sq / static_cast<float>(kValueDim) + eps);
+        }
+    }
+    __syncthreads();
+
+    float y = output_s[tid] * scalar_s[kRmsInv];
+    y *= load_as_float(norm_weight, tid);
+    y *= silu(load_as_float(gate_h, tid));
+    store_from_float(output_h, tid, y);
+}
+
+template <typename T, typename BiasT, typename WeightT>
+__global__ void conv1d_gated_delta_sequence_from_ab_gated_rmsnorm_single_token_128_kernel(
+    const T* __restrict__ mixed_qkv,
+    const T* __restrict__ conv_weight,
+    T* __restrict__ conv_state,
+    const T* __restrict__ a,
+    const T* __restrict__ b,
+    const float* __restrict__ a_log,
+    const BiasT* __restrict__ dt_bias,
+    const T* __restrict__ gate,
+    const WeightT* __restrict__ norm_weight,
+    float* __restrict__ recurrent_state,
+    T* __restrict__ output,
+    int32_t num_heads,
+    float eps) {
+    constexpr int32_t kKeyDim = 128;
+    constexpr int32_t kValueDim = 128;
+    constexpr int32_t kBlockThreads = 128;
+    const int32_t head = blockIdx.x;
+    if (head >= num_heads) {
+        return;
+    }
+
+    const int32_t key_total = num_heads * kKeyDim;
+    float* state_h = recurrent_state + static_cast<int64_t>(head) * kKeyDim * kValueDim;
+    extern __shared__ float shared[];
+    float* q_norm_s = shared;
+    float* k_norm_s = q_norm_s + kBlockThreads;
+    float* output_s = k_norm_s + kBlockThreads;
+    float* scalar_s = output_s + kValueDim;
+    constexpr int32_t kQInvNorm = 0;
+    constexpr int32_t kKInvNorm = 1;
+    constexpr int32_t kDecay = 2;
+    constexpr int32_t kBeta = 3;
+    constexpr int32_t kRmsInv = 4;
+    const float q_scale = rsqrtf(static_cast<float>(kKeyDim));
+
+    const int32_t tid = static_cast<int32_t>(threadIdx.x);
+    const int64_t q_channel = static_cast<int64_t>(head) * kKeyDim + tid;
+    const int64_t k_channel = static_cast<int64_t>(key_total) + static_cast<int64_t>(head) * kKeyDim + tid;
+    const int64_t v_channel = static_cast<int64_t>(2 * key_total) + static_cast<int64_t>(head) * kValueDim + tid;
+    const float q_conv = depthwise_conv4_single_token_update_value(mixed_qkv, conv_weight, conv_state, q_channel);
+    const float k_conv = depthwise_conv4_single_token_update_value(mixed_qkv, conv_weight, conv_state, k_channel);
+    const float v_conv = depthwise_conv4_single_token_update_value(mixed_qkv, conv_weight, conv_state, v_channel);
+    q_norm_s[tid] = round_to_dtype<T>(q_conv * q_conv);
+    k_norm_s[tid] = round_to_dtype<T>(k_conv * k_conv);
+    __syncthreads();
+    for (uint32_t stride = kBlockThreads / 2; stride > 0; stride >>= 1) {
+        if (tid < static_cast<int32_t>(stride)) {
+            q_norm_s[tid] += q_norm_s[tid + stride];
+            k_norm_s[tid] += k_norm_s[tid + stride];
+        }
+        __syncthreads();
+    }
+    if (tid == 0) {
+        scalar_s[kQInvNorm] =
+            l2norm_inv_for_transformers_dtype<T>(
+                round_to_dtype<T>(q_norm_s[0]),
+                1e-6f);
+        scalar_s[kKInvNorm] =
+            l2norm_inv_for_transformers_dtype<T>(
+                round_to_dtype<T>(k_norm_s[0]),
+                1e-6f);
+        const float a_val = load_as_float(a, head);
+        const float b_val = load_as_float(b, head);
+        const float dt = load_as_float(dt_bias, head);
+        const float g_value = -expf(a_log[head]) * softplus(a_val + dt);
+        scalar_s[kDecay] = expf(g_value);
+        scalar_s[kBeta] = sigmoid(b_val);
+    }
+    __syncthreads();
+
+    q_norm_s[tid] = round_to_dtype<T>(q_conv * scalar_s[kQInvNorm]) * q_scale;
+    k_norm_s[tid] = round_to_dtype<T>(k_conv * scalar_s[kKInvNorm]);
+    __syncthreads();
+
+    float kv_mem = 0.0f;
+    for (int32_t k_idx = 0; k_idx < kKeyDim; ++k_idx) {
+        float* state_ptr = state_h + static_cast<int64_t>(k_idx) * kValueDim + tid;
+        const float state_value = *state_ptr * scalar_s[kDecay];
+        *state_ptr = state_value;
+        kv_mem += state_value * k_norm_s[k_idx];
+    }
+    const float delta = (v_conv - kv_mem) * scalar_s[kBeta];
+    float acc = 0.0f;
+    for (int32_t k_idx = 0; k_idx < kKeyDim; ++k_idx) {
+        float* state_ptr = state_h + static_cast<int64_t>(k_idx) * kValueDim + tid;
+        const float state_value = *state_ptr + k_norm_s[k_idx] * delta;
+        *state_ptr = state_value;
+        acc += state_value * q_norm_s[k_idx];
+    }
+    output_s[tid] = round_to_dtype<T>(acc);
+    __syncthreads();
+
+    if (tid < 32) {
+        float sum_sq = 0.0f;
+        for (int32_t col = tid; col < kValueDim; col += 32) {
+            const float x = output_s[col];
+            sum_sq += x * x;
+        }
+        for (int offset = 16; offset > 0; offset >>= 1) {
+            sum_sq += __shfl_down_sync(0xffffffffu, sum_sq, offset);
+        }
+        if (tid == 0) {
+            scalar_s[kRmsInv] = rsqrtf(sum_sq / static_cast<float>(kValueDim) + eps);
+        }
+    }
+    __syncthreads();
+
+    const T* gate_h = gate + static_cast<int64_t>(head) * kValueDim;
+    T* output_h = output + static_cast<int64_t>(head) * kValueDim;
+    float y = output_s[tid] * scalar_s[kRmsInv];
+    y *= load_as_float(norm_weight, tid);
+    y *= silu(load_as_float(gate_h, tid));
+    store_from_float(output_h, tid, y);
+}
+
 template <typename T>
 __global__ void precompute_gated_delta_qk_kernel(const T* __restrict__ mixed_qkv,
                                                  float* __restrict__ query_norm,
@@ -1000,7 +1258,10 @@ __global__ void gated_delta_sequence_precomputed_kernel(const T* __restrict__ mi
     const int32_t value_total = num_heads * value_dim;
     const int32_t conv_dim = 2 * key_total + value_total;
     float* state_h = recurrent_state + static_cast<int64_t>(head) * key_dim * value_dim;
-    extern __shared__ float delta_s[];
+    extern __shared__ float shared[];
+    float* delta_s = shared;
+    float* key_s = delta_s + kValueTile;
+    float* query_s = key_s + key_dim;
     const int64_t state_elements = static_cast<int64_t>(key_dim) * value_tile_size;
 
     for (int32_t token = 0; token < seq_len; ++token) {
@@ -1012,6 +1273,11 @@ __global__ void gated_delta_sequence_precomputed_kernel(const T* __restrict__ mi
         const float g_value = g_or_decay[static_cast<int64_t>(token) * num_heads + head];
         const float decay = kInputIsDecay ? g_value : expf(g_value);
         const float beta_h = beta[static_cast<int64_t>(token) * num_heads + head];
+
+        for (int32_t k_idx = threadIdx.x; k_idx < key_dim; k_idx += blockDim.x) {
+            key_s[k_idx] = key_h[k_idx];
+            query_s[k_idx] = query_h[k_idx];
+        }
 
         if constexpr ((kValueTile % 4) == 0) {
             if (value_tile_size == kValueTile && (value_tile_begin % 4) == 0) {
@@ -1050,10 +1316,19 @@ __global__ void gated_delta_sequence_precomputed_kernel(const T* __restrict__ mi
         for (int32_t local_v = threadIdx.x; local_v < value_tile_size; local_v += blockDim.x) {
             const int32_t v_idx = value_tile_begin + local_v;
             float kv_mem = 0.0f;
+            float q_mem = 0.0f;
+            float qk = 0.0f;
             for (int32_t k_idx = 0; k_idx < key_dim; ++k_idx) {
-                kv_mem += state_h[static_cast<int64_t>(k_idx) * value_dim + v_idx] * key_h[k_idx];
+                const float state_value = state_h[static_cast<int64_t>(k_idx) * value_dim + v_idx];
+                const float key_value = key_s[k_idx];
+                const float query_value = query_s[k_idx];
+                kv_mem += state_value * key_value;
+                q_mem += state_value * query_value;
+                qk += key_value * query_value;
             }
-            delta_s[local_v] = (load_as_float(value_h, v_idx) - kv_mem) * beta_h;
+            const float delta = (load_as_float(value_h, v_idx) - kv_mem) * beta_h;
+            delta_s[local_v] = delta;
+            store_from_float(output_h, v_idx, q_mem + delta * qk);
         }
         __syncthreads();
 
@@ -1066,7 +1341,7 @@ __global__ void gated_delta_sequence_precomputed_kernel(const T* __restrict__ mi
                     const int32_t local_vec = static_cast<int32_t>(idx % kVecsPerTile);
                     const int32_t local_v = local_vec * kVecWidth;
                     const int32_t k_idx = static_cast<int32_t>(idx / kVecsPerTile);
-                    const float k_value = key_h[k_idx];
+                    const float k_value = key_s[k_idx];
                     float4* state_vec = reinterpret_cast<float4*>(
                         state_h + static_cast<int64_t>(k_idx) * value_dim + value_tile_begin + local_v);
                     float4 value = *state_vec;
@@ -1081,7 +1356,7 @@ __global__ void gated_delta_sequence_precomputed_kernel(const T* __restrict__ mi
                     const int32_t local_v = static_cast<int32_t>(idx % value_tile_size);
                     const int32_t v_idx = value_tile_begin + local_v;
                     const int32_t k_idx = static_cast<int32_t>(idx / value_tile_size);
-                    state_h[static_cast<int64_t>(k_idx) * value_dim + v_idx] += key_h[k_idx] * delta_s[local_v];
+                    state_h[static_cast<int64_t>(k_idx) * value_dim + v_idx] += key_s[k_idx] * delta_s[local_v];
                 }
             }
         } else {
@@ -1089,18 +1364,8 @@ __global__ void gated_delta_sequence_precomputed_kernel(const T* __restrict__ mi
                 const int32_t local_v = static_cast<int32_t>(idx % value_tile_size);
                 const int32_t v_idx = value_tile_begin + local_v;
                 const int32_t k_idx = static_cast<int32_t>(idx / value_tile_size);
-                state_h[static_cast<int64_t>(k_idx) * value_dim + v_idx] += key_h[k_idx] * delta_s[local_v];
+                state_h[static_cast<int64_t>(k_idx) * value_dim + v_idx] += key_s[k_idx] * delta_s[local_v];
             }
-        }
-        __syncthreads();
-
-        for (int32_t local_v = threadIdx.x; local_v < value_tile_size; local_v += blockDim.x) {
-            const int32_t v_idx = value_tile_begin + local_v;
-            float acc = 0.0f;
-            for (int32_t k_idx = 0; k_idx < key_dim; ++k_idx) {
-                acc += state_h[static_cast<int64_t>(k_idx) * value_dim + v_idx] * query_h[k_idx];
-            }
-            store_from_float(output_h, v_idx, acc);
         }
         if (token + 1 < seq_len) {
             __syncthreads();
@@ -1524,6 +1789,89 @@ void launch_gated_delta_sequence_from_ab(const Tensor& mixed_qkv,
     CUDA_CHECK_THROW(cudaGetLastError(), "qwen3_5 gated delta sequence from a/b kernel launch failed");
 }
 
+template <typename T, typename BiasT, typename WeightT>
+void launch_gated_delta_sequence_from_ab_gated_rmsnorm(const Tensor& mixed_qkv,
+                                                       const Tensor& a,
+                                                       const Tensor& b,
+                                                       const Tensor& a_log,
+                                                       const Tensor& dt_bias,
+                                                       const Tensor& gate,
+                                                       const Tensor& norm_weight,
+                                                       Tensor& recurrent_state,
+                                                       Tensor& output,
+                                                       float eps,
+                                                       cudaStream_t stream) {
+    const int32_t seq_len = static_cast<int32_t>(mixed_qkv.shape()[0]);
+    const int32_t num_heads = static_cast<int32_t>(recurrent_state.shape()[0]);
+    const int32_t key_dim = static_cast<int32_t>(recurrent_state.shape()[1]);
+    const int32_t value_dim = static_cast<int32_t>(recurrent_state.shape()[2]);
+    check<InvalidRequestError>(
+        seq_len == 1 && key_dim == 128 && value_dim == 128,
+        "qwen3_5 fused gated delta + gated RMSNorm supports only single-token key_dim=value_dim=128");
+
+    constexpr int32_t kThreads = 128;
+    dim3 grid(num_heads);
+    const size_t smem = static_cast<size_t>(3 * kThreads + 5) * sizeof(float);
+    gated_delta_sequence_from_ab_gated_rmsnorm_single_token_128_kernel<T, BiasT, WeightT>
+        <<<grid, kThreads, smem, stream>>>(
+            static_cast<const T*>(mixed_qkv.data_ptr()),
+            static_cast<const T*>(a.data_ptr()),
+            static_cast<const T*>(b.data_ptr()),
+            static_cast<const float*>(a_log.data_ptr()),
+            static_cast<const BiasT*>(dt_bias.data_ptr()),
+            static_cast<const T*>(gate.data_ptr()),
+            static_cast<const WeightT*>(norm_weight.data_ptr()),
+            static_cast<float*>(recurrent_state.data_ptr()),
+            static_cast<T*>(output.data_ptr()),
+            num_heads,
+            eps);
+    CUDA_CHECK_THROW(cudaGetLastError(), "qwen3_5 fused gated delta + gated RMSNorm kernel launch failed");
+}
+
+template <typename T, typename BiasT, typename WeightT>
+void launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm(const Tensor& mixed_qkv,
+                                                              const Tensor& conv_weight,
+                                                              Tensor& conv_state,
+                                                              const Tensor& a,
+                                                              const Tensor& b,
+                                                              const Tensor& a_log,
+                                                              const Tensor& dt_bias,
+                                                              const Tensor& gate,
+                                                              const Tensor& norm_weight,
+                                                              Tensor& recurrent_state,
+                                                              Tensor& output,
+                                                              float eps,
+                                                              cudaStream_t stream) {
+    const int32_t seq_len = static_cast<int32_t>(mixed_qkv.shape()[0]);
+    const int32_t num_heads = static_cast<int32_t>(recurrent_state.shape()[0]);
+    const int32_t key_dim = static_cast<int32_t>(recurrent_state.shape()[1]);
+    const int32_t value_dim = static_cast<int32_t>(recurrent_state.shape()[2]);
+    const int32_t kernel_size = static_cast<int32_t>(conv_weight.shape()[2]);
+    check<InvalidRequestError>(
+        seq_len == 1 && key_dim == 128 && value_dim == 128 && kernel_size == 4,
+        "qwen3_5 fused conv + gated delta + gated RMSNorm supports only single-token kernel4 key_dim=value_dim=128");
+
+    constexpr int32_t kThreads = 128;
+    dim3 grid(num_heads);
+    const size_t smem = static_cast<size_t>(3 * kThreads + 5) * sizeof(float);
+    conv1d_gated_delta_sequence_from_ab_gated_rmsnorm_single_token_128_kernel<T, BiasT, WeightT>
+        <<<grid, kThreads, smem, stream>>>(
+            static_cast<const T*>(mixed_qkv.data_ptr()),
+            static_cast<const T*>(conv_weight.data_ptr()),
+            static_cast<T*>(conv_state.data_ptr()),
+            static_cast<const T*>(a.data_ptr()),
+            static_cast<const T*>(b.data_ptr()),
+            static_cast<const float*>(a_log.data_ptr()),
+            static_cast<const BiasT*>(dt_bias.data_ptr()),
+            static_cast<const T*>(gate.data_ptr()),
+            static_cast<const WeightT*>(norm_weight.data_ptr()),
+            static_cast<float*>(recurrent_state.data_ptr()),
+            static_cast<T*>(output.data_ptr()),
+            num_heads,
+            eps);
+    CUDA_CHECK_THROW(cudaGetLastError(), "qwen3_5 fused conv + gated delta + gated RMSNorm kernel launch failed");
+}
+
 template <typename T>
 void launch_precompute_gated_delta_qk(const Tensor& mixed_qkv,
                                       Tensor& query_norm,
@@ -1563,7 +1911,8 @@ void launch_gated_delta_sequence_precomputed(const Tensor& mixed_qkv,
     dim3 grid(
         num_heads,
         (value_dim + kGatedDeltaPrecomputedValueTile - 1) / kGatedDeltaPrecomputedValueTile);
-    const size_t smem = static_cast<size_t>(kGatedDeltaPrecomputedValueTile) * sizeof(float);
+    const size_t smem =
+        static_cast<size_t>(kGatedDeltaPrecomputedValueTile + 2 * key_dim) * sizeof(float);
     gated_delta_sequence_precomputed_kernel<T, false, kGatedDeltaPrecomputedValueTile><<<grid, kGatedDeltaSequenceThreads, smem, stream>>>(
         static_cast<const T*>(mixed_qkv.data_ptr()),
         static_cast<const float*>(g.data_ptr()),
@@ -1595,7 +1944,8 @@ void launch_gated_delta_sequence_precomputed_decay(const Tensor& mixed_qkv,
     dim3 grid(
         num_heads,
         (value_dim + kGatedDeltaPrecomputedValueTile - 1) / kGatedDeltaPrecomputedValueTile);
-    const size_t smem = static_cast<size_t>(kGatedDeltaPrecomputedValueTile) * sizeof(float);
+    const size_t smem =
+        static_cast<size_t>(kGatedDeltaPrecomputedValueTile + 2 * key_dim) * sizeof(float);
     gated_delta_sequence_precomputed_kernel<T, true, kGatedDeltaPrecomputedValueTile><<<grid, kGatedDeltaSequenceThreads, smem, stream>>>(
         static_cast<const T*>(mixed_qkv.data_ptr()),
         static_cast<const float*>(decay.data_ptr()),
@@ -2142,6 +2492,287 @@ void qwen3_5_gated_delta_sequence_from_ab_forward(
         }
     } else {
         throw ConfigurationError("qwen3_5_gated_delta_sequence_from_ab supports Float32/Float16/BFloat16");
+    }
+}
+
+void qwen3_5_gated_delta_sequence_from_ab_gated_rmsnorm_forward(
+    const Tensor& mixed_qkv,
+    const Tensor& a,
+    const Tensor& b,
+    const Tensor& a_log,
+    const Tensor& dt_bias,
+    const Tensor& gate,
+    const Tensor& norm_weight,
+    Tensor& recurrent_state,
+    Tensor& output,
+    float eps,
+    cudaStream_t stream) {
+    auto [device, device_id] = mixed_qkv.device();
+    validate_2d_same_device(a, "a", mixed_qkv.dtype(), device, device_id);
+    validate_2d_same_device(b, "b", mixed_qkv.dtype(), device, device_id);
+    validate_2d_same_device(gate, "gate", mixed_qkv.dtype(), device, device_id);
+    validate_2d_same_device(output, "output", mixed_qkv.dtype(), device, device_id);
+    auto [alog_device, alog_device_id] = a_log.device();
+    auto [dt_device, dt_device_id] = dt_bias.device();
+    auto [state_device, state_device_id] = recurrent_state.device();
+    check<DeviceError>(
+        alog_device == device && alog_device_id == device_id &&
+            dt_device == device && dt_device_id == device_id &&
+            state_device == device && state_device_id == device_id,
+        "a_log/dt_bias/recurrent_state must be on the same device");
+    check<ConfigurationError>(a_log.dtype() == DType::Float32, "a_log must be Float32");
+    check<ConfigurationError>(
+        dt_bias.dtype() == DType::Float32 || dt_bias.dtype() == DType::Float16 ||
+            dt_bias.dtype() == DType::BFloat16,
+        "dt_bias must be Float32/Float16/BFloat16");
+    check<ConfigurationError>(recurrent_state.dtype() == DType::Float32, "recurrent_state must be Float32");
+    check<InvalidRequestError>(
+        recurrent_state.shape().size() == 3,
+        "recurrent_state must be [num_heads, key_dim, value_dim]");
+    const int64_t num_heads = recurrent_state.shape()[0];
+    const int64_t key_dim = recurrent_state.shape()[1];
+    const int64_t value_dim = recurrent_state.shape()[2];
+    const int64_t conv_dim = num_heads * (2 * key_dim + value_dim);
+    check<InvalidRequestError>(
+        mixed_qkv.shape().size() == 2 && mixed_qkv.shape()[0] == 1 && mixed_qkv.shape()[1] == conv_dim,
+        "mixed_qkv must be [1, num_heads * (2 * key_dim + value_dim)]");
+    check<InvalidRequestError>(
+        key_dim == 128 && value_dim == 128,
+        "fused gated delta + gated RMSNorm supports key_dim=value_dim=128");
+    check<InvalidRequestError>(
+        a.shape() == std::vector<int64_t>{1, num_heads} &&
+            b.shape() == a.shape(),
+        "a/b must be [1, num_heads]");
+    check<InvalidRequestError>(
+        a_log.shape().size() == 1 && dt_bias.shape().size() == 1 &&
+            a_log.shape()[0] == num_heads && dt_bias.shape()[0] == num_heads,
+        "a_log and dt_bias must be [num_heads]");
+    check<InvalidRequestError>(
+        gate.shape() == std::vector<int64_t>{num_heads, value_dim} &&
+            output.shape() == gate.shape(),
+        "gate/output must be [num_heads, value_dim]");
+    validate_last_dim_weight_dtype_any(norm_weight, value_dim, device, device_id);
+
+    if (mixed_qkv.dtype() == DType::BFloat16) {
+        if (dt_bias.dtype() == DType::Float32) {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, float, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::Float16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, float, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, float, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else if (dt_bias.dtype() == DType::Float16) {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, half, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::Float16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, half, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, half, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, __nv_bfloat16, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::Float16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, __nv_bfloat16, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        }
+    } else if (mixed_qkv.dtype() == DType::Float16) {
+        if (dt_bias.dtype() == DType::Float32) {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, float, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::BFloat16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, float, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, float, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else if (dt_bias.dtype() == DType::BFloat16) {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, __nv_bfloat16, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::BFloat16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, __nv_bfloat16, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, __nv_bfloat16, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, half, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::BFloat16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, half, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<half, half, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        }
+    } else if (mixed_qkv.dtype() == DType::Float32) {
+        if (dt_bias.dtype() == DType::Float16) {
+            if (norm_weight.dtype() == DType::Float16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, half, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::BFloat16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, half, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, half, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else if (dt_bias.dtype() == DType::BFloat16) {
+            if (norm_weight.dtype() == DType::Float16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, __nv_bfloat16, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::BFloat16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, __nv_bfloat16, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, __nv_bfloat16, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else {
+            if (norm_weight.dtype() == DType::Float16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, float, half>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::BFloat16) {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, float, __nv_bfloat16>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_gated_delta_sequence_from_ab_gated_rmsnorm<float, float, float>(
+                    mixed_qkv, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        }
+    } else {
+        throw ConfigurationError("qwen3_5 fused gated delta + gated RMSNorm supports Float32/Float16/BFloat16");
+    }
+}
+
+void qwen3_5_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm_forward(
+    const Tensor& mixed_qkv,
+    const Tensor& conv_weight,
+    Tensor& conv_state,
+    const Tensor& a,
+    const Tensor& b,
+    const Tensor& a_log,
+    const Tensor& dt_bias,
+    const Tensor& gate,
+    const Tensor& norm_weight,
+    Tensor& recurrent_state,
+    Tensor& output,
+    float eps,
+    cudaStream_t stream) {
+    auto [device, device_id] = mixed_qkv.device();
+    validate_2d_same_device(a, "a", mixed_qkv.dtype(), device, device_id);
+    validate_2d_same_device(b, "b", mixed_qkv.dtype(), device, device_id);
+    validate_2d_same_device(gate, "gate", mixed_qkv.dtype(), device, device_id);
+    validate_2d_same_device(output, "output", mixed_qkv.dtype(), device, device_id);
+    auto [weight_device, weight_device_id] = conv_weight.device();
+    auto [conv_state_device, conv_state_device_id] = conv_state.device();
+    auto [alog_device, alog_device_id] = a_log.device();
+    auto [dt_device, dt_device_id] = dt_bias.device();
+    auto [state_device, state_device_id] = recurrent_state.device();
+    check<DeviceError>(
+        weight_device == device && weight_device_id == device_id &&
+            conv_state_device == device && conv_state_device_id == device_id &&
+            alog_device == device && alog_device_id == device_id &&
+            dt_device == device && dt_device_id == device_id &&
+            state_device == device && state_device_id == device_id,
+        "conv/a_log/dt_bias/recurrent_state tensors must be on the same device");
+    check<ConfigurationError>(
+        conv_weight.dtype() == mixed_qkv.dtype() && conv_state.dtype() == mixed_qkv.dtype(),
+        "conv weight/state dtype mismatch");
+    check<ConfigurationError>(a_log.dtype() == DType::Float32, "a_log must be Float32");
+    check<ConfigurationError>(
+        dt_bias.dtype() == DType::Float32 || dt_bias.dtype() == DType::Float16 ||
+            dt_bias.dtype() == DType::BFloat16,
+        "dt_bias must be Float32/Float16/BFloat16");
+    check<ConfigurationError>(recurrent_state.dtype() == DType::Float32, "recurrent_state must be Float32");
+    check<InvalidRequestError>(
+        recurrent_state.shape().size() == 3,
+        "recurrent_state must be [num_heads, key_dim, value_dim]");
+    const int64_t num_heads = recurrent_state.shape()[0];
+    const int64_t key_dim = recurrent_state.shape()[1];
+    const int64_t value_dim = recurrent_state.shape()[2];
+    const int64_t conv_dim = num_heads * (2 * key_dim + value_dim);
+    check<InvalidRequestError>(
+        mixed_qkv.shape().size() == 2 && mixed_qkv.shape()[0] == 1 && mixed_qkv.shape()[1] == conv_dim,
+        "mixed_qkv must be [1, num_heads * (2 * key_dim + value_dim)]");
+    check<InvalidRequestError>(
+        key_dim == 128 && value_dim == 128,
+        "fused conv + gated delta + gated RMSNorm supports key_dim=value_dim=128");
+    check<InvalidRequestError>(
+        conv_weight.shape().size() == 3 && conv_weight.shape()[0] == conv_dim &&
+            conv_weight.shape()[1] == 1 && conv_weight.shape()[2] == 4 &&
+            conv_state.shape().size() == 2 && conv_state.shape()[0] == conv_dim &&
+            conv_state.shape()[1] == 4,
+        "conv weight/state must be [conv_dim,1,4] and [conv_dim,4]");
+    check<InvalidRequestError>(
+        a.shape() == std::vector<int64_t>{1, num_heads} &&
+            b.shape() == a.shape(),
+        "a/b must be [1, num_heads]");
+    check<InvalidRequestError>(
+        a_log.shape().size() == 1 && dt_bias.shape().size() == 1 &&
+            a_log.shape()[0] == num_heads && dt_bias.shape()[0] == num_heads,
+        "a_log and dt_bias must be [num_heads]");
+    check<InvalidRequestError>(
+        gate.shape() == std::vector<int64_t>{num_heads, value_dim} &&
+            output.shape() == gate.shape(),
+        "gate/output must be [num_heads, value_dim]");
+    validate_last_dim_weight_dtype_any(norm_weight, value_dim, device, device_id);
+
+    if (mixed_qkv.dtype() == DType::BFloat16) {
+        if (dt_bias.dtype() == DType::Float32) {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, float, float>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::Float16) {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, float, half>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, float, __nv_bfloat16>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else if (dt_bias.dtype() == DType::Float16) {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, half, float>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::Float16) {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, half, half>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, half, __nv_bfloat16>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        } else {
+            if (norm_weight.dtype() == DType::Float32) {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, __nv_bfloat16, float>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else if (norm_weight.dtype() == DType::Float16) {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, __nv_bfloat16, half>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            } else {
+                launch_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm<__nv_bfloat16, __nv_bfloat16, __nv_bfloat16>(
+                    mixed_qkv, conv_weight, conv_state, a, b, a_log, dt_bias, gate, norm_weight, recurrent_state, output, eps, stream);
+            }
+        }
+    } else {
+        throw ConfigurationError("qwen3_5 fused conv + gated delta + gated RMSNorm currently supports BFloat16");
     }
 }
 

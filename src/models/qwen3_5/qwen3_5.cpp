@@ -725,13 +725,23 @@ void Qwen3_5::run_linear_attention_layer(
     Tensor& conv_state = *conv_state_ptr;
     Tensor& recurrent_state = *recurrent_state_ptr;
 
-    qwen3_5_depthwise_causal_conv1d_forward(
-        mixed_qkv,
-        required_weight(weight_prefix + ".conv1d.weight"),
-        conv_state,
-        conv_out,
-        true,
-        stream);
+    const bool use_fused_decode_gated_norm =
+        stage != ModelStage::Prefill &&
+        seq_len == 1 &&
+        linear_key_head_dim_ == 128 &&
+        linear_value_head_dim_ == 128;
+    const bool use_fused_decode_conv_gated_norm =
+        use_fused_decode_gated_norm &&
+        linear_conv_kernel_dim_ == 4;
+    if (!use_fused_decode_conv_gated_norm) {
+        qwen3_5_depthwise_causal_conv1d_forward(
+            mixed_qkv,
+            required_weight(weight_prefix + ".conv1d.weight"),
+            conv_state,
+            conv_out,
+            true,
+            stream);
+    }
     if (stage == ModelStage::Prefill && seq_len > 1) {
         Tensor query_norm = workspace_tensor(
             "linear_q_norm_L" + std::to_string(layer_id),
@@ -765,6 +775,58 @@ void Qwen3_5::run_linear_attention_layer(
             recurrent_state,
             delta_out,
             stream);
+    } else if (use_fused_decode_conv_gated_norm) {
+        Tensor z_2d = Tensor::view(
+            z.data_ptr(),
+            {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
+            dtype_,
+            Device::GPU,
+            device_id);
+        Tensor gated_norm_2d = Tensor::view(
+            gated_norm_out.data_ptr(),
+            {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
+            dtype_,
+            Device::GPU,
+            device_id);
+        qwen3_5_conv1d_gated_delta_sequence_from_ab_gated_rmsnorm_forward(
+            mixed_qkv,
+            required_weight(weight_prefix + ".conv1d.weight"),
+            conv_state,
+            a,
+            b,
+            required_weight(weight_prefix + ".A_log"),
+            required_weight(weight_prefix + ".dt_bias"),
+            z_2d,
+            required_weight(weight_prefix + ".norm.weight"),
+            recurrent_state,
+            gated_norm_2d,
+            rms_norm_eps_,
+            stream);
+    } else if (use_fused_decode_gated_norm) {
+        Tensor z_2d = Tensor::view(
+            z.data_ptr(),
+            {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
+            dtype_,
+            Device::GPU,
+            device_id);
+        Tensor gated_norm_2d = Tensor::view(
+            gated_norm_out.data_ptr(),
+            {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
+            dtype_,
+            Device::GPU,
+            device_id);
+        qwen3_5_gated_delta_sequence_from_ab_gated_rmsnorm_forward(
+            conv_out,
+            a,
+            b,
+            required_weight(weight_prefix + ".A_log"),
+            required_weight(weight_prefix + ".dt_bias"),
+            z_2d,
+            required_weight(weight_prefix + ".norm.weight"),
+            recurrent_state,
+            gated_norm_2d,
+            rms_norm_eps_,
+            stream);
     } else {
         qwen3_5_gated_delta_sequence_from_ab_forward(
             conv_out,
@@ -777,31 +839,33 @@ void Qwen3_5::run_linear_attention_layer(
             stream);
     }
 
-    Tensor delta_2d = Tensor::view(
-        delta_out.data_ptr(),
-        {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
-        dtype_,
-        Device::GPU,
-        device_id);
-    Tensor z_2d = Tensor::view(
-        z.data_ptr(),
-        {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
-        dtype_,
-        Device::GPU,
-        device_id);
-    Tensor gated_norm_2d = Tensor::view(
-        gated_norm_out.data_ptr(),
-        {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
-        dtype_,
-        Device::GPU,
-        device_id);
-    qwen3_5_gated_rmsnorm_forward(
-        delta_2d,
-        z_2d,
-        required_weight(weight_prefix + ".norm.weight"),
-        gated_norm_2d,
-        rms_norm_eps_,
-        stream);
+    if (!use_fused_decode_gated_norm) {
+        Tensor delta_2d = Tensor::view(
+            delta_out.data_ptr(),
+            {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
+            dtype_,
+            Device::GPU,
+            device_id);
+        Tensor z_2d = Tensor::view(
+            z.data_ptr(),
+            {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
+            dtype_,
+            Device::GPU,
+            device_id);
+        Tensor gated_norm_2d = Tensor::view(
+            gated_norm_out.data_ptr(),
+            {static_cast<int64_t>(seq_len) * linear_num_value_heads_, linear_value_head_dim_},
+            dtype_,
+            Device::GPU,
+            device_id);
+        qwen3_5_gated_rmsnorm_forward(
+            delta_2d,
+            z_2d,
+            required_weight(weight_prefix + ".norm.weight"),
+            gated_norm_2d,
+            rms_norm_eps_,
+            stream);
+    }
     linear_layer(layer_prefix + ".linear_attn.out_proj").forward_fp16_bf16(
         gated_norm_out,
         mixer_output,
