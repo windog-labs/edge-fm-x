@@ -13,6 +13,7 @@ if(ENABLE_CUDA)
         prefill_mlp_source_op.cu
         attention_op.cu
         norm_op.cu
+        qwen3_5/qwen3_5_ops.cu
         activation_op.cu
         fused_gate_up_activation_op.cu
         ../../third_party/flashinfer/csrc/nv_internal/cpp/common/stringUtils.cpp

@@ -2,6 +2,7 @@
 # Models 模块（聚合模块）
 # ============================================================================
 add_subdirectory(qwen2_5)
+add_subdirectory(qwen3_5)
 
 # Model 基类库
 add_library(edge_fm_model STATIC
@@ -20,6 +21,7 @@ target_include_directories(edge_fm_model PUBLIC
 
 target_link_libraries(edge_fm_model PUBLIC
     edge_fm_qwen2_5
+    edge_fm_qwen3_5
     edge_fm_utils
     edge_fm_engine
 )

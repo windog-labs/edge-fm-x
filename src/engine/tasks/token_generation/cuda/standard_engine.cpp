@@ -160,8 +160,10 @@ DecodeWritePtrs collect_decode_write_ptrs_from_tensors(Context& context, int32_t
     write_ptrs.k.resize(num_layers);
     write_ptrs.v.resize(num_layers);
     for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
-        write_ptrs.k[layer_id] = tensors.at(ModelTensors::k_write_layer(layer_id)).data_ptr();
-        write_ptrs.v[layer_id] = tensors.at(ModelTensors::v_write_layer(layer_id)).data_ptr();
+        auto k_it = tensors.find(ModelTensors::k_write_layer(layer_id));
+        auto v_it = tensors.find(ModelTensors::v_write_layer(layer_id));
+        write_ptrs.k[layer_id] = (k_it != tensors.end()) ? k_it->second.data_ptr() : nullptr;
+        write_ptrs.v[layer_id] = (v_it != tensors.end()) ? v_it->second.data_ptr() : nullptr;
     }
     return write_ptrs;
 }
@@ -192,6 +194,11 @@ DecodeWritePtrs collect_decode_write_ptrs_from_context(
     for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
         void* read_ptr = kv_read_ptrs[layer_id];
         void* write_ptr = kv_write_ptrs[layer_id];
+        if (read_ptr == nullptr || write_ptr == nullptr) {
+            write_ptrs.k[layer_id] = nullptr;
+            write_ptrs.v[layer_id] = nullptr;
+            continue;
+        }
         size_t offset_bytes = static_cast<uint8_t*>(write_ptr) - static_cast<uint8_t*>(read_ptr);
         write_ptrs.k[layer_id] = write_ptr;
         write_ptrs.v[layer_id] = static_cast<uint8_t*>(read_ptr)
@@ -246,7 +253,11 @@ private:
                   const std::string& cache_key,
                   int32_t device_id)
     {
-        const Tensor& original = tensors_.at(tensor_name);
+        auto it = tensors_.find(tensor_name);
+        if (it == tensors_.end()) {
+            return;
+        }
+        const Tensor& original = it->second;
         saved_.push_back(SavedTensor{tensor_name, make_tensor_view(original)});
 
         void* tmp_ptr = StaticBufferManager::get_cache_buf(cache_key, tensor_nbytes(original), device_id);
@@ -385,6 +396,7 @@ struct GenerateMetricsAccum {
     double stop_check_host_ms = 0.0;
     double response_copy_ms = 0.0;
     double lm_head_top1_decode_steps = 0.0;
+    double decode_graph_captures = 0.0;
 };
 
 class ScopedHostMetric {
@@ -501,6 +513,7 @@ std::unordered_map<std::string, double> make_generate_metrics_map(
         {"cuda_graph_enabled", cuda_graph_enabled ? 1.0 : 0.0},
         {"lm_head_top1_enabled", lm_head_top1_enabled ? 1.0 : 0.0},
         {"lm_head_top1_decode_steps", accum.lm_head_top1_decode_steps},
+        {"decode_graph_captures", accum.decode_graph_captures},
     };
     metrics.emplace("response_tokens_capacity", static_cast<double>(response_tokens_capacity));
     return metrics;
@@ -514,7 +527,10 @@ bool lm_head_top1_token_ready(const Context& context) {
 
 void StandardEngine::warmup() {
     KVManagerStatus kv_status = kv_manager_->get_status();
-    bool need_decode_graph_capture = config_.use_cuda_graph() && !cuda_graph_manager_.is_decode_captured();
+    bool need_decode_graph_capture =
+        config_.use_cuda_graph() &&
+        model_->supports_decode_cuda_graph() &&
+        !cuda_graph_manager_.is_decode_captured();
 
     for (const auto& slot : kv_status.slots) {
         if (slot.prefix_token_ids.empty() || slot.prefix_size == 0) {
@@ -539,13 +555,15 @@ void StandardEngine::warmup() {
             continue;
         }
 
-        const Tensor& logits_prefill = context.tensors().at(ModelTensors::LOGITS);
         int32_t seq_len = prefill_token_count(context);
-        run_sampler(
-            last_token_logits_view(logits_prefill),
-            context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT),
-            stream,
-            ModelStage::Prefill);
+        if (!lm_head_top1_token_ready(context)) {
+            const Tensor& logits_prefill = context.tensors().at(ModelTensors::LOGITS);
+            run_sampler(
+                last_token_logits_view(logits_prefill),
+                context.tensors().at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Prefill);
+        }
         context.advance_after_prefill(seq_len);
         prepare_tensors(ModelStage::Decode, context);
         ensure_decode_graph_captured(context);
@@ -567,6 +585,9 @@ void StandardEngine::run_sampler(const Tensor& logits,
 
 bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
     if (!config_.use_cuda_graph()) {
+        return false;
+    }
+    if (!model_->supports_prefill_cuda_graph()) {
         return false;
     }
     if (kv_manager_->get_attention_type() == AttentionType::MLA) {
@@ -742,11 +763,13 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
             sampler_device_id);
 
         model_->prefill(context);
-        run_sampler(
-            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
-            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-            stream,
-            ModelStage::Prefill);
+        if (!lm_head_top1_token_ready(context)) {
+            run_sampler(
+                last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+                tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                stream,
+                ModelStage::Prefill);
+        }
         if (stream != nullptr) {
             CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
                              "Failed to sync stream before prefill CUDA graph capture");
@@ -759,18 +782,21 @@ bool StandardEngine::try_run_prefill_cuda_graph(Context& context) {
 
     runner.begin_capture(stream);
     model_->prefill(context);
-    run_sampler(
-        last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
-        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-        stream,
-        ModelStage::Prefill);
+    if (!lm_head_top1_token_ready(context)) {
+        run_sampler(
+            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+            stream,
+            ModelStage::Prefill);
+    }
     runner.end_capture(stream);
     runner.launch(stream);
     return true;
 }
 
 void StandardEngine::ensure_decode_graph_captured(Context& context) {
-    if (!config_.use_cuda_graph() || cuda_graph_manager_.is_decode_captured()) {
+    if (!config_.use_cuda_graph() || !model_->supports_decode_cuda_graph() ||
+        cuda_graph_manager_.is_decode_captured()) {
         return;
     }
 
@@ -780,6 +806,8 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
 
     auto& tensors = context.tensors();
     cudaStream_t stream = cuda_stream(context);
+
+    model_->backup_decode_runtime_tensors(context, stream);
 
     // Run one uncaptured decode into temporary KV buffers so lazy allocations
     // happen before capture and the real cache stays untouched. Sampler output
@@ -819,6 +847,11 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
 
         tensors[ModelTensors::SAMPLER_TOKEN_OUT] = std::move(sampler_out_saved);
     }
+    model_->restore_decode_runtime_tensors(context, stream);
+    if (stream != nullptr) {
+        CUDA_CHECK_THROW(cudaStreamSynchronize(stream),
+                         "Failed to sync restored decode runtime state before CUDA graph capture");
+    }
 
     (void)cudaGetLastError();
 
@@ -837,6 +870,7 @@ void StandardEngine::ensure_decode_graph_captured(Context& context) {
         advance_decode_runtime_state(context, stream);
     }, write_ptrs.k, write_ptrs.v);
     decode_graph_lm_head_top1_ = captured_lm_head_top1;
+    model_->restore_decode_runtime_tensors(context, stream);
 
     // Stream capture executes the captured work, so restore the first decode
     // step's input state before the first graph replay.
@@ -883,9 +917,15 @@ Response StandardEngine::generate(const Request& request) {
         active_request = &(*remapped_request);
     }
 
+    const bool decode_cuda_graph_enabled = config_.use_cuda_graph() && model_->supports_decode_cuda_graph();
+    if (decode_cuda_graph_enabled && !model_->can_reuse_decode_cuda_graph_across_requests() &&
+        cuda_graph_manager_.is_decode_captured()) {
+        cuda_graph_manager_.reset_decode();
+        decode_graph_lm_head_top1_ = false;
+    }
     GenerateMetricsAccum metrics;
     last_generate_metrics_ = make_generate_metrics_map(
-        metrics, 0.0, 0.0, 0, 0, 0, config_.use_cuda_graph(), config_.lm_head_top1_enabled());
+        metrics, 0.0, 0.0, 0, 0, 0, decode_cuda_graph_enabled, config_.lm_head_top1_enabled());
 
     Response response;
     Context context = scheduler_->create_context(*active_request, &response);
@@ -952,11 +992,13 @@ Response StandardEngine::generate(const Request& request) {
             {
                 NVTX::Range sampler_range("EDGEFM_PREFILL_SAMPLER", NVTXColor::ORANGE);
                 metric_recorder.measure(stream, metrics.prefill_sampler_ms, [&]() {
-                    run_sampler(
-                        last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
-                        tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
-                        stream,
-                        ModelStage::Prefill);
+                    if (!lm_head_top1_token_ready(context)) {
+                        run_sampler(
+                            last_token_logits_view(tensors.at(ModelTensors::LOGITS)),
+                            tensors.at(ModelTensors::SAMPLER_TOKEN_OUT),
+                            stream,
+                            ModelStage::Prefill);
+                    }
                 });
             }
         }
@@ -980,7 +1022,7 @@ Response StandardEngine::generate(const Request& request) {
             }
 
             const bool skip_decode_prepare =
-                config_.use_cuda_graph() &&
+                decode_cuda_graph_enabled &&
                 cuda_graph_manager_.is_decode_captured() &&
                 context.decode_tensors_initialized() &&
                 model_->has_static_decode_runtime_tensors();
@@ -991,8 +1033,12 @@ Response StandardEngine::generate(const Request& request) {
             }
             void* decode_write_ptr = context.get_response_token_write_ptr();
 
-            if (config_.use_cuda_graph()) {
+            if (decode_cuda_graph_enabled) {
+                const bool capture_needed = !cuda_graph_manager_.is_decode_captured();
                 ensure_decode_graph_captured(context);
+                if (capture_needed && cuda_graph_manager_.is_decode_captured()) {
+                    metrics.decode_graph_captures += 1.0;
+                }
                 sync_decode_graph(context);
                 {
                     NVTX::Range replay_range("EDGEFM_DECODE_GRAPH_REPLAY", NVTXColor::PURPLE);
@@ -1027,7 +1073,7 @@ Response StandardEngine::generate(const Request& request) {
             {
                 NVTX::Range finalize_range("EDGEFM_DECODE_FINALIZE", NVTXColor::YELLOW);
                 metric_recorder.measure(stream, metrics.decode_finalize_ms, [&]() {
-                    finalize_decode_token(context, decode_write_ptr, stream, !config_.use_cuda_graph());
+                    finalize_decode_token(context, decode_write_ptr, stream, !decode_cuda_graph_enabled);
                 });
             }
 
@@ -1087,8 +1133,8 @@ Response StandardEngine::generate(const Request& request) {
         executed_num_generated,
         returned_num_generated,
         context.max_generated_tokens(),
-        config_.use_cuda_graph(),
-        config_.lm_head_top1_enabled());
+        decode_cuda_graph_enabled,
+        config_.lm_head_top1_enabled() || metrics.lm_head_top1_decode_steps > 0.0);
 
     return response;
 }
@@ -1128,8 +1174,13 @@ void StandardEngine::prepare_kvcache_tensors(
     int32_t generated_tokens = context.get_generated_tokens();
     int32_t cache_kv_len;
     if (generated_tokens == 0) {
-        bool has_prefix_in_cache = (!kv_write_ptrs.empty() && !kv_read_ptrs.empty()
-                                    && kv_write_ptrs[0] != kv_read_ptrs[0]);
+        bool has_prefix_in_cache = false;
+        for (size_t i = 0; i < kv_write_ptrs.size() && i < kv_read_ptrs.size(); ++i) {
+            if (kv_write_ptrs[i] != nullptr && kv_read_ptrs[i] != nullptr) {
+                has_prefix_in_cache = (kv_write_ptrs[i] != kv_read_ptrs[i]);
+                break;
+            }
+        }
         cache_kv_len = (has_prefix_in_cache ? static_cast<int32_t>(prefix_size) : 0) + seq_len;
     } else {
         int32_t prefill_len = static_cast<int32_t>(context.request()->token_ids().size());
@@ -1146,9 +1197,15 @@ void StandardEngine::prepare_kvcache_tensors(
         int64_t stride_elems = static_cast<int64_t>(token_stride / get_dtype_size(kv_dtype));
         for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
             void* context_read_ptr = kv_read_ptrs[layer_id];
+            void* context_write_ptr = kv_write_ptrs[layer_id];
+            if (context_read_ptr == nullptr || context_write_ptr == nullptr) {
+                tensors.erase(ModelTensors::context_write_layer(layer_id));
+                tensors.erase(ModelTensors::context_cache_layer(layer_id));
+                continue;
+            }
 
             tensors[ModelTensors::context_write_layer(layer_id)] = Tensor::view(
-                kv_write_ptrs[layer_id], {seq_len, stride_elems}, kv_dtype, device_, device_id_);
+                context_write_ptr, {seq_len, stride_elems}, kv_dtype, device_, device_id_);
 
             tensors[ModelTensors::context_cache_layer(layer_id)] = Tensor::view(
                 context_read_ptr, {cache_kv_len, stride_elems}, kv_dtype, device_, device_id_);
@@ -1176,6 +1233,15 @@ void StandardEngine::prepare_kvcache_tensors(
         for (int32_t layer_id = 0; layer_id < num_layers; ++layer_id) {
             void* read_ptr = kv_read_ptrs[layer_id];
             void* write_ptr = kv_write_ptrs[layer_id];
+            if (read_ptr == nullptr || write_ptr == nullptr) {
+                tensors.erase(ModelTensors::k_write_layer(layer_id));
+                tensors.erase(ModelTensors::v_write_layer(layer_id));
+                if (!is_decode || init_decode_static) {
+                    tensors.erase(ModelTensors::k_cache_layer(layer_id));
+                    tensors.erase(ModelTensors::v_cache_layer(layer_id));
+                }
+                continue;
+            }
 
             size_t offset_bytes = static_cast<uint8_t*>(write_ptr) - static_cast<uint8_t*>(read_ptr);
             void* k_write_ptr = write_ptr;
@@ -1223,7 +1289,7 @@ void StandardEngine::prepare_prefill_tensors(Context& context) {
     auto model_config = config_.prefill_model_config();
     int32_t num_attention_heads = model_config.value("num_attention_heads", 32);
     int32_t num_kv_heads = model_config.value("num_key_value_heads", num_attention_heads);
-    int32_t head_dim = hidden_size / num_attention_heads;
+    int32_t head_dim = model_config.value("head_dim", hidden_size / num_attention_heads);
     
     prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, prefix_size);
     
@@ -1496,7 +1562,7 @@ void StandardEngine::prepare_decode_tensors(Context& context) {
     auto model_config = config_.prefill_model_config();
     int32_t num_attention_heads = model_config.value("num_attention_heads", 32);
     int32_t num_kv_heads = model_config.value("num_key_value_heads", num_attention_heads);
-    int32_t head_dim = hidden_size / num_attention_heads;
+    int32_t head_dim = model_config.value("head_dim", hidden_size / num_attention_heads);
     
     // prepare kvcache tensors(write buffers and read buffers)
     prepare_kvcache_tensors(context, num_layers, num_kv_heads, head_dim, seq_len, context.prefix_size());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <edge-fm/core.h>
+#include "engine/runtime_state_arena.h"
 #include "engine/tasks/token_generation/kv_manager.h"
 #include "utils/non_copyable.h"
 
@@ -71,6 +72,8 @@ public:
     // Tensor maps for model forward pass
     std::unordered_map<std::string, Tensor>& tensors() { return tensors_; }
     const std::unordered_map<std::string, Tensor>& tensors() const { return tensors_; }
+    RuntimeStateArena& runtime_state_arena() { return runtime_state_arena_; }
+    const RuntimeStateArena& runtime_state_arena() const { return runtime_state_arena_; }
     
     /**
      * @brief 创建 layer 的 inputs map
@@ -129,6 +132,7 @@ private:
     bool eos_detected_;
 
     std::unordered_map<std::string, Tensor> tensors_;
+    RuntimeStateArena runtime_state_arena_;
     std::unordered_map<std::string, std::vector<int32_t>> model_state_;
 
     int32_t decode_cache_kv_len_ = 0;

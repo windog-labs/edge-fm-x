@@ -1,0 +1,10 @@
+# Source Idea Ledger
+
+| Key | Source | Hypothesis | Result |
+|---|---|---|---|
+| `kernel-knowledge:matmul-gemm` | `.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/routing/topics/matmul-gemm.md` | Skinny decode GEMV can be improved with better BF16 launch shape. | Rejected for current GateUp path: Iter122 already reaches DRAM `95.34%`; launch-shape headroom is too small. |
+| `kernel-knowledge:activation-fusion` | `.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/routing/topics/activation-fusion.md` | Fuse SwiGLU into neighboring compute. | Already done in Iter121: Qwen3.5-safe GateUp+SwiGLU GEMV path accepted. |
+| `kernel-knowledge:quantization-fp8` | `.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/routing/topics/quantization-fp8.md` | Reduce decode GEMV/LMHead bytes with FP8/FP4/INT weight-only or block-scaled paths. | Valid future project, but not in this phase because it changes weight format, scale layout, and precision/tolerance contract. |
+| `source:tensorrt-llm` | `.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/routing/frameworks/tensorrt-llm.md`, `knowledge/references/source-guides/tensorrt-llm.md` | NVIDIA production paths point to FP8/FP4/INT8 and fused-MoE/GEMV as next large gains. | Deferred: requires separate quantized/compressed GEMV spec and correctness contract. |
+| `source:vllm` | `.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/routing/frameworks/vllm.md`, `knowledge/references/source-guides/vllm.md` | vLLM quantized decode GEMV families may be a next source of algorithms. | Deferred: AWQ/GPTQ/Marlin/Machete-style work is approximate/quantized and outside exact BF16 token-alignment phase. |
+| `prs:gemm_quant` | `.codex/skills/edge-fm-cuda-kernel-optimizer/vendor/kernel-pilot/knowledge/references/prs/by-topic/gemm_quant.md` | Recent GEMM/quant PRs show production gains through scale layouts and low-precision kernels. | Deferred: confirms future direction is bytes reduction, not micro-tuning current exact BF16 kernel. |

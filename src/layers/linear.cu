@@ -140,7 +140,7 @@ size_t cublaslt_max_workspace_bytes() {
 namespace lm_head_top1 {
 
 constexpr int kWarpSize = 32;
-constexpr int kWarpsPerBlock = 8;
+constexpr int kWarpsPerBlock = 24;
 constexpr int kThreadsPerBlock = kWarpSize * kWarpsPerBlock;
 
 struct Candidate {
@@ -430,8 +430,10 @@ LinearLayer::LinearLayer(const std::string& layer_prefix,
 {
     // Check if we need CUBLASLt handle based on model dtype
     auto check_dtype_needs_cublaslt = [](const nlohmann::json& config) -> bool {
-        if (config.contains("torch_dtype")) {
-            std::string dtype_str = config["torch_dtype"].get<std::string>();
+        if (config.contains("torch_dtype") || config.contains("dtype")) {
+            std::string dtype_str = config.value(
+                "torch_dtype",
+                config.value("dtype", std::string("")));
             return dtype_str == "float16" || dtype_str == "fp16" || 
                    dtype_str == "bfloat16" || dtype_str == "bf16";
         }
@@ -2291,12 +2293,12 @@ bool LMHeadLinearLayer::try_forward_top1(
     cudaStream_t stream,
     ModelStage stage)
 {
-    if (stage != ModelStage::Decode) {
+    if (stage != ModelStage::Prefill && stage != ModelStage::Decode) {
         return false;
     }
     check<InvalidRequestError>(is_initialized(), "LMHeadLinearLayer is not initialized");
 
-    const WeightSet& weight_set = decode_weights_;
+    const WeightSet& weight_set = stage == ModelStage::Decode ? decode_weights_ : prefill_weights_;
     if (weight_set.quant_type_ != QuantType::FP16_BF16 || weight_set.weight_ == nullptr || weight_set.bias_ != nullptr) {
         return false;
     }

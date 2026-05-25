@@ -2150,6 +2150,126 @@
       "impl_params": {
         "algo_index": 5
       }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "mlp_down",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=6144|out_features=2048",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 1
+      }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "linear",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=2048|out_features=2048",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "attention_output",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=2048|out_features=2048",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 2
+      }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "linear",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=2048|out_features=512",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_index": 11
+      }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "mlp_down",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=3584|out_features=1024",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_id": 13,
+        "cluster_shape_id": 0,
+        "cta_swizzling": 0,
+        "custom_option": 13,
+        "inner_shape_id": 0,
+        "reduction_scheme": 0,
+        "splitk_num": 1,
+        "stages_id": 0,
+        "tile_id": 0
+      }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "linear",
+      "layer_role": "linear",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=2048|out_features=1024",
+      "impl_id": "cublasLt",
+      "impl_params": {
+        "algo_id": 13,
+        "cluster_shape_id": 0,
+        "cta_swizzling": 0,
+        "custom_option": 13,
+        "inner_shape_id": 0,
+        "reduction_scheme": 0,
+        "splitk_num": 1,
+        "stages_id": 0,
+        "tile_id": 0
+      }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "fused_gate_up_activation",
+      "layer_role": "fused_gate_up",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=1024|gate_out_features=3584|up_out_features=3584",
+      "impl_id": "edgefm_decode_swiglu_warp",
+      "impl_params": {
+        "variant": "bf162_w16"
+      }
+    },
+    {
+      "model_name": "qwen3_5",
+      "hw_profile": "cuda_sm86",
+      "op_kind": "fused_gate_up_activation",
+      "layer_role": "fused_gate_up",
+      "op_name": "",
+      "stage": "decode",
+      "shape_sig": "m=1|input=2|weight=2|output=2|in_features=2048|gate_out_features=6144|up_out_features=6144",
+      "impl_id": "edgefm_decode_swiglu_warp",
+      "impl_params": {
+        "variant": "bf162_w16"
+      }
     }
   ],
   "table_metadata": {

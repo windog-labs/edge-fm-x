@@ -1,6 +1,7 @@
 #pragma once
 
 #include <edge-fm/core.h>
+#include "engine/model_runtime_spec.h"
 #include "utils/non_copyable.h"
 #include <cstddef>
 #include <cstdint>
@@ -64,6 +65,8 @@ public:
     size_t get_token_stride() const;
     AttentionType get_attention_type() const { return attention_type_; }
     int32_t get_qk_rope_head_dim() const { return qk_rope_head_dim_; }
+    int32_t head_dim() const { return head_dim_; }
+    const ModelRuntimeSpec& runtime_spec() const { return runtime_spec_; }
     std::vector<void*> get_read_kvcache(int32_t request_id) const;
     std::vector<void*> get_write_kvcache(int32_t request_id) const;
 
@@ -92,6 +95,7 @@ private:
     DType dtype_;
     std::shared_ptr<KVBufferAllocator> buffer_allocator_;
     std::unordered_map<int32_t, Slot> slots_;
+    ModelRuntimeSpec runtime_spec_;
     // common
     int32_t num_layers_;
     AttentionType attention_type_;

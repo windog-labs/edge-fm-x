@@ -1,0 +1,2 @@
+{"iteration":"iter118-a","parent":"edge-fm-x:src/layers/linear.cu lm_head_top1 scalar_w24","files":["src/lmhead_top1_kernels.cu","bench_lmhead_top1.py"],"intent":"standalone exact top1 sweep before production migration","status":"pending_benchmark"}
+{"iteration":"iter118-a","parent":"edge-fm-x:src/layers/linear.cu lm_head_top1 scalar_w24","files":["benchmarks/lmhead_top1_iter118_baseline.json"],"intent":"BF16x2 and warps-per-block sweep","status":"rejected_flat","summary":"best variants were exact but only about 0.2% faster than scalar24 on 0.8B/2B"}

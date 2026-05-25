@@ -1085,6 +1085,135 @@ bool prefill_swiglu_fusion_enabled() {
     return std::string(env) != "0" && std::string(env) != "false" && std::string(env) != "False";
 }
 
+__device__ __forceinline__ float edgefm_swiglu_silu(float x) {
+    return x / (1.0f + expf(-x));
+}
+
+template <int kWarpsPerBlock>
+__global__ void edgefm_decode_swiglu_warp_kernel(const __nv_bfloat16* __restrict__ input,
+                                                 const __nv_bfloat16* __restrict__ weight,
+                                                 __nv_bfloat16* __restrict__ output,
+                                                 int32_t input_features,
+                                                 int32_t output_features) {
+    constexpr int kWarpSize = 32;
+    const int32_t lane = static_cast<int32_t>(threadIdx.x) & (kWarpSize - 1);
+    const int32_t warp = static_cast<int32_t>(threadIdx.x) / kWarpSize;
+    const int32_t out_id = static_cast<int32_t>(blockIdx.x) * kWarpsPerBlock + warp;
+    if (out_id >= output_features) {
+        return;
+    }
+
+    const __nv_bfloat16* up_row =
+        weight + static_cast<size_t>(out_id) * static_cast<size_t>(input_features);
+    const __nv_bfloat16* gate_row =
+        weight + static_cast<size_t>(out_id + output_features) * static_cast<size_t>(input_features);
+    const int32_t pair_count = input_features / 2;
+    const auto* input2 = reinterpret_cast<const __nv_bfloat162*>(input);
+    const auto* up2 = reinterpret_cast<const __nv_bfloat162*>(up_row);
+    const auto* gate2 = reinterpret_cast<const __nv_bfloat162*>(gate_row);
+
+    float up = 0.0f;
+    float gate = 0.0f;
+    for (int32_t p = lane; p < pair_count; p += kWarpSize) {
+        const float2 h = __bfloat1622float2(input2[p]);
+        const float2 u = __bfloat1622float2(up2[p]);
+        const float2 g = __bfloat1622float2(gate2[p]);
+        up += h.x * u.x + h.y * u.y;
+        gate += h.x * g.x + h.y * g.y;
+    }
+
+    for (int offset = kWarpSize / 2; offset > 0; offset >>= 1) {
+        up += __shfl_down_sync(0xffffffffu, up, offset);
+        gate += __shfl_down_sync(0xffffffffu, gate, offset);
+    }
+    if (lane == 0) {
+        output[out_id] = __float2bfloat16(edgefm_swiglu_silu(gate) * up);
+    }
+}
+
+void run_edgefm_decode_swiglu_warp(
+    const FusedGateUpActivationOpContext& ctx,
+    const Tensor& weight,
+    const Tensor& input,
+    Tensor& output,
+    cudaStream_t stream) {
+    constexpr int kWarpsPerBlock = 16;
+    const int32_t output_features = static_cast<int32_t>(ctx.up_output_features);
+    const int32_t input_features = static_cast<int32_t>(ctx.input_features);
+    const int32_t blocks = static_cast<int32_t>(
+        (ctx.up_output_features + kWarpsPerBlock - 1) / kWarpsPerBlock);
+    edgefm_decode_swiglu_warp_kernel<kWarpsPerBlock>
+        <<<dim3(blocks), dim3(32 * kWarpsPerBlock), 0, stream>>>(
+            static_cast<const __nv_bfloat16*>(input.data_ptr()),
+            static_cast<const __nv_bfloat16*>(weight.data_ptr()),
+            static_cast<__nv_bfloat16*>(output.data_ptr()),
+            input_features,
+            output_features);
+    CUDA_CHECK_THROW(cudaGetLastError(), "FusedGateUpActivationOp: failed to launch EdgeFM decode SwiGLU warp kernel");
+}
+
+class EdgeFmDecodeSwigluWarpOp final : public FusedGateUpActivationOp {
+public:
+    std::string impl_id() const override { return "edgefm_decode_swiglu_warp"; }
+
+    bool supports(const FusedGateUpActivationOpContext& ctx) const override {
+        return ctx.batch_rows == 1 &&
+            ctx.input_features > 0 &&
+            ctx.gate_output_features > 0 &&
+            ctx.gate_output_features == ctx.up_output_features &&
+            (ctx.input_features % 2) == 0 &&
+            !ctx.has_bias &&
+            ctx.input_dtype == DType::BFloat16 &&
+            ctx.weight_dtype == DType::BFloat16 &&
+            ctx.output_dtype == DType::BFloat16;
+    }
+
+    void prepare(
+        const FusedGateUpActivationOpContext& ctx,
+        const Tensor& weight,
+        const Tensor* bias,
+        FusedGateUpActivationOpState& state) override
+    {
+        state = FusedGateUpActivationOpState{};
+        state.initialized = true;
+        if (bias != nullptr) {
+            state.unavailable_reason = "EdgeFM decode SwiGLU warp path does not support bias";
+            return;
+        }
+        const auto& weight_shape = weight.shape();
+        if (weight_shape.size() != 2 ||
+            weight_shape[0] != ctx.gate_output_features + ctx.up_output_features ||
+            weight_shape[1] != ctx.input_features)
+        {
+            state.unavailable_reason = "EdgeFM decode SwiGLU warp weight shape does not match fused gate/up contract";
+            return;
+        }
+        if (!supports(ctx)) {
+            state.unavailable_reason = "EdgeFM decode SwiGLU warp path unsupported for current shape/dtype";
+            return;
+        }
+        state.available = true;
+        state.selected_kernel_config_name = "bf162_w16";
+        state.selected_threadblock_count = static_cast<int>(
+            (ctx.up_output_features + 16 - 1) / 16);
+    }
+
+    void run(
+        const FusedGateUpActivationOpContext& ctx,
+        const Tensor& weight,
+        const Tensor* bias,
+        const FusedGateUpActivationOpState& state,
+        const Tensor& input,
+        Tensor& output,
+        cudaStream_t stream) override
+    {
+        if (bias != nullptr || !state.available) {
+            throw InvalidRequestError("EdgeFM decode SwiGLU warp fast path is unavailable");
+        }
+        run_edgefm_decode_swiglu_warp(ctx, weight, input, output, stream);
+    }
+};
+
 class CutlassPrefillSwigluOp final : public FusedGateUpActivationOp {
 public:
     std::string impl_id() const override { return "cutlass_prefill_swiglu"; }
@@ -1203,6 +1332,7 @@ public:
 
 FusedGateUpActivationOpRegistry::FusedGateUpActivationOpRegistry() {
     impls_.emplace_back(std::make_unique<TrtLlmDecodeSwigluOp>());
+    impls_.emplace_back(std::make_unique<EdgeFmDecodeSwigluWarpOp>());
     impls_.emplace_back(std::make_unique<CutlassPrefillSwigluOp>());
 }
 
@@ -1224,6 +1354,11 @@ FusedGateUpActivationOp* FusedGateUpActivationOpRegistry::default_impl(
     const FusedGateUpActivationOpContext& ctx) const
 {
     for (const auto& impl : impls_) {
+        if (impl->impl_id() == "edgefm_decode_swiglu_warp" &&
+            !decode_swiglu_env_flag_enabled("EDGE_FM_DECODE_SWIGLU_WARP_DEFAULT"))
+        {
+            continue;
+        }
         if (impl->supports(ctx)) {
             return impl.get();
         }

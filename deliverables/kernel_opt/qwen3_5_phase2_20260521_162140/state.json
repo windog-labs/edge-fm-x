@@ -1,0 +1,432 @@
+{
+  "updated_at": "2026-05-23T18:36:00+08:00",
+  "output_dir": "/home/zhangzimo/Repos/private/edge-fm-x/deliverables/kernel_opt/qwen3_5_phase2_20260521_162140",
+  "scope": "Qwen3.5 EdgeFM-only CUDA optimization; TRT blocked until separate Qwen3.5 TensorRT-Edge-LLM port exists.",
+  "current_iteration": 122,
+  "accepted_baseline": "P0-QMemOutputAlgebra + Qwen3.5 2B decode linear tactics + Iter112 decode conv/GatedDelta/RMSNorm fusion + Iter114 2B full-attention tactics + Iter116 0.8B safe decode linear tactics + Iter121 Qwen3.5 decode GateUp+SwiGLU warp",
+  "current_code_path": {
+    "cuda_graph": "enabled",
+    "greedy_lm_head": "Iter93 lm_head_top1 default unless runtime disables it",
+    "prefill_gated_delta": "Iter105 tile32/thread256 shared q/k + qmem-output algebra + vectorized state update",
+    "decode_gated_delta": "Iter112 single-token fused conv1d kernel4 + GatedDelta from_ab + gated RMSNorm path for key_dim=value_dim=128; falls back to Iter111/Iter91 paths for unsupported decode shapes",
+    "decode_dense_linear_tactics": "Iter107 Qwen3.5/RTX3060 2B decode mlp_down 6144->2048 algo_index=1 and generic linear 2048->2048 algo_index=2; Iter114 full-attention attention_output 2048->2048 algo_index=2 and linear 2048->512 algo_index=11; Iter116 0.8B mlp_down 3584->1024 and linear 2048->1024 explicit algo_id=13/tile_id=0/stages_id=0/custom_option=13 records. The 0.8B attention_output 2048->1024 sibling tactic is rejected in combination because it breaks token alignment.",
+    "decode_gateup_swiglu_gemv": "Iter121 non-default edgefm_decode_swiglu_warp selected only by exact Qwen3.5/cuda_sm86 decode operator-table records for 0.8B 1024->3584 and 2B 2048->6144 GateUp shapes unless explicitly enabled by env; Iter122 NCU measured the accepted 2B launch at 95.34% DRAM throughput."
+  },
+  "correctness": {
+    "qwen3_5_operator_tests": "17 passed after Iter121 C++ kernel change",
+    "operator_table_validation": "passed after Iter121 GateUp+SwiGLU warp table records",
+    "tune_script_py_compile": "passed after fixing qwen3_self_attn_o dimensions for 0.8B full_attention_dim->hidden",
+    "qwen3_5_fresh_dump_generate": "13 passed after Iter121 GateUp+SwiGLU warp records",
+    "qwen2_5_guard": "8 passed, 12 deselected after Iter121 shared fused_gate_up_activation operator change",
+    "models": [
+      "examples/qwen3.5-0.8b/qwen3.5-0.8b",
+      "examples/qwen3.5-2b/qwen3.5-2b"
+    ]
+  },
+  "p0_ncu": {
+    "kernel": "gated_delta_sequence_precomputed_kernel<bf16,true,32>",
+    "iter100_duration_us": 802.5,
+    "iter105_duration_us": 705.7,
+    "compute_throughput_pct": 33.72,
+    "memory_throughput_pct": 55.33,
+    "achieved_occupancy_pct": 38.31,
+    "eligible_warps_per_scheduler": 0.41,
+    "no_eligible_pct": 68.48,
+    "grid": 64,
+    "block": 256,
+    "registers_per_thread": 40,
+    "report": "/home/zhangzimo/Repos/private/edge-fm-x/deliverables/kernel_opt/qwen3_5_phase2_20260521_162140/profiles/ncu/qwen3_5_0p8b_p128_gated_delta_sequence_qmem_iter105.ncu-rep",
+    "csv": "/home/zhangzimo/Repos/private/edge-fm-x/deliverables/kernel_opt/qwen3_5_phase2_20260521_162140/profiles/ncu/qwen3_5_0p8b_p128_gated_delta_sequence_qmem_iter105_details.csv"
+  },
+  "target_benchmarks": {
+    "0p8b_p128_d32_graph_on_ms": 188.130,
+    "2b_p128_d32_graph_on_ms": 405.948,
+    "2b_p128_d128_graph_on_ms": 1563.125,
+    "2b_p512_d128_graph_on_ms": 1648.43,
+    "2b_p1024_d128_graph_on_ms": 1748.435,
+    "0p8b_p128_d128_graph_on_ms": 711.708,
+    "0p8b_p512_d128_graph_on_ms": 766.434,
+    "0p8b_p1024_d128_graph_on_ms": 830.181
+  },
+  "matrix": [
+    {
+      "model": "0.8B",
+      "prefill_len": 128,
+      "decode_len": 128,
+      "graph_off_avg_ms": 769.481567,
+      "graph_on_avg_ms": 711.708382,
+      "graph_on_prefill_ms": 19.387,
+      "graph_on_decode_step_avg_ms": 5.448,
+      "graph_on_tokens_per_second": 179.945,
+      "graph_on_iteration": 121
+    },
+    {
+      "model": "0.8B",
+      "prefill_len": 512,
+      "decode_len": 128,
+      "graph_off_avg_ms": 822.183896,
+      "graph_on_avg_ms": 766.434,
+      "graph_on_prefill_ms": 63.815,
+      "graph_on_decode_step_avg_ms": 5.53,
+      "graph_on_tokens_per_second": 167.065,
+      "graph_on_iteration": 116
+    },
+    {
+      "model": "0.8B",
+      "prefill_len": 1024,
+      "decode_len": 128,
+      "graph_off_avg_ms": 887.596842,
+      "graph_on_avg_ms": 830.181,
+      "graph_on_prefill_ms": 127.535,
+      "graph_on_decode_step_avg_ms": 5.53,
+      "graph_on_tokens_per_second": 154.234,
+      "graph_on_iteration": 116
+    },
+    {
+      "model": "2B",
+      "prefill_len": 128,
+      "decode_len": 128,
+      "graph_off_avg_ms": 1616.000097,
+      "graph_on_avg_ms": 1563.1251,
+      "graph_on_prefill_ms": 32.922,
+      "graph_on_decode_step_avg_ms": 12.046,
+      "graph_on_tokens_per_second": 81.908,
+      "graph_on_iteration": 121,
+      "graph_off_iteration": 112
+    },
+    {
+      "model": "2B",
+      "prefill_len": 512,
+      "decode_len": 128,
+      "graph_off_avg_ms": 1693.494205,
+      "graph_on_avg_ms": 1648.430196,
+      "graph_on_prefill_ms": 103.371,
+      "graph_on_decode_step_avg_ms": 12.163,
+      "graph_on_tokens_per_second": 77.665,
+      "graph_on_iteration": 114,
+      "graph_off_iteration": 112
+    },
+    {
+      "model": "2B",
+      "prefill_len": 1024,
+      "decode_len": 128,
+      "graph_off_avg_ms": 1793.714951,
+      "graph_on_avg_ms": 1748.435385,
+      "graph_on_prefill_ms": 202.427,
+      "graph_on_decode_step_avg_ms": 12.171,
+      "graph_on_tokens_per_second": 73.222,
+      "graph_on_iteration": 114,
+      "graph_off_iteration": 112
+    }
+  ],
+  "blockers": [
+    "Raw 95% hardware peak is not a valid target for P0: NCU reports small-grid/recurrence/barrier limits; acceptance uses recurrence-aware current-layout ceiling plus full-generate improvement.",
+    "TRT comparison remains blocked by missing Qwen3.5 TensorRT-Edge-LLM linear-attention port.",
+    "LMHead exact top1 simple row-norm/Cauchy pruning is blocked: Iter117 sampled 0.8B/2B hidden states and pruned 0/248320 vocab rows even with the final true best logit; current top1 kernel is already at DRAM roofline.",
+    "LMHead BF16x2/launch-shape retune is exact but flat: Iter118 standalone sweep improved only ~0.2% versus scalar24 on 0.8B/2B, so production migration is rejected.",
+    "SM86 decode fused SwiGLU existing TRT-LLM path remains blocked: 2B token alignment fails from Iter115; Iter119 shows 0.8B aligns but is flat in graph-on benchmark.",
+    "Existing CUTLASS prefill SwiGLU fusion remains default-off: Iter120 passes Qwen3.5 token alignment but regresses representative 0.8B/2B graph-on benchmarks."
+  ],
+  "long_loop_closure": {
+    "status": "converged",
+    "report": "long_loop/closure/LONG_LOOP_CLOSURE.md",
+    "profile_digest": "long_loop/closure/artifacts/profile-digests/gateup_swiglu_iter122.md",
+    "source_idea_ledger": "long_loop/closure/artifacts/source-idea-ledger.md",
+    "attempt_ledger": "long_loop/closure/artifacts/attempt-ledger.md",
+    "decision": "commit and push the current accepted state; further work should be a new algorithm/contract project rather than local exact-BF16 kernel micro-tuning"
+  },
+  "next_actions": [
+    "Commit and push the accepted Qwen3.5 phase2 state.",
+    "Future material gains need a separate spec: exact LMHead indexing/search, compressed/custom GEMV+activation/fused-projection, quantized/approximate contract, or runtime scheduling redesign."
+  ],
+  "latest_acceptance": {
+    "iteration": 121,
+    "candidate": "Qwen3.5 decode GateUp+SwiGLU warp kernel",
+    "production_changes": [
+      "Added non-default edgefm_decode_swiglu_warp implementation in src/operators/fused_gate_up_activation_op.cu.",
+      "Added qwen3_5/cuda_sm86 decode fused_gate_up_activation table records for 0.8B 1024->3584 and 2B 2048->6144 GateUp shapes.",
+      "Kept edgefm_decode_swiglu_warp skipped by generic default_impl unless selected by operator table or EDGE_FM_DECODE_SWIGLU_WARP_DEFAULT."
+    ],
+    "correctness": "build passed; operator-table validation passed; Qwen3.5 runtime ops 17 passed; Qwen3.5 fresh-dump generate 13 passed for 0.8B and 2B",
+    "target_benchmarks": {
+      "0p8b_p128_d32_graph_on_ms": {
+        "before": 189.299,
+        "after": 188.130
+      },
+      "0p8b_p128_d128_graph_on_ms": {
+        "before": 715.516,
+        "after": 711.708
+      },
+      "2b_p128_d32_graph_on_ms": {
+        "before": 407.973,
+        "after": 405.948
+      },
+      "2b_p128_d128_graph_on_ms": {
+        "before": 1572.494,
+        "after": 1563.125
+      }
+    },
+    "matrix_delta": "Versus latest accepted baselines, 0.8B p128 d32/d128 improved 0.62%/0.53% and 2B p128 d32/d128 improved 0.50%/0.60%. Longer p512/p1024 rows are inherited from Iter116/Iter114 until the next full matrix refresh.",
+    "artifact": "benchmarks/iter121_gateup_warp/summary.json",
+    "decision": "accepted; correctness-clean Qwen3.5/SM86 table-scoped implementation with generic default path left unchanged"
+  },
+  "latest_ceiling_profile": {
+    "iteration": 122,
+    "candidate": "Qwen3.5 accepted GateUp+SwiGLU warp GEMV",
+    "nsys": {
+      "report": "profiles/qwen3_5_nsys_action_iter121.md",
+      "trace": "profiles/nsys/qwen3_5_2b_p128_d32_graph_off_iter121_mapping.nsys-rep",
+      "kernel_time_ms": 110.853,
+      "launches": 744,
+      "decode_gpu_share_pct": 29.3
+    },
+    "ncu": {
+      "report": "profiles/ncu/qwen3_5_2b_decode_swiglu_warp_iter122.ncu-rep",
+      "csv": "profiles/ncu/qwen3_5_2b_decode_swiglu_warp_iter122_details.csv",
+      "duration_us": 153.7,
+      "dram_throughput_pct": 95.34,
+      "memory_throughput_pct": 95.34,
+      "sm_throughput_pct": 23.99,
+      "achieved_occupancy_pct": 93.18,
+      "grid": 384,
+      "block": 512,
+      "registers_per_thread": 33
+    },
+    "decision": "at_ceiling for the current exact BF16 GEMV+SwiGLU algorithm; further gain requires fewer bytes, compression/quantization, a custom fused-projection design, or changed precision/approximation contract"
+  },
+  "latest_profile": {
+    "iteration": 122,
+    "graph_off_mapping": "profiles/nsys/qwen3_5_2b_p128_d32_graph_off_iter121_mapping.nsys-rep",
+    "graph_on_formal": "profiles/nsys/qwen3_5_0p8b_p128_d32_graph_on_iter107_formal.nsys-rep",
+    "analysis": "profiles/qwen3_5_nsys_action_iter121.md",
+    "graph_off_mapping_2b": "profiles/nsys/qwen3_5_2b_p128_d32_graph_off_iter107_mapping.nsys-rep",
+    "graph_off_kernels_2b": "profiles/nsys/qwen3_5_2b_p128_d32_graph_off_iter107_kernels_cuda_gpu_kern_sum.csv",
+    "global_graph_off_top_kernels": [
+      {
+        "kernel": "2B edgefm_decode_swiglu_warp_kernel<16>",
+        "time_ms": 110.853,
+        "share_pct": 29.3
+      },
+      {
+        "kernel": "2B lm_head_top1::stage1_kernel<bf16>",
+        "time_ms": 92.26,
+        "share_pct": 24.4
+      },
+      {
+        "kernel": "2B conv1d_gated_delta_sequence_from_ab_gated_rmsnorm_single_token_128_kernel",
+        "time_ms": 5.921,
+        "share_pct": 1.6
+      },
+      {
+        "kernel": "2B qwen3_5_rmsnorm_fixed_hidden_kernel hidden=2048",
+        "time_ms": 4.144,
+        "share_pct": 1.1
+      },
+      {
+        "kernel": "2B gated_delta_sequence_precomputed_kernel<bf16,true,32>",
+        "time_ms": 9.383,
+        "share_pct": 27.0
+      }
+    ],
+    "prefill_stage_top_kernel": {
+      "kernel": "gated_delta_sequence_precomputed_kernel<bf16,true,32>",
+      "time_ms": 9.391,
+      "share_pct": 46.5
+    },
+    "lm_head_top1_ncu": {
+      "kernel": "lm_head_top1::stage1_kernel<bf16>",
+      "duration_ms": 2.9808,
+      "dram_throughput_pct": 97.598588,
+      "memory_throughput_pct": 97.598588,
+      "sm_throughput_pct": 61.848609,
+      "active_warps_pct": 97.785694,
+      "issue_active_pct": 28.907169,
+      "grid": 10347,
+      "block": 768,
+      "registers_per_thread": 31,
+      "report": "profiles/ncu/qwen3_5_2b_lm_head_top1_stage1_iter110.ncu-rep",
+      "csv": "profiles/ncu/qwen3_5_2b_lm_head_top1_stage1_iter110_raw.csv"
+    },
+    "post_iter112_graph_off_mapping_2b": "profiles/nsys/qwen3_5_2b_p128_d32_graph_off_iter112_mapping.nsys-rep",
+    "post_iter112_analysis": "profiles/qwen3_5_nsys_action_iter112.md",
+    "post_iter112_top_signals": [
+      {
+        "kernel": "2B lm_head_top1::stage1_kernel<bf16>",
+        "stage": "decode",
+        "time_ms": 92.262,
+        "share_pct": 24.2,
+        "status": "memory-roofline from Iter110; algorithmic byte-reduction required"
+      },
+      {
+        "kernel": "2B decode GateUp gemv2T_kernel_val family",
+        "stage": "decode",
+        "per_layer_time_ms_approx": 4.68,
+        "share_pct_per_layer": 1.2,
+        "status": "cuBLASLt/library tactic path baseline-best from Iter109"
+      },
+      {
+        "kernel": "conv1d_gated_delta_sequence_from_ab_gated_rmsnorm_single_token_128_kernel",
+        "stage": "decode",
+        "time_ms": 5.893,
+        "share_pct": 1.5,
+        "status": "Iter112 fused path accepted; simple launch fusion tier closed"
+      },
+      {
+        "kernel": "qwen3_5_rmsnorm_fixed_hidden_kernel hidden=2048",
+        "stage": "decode",
+        "time_ms": 4.099,
+        "share_pct": 1.1,
+        "status": "Iter113 512-thread retune rejected"
+      }
+    ],
+    "post_iter116_graph_off_mapping_2b": "profiles/nsys/qwen3_5_2b_p128_d32_graph_off_iter116_mapping.nsys-rep",
+    "post_iter116_analysis": "profiles/qwen3_5_nsys_action_iter116.md",
+    "post_iter116_top_signals": [
+      {
+        "kernel": "2B lm_head_top1::stage1_kernel<bf16>",
+        "stage": "decode",
+        "time_ms": 92.265,
+        "share_pct": 24.2,
+        "status": "memory-roofline from Iter110; algorithmic byte-reduction required"
+      },
+      {
+        "kernel": "2B decode GateUp gemv2T_kernel_val family",
+        "stage": "decode",
+        "time_ms": "~4.68 ms/layer",
+        "share_pct": "~1.2%/layer",
+        "status": "Iter116 retested 2B fused_gate_up explicit cublasLt all-mode; baseline remains best"
+      },
+      {
+        "kernel": "2B fused conv/GatedDelta/gated RMSNorm",
+        "stage": "decode",
+        "time_ms": 5.922,
+        "share_pct": 1.6,
+        "status": "Iter112 accepted; simple local launch-fusion tier closed"
+      },
+      {
+        "kernel": "2B fixed-hidden RMSNorm 2048",
+        "stage": "decode",
+        "time_ms": 4.122,
+        "share_pct": 1.1,
+        "status": "Iter113 retune rejected"
+      }
+    ],
+    "post_iter116_graph_off_mapping_0p8b": "profiles/nsys/qwen3_5_0p8b_p128_d32_graph_off_iter116_mapping.nsys-rep",
+    "post_iter116_analysis_0p8b": "profiles/qwen3_5_0p8b_nsys_action_iter116.md",
+    "post_iter116_top_signals_0p8b": [
+      {
+        "kernel": "0.8B lm_head_top1::stage1_kernel<bf16>",
+        "stage": "decode",
+        "time_ms": 46.174,
+        "share_pct": 26.3,
+        "status": "memory-roofline family; exact byte-reduction/search algorithm required"
+      },
+      {
+        "kernel": "0.8B fused conv/GatedDelta/gated RMSNorm",
+        "stage": "decode",
+        "time_ms": 5.944,
+        "share_pct": 3.4,
+        "status": "Iter112 accepted; simple local launch-fusion tier closed"
+      },
+      {
+        "kernel": "0.8B fixed-hidden RMSNorm 1024",
+        "stage": "decode",
+        "time_ms": 3.733,
+        "share_pct": 2.1,
+        "status": "accepted/rejected local retunes exhausted"
+      },
+      {
+        "kernel": "0.8B FlashInfer decode attention",
+        "stage": "decode",
+        "time_ms": 2.958,
+        "share_pct": 1.7,
+        "status": "Iter86 tuned shape rejected across 0.8B/2B"
+      },
+      {
+        "kernel": "0.8B residual add",
+        "stage": "decode",
+        "time_ms": 2.296,
+        "share_pct": 1.3,
+        "status": "Iter71 accepted; follow-up fusion retunes rejected"
+      }
+    ]
+  },
+  "latest_rejection": {
+    "iteration": 115,
+    "candidate": "Enable existing SM86 decode fused SwiGLU path via EDGE_FM_DECODE_SWIGLU_ALLOW_SM86=1",
+    "correctness": "isolated decode fused SwiGLU operator equivalence passed, but Qwen3.5 2B fresh-dump generate failed token alignment at decode token index 8; no production change was made",
+    "benchmark": {
+      "attempted": false,
+      "reason": "rejected before benchmark because token alignment failed"
+    },
+    "decision": "rejected; keep SM86 fused SwiGLU default-off until a Qwen3.5-safe kernel or stricter numerical contract exists"
+  },
+  "latest_rejected_subcandidate": {
+    "iteration": 116,
+    "candidate": "0.8B attention_output 2048->1024 explicit cublasLt config combined with mlp_down",
+    "reason": "individually token-safe, but mlp_down+attention_output and all three 0.8B records diverged at decode token index 8; safe accepted pair is mlp_down+linear_out"
+  },
+  "latest_blocker": {
+    "iteration": 117,
+    "candidate": "LMHead exact top1 simple row-norm/Cauchy byte-reduction",
+    "evidence": "0.8B first 6 generated steps and 2B first 3 generated steps prune 0/248320 vocab rows even with final true best logit; top4096 norm seed also prunes 0 rows",
+    "artifacts": [
+      "analysis/qwen3_5_0p8b_lmhead_prune_feasibility_iter117.json",
+      "analysis/qwen3_5_2b_lmhead_prune_feasibility_iter117.json"
+    ],
+    "decision": "blocked for current narrow exact-runtime-preserving loop; need a qualitatively different exact index/search method or accepted approximation/quantization contract"
+  },
+  "latest_standalone_rejection": {
+    "iteration": 118,
+    "candidate": "LMHead BF16x2 / warps-per-block standalone sweep",
+    "artifact": "deliverables/kernel_opt/qwen3_5_lmhead_top1_iter118/benchmarks/lmhead_top1_iter118_baseline.json",
+    "correctness": "all variants matched scalar24 and torch.mv(...).argmax() tokens for standalone Qwen3.5 0.8B/2B shapes",
+    "benchmark": {
+      "0p8b": {
+        "scalar24_ms": 1.4995,
+        "best_variant": "bf162_w24",
+        "best_ms": 1.497,
+        "speedup_pct": 0.17
+      },
+      "2b": {
+        "scalar24_ms": 2.9854,
+        "best_variant": "bf162_w32",
+        "best_ms": 2.9786,
+        "speedup_pct": 0.23
+      }
+    },
+    "decision": "rejected; exact but below migration threshold and consistent with DRAM-roofline LMHead ceiling"
+  },
+  "latest_env_rejection": {
+    "iteration": 119,
+    "candidate": "Enable existing SM86 decode fused SwiGLU path for Qwen3.5 0.8B only",
+    "correctness": "0.8B regular fresh-dump token alignment passed with EDGE_FM_DECODE_SWIGLU_ALLOW_SM86=1; 2B remains a known token-alignment failure from Iter115",
+    "benchmark": {
+      "0p8b_p128_d32_graph_on_baseline_ms": 189.794,
+      "0p8b_p128_d32_graph_on_env_enabled_ms": 189.778,
+      "delta_pct": -0.01
+    },
+    "decision": "rejected; unsafe for 2B and noise-level for 0.8B, so keep default-off and avoid a model-size special case"
+  },
+  "latest_prefill_fusion_rejection": {
+    "iteration": 120,
+    "candidate": "EDGE_FM_PREFILL_SWIGLU_FUSION=1 existing CUTLASS prefill SwiGLU path",
+    "artifact": "benchmarks/iter120_prefill_swiglu_env/summary.json",
+    "correctness": "Qwen3.5 0.8B/2B regular token alignment passed and CUDA graph enabled token alignment passed with fresh dumps",
+    "benchmark": {
+      "0p8b_p512_d128_graph_on": {
+        "baseline_ms": 768.245,
+        "env_enabled_ms": 769.714,
+        "baseline_prefill_ms": 64.352,
+        "env_prefill_ms": 65.756
+      },
+      "2b_p512_d128_graph_on": {
+        "accepted_baseline_ms": 1648.43,
+        "env_enabled_ms": 1652.397,
+        "accepted_baseline_prefill_ms": 103.371,
+        "env_prefill_ms": 106.761
+      }
+    },
+    "decision": "rejected; correctness-clean but slower, so keep env default off and avoid adding a Qwen3.5 runtime switch"
+  }
+}

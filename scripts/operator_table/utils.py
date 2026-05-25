@@ -132,6 +132,8 @@ def resolve_model_family(
     config: dict | None = None,
 ) -> str:
     normalized_name = (model_name or "").strip().lower()
+    if "qwen3.5" in normalized_name or "qwen3_5" in normalized_name or normalized_name in {"qwen35", "qwen3"}:
+        return "qwen3_5"
     if "qwen2.5-vl" in normalized_name or "qwen2_5_vl" in normalized_name or normalized_name == "vlm":
         return "vlm"
     if normalized_name:
@@ -139,6 +141,8 @@ def resolve_model_family(
 
     if model_path is not None:
         path_name = model_path.name.lower()
+        if "qwen3.5" in path_name or "qwen3_5" in path_name or "qwen35" in path_name:
+            return "qwen3_5"
         if "qwen2.5-vl" in path_name or "-vl-" in path_name:
             return "vlm"
 
@@ -146,6 +150,10 @@ def resolve_model_family(
     if cfg is None and model_path is not None:
         cfg = load_model_config(model_path)
     cfg = cfg or {}
+    model_type = str(cfg.get("model_type", "")).lower()
+    text_model_type = str((cfg.get("text_config") or {}).get("model_type", "")).lower()
+    if model_type == "qwen3_5" or text_model_type.startswith("qwen3_5"):
+        return "qwen3_5"
     if isinstance(cfg.get("text_config"), dict) or isinstance(cfg.get("vision_config"), dict):
         return "vlm"
 
@@ -161,6 +169,8 @@ def resolve_engine_model_name(
     if explicit_model_name:
         return explicit_model_name
     family = resolve_model_family(model_path=model_path, config=config)
+    if family == "qwen3_5":
+        return "Qwen3.5"
     return "Qwen2.5-VL" if family == "vlm" else "Qwen2.5"
 
 
@@ -171,6 +181,8 @@ def resolve_operator_model_name(
     config: dict | None = None,
 ) -> str:
     family = resolve_model_family(model_path=model_path, model_name=model_name, config=config)
+    if family == "qwen3_5":
+        return "qwen3_5"
     return "qwen2_5_vl" if family == "vlm" else "qwen2_5"
 
 

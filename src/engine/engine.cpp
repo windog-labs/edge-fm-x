@@ -130,6 +130,9 @@ namespace {
             normalized == "qwen25vl" || normalized == "qwen2_5vl" || normalized == "qwen2vl") {
             return "qwen2_5_vl";
         }
+        if (normalized == "qwen3_5" || normalized == "qwen35" || normalized == "qwen3") {
+            return "qwen3_5";
+        }
         if (normalized == "smolvla" || normalized == "smol_vla" ||
             normalized == "lerobot_smolvla" || normalized == "lerobot_smol_vla") {
             return "smolvla";
@@ -289,14 +292,15 @@ nlohmann::json EngineConfig::decode_model_config() const {
 
 std::string EngineConfig::resolved_model_name() const {
     const std::string normalized = normalize_model_name(model_name());
-    if (normalized == "qwen2_5" || normalized == "qwen2_5_vl" || normalized == "smolvla" ||
+    if (normalized == "qwen2_5" || normalized == "qwen2_5_vl" || normalized == "qwen3_5" ||
+        normalized == "smolvla" ||
         is_planner_model_name(normalized)) {
         return normalized;
     }
 
     throw ConfigurationError(
         "Unsupported or missing model_name in engine config. "
-        "Supported values include: Qwen2.5, qwen2_5, Qwen2.5-VL, qwen2_5_vl, SmolVLA, smolvla");
+        "Supported values include: Qwen2.5, qwen2_5, Qwen2.5-VL, qwen2_5_vl, Qwen3.5, qwen3_5, SmolVLA, smolvla");
 }
 
 nlohmann::json EngineConfig::runtime() const { return get_object_or_empty(config_, "runtime"); }

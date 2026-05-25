@@ -45,6 +45,9 @@ std::string normalize_model_name(const std::string& raw) {
         normalized == "qwen25vl" || normalized == "qwen2_5vl" || normalized == "qwen2vl") {
         return "qwen2_5_vl";
     }
+    if (normalized == "qwen3_5" || normalized == "qwen35" || normalized == "qwen3") {
+        return "qwen3_5";
+    }
     return normalized;
 }
 
@@ -65,7 +68,11 @@ std::vector<OperatorImplRecord> builtin_records() {
         records.push_back(std::move(record));
     };
 
-    for (const std::string& model_name : {std::string("qwen2_5"), std::string("qwen2_5_vl")}) {
+    for (const std::string& model_name : {
+             std::string("qwen2_5"),
+             std::string("qwen2_5_vl"),
+             std::string("qwen3_5")})
+    {
         add_record(model_name, "linear", "cublasLt");
         add_record(model_name, "attention", "flashinfer_attention");
         add_record(model_name, "norm", "flashinfer_norm");

@@ -6,6 +6,8 @@
 #   bash tests/scripts/setup_trt_edgellm_benchmark.sh
 #   EDGE_FM_TRT_MODEL_SIZE=0.5b bash tests/scripts/setup_trt_edgellm_benchmark.sh
 #   EDGE_FM_TRT_MODEL_SIZE=3b EDGE_FM_QWEN_3B_MODEL_PATH=/path/to/model bash tests/scripts/setup_trt_edgellm_benchmark.sh
+#   EDGE_FM_TRT_MODEL_SIZE=0.8b TRT_PACKAGE_DIR=/usr/local/TensorRT-10.15.1.29 bash tests/scripts/setup_trt_edgellm_benchmark.sh
+#   EDGE_FM_TRT_MODEL_SIZE=2b TRT_PACKAGE_DIR=/usr/local/TensorRT-10.15.1.29 bash tests/scripts/setup_trt_edgellm_benchmark.sh
 #
 # 需先: conda activate horizon_quant, pip install third_party/TensorRT-Edge-LLM
 
@@ -17,6 +19,7 @@ WORKSPACE="$PROJECT_ROOT/tests/data/trt_edgellm_workspace"
 MODEL_SIZE="${EDGE_FM_TRT_MODEL_SIZE:-1.5b}"
 MAX_INPUT_LEN="${EDGE_FM_TRT_MAX_INPUT_LEN:-2048}"
 MAX_KV_CACHE_CAPACITY="${EDGE_FM_TRT_MAX_KV_CACHE_CAPACITY:-4096}"
+LOCAL_TRANSFORMERS="${EDGE_FM_LOCAL_TRANSFORMERS:-/home/zhangzimo/Repos/public/transformers/src}"
 CONDA_ENV_PREFIX="${EDGE_FM_TRT_CONDA_PREFIX:-}"
 if [[ -n "$CONDA_ENV_PREFIX" && -x "$CONDA_ENV_PREFIX/bin/python" ]]; then
     PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE:-$CONDA_ENV_PREFIX/bin/python}"
@@ -24,8 +27,23 @@ else
     PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE:-python3}"
 fi
 TRT_EXPORT_DEVICE="${EDGE_FM_TRT_EXPORT_DEVICE:-cuda}"
-TRT_PKG="${TRT_PACKAGE_DIR:-/usr/local/TensorRT}"
+if [[ -n "${TRT_PACKAGE_DIR:-}" ]]; then
+    TRT_PKG="$TRT_PACKAGE_DIR"
+elif [[ -d /usr/local/TensorRT ]]; then
+    TRT_PKG="/usr/local/TensorRT"
+elif [[ -d /usr/local/TensorRT-10.15.1.29 ]]; then
+    TRT_PKG="/usr/local/TensorRT-10.15.1.29"
+else
+    TRT_PKG="$(find /usr/local -maxdepth 1 -type d -name 'TensorRT-*' 2>/dev/null | sort -V | tail -n 1)"
+fi
 CUDA_HOME_RESOLVED="${CUDA_HOME:-/usr/local/cuda}"
+EXPORT_PYTHONPATH="$TRT_EDGELLM"
+if [[ -d "$LOCAL_TRANSFORMERS" ]]; then
+    EXPORT_PYTHONPATH="$LOCAL_TRANSFORMERS:$EXPORT_PYTHONPATH"
+fi
+if [[ -n "${PYTHONPATH:-}" ]]; then
+    EXPORT_PYTHONPATH="$EXPORT_PYTHONPATH:$PYTHONPATH"
+fi
 
 if [[ ! -f "${TRT_PKG}/include/NvInfer.h" ]]; then
     echo "ERROR: TensorRT headers/libraries not found in ${TRT_PKG}. Set TRT_PACKAGE_DIR and retry."
@@ -50,8 +68,16 @@ case "$MODEL_SIZE" in
         MODEL_NAME="qwen2.5-3b"
         MODEL_PATH="${EDGE_FM_QWEN_3B_MODEL_PATH:-$PROJECT_ROOT/examples/qwen2.5-3b-instruct/qwen2.5-3b-instruct}"
         ;;
+    0.8b|0p8b|qwen3.5-0.8b)
+        MODEL_NAME="qwen3.5-0.8b"
+        MODEL_PATH="${EDGE_FM_QWEN3_5_0P8B_MODEL_PATH:-$PROJECT_ROOT/examples/qwen3.5-0.8b/qwen3.5-0.8b}"
+        ;;
+    2b|qwen3.5-2b)
+        MODEL_NAME="qwen3.5-2b"
+        MODEL_PATH="${EDGE_FM_QWEN3_5_2B_MODEL_PATH:-$PROJECT_ROOT/examples/qwen3.5-2b/qwen3.5-2b}"
+        ;;
     *)
-        echo "ERROR: unsupported EDGE_FM_TRT_MODEL_SIZE=$MODEL_SIZE (supported: 0.5b, 1.5b, 3b)"
+        echo "ERROR: unsupported EDGE_FM_TRT_MODEL_SIZE=$MODEL_SIZE (supported: 0.5b, 1.5b, 3b, 0.8b, 2b)"
         exit 1
         ;;
 esac
@@ -102,36 +128,32 @@ TRT_CUDA_DIR="${EDGE_FM_TRT_CUDA_DIR:-$TRT_CUDA_DIR_DEFAULT}"
 
 resolve_export_llm_cmd() {
     if [[ -n "$CONDA_ENV_PREFIX" && -x "$PYTHON_EXECUTABLE" ]]; then
-        if "$PYTHON_EXECUTABLE" - <<'PY' &>/dev/null
-import sys
-sys.path.insert(0, "third_party/TensorRT-Edge-LLM")
+        if PYTHONPATH="$EXPORT_PYTHONPATH" "$PYTHON_EXECUTABLE" - <<'PY' &>/dev/null
 from tensorrt_edgellm.scripts.export_llm import main  # noqa: F401
 print("ok")
 PY
         then
-            echo "PYTHONPATH=\"$TRT_EDGELLM\" \"$PYTHON_EXECUTABLE\" \"$TRT_EDGELLM/tensorrt_edgellm/scripts/export_llm.py\""
+            echo "PYTHONPATH=\"$EXPORT_PYTHONPATH\" \"$PYTHON_EXECUTABLE\" \"$TRT_EDGELLM/tensorrt_edgellm/scripts/export_llm.py\""
             return 0
         fi
+    fi
+
+    if PYTHONPATH="$EXPORT_PYTHONPATH" "$PYTHON_EXECUTABLE" - <<'PY' &>/dev/null
+from tensorrt_edgellm.scripts.export_llm import main  # noqa: F401
+print("ok")
+PY
+    then
+        echo "PYTHONPATH=\"$EXPORT_PYTHONPATH\" \"$PYTHON_EXECUTABLE\" \"$TRT_EDGELLM/tensorrt_edgellm/scripts/export_llm.py\""
+        return 0
     fi
 
     if command -v conda >/dev/null 2>&1; then
         local conda_prefix
         conda_prefix="$(conda env list 2>/dev/null | awk '$1 == "horizon_quant" {print $2}' | head -1)"
         if [[ -n "$conda_prefix" ]] && conda run -n horizon_quant which tensorrt-edgellm-export-llm &>/dev/null; then
-            echo "conda run -n horizon_quant tensorrt-edgellm-export-llm"
+            echo "env PYTHONPATH=\"$EXPORT_PYTHONPATH\" conda run -n horizon_quant tensorrt-edgellm-export-llm"
             return 0
         fi
-    fi
-
-    if "$PYTHON_EXECUTABLE" - <<'PY' &>/dev/null
-import sys
-sys.path.insert(0, "third_party/TensorRT-Edge-LLM")
-from tensorrt_edgellm.scripts.export_llm import main  # noqa: F401
-print("ok")
-PY
-    then
-        echo "PYTHONPATH=\"$TRT_EDGELLM\" \"$PYTHON_EXECUTABLE\" \"$TRT_EDGELLM/tensorrt_edgellm/scripts/export_llm.py\""
-        return 0
     fi
 
     return 1
@@ -204,4 +226,12 @@ export LD_LIBRARY_PATH="${TRT_PKG}/lib:${LD_LIBRARY_PATH:-}"
 
 echo ""
 echo "Done. Engine at: $ENGINE_DIR"
+echo "Plugin at: $TRT_BUILD_DIR/libNvInfer_edgellm_plugin.so"
+if [[ "$MODEL_NAME" == "qwen3.5-0.8b" ]]; then
+    echo "Export env: EDGE_FM_QWEN3_5_0P8B_TRT_ENGINE_DIR=$ENGINE_DIR"
+    echo "Export env: EDGE_FM_QWEN3_5_0P8B_TRT_PLUGIN_PATH=$TRT_BUILD_DIR/libNvInfer_edgellm_plugin.so"
+elif [[ "$MODEL_NAME" == "qwen3.5-2b" ]]; then
+    echo "Export env: EDGE_FM_QWEN3_5_2B_TRT_ENGINE_DIR=$ENGINE_DIR"
+    echo "Export env: EDGE_FM_QWEN3_5_2B_TRT_PLUGIN_PATH=$TRT_BUILD_DIR/libNvInfer_edgellm_plugin.so"
+fi
 echo "Run benchmark: EDGE_FM_BENCH_LLM_MODELS=$MODEL_SIZE pytest -s tests/engine/test_qwen2_generate.py -k benchmark_trt_edgellm -v"

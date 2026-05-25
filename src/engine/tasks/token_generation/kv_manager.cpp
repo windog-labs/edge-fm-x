@@ -63,25 +63,14 @@ KVManager::KVManager(const EngineConfig& engine_config, std::shared_ptr<KVBuffer
     std::string dtype_str = engine_config.kvcache_dtype();
     dtype_ = dtype_from_string(dtype_str);
 
-    // 3. 获取模型配置
+    // 3. 获取模型 runtime spec。该 spec 统一处理显式 head_dim 和 per-layer KV plan。
+    runtime_spec_ = resolve_model_runtime_spec(engine_config);
     nlohmann::json model_config = engine_config.prefill_model_config();
 
-    num_layers_ = model_config.value("num_hidden_layers", 0);
-    check(num_layers_ != 0, "num_hidden_layers is required in model config.json");
-
-    int32_t num_attention_heads = model_config.value("num_attention_heads", 0);
-    check(num_attention_heads != 0, "num_attention_heads is required in model config.json");
-
-    num_kv_heads_ = model_config.value("num_key_value_heads", num_attention_heads);
-    
-    int32_t hidden_size = model_config.value("hidden_size", 0);
-    check(hidden_size != 0, "hidden_size is required in model config.json");
-
-    head_dim_ = hidden_size / num_attention_heads;
-    check(head_dim_ * num_attention_heads == hidden_size,
-          "hidden_size must be divisible by num_attention_heads. "
-          "Got hidden_size=" + std::to_string(hidden_size) + 
-          ", num_attention_heads=" + std::to_string(num_attention_heads));
+    num_layers_ = runtime_spec_.num_layers;
+    int32_t num_attention_heads = runtime_spec_.num_attention_heads;
+    num_kv_heads_ = runtime_spec_.num_kv_heads;
+    head_dim_ = runtime_spec_.head_dim;
 
     // 5. 验证 attention_type 是否匹配
     if (attention_type_ == AttentionType::MLA) {
@@ -190,13 +179,18 @@ void KVManager::allocate_common_kvcache() {
         for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
             std::string buf_name = "kv_cache_request_" + std::to_string(request_id) + 
                                    "_layer_" + std::to_string(layer_id);
+            if (!runtime_spec_.uses_kv_cache(layer_id)) {
+                slot.kv_cache_read_ptrs[layer_id] = nullptr;
+                slot.kv_cache_write_ptrs[layer_id] = nullptr;
+                continue;
+            }
+
             void* kv_cache_ptr = buffer_allocator_->get_buffer(buf_name, kv_cache_size, device_id_);
 
             slot.kv_cache_read_ptrs[layer_id] = kv_cache_ptr;
             slot.kv_cache_write_ptrs[layer_id] = static_cast<uint8_t*>(kv_cache_ptr) + prefix_offset;
+            slot.allocated_size += kv_cache_size;
         }
-        
-        slot.allocated_size = kv_cache_size * num_layers_;
     }
 }
 
@@ -212,13 +206,18 @@ void KVManager::allocate_mla_kvcache() {
         for (int32_t layer_id = 0; layer_id < num_layers_; ++layer_id) {
             std::string buf_name = "kv_cache_request_" + std::to_string(request_id) + 
                                    "_layer_" + std::to_string(layer_id);
+            if (!runtime_spec_.uses_kv_cache(layer_id)) {
+                slot.kv_cache_read_ptrs[layer_id] = nullptr;
+                slot.kv_cache_write_ptrs[layer_id] = nullptr;
+                continue;
+            }
+
             void* kv_cache_ptr = buffer_allocator_->get_buffer(buf_name, kv_cache_size, device_id_);
 
             slot.kv_cache_read_ptrs[layer_id] = kv_cache_ptr;
             slot.kv_cache_write_ptrs[layer_id] = static_cast<uint8_t*>(kv_cache_ptr) + prefix_offset;
+            slot.allocated_size += kv_cache_size;
         }
-        
-        slot.allocated_size = kv_cache_size * num_layers_;
     }
 }
 

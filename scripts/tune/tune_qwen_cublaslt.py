@@ -35,6 +35,15 @@ LAYER_ROLE_BY_KIND = {
     "mlp_down": "mlp_down",
     "fused_gate_up": "fused_gate_up",
     "lm_head": "lm_head",
+    "qwen3_linear_qkv": "linear",
+    "qwen3_linear_z": "linear",
+    "qwen3_linear_a": "linear",
+    "qwen3_linear_b": "linear",
+    "qwen3_linear_out": "linear",
+    "qwen3_self_attn_q": "linear",
+    "qwen3_self_attn_k": "linear",
+    "qwen3_self_attn_v": "linear",
+    "qwen3_self_attn_o": "attention_output",
 }
 DTYPE_BY_NAME = {
     "bf16": torch.bfloat16,
@@ -163,6 +172,7 @@ def median_cuda_ms(fn, *, warmup: int, iters: int) -> float:
 def load_model_dims(model_path: Path) -> dict:
     cfg = json.loads((model_path / "config.json").read_text())
     text_cfg = cfg.get("text_config", {})
+    model_type = str(cfg.get("model_type", text_cfg.get("model_type", ""))).lower()
 
     def _resolve_int(key: str) -> int:
         value = cfg.get(key, text_cfg.get(key))
@@ -173,13 +183,36 @@ def load_model_dims(model_path: Path) -> dict:
     hidden = _resolve_int("hidden_size")
     intermediate = _resolve_int("intermediate_size")
     head_dim = hidden // _resolve_int("num_attention_heads")
+    if cfg.get("head_dim", text_cfg.get("head_dim")) is not None:
+        head_dim = _resolve_int("head_dim")
     kv = _resolve_int("num_key_value_heads") * head_dim
-    return {
+    dims = {
+        "model_type": model_type,
         "hidden": hidden,
         "intermediate": intermediate,
         "kv": kv,
         "vocab": _resolve_int("vocab_size"),
+        "num_attention_heads": _resolve_int("num_attention_heads"),
+        "num_key_value_heads": _resolve_int("num_key_value_heads"),
+        "head_dim": head_dim,
     }
+    if model_type.startswith("qwen3_5"):
+        linear_num_key_heads = _resolve_int("linear_num_key_heads")
+        linear_num_value_heads = int(cfg.get("linear_num_value_heads", text_cfg.get("linear_num_value_heads", linear_num_key_heads)))
+        linear_key_head_dim = _resolve_int("linear_key_head_dim")
+        linear_value_head_dim = int(cfg.get("linear_value_head_dim", text_cfg.get("linear_value_head_dim", linear_key_head_dim)))
+        dims.update(
+            {
+                "linear_num_key_heads": linear_num_key_heads,
+                "linear_num_value_heads": linear_num_value_heads,
+                "linear_key_dim": linear_num_key_heads * linear_key_head_dim,
+                "linear_value_dim": linear_num_value_heads * linear_value_head_dim,
+                "linear_conv_dim": 2 * linear_num_key_heads * linear_key_head_dim
+                + linear_num_value_heads * linear_value_head_dim,
+                "full_attention_dim": _resolve_int("num_attention_heads") * head_dim,
+            }
+        )
+    return dims
 
 
 def shape_sig_for(
@@ -206,6 +239,27 @@ def shape_sig_for(
     elif kind == "lm_head":
         in_features = dims["hidden"]
         out_features = dims["vocab"]
+    elif kind == "qwen3_linear_qkv":
+        in_features = dims["hidden"]
+        out_features = dims["linear_conv_dim"]
+    elif kind == "qwen3_linear_z":
+        in_features = dims["hidden"]
+        out_features = dims["linear_value_dim"]
+    elif kind in {"qwen3_linear_a", "qwen3_linear_b"}:
+        in_features = dims["hidden"]
+        out_features = dims["linear_num_value_heads"]
+    elif kind == "qwen3_linear_out":
+        in_features = dims["linear_value_dim"]
+        out_features = dims["hidden"]
+    elif kind == "qwen3_self_attn_q":
+        in_features = dims["hidden"]
+        out_features = 2 * dims["full_attention_dim"]
+    elif kind in {"qwen3_self_attn_k", "qwen3_self_attn_v"}:
+        in_features = dims["hidden"]
+        out_features = dims["kv"]
+    elif kind == "qwen3_self_attn_o":
+        in_features = dims["full_attention_dim"]
+        out_features = dims["hidden"]
     else:
         raise ValueError(f"Unsupported layer kind: {kind}")
 
@@ -309,6 +363,69 @@ def make_layer(kind: str, engine_config_path: Path, dims: dict):
             dims["vocab"],
             "lm_head",
         )
+    if kind == "qwen3_linear_qkv":
+        return edge_fm.LinearLayer(
+            "model.layers.0.linear_attn.in_proj_qkv",
+            str(engine_config_path),
+            dims["hidden"],
+            dims["linear_conv_dim"],
+        )
+    if kind == "qwen3_linear_z":
+        return edge_fm.LinearLayer(
+            "model.layers.0.linear_attn.in_proj_z",
+            str(engine_config_path),
+            dims["hidden"],
+            dims["linear_value_dim"],
+        )
+    if kind == "qwen3_linear_a":
+        return edge_fm.LinearLayer(
+            "model.layers.0.linear_attn.in_proj_a",
+            str(engine_config_path),
+            dims["hidden"],
+            dims["linear_num_value_heads"],
+        )
+    if kind == "qwen3_linear_b":
+        return edge_fm.LinearLayer(
+            "model.layers.0.linear_attn.in_proj_b",
+            str(engine_config_path),
+            dims["hidden"],
+            dims["linear_num_value_heads"],
+        )
+    if kind == "qwen3_linear_out":
+        return edge_fm.LinearLayer(
+            "model.layers.0.linear_attn.out_proj",
+            str(engine_config_path),
+            dims["linear_value_dim"],
+            dims["hidden"],
+        )
+    if kind == "qwen3_self_attn_q":
+        return edge_fm.LinearLayer(
+            "model.layers.3.self_attn.q_proj",
+            str(engine_config_path),
+            dims["hidden"],
+            2 * dims["full_attention_dim"],
+        )
+    if kind == "qwen3_self_attn_k":
+        return edge_fm.LinearLayer(
+            "model.layers.3.self_attn.k_proj",
+            str(engine_config_path),
+            dims["hidden"],
+            dims["kv"],
+        )
+    if kind == "qwen3_self_attn_v":
+        return edge_fm.LinearLayer(
+            "model.layers.3.self_attn.v_proj",
+            str(engine_config_path),
+            dims["hidden"],
+            dims["kv"],
+        )
+    if kind == "qwen3_self_attn_o":
+        return edge_fm.LinearLayer(
+            "model.layers.3.self_attn.o_proj",
+            str(engine_config_path),
+            dims["full_attention_dim"],
+            dims["hidden"],
+        )
     raise ValueError(f"Unsupported layer kind: {kind}")
 
 
@@ -323,6 +440,20 @@ def input_output_shapes(kind: str, *, m: int, dims: dict) -> tuple[tuple[int, in
         return (m, dims["hidden"]), 2 * dims["intermediate"]
     if kind == "lm_head":
         return (m, dims["hidden"]), dims["vocab"]
+    if kind == "qwen3_linear_qkv":
+        return (m, dims["hidden"]), dims["linear_conv_dim"]
+    if kind == "qwen3_linear_z":
+        return (m, dims["hidden"]), dims["linear_value_dim"]
+    if kind in {"qwen3_linear_a", "qwen3_linear_b"}:
+        return (m, dims["hidden"]), dims["linear_num_value_heads"]
+    if kind == "qwen3_linear_out":
+        return (m, dims["linear_value_dim"]), dims["hidden"]
+    if kind == "qwen3_self_attn_q":
+        return (m, dims["hidden"]), 2 * dims["full_attention_dim"]
+    if kind in {"qwen3_self_attn_k", "qwen3_self_attn_v"}:
+        return (m, dims["hidden"]), dims["kv"]
+    if kind == "qwen3_self_attn_o":
+        return (m, dims["full_attention_dim"]), dims["hidden"]
     raise ValueError(f"Unsupported layer kind: {kind}")
 
 

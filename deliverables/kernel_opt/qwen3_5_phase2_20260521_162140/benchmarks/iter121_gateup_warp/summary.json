@@ -1,0 +1,47 @@
+{
+  "iteration": 121,
+  "candidate": "Qwen3.5 decode GateUp+SwiGLU warp kernel",
+  "artifact": "deliverables/kernel_opt/qwen3_5_gateup_swiglu_iter121",
+  "production_changes": [
+    "Added a non-default edgefm_decode_swiglu_warp fused_gate_up_activation implementation for decode BF16 GateUp+SwiGLU rows.",
+    "Added Qwen3.5/cuda_sm86 exact decode operator-table records for 0.8B 1024->3584 and 2B 2048->6144 GateUp shapes.",
+    "Kept the new implementation out of the generic default selection unless explicitly selected by operator table or EDGE_FM_DECODE_SWIGLU_WARP_DEFAULT."
+  ],
+  "correctness": {
+    "build": "cmake --build build --target edge_fm_python -j$(nproc) passed",
+    "operator_table_validation": "python3 scripts/operator_table/validate_operator_tables.py --platform 3060 passed",
+    "qwen3_5_runtime_ops": "EDGE_FM_BUILD_DIR=build pytest -q tests/operators/test_qwen3_5_runtime_ops.py -q -> 17 passed",
+    "qwen3_5_fresh_dump_generate": "EDGE_FM_BUILD_DIR=build EDGE_FM_QWEN3_5_REGENERATE_DUMP=1 pytest -q tests/engine/test_qwen3_5_generate.py -s -> 13 passed"
+  },
+  "benchmarks": {
+    "0p8b_p128_d32_graph_on": {
+      "before_ms": 189.299,
+      "after_ms": 188.1300613982603,
+      "delta_pct": -0.6175064929959902,
+      "prefill_ms": 19.647174453735353,
+      "decode_step_avg_ms": 5.430179522114416
+    },
+    "0p8b_p128_d128_graph_on": {
+      "before_ms": 715.516,
+      "after_ms": 711.7083815857768,
+      "delta_pct": -0.5321485920477988,
+      "prefill_ms": 19.386995697021483,
+      "decode_step_avg_ms": 5.448373389056348
+    },
+    "2b_p128_d32_graph_on": {
+      "before_ms": 407.973,
+      "after_ms": 405.94832540955395,
+      "delta_pct": -0.49628273940770326,
+      "prefill_ms": 33.1256965637207,
+      "decode_step_avg_ms": 12.020220553490423
+    },
+    "2b_p128_d128_graph_on": {
+      "before_ms": 1572.494,
+      "after_ms": 1563.1251002196223,
+      "delta_pct": -0.5957987244700229,
+      "prefill_ms": 32.922098541259764,
+      "decode_step_avg_ms": 12.045720041830709
+    }
+  },
+  "decision": "accepted"
+}
