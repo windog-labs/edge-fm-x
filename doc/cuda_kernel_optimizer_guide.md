@@ -187,10 +187,10 @@ python .codex/skills/edge-fm-cuda-kernel-optimizer/scripts/analyze_edgefm_nsys_p
 - 预计需要多轮候选、NCU 证据、source provenance 和 rejected ledger。
 - TRT 或其他 reference 明显更快，但不能直接依赖 serialized TensorRT engine。
 
-建议目录：
+建议本地临时目录：
 
 ```bash
-deliverables/kernel_opt/<platform>_<operator>_<date>/
+.tmp_codex/kernel_opt/<platform>_<operator>_<date>/
 ```
 
 每个长循环至少保留：
@@ -278,7 +278,7 @@ deliverables/kernel_opt/<platform>_<operator>_<date>/
 - 已有 NCU baseline digest。
 
 输出要求：
-- deliverables/kernel_opt/<name>/ standalone repo。
+- `.tmp_codex/kernel_opt/<name>/` standalone repo。
 - refined plan。
 - source/lineage ledger。
 - attempt/optimization ledger。

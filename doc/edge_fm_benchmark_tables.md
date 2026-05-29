@@ -18,7 +18,7 @@ Iter116 Qwen3.5 0.8B safe decode linear cuBLASLt tactic records, Iter112
 decode conv1d + GatedDelta + gated RMSNorm launch fusion, and Iter121
 Qwen3.5/SM86 decode GateUp+SwiGLU warp GEMV records.
 
-- Artifact: Iter112 full matrix plus Iter114 2B, Iter116 0.8B, and Iter121 p128 graph-on gates in `deliverables/kernel_opt/qwen3_5_phase2_20260521_162140/benchmarks/`
+- Artifact: raw iteration artifacts were removed from the repository; the retained benchmark values below are the canonical record.
 - Hardware: RTX 3060
 - Shape format: `prefill/decode`
 - Unit: ms

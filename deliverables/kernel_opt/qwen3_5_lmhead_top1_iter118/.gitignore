@@ -1,9 +1,0 @@
-__pycache__/
-build/
-*.so
-*.o
-*.log
-*.json.tmp
-*.ncu-rep
-*.nsys-rep
-*.sqlite
