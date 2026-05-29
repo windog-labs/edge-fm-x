@@ -19,7 +19,7 @@ from typing import Any
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT_PARENT = PROJECT_ROOT / "deliverables" / "kernel_opt"
+DEFAULT_OUTPUT_PARENT = PROJECT_ROOT / ".tmp_codex" / "kernel_opt"
 MODEL_CASES = {
     "0p8b": {
         "display": "0.8B",
