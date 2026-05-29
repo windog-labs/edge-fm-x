@@ -4,6 +4,7 @@
 [![CMake](https://img.shields.io/badge/CMake-3.15+-green.svg)](https://cmake.org/)
 [![C++](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/)
 [![CUDA](https://img.shields.io/badge/CUDA-Required-orange.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![Email](https://img.shields.io/badge/contact-chenyuanpeng%40xingshentech.com-blue.svg)](mailto:chenyuanpeng@xingshentech.com)
 
 EdgeFM（Edge Foundation Model）是一个专为边缘端场景优化的通用大模型推理引擎。EdgeFM 针对边缘端推理的独特需求，提供高效的多模态理解、语言生成和决策推理能力，广泛应用于自动驾驶、具身智能、机器人控制等边缘端智能系统，助力边缘端大模型应用的快速部署。
 
@@ -386,7 +387,12 @@ CUDA 平台仍保留 CUTLASS/source-op 作为高性能 kernel 的离线优化与
 
 ## 联系方式
 
-如有问题或建议，请通过 Issue 联系我们，或扫码加入社区交流群：
+如有问题或建议，欢迎通过以下方式联系我们：
+
+- 邮箱：[chenyuanpeng@xingshentech.com](mailto:chenyuanpeng@xingshentech.com)
+- Issue：[GitHub Issues](https://github.com/windog-labs/edge-fm-x/issues)
+
+也可扫码加入社区交流群：
 
 <p align="center">
   <img src="doc/社区交流群.png" width="240" />
