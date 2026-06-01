@@ -6,6 +6,8 @@
 [![CUDA](https://img.shields.io/badge/CUDA-Required-orange.svg)](https://developer.nvidia.com/cuda-toolkit)
 [![Email](https://img.shields.io/badge/contact-chenyuanpeng%40xingshentech.com-blue.svg)](mailto:chenyuanpeng@xingshentech.com)
 
+**🌐 Language / 语言**：[English](README.en.md) | 中文（当前）
+
 EdgeFM（Edge Foundation Model）是一个专为边缘端场景优化的通用大模型推理引擎。EdgeFM 针对边缘端推理的独特需求，提供高效的多模态理解、语言生成和决策推理能力，广泛应用于自动驾驶、具身智能、机器人控制等边缘端智能系统，助力边缘端大模型应用的快速部署。
 
 📄 **论文**：[EdgeFM: Efficient Edge Inference for Vision-Language Models](https://arxiv.org/abs/2604.27476)
