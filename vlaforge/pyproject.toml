@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vlaforge"
+version = "0.1.0.dev0"
+description = "Executable reference IR for stateful temporal VLA programs"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "EdgeFM contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+  "hypothesis>=6",
+]
+models = [
+  "numpy>=1.26",
+  "torch>=2.2",
+]
+
+[project.scripts]
+vlaforge = "vlaforge.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "python" }
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+pythonpath = ["python"]
+markers = [
+  "model: deterministic model-adapter tests",
+  "real_model: opt-in tests that execute real checkpoints",
+]

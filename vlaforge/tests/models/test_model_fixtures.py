@@ -1,0 +1,46 @@
+import pytest
+
+from vlaforge.adapters import build_openvla_fixture, build_smolvla_fixture
+from vlaforge.analysis import verify
+from vlaforge.interpreter import Interpreter
+
+
+@pytest.mark.model
+@pytest.mark.parametrize(
+    ("factory", "generation"),
+    [
+        (build_smolvla_fixture, "iterative_continuous"),
+        (build_openvla_fixture, "autoregressive_discrete"),
+    ],
+)
+def test_distinct_model_structures_share_core_ir(factory, generation):
+    fixture = factory()
+    assert fixture.module.policies[0].metadata["action_generation"] == generation
+    assert fixture.evidence_kind == "deterministic_fixture"
+    assert verify(fixture.module, raise_on_error=False) == ()
+    for operation in fixture.module.policies[0].body.operations:
+        lowered = operation.opcode.lower()
+        assert "smolvla" not in lowered
+        assert "openvla" not in lowered
+        assert "pi0" not in lowered
+
+
+@pytest.mark.model
+@pytest.mark.parametrize(
+    "factory", [build_smolvla_fixture, build_openvla_fixture]
+)
+def test_model_fixture_runs_three_ticks(factory):
+    fixture = factory()
+    runtime = Interpreter(
+        fixture.module,
+        regions=fixture.regions,
+        validators=fixture.validators,
+        initial_state=fixture.initial_state,
+    )
+    actions = []
+    for item in fixture.ticks:
+        result = runtime.run_tick("act", item.tick, item.inputs)
+        actions.append(result.published_actions[0].value)
+    assert len(actions) == 3
+    assert len(set(actions)) >= 2
+
