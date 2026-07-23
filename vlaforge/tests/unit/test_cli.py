@@ -12,7 +12,7 @@ def test_inspect_verify_run_and_diff(tmp_path, capsys):
         encoding="utf-8",
     )
     assert main(["inspect", str(program)]) == 0
-    assert '"prefix_cache"' in capsys.readouterr().out
+    assert '"action_queue"' in capsys.readouterr().out
 
     assert main(["verify", str(program)]) == 0
     assert "verification passed" in capsys.readouterr().out
@@ -38,4 +38,3 @@ def test_inspect_verify_run_and_diff(tmp_path, capsys):
 
     assert main(["diff", str(first), str(second)]) == 0
     assert "comparison passed" in capsys.readouterr().out
-

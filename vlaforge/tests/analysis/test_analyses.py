@@ -16,7 +16,8 @@ def test_dependency_graph_tracks_state_and_ssa_edges():
     graph = build_dependency_graph(module)
     assert "rng" in graph.state_readers
     assert "rng" in graph.state_writers
-    assert "prefix_cache" in graph.state_writers
+    assert "action_queue" in graph.state_readers
+    assert "action_queue" in graph.state_writers
     assert graph.value_producers["sample_final"].endswith("vla.for")
     assert any("vla.invoke" in item for item in graph.value_consumers["prefix"])
 
@@ -30,7 +31,7 @@ def test_liveness_covers_loop_and_commit_values():
     }
     assert ranges["tick"].first_definition == -1
     assert ranges["txn"].last_use > ranges["txn"].first_definition
-    assert ranges["decoded_action"].last_use > ranges["decoded_action"].first_definition
+    assert ranges["selected_action"].last_use > ranges["selected_action"].first_definition
 
 
 def test_physical_slot_plan_rejects_unsafe_capacity():
@@ -41,7 +42,11 @@ def test_physical_slot_plan_rejects_unsafe_capacity():
             max_in_flight=2,
             consumer_lag=1,
             fallback_snapshots=1,
-            capacities={"rng": 3, "prefix_cache": 8},
+            capacities={
+                "rng": 3,
+                "action_queue": 8,
+                "queue_cursor": 8,
+            },
         )
 
 
@@ -73,4 +78,3 @@ def test_physical_slot_mapping_is_bounded_and_collision_free_in_live_window():
             assert all(
                 0 <= plan.slot_for(version) < plan.capacity for version in versions
             )
-

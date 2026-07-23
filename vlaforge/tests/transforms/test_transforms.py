@@ -9,6 +9,13 @@ from vlaforge.transforms import (
 from vlaforge.validation import compare_traces
 
 
+def walk(block):
+    for operation in block.operations:
+        yield operation
+        for region in operation.regions:
+            yield from walk(region)
+
+
 def run(fixture, module):
     runtime = Interpreter(
         module,
@@ -26,7 +33,7 @@ def test_epoch_memoization_uses_observation_epoch():
     transformed = synthesize_epoch_memoization(fixture.module)
     encode = next(
         operation
-        for operation in transformed.policies[0].body.operations
+        for operation in walk(transformed.policies[0].body)
         if operation.opcode == "vla.invoke"
         and operation.attributes["region"] == "encode_observation"
     )
@@ -49,4 +56,3 @@ def test_transforms_preserve_reference_trace():
     assert report.equal, report.format()
     plan = transformed.metadata["physical_state_plan"]
     assert plan["rng"]["capacity"] >= 4
-

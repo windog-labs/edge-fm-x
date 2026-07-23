@@ -24,10 +24,10 @@
 1. **两层程序模型**
    - 纯 Tensor Region；
    - 显式 Stateful/Temporal Program。
-2. **三层 IR**
-   - VLA Semantic IR；
-   - VLA Scheduled Execution IR；
-   - 序列化 Runtime Plan。
+2. **一层公开 IR，两个内部产物**
+   - 唯一公开、可序列化的 VLA Semantic IR；
+   - Scheduled Execution 只是编译器内部 lowering 数据结构；
+   - Runtime Plan 是部署产物，不再定义第二套用户可见语义。
 3. **逻辑状态与物理存储分离**
    - 高层使用不可变 versioned state；
    - lowering 后映射到 bounded ring/double buffer。
@@ -43,15 +43,19 @@
 
 #### G1：持续化状态可被编译器理解
 
-所有跨 invocation 状态必须显式存在于 IR 中，包括：
+只有真实源码在 policy invocation 之间保留、并会影响后续动作的值，才进入
+Persistent State IR，例如：
 
-- prefix KV；
+- action queue / queue cursor；
 - observation/history cache；
-- solver state；
-- RNG state；
-- previous action/action queue；
-- control state；
-- backend-specific persistent workspace。
+- 跨 tick 复用的 prefix KV（仅当真实实现确实保留）；
+- 显式 RNG state；
+- previous action / control state（仅当模型真实读取）；
+- 影响可观察语义的 backend persistent state。
+
+单次推理内部的 solver sample、临时 KV cache、workspace 和中间 tensor 使用
+普通 SSA 或 `vla.for` loop-carried value 表达，不得为了展示 IR 能力而提升为
+持久状态。
 
 编译器应知道：
 
@@ -86,12 +90,12 @@
 
 #### G3：Whole-program 优化
 
-至少自动实现：
+在真实模型证明有收益后，按需实现：
 
 - epoch-keyed prefix/cache；
 - solver-loop invariant hoisting；
 - cross-method/cycle memory planning；
-- freshness-safe async pipeline；
+- freshness-safe pipeline（第一阶段保持同步）；
 - static state ring/double buffer；
 - solver loop/CUDA Graph specialization。
 
@@ -214,7 +218,7 @@ Scheduled Plan:
     placement + stream + event + physical buffer + variant
 ```
 
-## 3. 三层 IR 设计
+## 3. 一个 VLA Semantic IR 与两个内部表示
 
 ### 3.1 Layer 1：VLA Semantic IR
 
@@ -243,7 +247,7 @@ Scheduled Plan:
 - 只保存 signature、shape contract、effect summary 和 artifact reference；
 - 不把项目绑在 torch-mlir 全图转换上。
 
-### 3.2 Layer 2：VLA Scheduled Execution IR
+### 3.2 内部 Scheduled Execution 表示
 
 用途：
 
@@ -295,9 +299,11 @@ task 3:
   commit = [state_version_e, action_e]
 ```
 
-这层仍是 compiler IR，不直接被最小 Runtime 解析文本。
+这层是实现细节，不提供 parser/printer，不承诺稳定 ABI，也不作为论文的独立
+IR 贡献。第一阶段若同步执行已经满足 SmolVLA/OpenVLA，就不引入 stream/event
+调度节点。
 
-### 3.3 Layer 3：Runtime Plan IR
+### 3.3 Runtime Plan 部署数据
 
 用途：
 

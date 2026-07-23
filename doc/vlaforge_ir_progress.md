@@ -12,7 +12,8 @@
 
 ### G0: semantics and structure
 
-Status: **provisional; deterministic fixtures pass, real-source audit pending**.
+Status: **provisional; core semantics and real-source audit pass, OpenVLA
+checkpoint closure pending**.
 
 Implemented:
 
@@ -26,11 +27,16 @@ Implemented:
   MLIR mapping;
 - generic flow-style and autoregressive-style adapter fixtures with no
   model-named core operations.
+- a VLA-only public profile that rejects invented persistent state and defers
+  general `while`/`async` scheduling abstractions.
 
-Remaining evidence:
+Real-source conclusions:
 
-- audit real SmolVLA and OpenVLA source state/clock/loop/action/reset behavior;
-- prove the same core constructs cover their real Python execution boundaries.
+- SmolVLA persists only its action queue across `select_action` calls; prefix KV
+  and solver values remain local SSA in one action-chunk inference.
+- OpenVLA's reference `predict_action` is stateless across control ticks and is
+  represented by pure bounded generation plus detokenization and action commit.
+- Neither adapter required a model-named core opcode.
 
 ### G1: verifier and interpreter
 
@@ -64,14 +70,14 @@ Implemented runtime coverage:
 
 ### G2: real Python model closure
 
-Status: **not achieved**.
+Status: **partially achieved: SmolVLA passed; OpenVLA pending**.
 
 Current local evidence:
 
 | Model | Checkpoint | Environment | Result |
 | --- | --- | --- | --- |
-| SmolVLA | `examples/smolvla/SmolVLA-Base/model.safetensors`, 906,712,520 bytes | system Python 3.13 has PyTorch 2.10 but no LeRobot | not run through real adapter |
-| OpenVLA | no local checkpoint found | no pinned OpenVLA environment | not run |
+| SmolVLA | `examples/smolvla/SmolVLA-Base/model.safetensors`, SHA256 `7cd549ac...aaca01eb` | isolated `horizon_quant`, LeRobot `8fff0fde`, PyTorch 2.6.0+cu126 | **passed**, 10 solver steps, eager-vs-IR action/solver error 0 |
+| OpenVLA | official `openvla/openvla-7b`, revision `47a0ec7f...9ed83f` (download in progress) | isolated Python 3.10, Transformers 4.40.1, tokenizers 0.19.1, timm 0.9.10, bitsandbytes 0.49.2 | adapter ready; real gate pending |
 | π0/π0.5 | no local checkpoint found | not prepared | held-out, not started |
 
 Deterministic fixtures are explicitly labelled `deterministic_fixture` and do
@@ -89,7 +95,7 @@ python3 -m pytest -q
 Result:
 
 ```text
-46 passed in 0.10s
+50 passed in 0.13s
 ```
 
 Covered suites:
@@ -97,12 +103,27 @@ Covered suites:
 - type and textual serialization;
 - verifier positive/negative cases;
 - dependency, liveness, and property-style physical-slot planning;
-- multi-tick interpreter, stale input, reset, and failed transaction;
+- multi-tick interpreter, stale input, explicit reset/abort, and failed
+  transaction;
+- queue refill/reuse `if` semantics and exact bounded `for` iteration counts;
 - epoch-keyed memoization and state physicalization;
 - flow/autoregressive fixture programs;
 - inspect/verify/run/diff CLI.
 
-Skipped tests: 0.
+The default suite has two explicit opt-in `real_model` tests when model
+environment variables are absent. The SmolVLA test was also executed
+separately with the real local checkpoint; it must not be counted as skipped in
+the G2 audit. OpenVLA remains pending.
+
+Real SmolVLA evidence:
+
+- report: `artifacts/vlaforge_ir/smolvla/real_model_report.json`;
+- trace: `artifacts/vlaforge_ir/smolvla/ir_trace.json`;
+- checkpoint: 450M-parameter policy, output `(1, 50, 6)`;
+- 10 eager-versus-IR solver errors: all `0.0`;
+- final action max absolute error: `0.0`;
+- action-queue indices 0–2 max absolute errors: all `0.0`;
+- peak CUDA allocation: approximately 918 MiB on RTX 3060.
 
 ## Current blockers
 
@@ -110,25 +131,19 @@ No core implementation blocker.
 
 Model validation constraints:
 
-- the current system Python is 3.13, while the existing SmolVLA deployment
-  documentation uses a pinned Python 3.10 LeRobot environment;
-- the real SmolVLA checkpoint is present, but LeRobot is not installed in the
-  current interpreter;
-- OpenVLA weights and its pinned legacy dependency environment are not present;
-- the local RTX 3060 has 12 GiB memory, which is sufficient for SmolVLA but may
-  require quantization/offload or a larger machine for OpenVLA-7B.
+- the official OpenVLA checkpoint is 14.05 GiB and is still downloading through
+  a resumable Git-LFS path after direct Hugging Face downloads hit TLS EOF;
+- the local RTX 3060 has 12 GiB memory, so the gate uses isolated
+  bitsandbytes-NF4 loading without changing the semantic IR.
 
 ## Next informative work
 
-1. Complete positive semantics tests for `if`, `while`, `async/await`, explicit
-   abort, and reset.
-2. Add an export-audit/real-model adapter contract that records checkpoint,
-   dependency, device, and trace provenance.
-3. Build an isolated SmolVLA environment without modifying the shared Python
-   installation, execute the local checkpoint, and capture eager region traces.
-4. Select and pin a reproducible OpenVLA inference environment, then determine
-   whether the 12 GiB GPU can execute the official checkpoint without changing
-   the semantic adapter.
+1. Finish the pinned OpenVLA checkpoint transfer and execute eager-versus-IR
+   token/action comparison in the isolated 4-bit environment.
+2. Diagnose memory or dependency failures without adding quantization or
+   framework-specific operations to the IR.
+3. Run the full offline suite and both opt-in real-model gates, then complete
+   the G0-G2 audit.
 
 ## Deviations from the development plan
 
@@ -141,4 +156,3 @@ Model validation constraints:
 - The current textual v0.1 payload is canonical structural JSON behind an
   explicit `!vlaforge.ir 0.1` header. It serializes executable IR rather than a
   runtime manifest; an MLIR surface syntax remains a later compatibility step.
-

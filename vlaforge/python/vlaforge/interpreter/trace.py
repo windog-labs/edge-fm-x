@@ -18,6 +18,9 @@ from vlaforge.interpreter.transaction import (
 
 
 def normalize_value(value: Any) -> Any:
+    trace_summary = getattr(value, "__vlaforge_trace__", None)
+    if callable(trace_summary):
+        return normalize_value(trace_summary())
     if isinstance(value, Epoch):
         return {
             "clock": value.clock,
@@ -136,7 +139,9 @@ class Trace:
         )
 
     def write(self, path: str | Path) -> None:
-        Path(path).write_text(self.to_json() + "\n", encoding="utf-8")
+        output = Path(path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(self.to_json() + "\n", encoding="utf-8")
 
     @classmethod
     def from_data(cls, data: Mapping[str, Any]) -> "Trace":
@@ -147,4 +152,3 @@ class Trace:
     @classmethod
     def read(cls, path: str | Path) -> "Trace":
         return cls.from_data(json.loads(Path(path).read_text(encoding="utf-8")))
-

@@ -13,19 +13,12 @@ from vlaforge.adapters.common import AdapterFixture, FixtureTick
 from vlaforge.frontend.builder import ModuleBuilder
 from vlaforge.interpreter.clocks import Epoch, InputSample
 from vlaforge.ir import ops
-from vlaforge.ir.attrs import (
-    ConsistencyPolicy,
-    EpochExpr,
-    FreshnessConstraint,
-    ResetPolicy,
-    StateScope,
-)
+from vlaforge.ir.attrs import FreshnessConstraint
 from vlaforge.ir.program import (
     Block,
     ClockDomain,
     InputStream,
     Policy,
-    StateSlot,
     TensorRegion,
     Value,
 )
@@ -57,26 +50,12 @@ def build_openvla_fixture() -> AdapterFixture:
             FreshnessConstraint(max_age_ns=60_000_000),
         )
     )
-    builder.add_state(
-        StateSlot(
-            "previous_action",
-            VECTOR,
-            StateScope.EPISODE,
-            "control",
-            retention=3,
-            consistency=ConsistencyPolicy.SNAPSHOT,
-            reset=ResetPolicy.EPISODE_START,
-            authoritative=True,
-        )
-    )
-
     builder.add_region(
         TensorRegion(
             "encode_context",
             (
                 Value("image_arg", VECTOR),
                 Value("instruction_arg", TOKENS),
-                Value("previous_action_arg", VECTOR),
             ),
             (VECTOR,),
         )
@@ -129,21 +108,11 @@ def build_openvla_fixture() -> AdapterFixture:
                 max_age_ns=60_000_000,
             ),
             ops.transaction_begin("txn", "tick"),
-            ops.state_read(
-                "previous_action_snapshot",
-                VECTOR,
-                "previous_action",
-                "txn",
-                epoch=EpochExpr.current("control"),
-            ),
-            ops.snapshot_value(
-                "previous_action_value", VECTOR, "previous_action_snapshot"
-            ),
             ops.invoke(
                 ("context",),
                 (VECTOR,),
                 "encode_context",
-                ("image_value", "instruction_value", "previous_action_value"),
+                ("image_value", "instruction_value"),
             ),
             ops.invoke(
                 ("token_initial",),
@@ -165,14 +134,6 @@ def build_openvla_fixture() -> AdapterFixture:
                 (VECTOR,),
                 "detokenize_action",
                 ("token_final",),
-            ),
-            ops.stage_write(
-                "previous_action_pending",
-                VECTOR,
-                "previous_action",
-                "txn",
-                "decoded_action",
-                epoch=EpochExpr.next("control"),
             ),
             ops.validate("action_valid", "decoded_action", "bounded_action"),
             ops.action_create(
@@ -202,12 +163,11 @@ def build_openvla_fixture() -> AdapterFixture:
     def encode_context(
         image: tuple[float, float],
         instruction: tuple[int, int, int],
-        previous_action: tuple[float, float],
     ) -> tuple[float, float]:
         language = sum(instruction) / 100.0
         return (
-            float(image[0]) + 0.2 * float(previous_action[0]) + language,
-            float(image[1]) + 0.2 * float(previous_action[1]) - language,
+            float(image[0]) + language,
+            float(image[1]) - language,
         )
 
     def initial_action_token(context: tuple[float, float]) -> int:
@@ -250,7 +210,6 @@ def build_openvla_fixture() -> AdapterFixture:
                 math.isfinite(item) and -1.0 <= item <= 1.0 for item in action
             )
         },
-        initial_state={"previous_action": (0.0, 0.0)},
+        initial_state={},
         ticks=ticks,
     )
-

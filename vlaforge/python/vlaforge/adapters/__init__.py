@@ -2,12 +2,31 @@
 
 from vlaforge.adapters.common import AdapterFixture, FixtureTick
 from vlaforge.adapters.openvla import build_openvla_fixture
+from vlaforge.adapters.openvla_real import (
+    RealOpenVLAConfig,
+    RealOpenVLAEvidence,
+    build_real_openvla_action_program,
+    run_real_openvla,
+)
 from vlaforge.adapters.smolvla import build_smolvla_fixture
+from vlaforge.adapters.smolvla_real import (
+    RealSmolVLAConfig,
+    RealSmolVLAEvidence,
+    build_real_smolvla_action_program,
+    run_real_smolvla,
+)
 
 __all__ = [
     "AdapterFixture",
     "FixtureTick",
+    "RealOpenVLAConfig",
+    "RealOpenVLAEvidence",
+    "RealSmolVLAConfig",
+    "RealSmolVLAEvidence",
+    "build_real_openvla_action_program",
+    "build_real_smolvla_action_program",
     "build_openvla_fixture",
     "build_smolvla_fixture",
+    "run_real_openvla",
+    "run_real_smolvla",
 ]
-

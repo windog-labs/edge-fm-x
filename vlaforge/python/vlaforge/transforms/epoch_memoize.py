@@ -18,15 +18,21 @@ def _transform_block(
     *,
     module: Module,
     inherited: dict[str, Value],
+    inherited_epoch_for_payload: dict[str, str] | None = None,
 ) -> Block:
     definitions = dict(inherited)
-    epoch_for_payload: dict[str, str] = {}
+    epoch_for_payload = dict(inherited_epoch_for_payload or {})
     operations = []
     region_map = {region.name: region for region in module.regions}
 
     for operation in block.operations:
         transformed_regions = tuple(
-            _transform_block(region, module=module, inherited=definitions)
+            _transform_block(
+                region,
+                module=module,
+                inherited=definitions,
+                inherited_epoch_for_payload=epoch_for_payload,
+            )
             for region in operation.regions
         )
         transformed = replace(operation, regions=transformed_regions)
@@ -80,6 +86,7 @@ def synthesize_epoch_memoization(module: Module) -> Module:
                 policy.body,
                 module=module,
                 inherited={value.name: value for value in policy.inputs},
+                inherited_epoch_for_payload={},
             ),
         )
         for policy in module.policies
@@ -87,4 +94,3 @@ def synthesize_epoch_memoization(module: Module) -> Module:
     transformed = replace(module, policies=policies)
     verify(transformed)
     return transformed
-

@@ -76,7 +76,7 @@ def test_pending_state_cannot_escape():
     module = build_smolvla_fixture().module
     policy = module.policies[0]
     operations = list(policy.body.operations)
-    operations[-1] = ops.return_values("prefix_pending")
+    operations[-1] = ops.return_values("queue_pending")
     broken = replace(
         module,
         policies=(replace(policy, body=replace(policy.body, operations=tuple(operations))),),
@@ -171,11 +171,12 @@ def test_success_path_rejects_double_commit():
 
 
 def test_authoritative_state_cannot_be_overwritten_inplace():
-    module = build_openvla_fixture().module
+    module = build_smolvla_fixture().module
     policy = module.policies[0]
     operations = tuple(
         operation.with_attributes(inplace=True)
         if operation.opcode == "vla.state.stage_write"
+        and operation.attributes["state"] == "action_queue"
         else operation
         for operation in policy.body.operations
     )
@@ -195,13 +196,13 @@ def test_async_effect_race_is_rejected():
         "future_a",
         payload,
         async_body,
-        writes=("prefix_cache",),
+        writes=("action_queue",),
     )
     second = ops.async_execute(
         "future_b",
         payload,
         async_body,
-        reads=("prefix_cache",),
+        reads=("action_queue",),
     )
     operations = list(policy.body.operations)
     operations[2:2] = [first, second]
@@ -225,4 +226,3 @@ def test_delete_dependency_mutation_is_detected():
     assert "region.input_types" in rules(
         mutation.delete_dependency(build_smolvla_fixture().module)
     )
-

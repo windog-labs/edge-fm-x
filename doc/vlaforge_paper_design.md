@@ -19,7 +19,9 @@
 1. VLA 不是单次调用的无状态 Tensor Graph，而是持续接收 observation、维护跨调用状态、迭代生成 action chunk、并以不同频率执行感知、推理与控制的反应式程序。
 2. `torch.export`、AOTInductor、ExecuTorch 等工具能够很好地捕获和编译 Tensor 计算区域，但不能从样例输入自动恢复机器人控制频率、状态所有权、允许的 staleness、action commit 等部署语义。
 3. vla.cpp、Embodied.cpp、RTC、VLASH、Reflex、ActionFlow、OxyGen 等工作已经分别覆盖了统一 C++ Runtime、多速率执行、异步 action chunk、cache、pipeline 和专用 VLA 优化；FlashRT 已把 coding agent、persistent-state IR 与自动部署连在一起；Execution-State Capsules 已覆盖执行状态快照、分叉与回滚。因此，“把这些功能组合起来”或单独实现 transaction 都不构成足够强的新颖性。
-4. 最值得押注的新抽象是 **Temporal/Stateful VLA IR**：显式表达逻辑状态版本、epoch、clock domain、freshness、effect、loop-carried state 和 action commit。
+4. 最值得押注的新抽象是 **最小 Stateful VLA IR**：只显式表达真实跨 tick
+   状态、observation epoch、有界动作生成循环和 action commit；单次推理内部的
+   KV/solver tensor 留在 Tensor Region 或普通 SSA 中。
 5. 最值得押注的新机制是 **epoch-aware legality analysis 和 plan synthesis**：编译器能够自动判断 prefix cache、loop invariant hoisting、跨 tick pipeline 和 buffer reuse 是否安全。
 6. C++ 部署代码必须由确定性编译器生成，而不是由 Agent 自由编写。Agent 最多作为受约束的搜索策略，在等预算实验中证明价值后再提升为论文贡献。
 
@@ -97,7 +99,7 @@ VLA 部署还需要表达：
 持续化状态最关键的设计不是“在 Runtime 里放一个 `unordered_map<string, Tensor>`”，而是区分：
 
 1. **Logical State Version**
-   - 例如 `prefix_kv@observation_epoch=17`；
+   - 例如 `action_queue@control_epoch=17`；
    - 在高层 IR 中视为不可变值；
    - 用于 correctness、dependency、cache key 和 freshness 分析。
 2. **Physical Storage Slot**
@@ -108,16 +110,16 @@ VLA 部署还需要表达：
 高层 IR 可以写成：
 
 ```text
-prefix_kv<17> = build_prefix(image<17>, language, robot_state<17>)
-actions<17>   = solve(prefix_kv<17>, noise<17>)
-prefix_kv<18> = build_prefix(image<18>, language, robot_state<18>)
+action_queue<17> = generate_chunk(image<17>, language, robot_state<17>)
+action<17>       = pop_front(action_queue<17>)
+action_queue<18> = pop(action_queue<17>)
 ```
 
 物理化后可能得到：
 
 ```text
-prefix_slot[17 mod 2] = prefix_kv<17>
-prefix_slot[18 mod 2] = prefix_kv<18>
+queue_slot[17 mod 2] = action_queue<17>
+queue_slot[18 mod 2] = action_queue<18>
 ```
 
 编译器根据 live epoch 数、异步 schedule 和 retention 自动推导 ring size，而不是由模型 adapter 手写。
@@ -239,19 +241,20 @@ spec = vlaforge.ProgramSpec(
     },
     states=[
         StateSpec(
-            name="prefix_kv",
-            dtype="bf16",
-            shape=...,
-            scope="observation",
-            epoch_domain="observation",
+            name="action_queue",
+            dtype="fp32",
+            shape=(50, action_dim),
+            scope="episode",
+            epoch_domain="control",
             retention=2,
         ),
         StateSpec(
-            name="solver_state",
-            dtype="fp32",
-            shape=...,
-            scope="solver_iteration",
-            epoch_domain="solver",
+            name="queue_cursor",
+            dtype="int32",
+            shape=(),
+            scope="episode",
+            epoch_domain="control",
+            retention=2,
         ),
     ],
     clocks=[
@@ -320,20 +323,24 @@ vla.read
 vla.write
 vla.call
 vla.for
-vla.async
-vla.await
-vla.guard
-vla.commit
+vla.if
+vla.validate
+vla.txn.commit
+vla.txn.abort
+vla.action.publish
 vla.yield
 ```
+
+`vla.while`、`vla.async`、`vla.await` 不属于第一版论文的主动贡献。只有真实
+VLA 无法用有界 `for` 和同步 Tensor Region 表达时才重新评估。
 
 推荐类型：
 
 ```text
 !vla.epoch<observation>
-!vla.version<@prefix_kv>
-!vla.state_handle<tensor<...>>
-!vla.event
+!vla.snapshot<@action_queue, tensor<...>>
+!vla.pending<@action_queue, tensor<...>>
+!vla.txn
 !vla.action_chunk<50x32xf32>
 ```
 
@@ -344,48 +351,45 @@ vla.program @smolvla {
   vla.clock @observation period<100ms>
   vla.clock @control     period<20ms>
 
-  vla.state @prefix_kv
-      : tensor<16x2x128x5x64xbf16>
-      scope<observation>
-      epoch<@observation>
-      retention<2>
-
   vla.state @action_queue
       : !vla.action_chunk<50x32xf32>
-      scope<control_tick>
-      epoch<@observation>
+      scope<episode>
+      epoch<@control>
+      retention<2>
 
-  vla.on @observation(%obs_epoch: !vla.epoch<observation>) {
-    %image = vla.input @camera at %obs_epoch
-    %robot = vla.input @robot_state at %obs_epoch
+  vla.on @control(%tick: !vla.epoch<control>) {
+    %image, %obs_epoch = vla.input @camera latest_before %tick
+    %robot_state = vla.input @robot_state at %obs_epoch
+    %language = vla.input @language at %obs_epoch
+    %txn = vla.txn.begin %tick
+    %queue = vla.read @action_queue[%tick] in %txn
+    %empty = vla.call @queue_is_empty(%queue)
 
-    %prefix = vla.call @build_prefix(%image, %robot)
-        reads[@language]
-        writes[@prefix_kv at %obs_epoch]
-        contract<exact>
-
-    vla.write @prefix_kv[%obs_epoch], %prefix
-
-    %done = vla.async {
+    %action, %next_queue = vla.if %empty {
+      // prefix and solver sample are local SSA, not persistent state
+      %prefix = vla.call @build_prefix(%image, %language, %robot_state)
       %x0 = vla.call @sample_noise(%obs_epoch)
 
       %xf = vla.for %k = 0 to 10
           iter_args(%x = %x0) -> tensor<1x50x32xf32> {
-        %p = vla.read @prefix_kv[%obs_epoch]
-            freshness<0 epochs>
-        %v = vla.call @action_step(%p, %x, %k)
-            reads[@prefix_kv at %obs_epoch]
-            contract<numeric atol=1e-4 rtol=1e-3>
+        %v = vla.call @action_step(%prefix, %x, %k)
         %next = vla.call @euler_update(%x, %v, %k)
         vla.yield %next
       }
 
       %chunk = vla.call @decode_action(%xf)
-      vla.commit @action_queue[%obs_epoch], %chunk
-          before<80ms>
+      %first = vla.call @queue_front(%chunk)
+      vla.yield %first, %chunk
+    } else {
+      %first = vla.call @queue_front(%queue)
+      %rest = vla.call @queue_pop(%queue)
+      vla.yield %first, %rest
     }
 
-    vla.yield %done
+    %pending = vla.write @action_queue[%tick.next], %next_queue in %txn
+    %valid = vla.validate %action with @action_contract
+    %committed = vla.txn.commit %txn, %pending, %action if %valid
+    vla.action.publish %committed
   }
 }
 ```
