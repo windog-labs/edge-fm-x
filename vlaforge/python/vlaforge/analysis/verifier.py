@@ -247,9 +247,9 @@ class _Verifier:
                 active_async=active_async,
             )
 
-            for result in operation.results:
-                definitions[result.name] = result
-
+            # Operation results do not exist inside their own regions. Verify
+            # nested blocks against the pre-operation environment to reject
+            # circular references from a loop/if body to the parent result.
             for region in operation.regions:
                 self._verify_block(
                     policy,
@@ -259,6 +259,8 @@ class _Verifier:
                     staged={name: set(items) for name, items in staged.items()},
                     active_async=dict(active_async),
                 )
+            for result in operation.results:
+                definitions[result.name] = result
         return definitions
 
     def _operand(
@@ -377,6 +379,21 @@ class _Verifier:
                     epoch=epoch.clock,
                     version=version,
                 )
+            if (
+                state.freshness is not None
+                and state.freshness.max_versions is not None
+                and epoch.offset < -state.freshness.max_versions
+            ):
+                self.error(
+                    "state.stale_epoch",
+                    f"state @{state_name} read offset {epoch.offset} exceeds "
+                    f"max_versions={state.freshness.max_versions}",
+                    policy=policy,
+                    operation=operation,
+                    state=state_name,
+                    epoch=epoch.clock,
+                    version=f"offset:{epoch.offset}",
+                )
             txn = self._operand(definitions, operation, 0)
             if txn is not None and not isinstance(txn.type, TransactionType):
                 self.error(
@@ -433,6 +450,104 @@ class _Verifier:
                     "region.output_types",
                     f"invoke @{region_name} returns {region.outputs}, "
                     f"op declares {result_types}",
+                    policy=policy,
+                    operation=operation,
+                )
+
+        elif operation.opcode == "vla.for":
+            initial = self._operand(definitions, operation, 0)
+            result_type = (
+                operation.results[0].type
+                if len(operation.results) == 1
+                else None
+            )
+            if (
+                initial is None
+                or result_type is None
+                or initial.type != result_type
+            ):
+                self.error(
+                    "control.for_types",
+                    "vla.for requires one initial value and one result of the "
+                    "same type",
+                    policy=policy,
+                    operation=operation,
+                )
+            step = int(operation.attributes.get("step", 0))
+            if step == 0:
+                self.error(
+                    "control.for_step",
+                    "vla.for step must be nonzero",
+                    policy=policy,
+                    operation=operation,
+                )
+            if len(operation.regions) != 1:
+                self.error(
+                    "control.for_region",
+                    "vla.for requires exactly one body region",
+                    policy=policy,
+                    operation=operation,
+                )
+            else:
+                body = operation.regions[0]
+                expected_arguments = (
+                    ScalarType("index"),
+                    result_type,
+                )
+                if tuple(argument.type for argument in body.arguments) != expected_arguments:
+                    self.error(
+                        "control.for_arguments",
+                        f"vla.for body arguments must be {expected_arguments}",
+                        policy=policy,
+                        operation=operation,
+                    )
+                if not _block_yields_types(body, (result_type,), definitions):
+                    self.error(
+                        "control.for_yield",
+                        f"vla.for body must yield one {result_type} value",
+                        policy=policy,
+                        operation=operation,
+                    )
+
+        elif operation.opcode == "vla.if":
+            condition = self._operand(definitions, operation, 0)
+            if condition is not None and condition.type != ScalarType("bool"):
+                self.error(
+                    "control.if_condition",
+                    "vla.if condition must be bool",
+                    policy=policy,
+                    operation=operation,
+                )
+            expected = tuple(result.type for result in operation.results)
+            if len(operation.regions) != 2:
+                self.error(
+                    "control.if_regions",
+                    "vla.if requires exactly two branch regions",
+                    policy=policy,
+                    operation=operation,
+                )
+            else:
+                for branch in operation.regions:
+                    if not _block_yields_types(branch, expected, definitions):
+                        self.error(
+                            "control.if_yield",
+                            f"each vla.if branch must yield {expected}",
+                            policy=policy,
+                            operation=operation,
+                        )
+
+        elif operation.opcode == "vla.while":
+            if int(operation.attributes.get("max_iterations", 0)) < 1:
+                self.error(
+                    "control.while_bound",
+                    "vla.while requires max_iterations >= 1",
+                    policy=policy,
+                    operation=operation,
+                )
+            if len(operation.regions) != 2:
+                self.error(
+                    "control.while_regions",
+                    "vla.while requires condition and body regions",
                     policy=policy,
                     operation=operation,
                 )
@@ -752,6 +867,28 @@ def _find_producer(block: Block, value_name: str) -> Operation | None:
         if any(result.name == value_name for result in operation.results):
             return operation
     return None
+
+
+def _block_yields_types(
+    block: Block,
+    expected: tuple[object, ...],
+    inherited: Mapping[str, Value],
+) -> bool:
+    if not block.operations or block.operations[-1].opcode != "vla.yield":
+        return False
+    definitions = dict(inherited)
+    definitions.update((argument.name, argument) for argument in block.arguments)
+    for operation in block.operations[:-1]:
+        definitions.update((result.name, result) for result in operation.results)
+    yielded = tuple(
+        definitions[name].type
+        for name in block.operations[-1].operands
+        if name in definitions
+    )
+    return (
+        len(yielded) == len(block.operations[-1].operands)
+        and yielded == expected
+    )
 
 
 def verify(module: Module, *, raise_on_error: bool = True) -> tuple[Diagnostic, ...]:

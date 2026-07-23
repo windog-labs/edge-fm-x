@@ -5,7 +5,7 @@ import pytest
 from vlaforge.adapters import build_openvla_fixture, build_smolvla_fixture
 from vlaforge.analysis import verify
 from vlaforge.ir import ops
-from vlaforge.ir.attrs import Effect, FreshnessConstraint
+from vlaforge.ir.attrs import Effect, EpochExpr, FreshnessConstraint
 from vlaforge.ir.program import Block, Operation, Value
 from vlaforge.ir.types import TensorType
 from vlaforge.validation import mutation
@@ -48,6 +48,97 @@ def test_read_before_definition_has_context():
     assert diagnostic.version == "missing_value"
 
 
+def test_structured_region_cannot_read_its_parent_result():
+    module = build_openvla_fixture().module
+    policy = module.policies[0]
+    operations = list(policy.body.operations)
+    loop_index = next(
+        index
+        for index, operation in enumerate(operations)
+        if operation.opcode == "vla.for"
+    )
+    loop = operations[loop_index]
+    body = loop.regions[0]
+    invoke = replace(
+        body.operations[0],
+        operands=("context", loop.results[0].name, "token_step"),
+    )
+    operations[loop_index] = replace(
+        loop,
+        regions=(
+            replace(
+                body,
+                operations=(invoke,) + body.operations[1:],
+            ),
+        ),
+    )
+    broken = replace(
+        module,
+        policies=(
+            replace(
+                policy,
+                body=replace(policy.body, operations=tuple(operations)),
+            ),
+        ),
+    )
+    assert "ssa.read_before_definition" in rules(broken)
+
+
+def test_for_loop_rejects_zero_step():
+    module = build_openvla_fixture().module
+    policy = module.policies[0]
+    operations = tuple(
+        operation.with_attributes(step=0)
+        if operation.opcode == "vla.for"
+        else operation
+        for operation in policy.body.operations
+    )
+    broken = replace(
+        module,
+        policies=(
+            replace(policy, body=replace(policy.body, operations=operations)),
+        ),
+    )
+    assert "control.for_step" in rules(broken)
+
+
+def test_if_rejects_wrong_branch_yield_types():
+    module = build_smolvla_fixture().module
+    policy = module.policies[0]
+    operations = list(policy.body.operations)
+    if_index = next(
+        index
+        for index, operation in enumerate(operations)
+        if operation.opcode == "vla.if"
+    )
+    operation = operations[if_index]
+    branch = operation.regions[0]
+    broken_yield = replace(
+        branch.operations[-1],
+        operands=branch.operations[-1].operands[:-1],
+    )
+    operations[if_index] = replace(
+        operation,
+        regions=(
+            replace(
+                branch,
+                operations=branch.operations[:-1] + (broken_yield,),
+            ),
+            operation.regions[1],
+        ),
+    )
+    broken = replace(
+        module,
+        policies=(
+            replace(
+                policy,
+                body=replace(policy.body, operations=tuple(operations)),
+            ),
+        ),
+    )
+    assert "control.if_yield" in rules(broken)
+
+
 def test_wrong_state_version_clock():
     assert "state.wrong_version_clock" in rules(
         mutation.wrong_epoch(build_smolvla_fixture().module)
@@ -64,6 +155,40 @@ def test_retention_must_satisfy_freshness():
     assert "state.retention" in rules(
         replace(module, states=(state,) + module.states[1:])
     )
+
+
+def test_statically_stale_state_epoch_is_rejected():
+    module = build_smolvla_fixture().module
+    state = replace(
+        module.states[0],
+        freshness=FreshnessConstraint(max_versions=1),
+    )
+    policy = module.policies[0]
+    operations = tuple(
+        operation.with_attributes(
+            epoch=EpochExpr(
+                "previous",
+                state.version_clock,
+                offset=-2,
+            ).to_dict()
+        )
+        if operation.opcode == "vla.state.read"
+        and operation.attributes["state"] == state.name
+        else operation
+        for operation in policy.body.operations
+    )
+    broken = replace(
+        module,
+        states=(state,) + module.states[1:],
+        policies=(
+            replace(policy, body=replace(policy.body, operations=operations)),
+        ),
+    )
+    diagnostics = verify(broken, raise_on_error=False)
+    diagnostic = next(item for item in diagnostics if item.rule == "state.stale_epoch")
+    assert diagnostic.state == "action_queue"
+    assert diagnostic.epoch == "control"
+    assert diagnostic.version == "offset:-2"
 
 
 def test_double_write_in_one_transaction():

@@ -9,7 +9,10 @@ contract.
 - Inputs and outputs have declared IR types.
 - The callable is deterministic for the same explicit inputs.
 - Persistent buffers and RNG are explicit inputs and outputs.
-- No file, network, robot, global-state, or hidden cache effects occur.
+- Invocation-local scratch buffers and framework KV caches may remain internal
+  when they are discarded before the region returns.
+- No file, network, robot, global-state, or persistent hidden-cache effects
+  occur.
 - Dynamic shapes are represented by declared shape dimensions and guards.
 
 The `@tensor_region` annotation records this contract. A later
@@ -24,7 +27,8 @@ The author declares:
 - persistent state ownership, version clock, retention, reset, and freshness;
 - loop bounds or maximum iterations;
 - action validation and commit point;
-- asynchronous state read/write sets.
+- asynchronous state read/write sets, only when an adapter explicitly uses the
+  compatibility async profile.
 
 The frontend may infer tensor types and SSA dependencies. It must not infer
 control frequency, action visibility, reset policy, acceptable staleness, or
@@ -46,4 +50,3 @@ Adapters may not:
 - mutate the generic interpreter;
 - silently hide unsupported state inside a region;
 - label deterministic fixtures as real-checkpoint evidence.
-

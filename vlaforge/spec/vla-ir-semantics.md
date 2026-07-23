@@ -89,8 +89,11 @@ nothing. A physical robot cannot observe a pending action.
     -> (tensor/scalar outputs, explicit next RNG/state payloads)
 ```
 
-Mutable buffers, hidden RNG, external I/O, and stateful cache mutation are
-illegal region effects. They must be lifted into explicit IR state/effects.
+Hidden RNG, external I/O, and cache/buffer mutation that survives a region
+invocation are illegal effects. Invocation-local workspace or KV cache is
+allowed when it is not externally observable and the region remains
+deterministic for the same explicit inputs. Any value retained across policy
+invocations must be lifted into explicit IR state.
 
 ## Structured control flow
 
@@ -141,4 +144,3 @@ The verifier rejects:
 
 Runtime checks additionally reject stale/future inputs, old-episode state,
 failed validation, missing state versions, and reuse of closed transactions.
-

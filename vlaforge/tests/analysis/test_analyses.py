@@ -1,6 +1,6 @@
-import random
-
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from vlaforge.adapters import build_smolvla_fixture
 from vlaforge.analysis import (
@@ -50,31 +50,38 @@ def test_physical_slot_plan_rejects_unsafe_capacity():
         )
 
 
-def test_physical_slot_mapping_is_bounded_and_collision_free_in_live_window():
+@settings(max_examples=100, derandomize=True, deadline=None)
+@given(
+    in_flight=st.integers(min_value=1, max_value=8),
+    lag=st.integers(min_value=0, max_value=6),
+    fallback=st.integers(min_value=0, max_value=4),
+    first_version=st.integers(min_value=0, max_value=10_000),
+)
+def test_physical_slot_mapping_is_bounded_and_collision_free_in_live_window(
+    in_flight,
+    lag,
+    fallback,
+    first_version,
+):
     module = build_smolvla_fixture().module
-    rng = random.Random(20260723)
-    for _ in range(100):
-        in_flight = rng.randint(1, 4)
-        lag = rng.randint(0, 3)
-        fallback = rng.randint(0, 2)
-        plans = plan_physical_slots(
-            module,
-            max_in_flight=in_flight,
-            consumer_lag=lag,
-            fallback_snapshots=fallback,
+    plans = plan_physical_slots(
+        module,
+        max_in_flight=in_flight,
+        consumer_lag=lag,
+        fallback_snapshots=fallback,
+    )
+    for plan in plans.values():
+        live_window = min(
+            plan.capacity,
+            max(
+                plan.retention,
+                1 + in_flight + lag + fallback,
+            ),
         )
-        for plan in plans.values():
-            live_window = min(
-                plan.capacity,
-                max(
-                    plan.retention,
-                    1 + in_flight + lag + fallback,
-                ),
-            )
-            versions = list(range(17, 17 + live_window))
-            assert len({plan.slot_for(version) for version in versions}) == len(
-                versions
-            )
-            assert all(
-                0 <= plan.slot_for(version) < plan.capacity for version in versions
-            )
+        versions = list(range(first_version, first_version + live_window))
+        assert len({plan.slot_for(version) for version in versions}) == len(
+            versions
+        )
+        assert all(
+            0 <= plan.slot_for(version) < plan.capacity for version in versions
+        )

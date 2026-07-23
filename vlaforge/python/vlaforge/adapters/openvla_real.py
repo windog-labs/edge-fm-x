@@ -29,10 +29,7 @@ from vlaforge.ir.program import (
     TensorRegion,
     Value,
 )
-from vlaforge.ir.types import EpochType, ScalarType, TensorType
-
-
-OPAQUE = ScalarType("opaque")
+from vlaforge.ir.types import EpochType, TensorType
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,11 +54,13 @@ class RealOpenVLAEvidence:
     transformers_version: str
     tokenizers_version: str
     timm_version: str
+    accelerate_version: str
     bitsandbytes_version: str | None
     device: str
     gpu_name: str | None
     quantization: str
     unnorm_key: str
+    input_fixture: dict[str, Any]
     action_shape: tuple[int, ...]
     generated_token_ids: tuple[int, ...]
     eager_action: tuple[float, ...]
@@ -88,13 +87,31 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
 
     tokens = TensorType((1, action_dim), "i64")
     action = TensorType((action_dim,), "f64")
+    pixels = TensorType((1, 6, 224, 224), "bf16")
+    language = TensorType((1, None), "i64")
     builder = ModuleBuilder("openvla_real_action")
     builder.add_clock(ClockDomain("observation", period_ns=50_000_000))
     builder.add_clock(ClockDomain("control", period_ns=50_000_000))
     builder.add_input(
         InputStream(
-            "model_inputs",
-            OPAQUE,
+            "image",
+            pixels,
+            "observation",
+            FreshnessConstraint(max_age_ns=60_000_000),
+        )
+    )
+    builder.add_input(
+        InputStream(
+            "instruction_tokens",
+            language,
+            "observation",
+            FreshnessConstraint(max_age_ns=60_000_000),
+        )
+    )
+    builder.add_input(
+        InputStream(
+            "instruction_mask",
+            language,
             "observation",
             FreshnessConstraint(max_age_ns=60_000_000),
         )
@@ -102,7 +119,11 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
     builder.add_region(
         TensorRegion(
             "generate_action_tokens",
-            (Value("inputs_arg", OPAQUE),),
+            (
+                Value("image_arg", pixels),
+                Value("tokens_arg", language),
+                Value("mask_arg", language),
+            ),
             (tokens,),
         )
     )
@@ -116,10 +137,26 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
     body = Block.of(
         (
             ops.sample_input(
-                "inputs_value",
-                "inputs_epoch",
-                OPAQUE,
-                "model_inputs",
+                "image_value",
+                "image_epoch",
+                pixels,
+                "image",
+                "observation",
+                max_age_ns=60_000_000,
+            ),
+            ops.sample_input(
+                "instruction_value",
+                "instruction_epoch",
+                language,
+                "instruction_tokens",
+                "observation",
+                max_age_ns=60_000_000,
+            ),
+            ops.sample_input(
+                "instruction_mask_value",
+                "instruction_mask_epoch",
+                language,
+                "instruction_mask",
                 "observation",
                 max_age_ns=60_000_000,
             ),
@@ -128,7 +165,11 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
                 ("action_tokens",),
                 (tokens,),
                 "generate_action_tokens",
-                ("inputs_value",),
+                (
+                    "image_value",
+                    "instruction_value",
+                    "instruction_mask_value",
+                ),
             ),
             ops.invoke(
                 ("decoded_action",),
@@ -176,6 +217,7 @@ def run_real_openvla(
 ) -> RealOpenVLAEvidence:
     """Run eager and IR paths through the same pinned OpenVLA checkpoint."""
 
+    import accelerate
     import numpy as np
     import timm
     import tokenizers
@@ -203,6 +245,7 @@ def run_real_openvla(
         "local_files_only": True,
         "low_cpu_mem_usage": True,
         "torch_dtype": torch.bfloat16,
+        "attn_implementation": "eager",
     }
     bitsandbytes_version: str | None = None
     if config.load_in_4bit:
@@ -233,10 +276,26 @@ def run_real_openvla(
     image = _deterministic_image(np, Image)
     prompt = (
         "In: What action should the robot take to "
-        f"{config.instruction.strip().lower()}?\nOut:"
+        f"{config.instruction.strip().lower()}?\nOut: "
     )
     model_inputs = processor(prompt, image)
     model_inputs = model_inputs.to(config.device, dtype=torch.bfloat16)
+    image_array = np.asarray(image)
+    input_fixture = {
+        "name": "rgb_coordinate_grid_v1",
+        "instruction": config.instruction,
+        "prompt": prompt,
+        "source_image_shape": list(image_array.shape),
+        "source_image_dtype": str(image_array.dtype),
+        "source_image_sha256": hashlib.sha256(image_array.tobytes()).hexdigest(),
+        "processed_inputs": {
+            name: {
+                "shape": list(value.shape),
+                "dtype": str(value.dtype),
+            }
+            for name, value in sorted(model_inputs.items())
+        },
+    }
 
     captured: list[Any] = []
     original_generate = model.generate
@@ -248,16 +307,18 @@ def run_real_openvla(
 
     model.generate = capture_generate
     started = time.perf_counter()
-    with torch.inference_mode():
-        eager_action = model.predict_action(
-            **model_inputs,
-            unnorm_key=config.unnorm_key,
-            do_sample=False,
-            use_cache=True,
-        )
-    _synchronize(torch, config.device)
-    eager_seconds = time.perf_counter() - started
-    model.generate = original_generate
+    try:
+        with torch.inference_mode():
+            eager_action = model.predict_action(
+                **model_inputs,
+                unnorm_key=config.unnorm_key,
+                do_sample=False,
+                use_cache=True,
+            )
+        _synchronize(torch, config.device)
+        eager_seconds = time.perf_counter() - started
+    finally:
+        model.generate = original_generate
     if len(captured) != 1:
         raise RuntimeError(
             f"OpenVLA predict_action called generate {len(captured)} times"
@@ -266,8 +327,11 @@ def run_real_openvla(
 
     ir_token_runs: list[Any] = []
 
-    def generate_action_tokens(inputs: Any) -> Any:
-        input_ids = inputs["input_ids"]
+    def generate_action_tokens(
+        pixel_values: Any,
+        input_ids: Any,
+        attention_mask: Any,
+    ) -> Any:
         if not torch.all(input_ids[:, -1] == 29871):
             empty_token = torch.tensor(
                 [[29871]],
@@ -275,10 +339,10 @@ def run_real_openvla(
                 device=input_ids.device,
             )
             input_ids = torch.cat((input_ids, empty_token), dim=1)
-        generation_inputs = dict(inputs)
-        generation_inputs["input_ids"] = input_ids
         generated = original_generate(
-            **generation_inputs,
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            pixel_values=pixel_values,
             max_new_tokens=action_dim,
             do_sample=False,
             use_cache=True,
@@ -325,7 +389,20 @@ def run_real_openvla(
         result = runtime.run_tick(
             "act",
             tick,
-            {"model_inputs": InputSample(model_inputs, observation_epoch)},
+            {
+                "image": InputSample(
+                    model_inputs["pixel_values"],
+                    observation_epoch,
+                ),
+                "instruction_tokens": InputSample(
+                    model_inputs["input_ids"],
+                    observation_epoch,
+                ),
+                "instruction_mask": InputSample(
+                    model_inputs["attention_mask"],
+                    observation_epoch,
+                ),
+            },
         )
     _synchronize(torch, config.device)
     ir_seconds = time.perf_counter() - started
@@ -359,6 +436,7 @@ def run_real_openvla(
         transformers_version=transformers.__version__,
         tokenizers_version=tokenizers.__version__,
         timm_version=timm.__version__,
+        accelerate_version=accelerate.__version__,
         bitsandbytes_version=bitsandbytes_version,
         device=config.device,
         gpu_name=(
@@ -368,6 +446,7 @@ def run_real_openvla(
         ),
         quantization="bitsandbytes-nf4" if config.load_in_4bit else "bfloat16",
         unnorm_key=config.unnorm_key,
+        input_fixture=input_fixture,
         action_shape=tuple(int(dim) for dim in np.asarray(eager_action).shape),
         generated_token_ids=tuple(int(item) for item in eager_tokens[0].cpu()),
         eager_action=eager_values,

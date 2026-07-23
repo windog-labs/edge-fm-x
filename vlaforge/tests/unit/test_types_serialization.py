@@ -8,12 +8,15 @@ from vlaforge.ir.printer import print_module
 from vlaforge.ir.serializer import canonical_json, module_digest
 from vlaforge.ir.types import (
     ActionType,
+    CommittedActionType,
     EpochType,
+    EventType,
     FutureType,
     PendingType,
     ScalarType,
     SnapshotType,
     TensorType,
+    TransactionType,
     type_from_dict,
 )
 
@@ -27,6 +30,9 @@ from vlaforge.ir.types import (
         SnapshotType("cache", TensorType((2,), "f32")),
         PendingType("cache", TensorType((2,), "f32")),
         ActionType(TensorType((16, 7), "f32")),
+        CommittedActionType(TensorType((16, 7), "f32")),
+        TransactionType(),
+        EventType(),
         FutureType(ScalarType("bool")),
     ],
 )
@@ -63,4 +69,3 @@ def test_duplicate_declaration_names_are_rejected():
     module = build_smolvla_fixture().module
     with pytest.raises(ValueError, match="duplicate clock"):
         replace(module, clocks=module.clocks + (module.clocks[0],))
-

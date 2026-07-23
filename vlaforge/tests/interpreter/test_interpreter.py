@@ -9,6 +9,7 @@ from vlaforge.interpreter.state_store import StateStoreError
 from vlaforge.ir import ops
 from vlaforge.ir.attrs import (
     ConsistencyPolicy,
+    FreshnessConstraint,
     ResetPolicy,
     StateScope,
 )
@@ -71,6 +72,37 @@ def test_stale_input_is_rejected_with_context():
         )
     }
     with pytest.raises(InterpreterError, match="freshness.stale_input"):
+        runtime.run_tick("act", tick, inputs)
+
+
+def test_stale_state_version_is_rejected_with_context():
+    fixture = build_smolvla_fixture()
+    module = replace(
+        fixture.module,
+        states=(
+            replace(
+                fixture.module.states[0],
+                freshness=FreshnessConstraint(max_versions=1),
+            ),
+        )
+        + fixture.module.states[1:],
+    )
+    runtime = Interpreter(
+        module,
+        regions=fixture.regions,
+        validators=fixture.validators,
+        initial_state=fixture.initial_state,
+    )
+    item = fixture.ticks[0]
+    tick = replace(item.tick, sequence=4, timestamp_ns=80_000_000)
+    inputs = {
+        name: replace(
+            sample,
+            epoch=replace(sample.epoch, sequence=4, timestamp_ns=80_000_000),
+        )
+        for name, sample in item.inputs.items()
+    }
+    with pytest.raises(InterpreterError, match="freshness.stale_state"):
         runtime.run_tick("act", tick, inputs)
 
 

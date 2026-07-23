@@ -29,6 +29,12 @@ def test_real_openvla_checkpoint_matches_ir(tmp_path):
 
     assert evidence.evidence_kind == "real_checkpoint"
     assert evidence.checkpoint_revision != "unknown"
+    assert evidence.input_fixture["name"] == "rgb_coordinate_grid_v1"
+    assert evidence.input_fixture["source_image_shape"] == [224, 224, 3]
+    assert evidence.input_fixture["processed_inputs"]["input_ids"]["shape"] == [
+        1,
+        19,
+    ]
     assert evidence.action_shape == (7,)
     assert len(evidence.generated_token_ids) == 7
     assert evidence.token_ids_equal

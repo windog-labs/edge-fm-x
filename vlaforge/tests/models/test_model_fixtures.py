@@ -53,9 +53,16 @@ def test_real_openvla_program_is_stateless_and_vla_focused():
     module = build_real_openvla_action_program(action_dim=7)
     assert verify(module, raise_on_error=False) == ()
     assert module.states == ()
+    assert tuple(stream.name for stream in module.inputs) == (
+        "image",
+        "instruction_tokens",
+        "instruction_mask",
+    )
     assert tuple(
         operation.opcode for operation in module.policies[0].body.operations
     ) == (
+        "vla.sample_input",
+        "vla.sample_input",
         "vla.sample_input",
         "vla.txn.begin",
         "vla.invoke",
