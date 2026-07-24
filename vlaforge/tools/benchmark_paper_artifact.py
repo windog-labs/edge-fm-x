@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import hashlib
 import json
@@ -53,10 +54,15 @@ def main() -> int:
     parser.add_argument("--smol-solver", type=Path, required=True)
     parser.add_argument("--smol-trim", type=Path, required=True)
     parser.add_argument("--smol-codegen-manifest", type=Path, required=True)
+    parser.add_argument("--smol-source-dir", type=Path)
+    parser.add_argument("--smol-build-dir", type=Path)
     parser.add_argument("--open-runner", type=Path, required=True)
     parser.add_argument("--open-archive", type=Path, required=True)
     parser.add_argument("--open-input-dir", type=Path, required=True)
     parser.add_argument("--open-codegen-manifest", type=Path, required=True)
+    parser.add_argument("--open-source-dir", type=Path)
+    parser.add_argument("--open-build-dir", type=Path)
+    parser.add_argument("--torch-cmake-prefix", type=Path)
     args = parser.parse_args()
     if args.samples < 30:
         parser.error("--samples must be at least 30 post-warm samples")
@@ -69,19 +75,28 @@ def main() -> int:
     iterations = args.warmup + args.samples
     commands: list[dict[str, object]] = []
     cells = []
+    completed_cells: dict[tuple[str, str, str], dict[str, object]] = {}
     for model in ("smolvla", "openvla"):
         for workload in WORKLOADS:
             baseline = None
             for mode in MODEL_MODES[model]:
-                result = _run_cell(
-                    args,
-                    raw,
-                    model,
-                    workload,
-                    mode,
-                    iterations=iterations,
-                    reuse=args.reuse_raw,
-                )
+                if model == "openvla" and mode == "combined":
+                    result = copy.deepcopy(
+                        completed_cells[(model, workload, "cache")]
+                    )
+                    result["mode"] = "combined"
+                    result["measurement_reused_from"] = "cache"
+                else:
+                    result = _run_cell(
+                        args,
+                        raw,
+                        model,
+                        workload,
+                        mode,
+                        iterations=iterations,
+                        reuse=args.reuse_raw,
+                    )
+                completed_cells[(model, workload, mode)] = copy.deepcopy(result)
                 commands.append(result.pop("command"))
                 samples = result.pop("all_tick_us")[args.warmup :]
                 if len(samples) < args.samples:
@@ -93,7 +108,11 @@ def main() -> int:
                 result["latency_us"] = _summarize(
                     samples,
                     args.bootstrap_resamples,
-                    seed=_stable_seed(model, workload, mode),
+                    seed=_stable_seed(
+                        model,
+                        workload,
+                        str(result.get("measurement_reused_from", mode)),
+                    ),
                 )
                 result["post_warm_samples"] = len(samples)
                 if baseline is None:
@@ -108,7 +127,7 @@ def main() -> int:
         "openvla": _load_json(args.open_codegen_manifest),
     }
     activation_bytes = {
-        model: _declared_tensor_bytes(manifest.get("spec", {}))
+        model: _backend_tensor_storage_bytes(model, manifest.get("spec", {}))
         for model, manifest in manifests.items()
     }
     for cell in cells:
@@ -144,6 +163,11 @@ def main() -> int:
             "combined": "verified memoization, LICM, and arena reuse",
         },
         "compiler": compiler,
+        "compiler_time_scope": (
+            "VLAForge profile selection, temporal transforms, Plan lowering, "
+            "physical arena planning, and certificate generation; prebuilt "
+            "TensorRegion backend artifact compilation is excluded"
+        ),
         "measurements": cells,
         "openvla_licm": {
             "status": "already_prehoisted",
@@ -154,6 +178,7 @@ def main() -> int:
         },
         "artifact_hashes": _artifact_hashes(args),
         "commands": commands,
+        "build_commands": _build_commands(args),
         "environment": {
             "platform": platform.platform(),
             "machine": platform.machine(),
@@ -481,9 +506,58 @@ def _declared_tensor_bytes(value: object) -> int:
                 elements *= int(dimension)
             return elements * DTYPE_BYTES[str(value["dtype"])]
         return sum(_declared_tensor_bytes(item) for item in value.values())
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return sum(_declared_tensor_bytes(item) for item in value)
     return 0
+
+
+def _backend_tensor_storage_bytes(
+    model: str,
+    specification: dict[str, object],
+) -> int:
+    """Count generated runner tensor storage without weights/hidden workspace."""
+
+    if model == "smolvla":
+        token_count = len(specification["token_ids"])
+        return (
+            _declared_tensor_bytes(specification["image"])
+            + _declared_tensor_bytes(specification["state"])
+            + token_count * DTYPE_BYTES["i64"]
+            + token_count * DTYPE_BYTES["bool"]
+            + _declared_tensor_bytes(specification["prefix_outputs"])
+            + 3 * _declared_tensor_bytes(specification["solver_output"])
+            + DTYPE_BYTES["f32"]
+            + _declared_tensor_bytes(specification["action_chunk"])
+        )
+    if model != "openvla":
+        raise ValueError(f"unknown backend tensor layout: {model}")
+    action_dim = int(specification["action"]["shape"][0])
+    decode_steps = action_dim - 1
+    decode_outputs = specification["decode_outputs"]
+    logits = decode_outputs[0]
+    cache = decode_outputs[1]
+    cache_count = len(decode_outputs) - 1
+    cache_shape = tuple(int(item) for item in cache["shape"])
+    decode_storage = 0
+    for step in range(decode_steps):
+        decode_storage += _declared_tensor_bytes(logits)
+        elements = (
+            cache_shape[0]
+            * cache_shape[1]
+            * (cache_shape[2] + step)
+            * cache_shape[3]
+        )
+        decode_storage += (
+            cache_count * elements * DTYPE_BYTES[str(cache["dtype"])]
+        )
+    return (
+        _declared_tensor_bytes(specification["prefill_inputs"])
+        + _declared_tensor_bytes(specification["prefill_outputs"])
+        + action_dim * DTYPE_BYTES["i64"]
+        + decode_storage
+        + _declared_tensor_bytes(specification["action_tokens"])
+        + _declared_tensor_bytes(specification["action"])
+    )
 
 
 def _artifact_hashes(args: argparse.Namespace) -> dict[str, str]:
@@ -506,6 +580,33 @@ def _artifact_hashes(args: argparse.Namespace) -> dict[str, str]:
         )
         for name, path in paths.items()
     }
+
+
+def _build_commands(args: argparse.Namespace) -> list[list[str]]:
+    commands = []
+    runtime_root = Path(__file__).resolve().parents[1]
+    for model in ("smol", "open"):
+        source = getattr(args, f"{model}_source_dir")
+        build = getattr(args, f"{model}_build_dir")
+        if source is None or build is None:
+            continue
+        configure = [
+            "cmake",
+            "-S",
+            str(source.resolve()),
+            "-B",
+            str(build.resolve()),
+            f"-DVLAFORGE_RUNTIME_ROOT={runtime_root}",
+            "-DCMAKE_BUILD_TYPE=Release",
+        ]
+        if args.torch_cmake_prefix is not None:
+            configure.append(
+                f"-DCMAKE_PREFIX_PATH={args.torch_cmake_prefix.resolve()}"
+            )
+        commands.extend(
+            [configure, ["cmake", "--build", str(build.resolve()), "--parallel"]]
+        )
+    return commands
 
 
 def _write_csv(path: Path, cells: list[dict[str, object]]) -> None:

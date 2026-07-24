@@ -261,13 +261,20 @@ def build_compile_bundle(
         input_schema=required["input_schema"],
         output_schema=required["output_schema"],
         region_artifacts=tuple(region_contracts),
-        generated_sources=tuple(
+        generated_sources=(
             FileRecord.from_file(
                 root,
-                f"generated/{name}",
-                "generated_source",
-            )
-            for name, _ in sources.files
+                "metadata/compilation_certificate.json",
+                "compilation_certificate",
+            ),
+            *tuple(
+                FileRecord.from_file(
+                    root,
+                    f"generated/{name}",
+                    "generated_source",
+                )
+                for name, _ in sources.files
+            ),
         ),
         binaries=(
             FileRecord.from_file(

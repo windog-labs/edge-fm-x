@@ -130,6 +130,15 @@ def test_real_smolvla_aoti_codegen_is_deterministic_and_no_python() -> None:
     assert "for (std::int64_t step = 0; step < 10; ++step)" in text
     assert "epochversioncacheguard prefix_cache" in text
     assert "compilation_certificate.json" in first.as_dict()
+    conservative = generate_real_smolvla_aoti_runner(
+        spec,
+        compiler_profile="off",
+    )
+    conservative_text = conservative.as_dict()["runner.cpp"]
+    assert "EpochVersionCacheGuard prefix_cache" not in conservative_text
+    assert '"profile": "off"' in conservative.as_dict()[
+        "compilation_certificate.json"
+    ]
     benchmark = generate_real_smolvla_aoti_runner(
         spec,
         optimization_benchmark=True,
@@ -139,6 +148,10 @@ def test_real_smolvla_aoti_codegen_is_deterministic_and_no_python() -> None:
     )
     assert "EpochVersionCacheGuard prefix_cache" in benchmark_text
     assert "benchmark_licm_disabled" in benchmark_text
+    assert (
+        "benchmark_licm_disabled &&\n            !benchmark_cache_hit"
+        in benchmark_text
+    )
     assert "BENCH_TICK_US" in benchmark_text
     assert benchmark.digest() != first.digest()
 
@@ -173,6 +186,15 @@ def test_real_openvla_codegen_is_deterministic_and_no_python() -> None:
     assert "step < kdecodesteps" in text
     assert "epochversioncacheguard prefill_cache" in text
     assert "compilation_certificate.json" in first.as_dict()
+    conservative = generate_real_openvla_torchscript_runner(
+        spec,
+        compiler_profile="off",
+    )
+    conservative_text = conservative.as_dict()["runner.cpp"]
+    assert "EpochVersionCacheGuard prefill_cache" not in conservative_text
+    assert '"profile": "off"' in conservative.as_dict()[
+        "compilation_certificate.json"
+    ]
     benchmark = generate_real_openvla_torchscript_runner(
         spec,
         optimization_benchmark=True,

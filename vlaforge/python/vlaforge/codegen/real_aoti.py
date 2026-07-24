@@ -351,7 +351,8 @@ def _smolvla_source(
         else ""
     )
     benchmark_loop_prefix = (
-        """        if (benchmark_licm_disabled) {
+        """        if (benchmark_licm_disabled &&
+            !benchmark_cache_hit) {
           if (!prefix_region.Run(
                   prefix_inputs, prefix_output_ptrs, true)) {
             return 20;

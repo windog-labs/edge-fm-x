@@ -554,10 +554,11 @@ starts.
 Current P1 regression:
 
 ```text
-Offline Python: 137 passed, 3 real/CUDA gates deselected
+Offline Python: 139 passed, 3 real/CUDA gates deselected
 Python compileall: passed
-Wheel: 166,484 bytes; compiler/certificate/bundle modules present
+Wheel: 166,514 bytes; compiler/certificate/bundle modules present
 C++ Release: 5/5 passed
+C++ ASan+UBSan: 5/5 passed
 Certified fixture Compile Bundle: clean CMake build and no-Python E2E passed
 Real SmolVLA instrumented runner: clean -Werror build passed
 Real OpenVLA instrumented runner: clean -Werror build passed

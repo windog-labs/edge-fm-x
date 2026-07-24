@@ -95,7 +95,7 @@ int main() {
       snapshot.logical_version,
       snapshot.epoch,
       TemporalDependency::kUnboundedAge,
-      0u,
+      TemporalDependency::kUnboundedAge,
   };
   assert(cache.Update(&committed_version, 1u).ok());
   assert(store.Begin(&transaction, Epoch{1u, 1u, 10u, 0u}, 0u).ok());
