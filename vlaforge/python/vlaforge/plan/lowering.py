@@ -17,6 +17,7 @@ from vlaforge.ir.types import (
     PendingType,
     ScalarType,
     SnapshotType,
+    TensorType,
     TransactionType,
 )
 from vlaforge.plan.model import (
@@ -40,10 +41,21 @@ class ArtifactVariant:
     backend: str
     variant: str
     artifact_path: str | None = None
+    workspace_size_bytes: int = 0
+    workspace_alignment: int = 1
+    workspace_device: str = "cpu"
 
     def __post_init__(self) -> None:
-        if not self.backend or not self.variant:
+        if (
+            not self.backend
+            or not self.variant
+            or self.workspace_size_bytes < 0
+            or self.workspace_alignment < 1
+            or not self.workspace_device
+        ):
             raise ValueError("artifact variant requires backend and name")
+        if self.workspace_alignment & (self.workspace_alignment - 1):
+            raise ValueError("artifact workspace alignment must be a power of two")
 
 
 def lower_to_plan(
@@ -90,22 +102,24 @@ class _Lowering:
         self.blocks: list[PlanBlock] = []
         self.buffers: list[LogicalBuffer] = []
         self.policies: list[PlanPolicy] = []
-        self.artifacts = tuple(
-            ArtifactBinding(
-                artifact_id=index,
-                region_name=region.name,
-                backend=variants.get(
-                    region.name, ArtifactVariant("uncompiled", "default")
-                ).backend,
-                variant=variants.get(
-                    region.name, ArtifactVariant("uncompiled", "default")
-                ).variant,
-                artifact_path=variants.get(
-                    region.name, ArtifactVariant("uncompiled", "default")
-                ).artifact_path,
+        artifacts = []
+        for index, region in enumerate(module.regions):
+            variant = variants.get(
+                region.name, ArtifactVariant("uncompiled", "default")
             )
-            for index, region in enumerate(module.regions)
-        )
+            artifacts.append(
+                ArtifactBinding(
+                    artifact_id=index,
+                    region_name=region.name,
+                    backend=variant.backend,
+                    variant=variant.variant,
+                    artifact_path=variant.artifact_path,
+                    workspace_size_bytes=variant.workspace_size_bytes,
+                    workspace_alignment=variant.workspace_alignment,
+                    workspace_device=variant.workspace_device,
+                )
+            )
+        self.artifacts = tuple(artifacts)
         self.artifact_ids = {
             item.region_name: item.artifact_id for item in self.artifacts
         }
@@ -231,6 +245,30 @@ class _Lowering:
                 environment[result.name] = buffer_id
                 output_ids.append(buffer_id)
 
+            workspace_buffer = None
+            artifact_id = (
+                self.artifact_ids[str(operation.attributes["region"])]
+                if operation.opcode == "vla.invoke"
+                else None
+            )
+            if artifact_id is not None:
+                artifact = self.artifacts[artifact_id]
+                if artifact.workspace_size_bytes:
+                    workspace_buffer = len(self.buffers)
+                    self.buffers.append(
+                        LogicalBuffer(
+                            id=workspace_buffer,
+                            name=f"task_{task_id}_workspace",
+                            type=TensorType(
+                                (artifact.workspace_size_bytes,), "u8"
+                            ),
+                            buffer_class=BufferClass.REGION_WORKSPACE,
+                            producer_task=task_id,
+                            external=False,
+                            source=op_source,
+                        )
+                    )
+
             nested_blocks = tuple(
                 self._lower_block(
                     region,
@@ -248,11 +286,8 @@ class _Lowering:
                 dependencies=tuple(sorted(dependencies)),
                 attributes=dict(operation.attributes),
                 blocks=nested_blocks,
-                artifact_id=(
-                    self.artifact_ids[str(operation.attributes["region"])]
-                    if operation.opcode == "vla.invoke"
-                    else None
-                ),
+                artifact_id=artifact_id,
+                workspace_buffer=workspace_buffer,
                 source_op=operation.opcode,
                 source_location=operation.location or op_source,
                 freshness_guard=self._freshness_guard(operation),

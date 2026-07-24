@@ -221,9 +221,72 @@ git diff --check: passed
 Detailed contract:
 `doc/reports/vlaforge_plan_and_runtime_contract.md`.
 
+## Gate D: physical state and Static Arena
+
+Status: passed.
+
+Milestone commit:
+`feat(vlaforge): physicalize state and static memory`.
+
+Implemented:
+
+- bounded logical-version to ring-slot mapping;
+- capacity proof from retention, max-in-flight, consumer lag, and fallback
+  snapshots;
+- per-state slot size, alignment, device, offset, and stable logical ID;
+- typed storage sizing with explicit overrides for dynamic internal tensors;
+- producer/consumer liveness for every internal logical buffer;
+- distinct buffer classes for loop carry, state descriptors, region workspace,
+  pending action, and committed action;
+- deterministic non-aliasing Static Arena baseline;
+- explicit artifact workspace buffers and alignment;
+- verifier rejection of unsafe capacity, unplanned/duplicate mappings,
+  truncated lifetimes, arena overflow, live overlap, and state-ring overlap;
+- deterministic C++17 constexpr state/buffer tables with compile test;
+- move-only C++ `StaticArena` with bounds/alignment checks and no hot-path
+  allocation.
+
+Current real-program layouts:
+
+```text
+SmolVLA:
+  static arena: 17,024 bytes, alignment 64, allocations 25
+  state arena: 6,100 bytes
+  action_queue: 5 slots x 1,216 bytes
+  queue_cursor: 5 slots x 4 bytes
+  physical digest:
+    6d9c634c430e7abffa456b0c501caf2672b706027ad095cc88d6f083ea8b5be4
+
+OpenVLA:
+  static arena: 448 bytes, alignment 64, allocations 12
+  persistent state arena: none
+  physical digest:
+    632fe0d1829ebed928e8cebf7be9afb0d8f2c3b78111197eb9cc9f1fcf4cce05
+```
+
+The baseline allocator intentionally performs no address reuse. Safe
+lifetime-based cross-cycle reuse remains a measured Milestone H optimization,
+so its benefit can be isolated from correctness.
+
+Current evidence:
+
+```text
+Plan/memory focused suite: 22 passed in 0.19 s
+Python full offline suite: 107 passed, 2 real-model tests skipped in 2.55 s
+Python 3.10 Plan/model suite: 28 passed in 0.14 s
+C++ Release CTest: 3/3 passed
+C++ ASan+UBSan CTest: 3/3 passed
+CMake install/export with static_arena.h: passed
+Generated constexpr header C++17 -Werror compile: passed
+Python compileall: passed
+Wheel: vlaforge-0.1.0.dev0-py3-none-any.whl, 116,570 bytes
+git diff --check: passed
+```
+
 ## Next
 
-1. Physicalize state rings from retention/in-flight/lag/fallback proofs.
-2. Compute nested-task liveness, typed sizes/alignment, and a deterministic
-   Static Arena with safe lifetime reuse.
-3. Emit C++ constexpr state/buffer tables and add arena sanitizer tests.
+1. Implement the C++ Epoch, StateStore, transaction, and action-commit
+   semantics over the preallocated rings and arena.
+2. Add reset/retention/abort/fault unit tests and a normalized trace sink.
+3. Prove the tick hot path contains no JSON, Python, dynamic string dispatch,
+   or general allocator operation.

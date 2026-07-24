@@ -143,6 +143,10 @@ class StateBinding:
     consumer_lag: int = 0
     fallback_snapshots: int = 0
     slot_capacity: int | None = None
+    slot_size_bytes: int | None = None
+    alignment: int | None = None
+    offset: int | None = None
+    device: str | None = None
 
     def __post_init__(self) -> None:
         if self.state_id < 0 or not self.name or self.retention < 1:
@@ -153,6 +157,30 @@ class StateBinding:
             raise ValueError("state lag/snapshot counts must be non-negative")
         if self.slot_capacity is not None and self.slot_capacity < 1:
             raise ValueError("state slot capacity must be positive")
+        physical = (
+            self.slot_size_bytes,
+            self.alignment,
+            self.offset,
+            self.device,
+        )
+        if any(item is not None for item in physical) and not all(
+            item is not None for item in physical
+        ):
+            raise ValueError("state physical fields must be set together")
+        if self.slot_size_bytes is not None:
+            assert self.alignment is not None
+            assert self.offset is not None
+            assert self.device is not None
+            if self.slot_capacity is None:
+                raise ValueError("physicalized state requires slot capacity")
+            if self.slot_size_bytes < 0 or self.alignment < 1 or self.offset < 0:
+                raise ValueError("invalid state physical layout")
+            if self.alignment & (self.alignment - 1):
+                raise ValueError("state alignment must be a power of two")
+            if self.offset % self.alignment:
+                raise ValueError("state offset violates alignment")
+            if not self.device:
+                raise ValueError("state device must be non-empty")
 
     @property
     def required_capacity(self) -> int:
@@ -171,6 +199,12 @@ class StateBinding:
             raise ValueError("logical version must be non-negative")
         return logical_version % self.slot_capacity
 
+    @property
+    def total_size_bytes(self) -> int | None:
+        if self.slot_capacity is None or self.slot_size_bytes is None:
+            return None
+        return self.slot_capacity * self.slot_size_bytes
+
     def to_dict(self) -> dict[str, object]:
         return {
             "state_id": self.state_id,
@@ -181,6 +215,10 @@ class StateBinding:
             "consumer_lag": self.consumer_lag,
             "fallback_snapshots": self.fallback_snapshots,
             "slot_capacity": self.slot_capacity,
+            "slot_size_bytes": self.slot_size_bytes,
+            "alignment": self.alignment,
+            "offset": self.offset,
+            "device": self.device,
         }
 
 
@@ -191,6 +229,9 @@ class ArtifactBinding:
     backend: str
     variant: str
     artifact_path: str | None = None
+    workspace_size_bytes: int = 0
+    workspace_alignment: int = 1
+    workspace_device: str = "cpu"
 
     def __post_init__(self) -> None:
         if (
@@ -198,8 +239,13 @@ class ArtifactBinding:
             or not self.region_name
             or not self.backend
             or not self.variant
+            or self.workspace_size_bytes < 0
+            or self.workspace_alignment < 1
+            or not self.workspace_device
         ):
             raise ValueError("invalid artifact binding")
+        if self.workspace_alignment & (self.workspace_alignment - 1):
+            raise ValueError("artifact workspace alignment must be a power of two")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -208,6 +254,9 @@ class ArtifactBinding:
             "backend": self.backend,
             "variant": self.variant,
             "artifact_path": self.artifact_path,
+            "workspace_size_bytes": self.workspace_size_bytes,
+            "workspace_alignment": self.workspace_alignment,
+            "workspace_device": self.workspace_device,
         }
 
 
@@ -222,6 +271,7 @@ class Task:
     attributes: Mapping[str, Any] = field(default_factory=dict)
     blocks: tuple[int, ...] = ()
     artifact_id: int | None = None
+    workspace_buffer: int | None = None
     source_op: str | None = None
     source_location: str | None = None
     freshness_guard: FreshnessGuard | None = None
@@ -255,6 +305,7 @@ class Task:
             "attributes": _plain(self.attributes),
             "blocks": list(self.blocks),
             "artifact_id": self.artifact_id,
+            "workspace_buffer": self.workspace_buffer,
             "source_op": self.source_op,
             "source_location": self.source_location,
             "freshness_guard": (
@@ -497,6 +548,11 @@ class PlanModule:
                     if item.get("artifact_id") is None
                     else int(item["artifact_id"])
                 ),
+                workspace_buffer=(
+                    None
+                    if item.get("workspace_buffer") is None
+                    else int(item["workspace_buffer"])
+                ),
                 source_op=(
                     None if item.get("source_op") is None else str(item["source_op"])
                 ),
@@ -599,6 +655,26 @@ class PlanModule:
                         if item.get("slot_capacity") is None
                         else int(item["slot_capacity"])
                     ),
+                    slot_size_bytes=(
+                        None
+                        if item.get("slot_size_bytes") is None
+                        else int(item["slot_size_bytes"])
+                    ),
+                    alignment=(
+                        None
+                        if item.get("alignment") is None
+                        else int(item["alignment"])
+                    ),
+                    offset=(
+                        None
+                        if item.get("offset") is None
+                        else int(item["offset"])
+                    ),
+                    device=(
+                        None
+                        if item.get("device") is None
+                        else str(item["device"])
+                    ),
                 )
                 for item in data.get("states", ())
             ),
@@ -612,6 +688,15 @@ class PlanModule:
                         None
                         if item.get("artifact_path") is None
                         else str(item["artifact_path"])
+                    ),
+                    workspace_size_bytes=int(
+                        item.get("workspace_size_bytes", 0)
+                    ),
+                    workspace_alignment=int(
+                        item.get("workspace_alignment", 1)
+                    ),
+                    workspace_device=str(
+                        item.get("workspace_device", "cpu")
                     ),
                 )
                 for item in data.get("artifacts", ())

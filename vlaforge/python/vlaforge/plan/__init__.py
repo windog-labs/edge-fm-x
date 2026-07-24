@@ -2,6 +2,15 @@
 
 from vlaforge.plan.executor import PlanExecutionError, PlanExecutor
 from vlaforge.plan.lowering import ArtifactVariant, lower_to_plan
+from vlaforge.plan.memory import (
+    MemoryPlanningError,
+    StorageOverride,
+    UnsafeStateCapacityError,
+    emit_memory_constants,
+    physicalize_plan,
+    state_arena_sizes,
+    storage_size_bytes,
+)
 from vlaforge.plan.model import (
     PLAN_SCHEMA,
     ArtifactBinding,
@@ -34,6 +43,7 @@ __all__ = [
     "FallbackTarget",
     "FreshnessGuard",
     "LogicalBuffer",
+    "MemoryPlanningError",
     "PhysicalBuffer",
     "PlanBlock",
     "PlanDiagnostic",
@@ -44,8 +54,14 @@ __all__ = [
     "PlanVerificationError",
     "StateBinding",
     "StaticArenaPlan",
+    "StorageOverride",
     "Task",
     "TaskKind",
+    "UnsafeStateCapacityError",
+    "emit_memory_constants",
     "lower_to_plan",
+    "physicalize_plan",
+    "state_arena_sizes",
+    "storage_size_bytes",
     "verify_plan",
 ]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from vlaforge.plan.model import PlanModule, TaskKind
+from vlaforge.plan.model import BufferClass, PlanModule, TaskKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +152,28 @@ def verify_plan(
                         task.id,
                     )
                 )
+        if task.workspace_buffer is not None:
+            workspace = buffer_map.get(task.workspace_buffer)
+            if workspace is None:
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "workspace.missing_buffer",
+                        f"workspace buffer {task.workspace_buffer} does not exist",
+                        task.id,
+                    )
+                )
+            elif (
+                workspace.buffer_class is not BufferClass.REGION_WORKSPACE
+                or workspace.producer_task != task.id
+            ):
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "workspace.invalid_buffer",
+                        f"buffer {task.workspace_buffer} is not this task's "
+                        "region workspace",
+                        task.id,
+                    )
+                )
         for buffer_id in task.outputs:
             buffer = buffer_map.get(buffer_id)
             if buffer is not None and buffer.producer_task != task.id:
@@ -200,6 +222,15 @@ def verify_plan(
                         "artifact.region_mismatch",
                         f"artifact {artifact.artifact_id} is for "
                         f"{artifact.region_name}, not {region_name}",
+                        task.id,
+                    )
+                )
+            elif artifact.workspace_size_bytes > 0 and task.workspace_buffer is None:
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "workspace.binding_missing",
+                        f"artifact {artifact.artifact_id} requires "
+                        f"{artifact.workspace_size_bytes} bytes",
                         task.id,
                     )
                 )
@@ -271,6 +302,7 @@ def verify_plan(
                     )
 
     diagnostics.extend(_verify_dependency_cycles(task_map))
+    diagnostics.extend(_verify_state_layout(plan))
     if plan.arena is not None:
         diagnostics.extend(_verify_arena(plan))
     result = tuple(diagnostics)
@@ -384,7 +416,48 @@ def _verify_loop(
 def _verify_arena(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
     assert plan.arena is not None
     diagnostics = []
+    _require_contiguous(
+        "arena.physical_buffer_id",
+        [item.id for item in plan.arena.physical_buffers],
+        diagnostics,
+    )
     logical_ids = {buffer.id for buffer in plan.buffers}
+    eligible = {
+        buffer.id
+        for buffer in plan.buffers
+        if not buffer.external and buffer.buffer_class is not BufferClass.EXTERNAL
+    }
+    mapped = [
+        logical_id
+        for physical in plan.arena.physical_buffers
+        for logical_id in physical.logical_buffers
+    ]
+    missing = sorted(eligible - set(mapped))
+    duplicate = sorted(
+        logical_id for logical_id in set(mapped) if mapped.count(logical_id) > 1
+    )
+    unexpected = sorted(set(mapped) - eligible)
+    if missing:
+        diagnostics.append(
+            PlanDiagnostic(
+                "arena.unplanned_buffers",
+                f"internal logical buffers have no allocation: {missing}",
+            )
+        )
+    if duplicate:
+        diagnostics.append(
+            PlanDiagnostic(
+                "arena.duplicate_mapping",
+                f"logical buffers have multiple allocations: {duplicate}",
+            )
+        )
+    if unexpected:
+        diagnostics.append(
+            PlanDiagnostic(
+                "arena.external_mapping",
+                f"external logical buffers were allocated: {unexpected}",
+            )
+        )
     for physical in plan.arena.physical_buffers:
         unknown = sorted(set(physical.logical_buffers) - logical_ids)
         if unknown:
@@ -401,6 +474,44 @@ def _verify_arena(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
                     f"physical buffer {physical.id} exceeds arena size",
                 )
             )
+        if physical.device != plan.arena.device:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "arena.device_mismatch",
+                    f"physical buffer {physical.id} device {physical.device} "
+                    f"does not match arena {plan.arena.device}",
+                )
+            )
+        for logical_id in physical.logical_buffers:
+            logical = next(
+                (
+                    buffer
+                    for buffer in plan.buffers
+                    if buffer.id == logical_id
+                ),
+                None,
+            )
+            if logical is None or logical.producer_task is None:
+                continue
+            consumers = [
+                task.id
+                for task in plan.tasks
+                if logical_id in task.inputs
+            ]
+            expected_last = max(consumers, default=logical.producer_task)
+            if (
+                physical.first_task > logical.producer_task
+                or physical.last_task < expected_last
+            ):
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "arena.lifetime_too_short",
+                        f"physical buffer {physical.id} lifetime "
+                        f"[{physical.first_task}, {physical.last_task}] "
+                        f"does not cover logical buffer {logical_id} "
+                        f"[{logical.producer_task}, {expected_last}]",
+                    )
+                )
     physical = plan.arena.physical_buffers
     for index, left in enumerate(physical):
         for right in physical[index + 1 :]:
@@ -418,6 +529,54 @@ def _verify_arena(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
                         "arena.overlapping_live_buffers",
                         f"physical buffers {left.id} and {right.id} overlap "
                         "in memory and lifetime",
+                    )
+                )
+    return tuple(diagnostics)
+
+
+def _verify_state_layout(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
+    diagnostics = []
+    for state in plan.states:
+        if (
+            state.slot_capacity is not None
+            and state.slot_capacity < state.required_capacity
+        ):
+            diagnostics.append(
+                PlanDiagnostic(
+                    "state.unsafe_slot_reuse",
+                    f"state {state.name} capacity={state.slot_capacity} "
+                    f"required={state.required_capacity}",
+                )
+            )
+        if plan.arena is not None and state.total_size_bytes is None:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "state.unphysicalized",
+                    f"state {state.name} has no physical ring layout",
+                )
+            )
+    physical = [
+        state
+        for state in plan.states
+        if state.offset is not None and state.total_size_bytes is not None
+    ]
+    for index, left in enumerate(physical):
+        assert left.offset is not None
+        assert left.total_size_bytes is not None
+        for right in physical[index + 1 :]:
+            if left.device != right.device:
+                continue
+            assert right.offset is not None
+            assert right.total_size_bytes is not None
+            overlap = (
+                left.offset < right.offset + right.total_size_bytes
+                and right.offset < left.offset + left.total_size_bytes
+            )
+            if overlap:
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "state.overlapping_rings",
+                        f"state rings {left.name} and {right.name} overlap",
                     )
                 )
     return tuple(diagnostics)
