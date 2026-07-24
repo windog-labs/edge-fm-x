@@ -488,8 +488,7 @@ paper artifact freeze remain intentionally out of scope for this Goal.
 
 ## Paper Artifact P1: production compiler profiles and certificates
 
-Status: implementation complete; paper matrix passed; final local regression
-in progress.
+Status: passed.
 
 Implemented on `codex/vlaforge-paper-artifact`:
 
@@ -613,16 +612,30 @@ compiler-arena/backend-tensor/RSS/VRAM measurements.
 
 The local freeze must pass before the Orin phase starts.
 
-Current P1 regression:
+Final local freeze:
 
 ```text
-Offline Python: 139 passed, 3 real/CUDA gates deselected
+Offline Python: 140 passed, 3 real/CUDA gates deselected in 6.90 s
+Real SmolVLA Python checkpoint: 1 passed in 13.86 s
+Real OpenVLA Python checkpoint: 1 passed, 5 dependency warnings in 29.72 s
+CUDA AOTI opt-in audit: 1 passed in 21.89 s
 Python compileall: passed
-Wheel: 166,514 bytes; compiler/certificate/bundle modules present
-C++ Release: 5/5 passed
-C++ ASan+UBSan: 5/5 passed
+Wheel: 166,514 bytes; compiler/certificate/deployment/CLI modules present
+Wheel SHA-256:
+  4c7c6eafc43b43e24315bebc5a5aa7c00e2b52c8df89f2bde96e4c22cf47e79d
+C++ clean Release configure/build/install/export: passed
+C++ Release CTest: 5/5 passed
+C++ clean ASan+UBSan configure/build: passed
+C++ ASan+UBSan CTest: 5/5 passed
 Certified fixture Compile Bundle: clean CMake build and no-Python E2E passed
-Real SmolVLA instrumented runner: clean -Werror build passed
-Real OpenVLA instrumented runner: clean -Werror build passed
+Compile Bundle schema: vlaforge.compile_bundle/2
+Compilation certificate file and manifest record SHA-256: exact
+Generated runner with invalid PYTHONHOME/PYTHONPATH: passed
+Generated runner libpython dependency: none
+Real SmolVLA/OpenVLA instrumented runners: clean -Werror build passed
+Paper matrix: 28 cells x 30 post-warm samples, gate passed
 git diff --check: passed
 ```
+
+The local implementation and paper artifacts are frozen. Orin validation is a
+separate P3 report and does not replace the x86 real-model evidence above.
