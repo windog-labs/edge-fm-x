@@ -14,8 +14,10 @@ from vlaforge.adapters import (
 from vlaforge.ir.types import TensorType
 from vlaforge.plan import (
     ArtifactVariant,
+    PlanExecutor,
     PlanModule,
     UnsafeStateCapacityError,
+    can_reuse_physical_storage,
     emit_memory_constants,
     lower_to_plan,
     physicalize_plan,
@@ -194,6 +196,102 @@ def test_memory_constant_emission_is_deterministic() -> None:
     assert "inline constexpr StateRingDesc kStateRings[]" in first
     assert "inline constexpr BufferDesc kBuffers[]" in first
     assert f"kArenaSize = {plan.arena.size_bytes}u" in first
+
+
+@pytest.mark.parametrize(
+    ("module", "minimum_reduction"),
+    (
+        (
+            build_real_openvla_action_program(action_dim=7),
+            0.50,
+        ),
+        (
+            build_smolvla_fixture().module,
+            0.05,
+        ),
+    ),
+)
+def test_lifetime_packing_reuses_static_arena(
+    module, minimum_reduction: float
+) -> None:
+    lowered = lower_to_plan(module)
+    baseline = physicalize_plan(lowered)
+    optimized = physicalize_plan(lowered, reuse_temporaries=True)
+
+    assert baseline.arena is not None
+    assert optimized.arena is not None
+    assert verify_plan(optimized, raise_on_error=False) == ()
+    assert optimized.arena.size_bytes < baseline.arena.size_bytes
+    reduction = 1.0 - optimized.arena.size_bytes / baseline.arena.size_bytes
+    assert reduction >= minimum_reduction
+    assert PlanModule.from_dict(optimized.to_dict()) == optimized
+    assert (
+        physicalize_plan(lowered, reuse_temporaries=True).canonical_json()
+        == optimized.canonical_json()
+    )
+
+    shared_pairs = [
+        (left, right)
+        for index, left in enumerate(optimized.arena.physical_buffers)
+        for right in optimized.arena.physical_buffers[index + 1 :]
+        if left.offset < right.offset + right.size_bytes
+        and right.offset < left.offset + left.size_bytes
+    ]
+    assert shared_pairs
+    assert all(
+        can_reuse_physical_storage(left, right)
+        for left, right in shared_pairs
+    )
+
+
+def test_lifetime_packing_forbids_alias_for_overlapping_tasks() -> None:
+    plan = physicalize_plan(
+        lower_to_plan(build_openvla_fixture().module),
+        reuse_temporaries=True,
+    )
+    assert plan.arena is not None
+    for index, left in enumerate(plan.arena.physical_buffers):
+        for right in plan.arena.physical_buffers[index + 1 :]:
+            lifetimes_overlap = not can_reuse_physical_storage(left, right)
+            memory_overlaps = (
+                left.offset < right.offset + right.size_bytes
+                and right.offset < left.offset + left.size_bytes
+            )
+            assert not (lifetimes_overlap and memory_overlaps)
+
+
+@pytest.mark.parametrize(
+    "factory",
+    (build_smolvla_fixture, build_openvla_fixture),
+)
+def test_lifetime_packing_preserves_state_and_action_trace(factory) -> None:
+    fixture = factory()
+    lowered = lower_to_plan(fixture.module)
+    baseline_plan = physicalize_plan(lowered)
+    optimized_plan = physicalize_plan(
+        lowered,
+        reuse_temporaries=True,
+    )
+    baseline = PlanExecutor(
+        baseline_plan,
+        fixture.module,
+        regions=fixture.regions,
+        validators=fixture.validators,
+        initial_state=fixture.initial_state,
+    )
+    optimized = PlanExecutor(
+        optimized_plan,
+        fixture.module,
+        regions=fixture.regions,
+        validators=fixture.validators,
+        initial_state=fixture.initial_state,
+    )
+    for item in fixture.ticks:
+        left = baseline.run_tick("act", item.tick, item.inputs)
+        right = optimized.run_tick("act", item.tick, item.inputs)
+        assert left.returns == right.returns
+        assert left.state == right.state
+    assert baseline.trace.to_json() == optimized.trace.to_json()
 
 
 def test_memory_constants_are_valid_cxx17(tmp_path: Path) -> None:

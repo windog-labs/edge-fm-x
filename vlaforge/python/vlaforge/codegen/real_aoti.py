@@ -6,7 +6,9 @@ from dataclasses import dataclass
 
 from vlaforge.adapters import build_real_smolvla_action_program
 from vlaforge.codegen.model import GeneratedSources
+from vlaforge.ir.program import Block, Module
 from vlaforge.plan import lower_to_plan, physicalize_plan
+from vlaforge.transforms import synthesize_epoch_memoization
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +29,13 @@ class AotiTensorSpec:
             "f64",
         }:
             raise ValueError(f"unsupported AOTI tensor dtype: {self.dtype}")
+
+
+@dataclass(frozen=True, slots=True)
+class TemporalCacheDependencySpec:
+    kind: str
+    subject_id: int
+    max_age_ns: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +101,8 @@ def smolvla_spec_from_exported_programs(
 
 def generate_real_smolvla_aoti_runner(
     spec: SmolVLAAotiSpec,
+    *,
+    optimization_benchmark: bool = False,
 ) -> GeneratedSources:
     module = build_real_smolvla_action_program(
         chunk_size=spec.action_chunk.shape[1],
@@ -142,7 +153,17 @@ def generate_real_smolvla_aoti_runner(
         "commit": _task_id(plan, "vla.txn.commit"),
         "publish": _task_id(plan, "vla.action.publish"),
     }
-    source = _smolvla_source(spec, tasks)
+    cache_dependencies = (
+        temporal_cache_dependencies(module, "prepare_prefix")
+        if optimization_benchmark
+        else ()
+    )
+    source = _smolvla_source(
+        spec,
+        tasks,
+        optimization_benchmark=optimization_benchmark,
+        cache_dependencies=cache_dependencies,
+    )
     return GeneratedSources(
         (
             ("CMakeLists.txt", _real_aoti_cmake()),
@@ -152,7 +173,11 @@ def generate_real_smolvla_aoti_runner(
 
 
 def _smolvla_source(
-    spec: SmolVLAAotiSpec, tasks: dict[str, int]
+    spec: SmolVLAAotiSpec,
+    tasks: dict[str, int],
+    *,
+    optimization_benchmark: bool,
+    cache_dependencies: tuple[TemporalCacheDependencySpec, ...],
 ) -> str:
     token_values = ", ".join(str(value) for value in spec.token_ids)
     mask_values = ", ".join("1u" if value else "0u" for value in spec.token_mask)
@@ -173,9 +198,120 @@ def _smolvla_source(
         f"constexpr std::uint32_t kTask{_camel(name)} = {task_id}u;"
         for name, task_id in tasks.items()
     )
+    benchmark_runtime_header = (
+        '#include "vlaforge/runtime/epoch_cache.h"\n'
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_standard_headers = (
+        "#include <chrono>\n#include <cstdlib>\n"
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_setup = (
+        """  const char* benchmark_mode =
+      std::getenv("VLAFORGE_OPT_BENCHMARK");
+  const bool benchmark_enabled = benchmark_mode != nullptr;
+  const bool benchmark_cache =
+      benchmark_enabled && std::strcmp(benchmark_mode, "cache") == 0;
+  const bool benchmark_licm_disabled =
+      benchmark_enabled && std::strcmp(benchmark_mode, "licm_off") == 0;
+  vlaforge::runtime::EpochVersionCacheGuard prefix_cache;
+"""
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_tick_start = (
+        """    const auto benchmark_started =
+        std::chrono::steady_clock::now();
+    const vlaforge::runtime::TemporalDependency cache_dependencies[] = {
+"""
+        + render_cpp_cache_dependencies(cache_dependencies)
+        + """
+    };
+    bool benchmark_cache_hit = false;
+"""
+        if optimization_benchmark
+        else ""
+    )
+    force_refill = " || benchmark_enabled" if optimization_benchmark else ""
+    benchmark_cache_lookup = (
+        """      benchmark_cache_hit =
+          benchmark_cache &&
+          prefix_cache.Lookup(
+              cache_dependencies, """
+        + f"{len(cache_dependencies)}u"
+        + """, tick);
+      if (!benchmark_cache_hit) {
+"""
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_preheader_open = (
+        "        if (!benchmark_licm_disabled) {\n"
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_preheader_close = (
+        "        }\n"
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_cache_update = (
+        """        if (benchmark_cache &&
+            !Check(prefix_cache.Update(
+                       cache_dependencies,
+                       """
+        + f"{len(cache_dependencies)}u"
+        + """),
+                   "update prefix cache")) {
+          return 19;
+        }
+      }
+"""
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_loop_prefix = (
+        """        if (benchmark_licm_disabled) {
+          if (!prefix_region.Run(
+                  prefix_inputs, prefix_output_ptrs, true)) {
+            return 20;
+          }
+          EmitRegion(trace, kTaskPrefix, transaction.id(), tick);
+          if (!refill_recorded && step == 0) {
+            for (const auto& output : prefix_outputs) {
+              if (!DumpTensor(evidence, output)) {
+                return 21;
+              }
+            }
+          }
+        }
+"""
+        if optimization_benchmark
+        else ""
+    )
+    benchmark_tick_end = (
+        """    if (benchmark_enabled) {
+      const auto benchmark_finished =
+          std::chrono::steady_clock::now();
+      const double elapsed_us =
+          std::chrono::duration<double, std::micro>(
+              benchmark_finished - benchmark_started)
+              .count();
+      std::printf("BENCH_TICK_US,%s,%llu,%.9f,%u\\n",
+                  benchmark_mode,
+                  static_cast<unsigned long long>(sequence),
+                  elapsed_us,
+                  benchmark_cache_hit ? 1u : 0u);
+    }
+"""
+        if optimization_benchmark
+        else ""
+    )
     return f"""#include "vlaforge/backends/aoti_region_executable.h"
 #include "vlaforge/runtime/action_queue.h"
-#include "vlaforge/runtime/state_store.h"
+{benchmark_runtime_header}#include "vlaforge/runtime/state_store.h"
 #include "vlaforge/runtime/static_arena.h"
 #include "vlaforge/runtime/transaction.h"
 
@@ -185,7 +321,7 @@ def _smolvla_source(
 
 #include <algorithm>
 #include <array>
-#include <cmath>
+{benchmark_standard_headers}#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -420,7 +556,7 @@ int main(int argc, char** argv) {{
       !trim_region.Load(2u, argv[3])) {{
     return 3;
   }}
-  std::ofstream evidence(argv[4], std::ios::binary | std::ios::trunc);
+{benchmark_setup}  std::ofstream evidence(argv[4], std::ios::binary | std::ios::trunc);
   if (!evidence) {{
     return 4;
   }}
@@ -456,7 +592,7 @@ int main(int argc, char** argv) {{
   for (std::uint64_t sequence = 0u; sequence < 3u; ++sequence) {{
     const vlaforge::runtime::Epoch tick{{
         kControlClock, sequence, sequence * kControlPeriodNs, 0u}};
-    EmitSimple(trace, vlaforge::runtime::TraceKind::kInput,
+{benchmark_tick_start}    EmitSimple(trace, vlaforge::runtime::TraceKind::kInput,
                kTaskInputBatch, 0u, tick);
     EmitSimple(trace, vlaforge::runtime::TraceKind::kInput,
                kTaskInputNoise, 0u, tick);
@@ -481,14 +617,14 @@ int main(int argc, char** argv) {{
                 queue_next.size() * sizeof(float));
     std::int32_t cursor =
         *static_cast<const std::int32_t*>(cursor_snapshot.data);
-    const bool queue_empty = cursor >= 50;
+    const bool queue_empty = cursor >= 50{force_refill};
     EmitRegion(trace, kTaskQueueEmpty, transaction.id(), tick);
     EmitRegion(trace, kTaskQueueZero, transaction.id(), tick);
     std::uint32_t select_task = kTaskSelectReuse;
     std::uint32_t advance_task = kTaskAdvanceReuse;
 
     if (queue_empty) {{
-      if (!prefix_region.Run(
+{benchmark_cache_lookup}{benchmark_preheader_open}      if (!prefix_region.Run(
               prefix_inputs, prefix_output_ptrs, true)) {{
         return 8;
       }}
@@ -500,9 +636,9 @@ int main(int argc, char** argv) {{
           }}
         }}
       }}
-      sample.copy_(noise);
+{benchmark_preheader_close}{benchmark_cache_update}      sample.copy_(noise);
       for (std::int64_t step = 0; step < {spec.num_steps}; ++step) {{
-        timestep.fill_(1.0 - static_cast<double>(step) /
+{benchmark_loop_prefix}        timestep.fill_(1.0 - static_cast<double>(step) /
                                  static_cast<double>({spec.num_steps}));
         solver_inputs[1] = &sample;
         solver_outputs[0] = &next_sample;
@@ -581,7 +717,7 @@ int main(int argc, char** argv) {{
       std::printf(",%.9g", static_cast<double>(selected[index]));
     }}
     std::printf("\\n");
-  }}
+{benchmark_tick_end}  }}
 
   if (!Check(state_store.ResetEpisode(1u, 0u), "reset episode")) {{
     return 17;
@@ -700,3 +836,83 @@ def _at_dtype(dtype: str) -> str:
 
 def _camel(name: str) -> str:
     return "".join(part.capitalize() for part in name.split("_"))
+
+
+def temporal_cache_dependencies(
+    module: Module,
+    region_name: str,
+) -> tuple[TemporalCacheDependencySpec, ...]:
+    """Lower memoization provenance to deterministic generated-C++ IDs."""
+
+    transformed = synthesize_epoch_memoization(module)
+    invocation = next(
+        operation
+        for policy in transformed.policies
+        for operation in _walk_operations(policy.body)
+        if operation.opcode == "vla.invoke"
+        and operation.attributes.get("region") == region_name
+    )
+    input_ids = {
+        stream.name: index
+        for index, stream in enumerate(transformed.inputs)
+    }
+    state_ids = {
+        state.name: index
+        for index, state in enumerate(transformed.states)
+    }
+    result = []
+    for dependency in invocation.attributes["memoize_dependencies"]:
+        kind = str(dependency["kind"])
+        subject = str(dependency["subject"])
+        if kind == "epoch":
+            subject_id = input_ids[subject]
+        elif kind == "state_version":
+            subject_id = state_ids[subject]
+        else:
+            raise ValueError(
+                f"unsupported temporal cache dependency kind: {kind}"
+            )
+        result.append(
+            TemporalCacheDependencySpec(
+                kind=kind,
+                subject_id=subject_id,
+                max_age_ns=(
+                    None
+                    if dependency["max_age_ns"] is None
+                    else int(dependency["max_age_ns"])
+                ),
+            )
+        )
+    return tuple(result)
+
+
+def _walk_operations(block: Block):
+    for operation in block.operations:
+        yield operation
+        for region in operation.regions:
+            yield from _walk_operations(region)
+
+
+def render_cpp_cache_dependencies(
+    dependencies: tuple[TemporalCacheDependencySpec, ...],
+) -> str:
+    lines = []
+    for dependency in dependencies:
+        if dependency.kind != "epoch":
+            raise ValueError(
+                "real-model benchmark codegen requires an explicit runtime "
+                "StateVersion binding"
+            )
+        kind = "kInputEpoch"
+        maximum = (
+            "vlaforge::runtime::TemporalDependency::kUnboundedAge"
+            if dependency.max_age_ns is None
+            else f"{dependency.max_age_ns}u"
+        )
+        lines.append(
+            "        "
+            "{vlaforge::runtime::TemporalDependencyKind::"
+            f"{kind}, {dependency.subject_id}u, 0u, "
+            f"{{0u, 0u, 0u, 0u}}, {maximum}}},"
+        )
+    return "\n".join(lines)

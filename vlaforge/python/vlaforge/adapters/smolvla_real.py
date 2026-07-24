@@ -166,7 +166,12 @@ def build_real_smolvla_action_program(
         )
     )
     builder.add_region(
-        TensorRegion("prepare_prefix", (Value("batch_arg", OPAQUE),), (OPAQUE,))
+        TensorRegion(
+            "prepare_prefix",
+            (Value("batch_arg", OPAQUE),),
+            (OPAQUE,),
+            metadata={"memoize": True, "loop_invariant": True},
+        )
     )
     builder.add_region(
         TensorRegion(

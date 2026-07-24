@@ -99,7 +99,7 @@ def build_smolvla_fixture() -> AdapterFixture:
             "encode_observation",
             (Value("image_arg", VECTOR),),
             (VECTOR,),
-            metadata={"memoize": True},
+            metadata={"memoize": True, "loop_invariant": True},
         )
     )
     builder.add_region(

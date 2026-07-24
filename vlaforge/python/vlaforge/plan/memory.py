@@ -63,8 +63,16 @@ def physicalize_plan(
     state_overrides: Mapping[str, StorageOverride] | None = None,
     default_device: str = "cpu",
     tensor_alignment: int = 64,
+    reuse_temporaries: bool = False,
 ) -> PlanModule:
-    """Attach proven state rings and one target-device static arena."""
+    """Attach proven state rings and one target-device static arena.
+
+    ``reuse_temporaries`` enables deterministic interval packing.  It is an
+    explicit optimization switch so baseline plans remain byte-for-byte stable.
+    The packed arena is safe to reuse on every policy invocation because every
+    allocation is proven dead before another live allocation may occupy the
+    same byte range.
+    """
 
     verify_plan(plan)
     if not default_device:
@@ -108,6 +116,7 @@ def physicalize_plan(
         buffer_specs,
         default_device=default_device,
         tensor_alignment=tensor_alignment,
+        reuse_temporaries=reuse_temporaries,
     )
     result = replace(plan, states=physical_states, arena=arena)
     verify_plan(result)
@@ -334,6 +343,7 @@ def _plan_arena(
     *,
     default_device: str,
     tensor_alignment: int,
+    reuse_temporaries: bool,
 ) -> StaticArenaPlan:
     consumers: dict[int, list[int]] = {
         buffer.id: [] for buffer in plan.buffers
@@ -342,9 +352,7 @@ def _plan_arena(
         for buffer_id in task.inputs:
             consumers[buffer_id].append(task.id)
 
-    offset = 0
-    arena_alignment = 1
-    physical = []
+    intervals = []
     for buffer in plan.buffers:
         if buffer.external or buffer.buffer_class is BufferClass.EXTERNAL:
             continue
@@ -382,33 +390,127 @@ def _plan_arena(
                 f"buffer {buffer.id} requires device {device}, but the initial "
                 f"static arena targets {default_device}"
             )
-        offset = _align_up(offset, alignment)
         producer = buffer.producer_task
         if producer is None:
             raise MemoryPlanningError(
                 f"internal buffer {buffer.id} has no producer"
             )
         last = max(consumers[buffer.id], default=producer)
-        physical.append(
+        intervals.append(
             PhysicalBuffer(
-                id=len(physical),
+                id=len(intervals),
                 logical_buffers=(buffer.id,),
                 buffer_class=buffer.buffer_class,
                 device=device,
                 size_bytes=size,
                 alignment=alignment,
-                offset=offset,
+                offset=0,
                 first_task=producer,
                 last_task=last,
             )
         )
-        offset += size
-        arena_alignment = max(arena_alignment, alignment)
+    if reuse_temporaries:
+        physical = _pack_reusable_intervals(intervals)
+    else:
+        physical = _pack_without_reuse(intervals)
+    arena_alignment = max(
+        (item.alignment for item in physical),
+        default=1,
+    )
+    arena_size = max(
+        (item.offset + item.size_bytes for item in physical),
+        default=0,
+    )
     return StaticArenaPlan(
         device=default_device,
-        size_bytes=_align_up(offset, arena_alignment),
+        size_bytes=_align_up(arena_size, arena_alignment),
         alignment=arena_alignment,
         physical_buffers=tuple(physical),
+    )
+
+
+def can_reuse_physical_storage(
+    left: PhysicalBuffer,
+    right: PhysicalBuffer,
+) -> bool:
+    """Return the legality predicate for two logical allocation intervals.
+
+    Reuse is intentionally based on semantic task lifetime, not allocation
+    order or tensor names.  Different devices can never alias.  Touching task
+    intervals are live together because a producer and consumer may execute in
+    the same scheduled task.
+    """
+
+    return (
+        left.device == right.device
+        and (
+            left.last_task < right.first_task
+            or right.last_task < left.first_task
+        )
+    )
+
+
+def _pack_without_reuse(
+    intervals: list[PhysicalBuffer],
+) -> list[PhysicalBuffer]:
+    offset = 0
+    result = []
+    for interval in intervals:
+        offset = _align_up(offset, interval.alignment)
+        result.append(replace(interval, offset=offset))
+        offset += interval.size_bytes
+    return result
+
+
+def _pack_reusable_intervals(
+    intervals: list[PhysicalBuffer],
+) -> list[PhysicalBuffer]:
+    """Deterministic first-fit packing with exact liveness interference."""
+
+    placed: list[PhysicalBuffer] = []
+    for interval in sorted(
+        intervals,
+        key=lambda item: (
+            item.first_task,
+            -item.size_bytes,
+            -item.alignment,
+            item.id,
+        ),
+    ):
+        offset = 0
+        while True:
+            offset = _align_up(offset, interval.alignment)
+            conflicts = [
+                other
+                for other in placed
+                if not can_reuse_physical_storage(interval, other)
+                and _ranges_overlap(
+                    offset,
+                    interval.size_bytes,
+                    other.offset,
+                    other.size_bytes,
+                )
+            ]
+            if not conflicts:
+                break
+            offset = min(
+                other.offset + other.size_bytes
+                for other in conflicts
+                if other.offset + other.size_bytes > offset
+            )
+        placed.append(replace(interval, offset=offset))
+    return sorted(placed, key=lambda item: item.id)
+
+
+def _ranges_overlap(
+    left_offset: int,
+    left_size: int,
+    right_offset: int,
+    right_size: int,
+) -> bool:
+    return (
+        left_offset < right_offset + right_size
+        and right_offset < left_offset + left_size
     )
 
 

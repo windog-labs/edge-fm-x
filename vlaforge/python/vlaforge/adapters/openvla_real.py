@@ -130,6 +130,7 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
                 Value("mask_arg", language),
             ),
             (OPAQUE,),
+            metadata={"memoize": True, "loop_invariant": True},
         )
     )
     builder.add_region(

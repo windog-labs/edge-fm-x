@@ -21,19 +21,24 @@ def main() -> int:
     parser.add_argument("--export-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--optimization-benchmark", action="store_true")
     args = parser.parse_args()
 
     prefix = torch.export.load(args.export_dir / "prepare_prefix.pt2e")
     solver = torch.export.load(args.export_dir / "solver_step.pt2e")
     trim = torch.export.load(args.export_dir / "trim_action_chunk.pt2e")
     spec = smolvla_spec_from_exported_programs(prefix, solver, trim)
-    sources = generate_real_smolvla_aoti_runner(spec)
+    sources = generate_real_smolvla_aoti_runner(
+        spec,
+        optimization_benchmark=args.optimization_benchmark,
+    )
     sources.write(args.output_dir)
     manifest = {
         "schema": "vlaforge.real_smolvla_codegen/1",
         "source_digest": sources.digest(),
         "spec": asdict(spec),
         "files": [name for name, _ in sources.files],
+        "optimization_benchmark": args.optimization_benchmark,
     }
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
     args.manifest.write_text(

@@ -101,3 +101,29 @@ PYTHONPATH="$PWD/vlaforge/python" \
   /home/zhangzimo/.venvs/vlaforge-openvla/bin/python \
   -m pytest -q vlaforge/tests/models/test_real_openvla.py -m real_model
 ```
+
+## Generated C++ and whole-program optimization gates
+
+The no-Python generated-C++ contracts and exact real-model commands are
+recorded in:
+
+- [`../doc/reports/vlaforge_cpp_smolvla_real.md`](../doc/reports/vlaforge_cpp_smolvla_real.md)
+- [`../doc/reports/vlaforge_cpp_openvla_real.md`](../doc/reports/vlaforge_cpp_openvla_real.md)
+- [`../doc/reports/vlaforge_whole_program_optimizations.md`](../doc/reports/vlaforge_whole_program_optimizations.md)
+
+`generate_real_smolvla_cpp.py` and `generate_real_openvla_cpp.py` produce the
+normal audited runner by default. Pass `--optimization-benchmark` only for the
+instrumented cache/LICM measurement build; this keeps deployment-source golden
+digests stable.
+
+The combined benchmark/audit entry point is:
+
+```bash
+PYTHONPATH=vlaforge/python \
+python vlaforge/tools/benchmark_whole_program_optimizations.py --help
+```
+
+It runs generated C++ with an invalid Python environment, measures tick p99
+and peak RSS, verifies exact action/evidence/non-Region traces, measures
+compiler-pass cost and static-arena peak, and exits nonzero on a Gate G4
+regression.

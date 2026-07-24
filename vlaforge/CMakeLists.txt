@@ -18,6 +18,7 @@ option(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND
 
 add_library(vlaforge_runtime STATIC
     runtime/action_queue.cpp
+    runtime/epoch_cache.cpp
     runtime/region_executable.c
     runtime/static_arena.cpp
     runtime/state_store.cpp

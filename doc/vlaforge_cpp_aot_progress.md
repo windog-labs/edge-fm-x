@@ -423,7 +423,63 @@ Detailed reports:
 - `doc/reports/vlaforge_cpp_smolvla_real.md`
 - `doc/reports/vlaforge_cpp_openvla_real.md`
 
-## Next
+## Gate G4: VLA-specific whole-program optimization
 
-Gate G4: implement and measure epoch-keyed cache synthesis, temporal
-loop-invariant motion, and lifetime-proven cross-cycle arena reuse.
+Status: passed.
+
+Implemented:
+
+- transitive Epoch/StateVersion cache-key synthesis with freshness and episode
+  invalidation;
+- fixed-capacity C++ `EpochVersionCacheGuard`;
+- true pure-region temporal LICM plus preheader recognition;
+- deterministic lifetime interval packing for cross-cycle static arena reuse;
+- positive, forbidden-negative, state/action trace, generated-C++, and
+  sanitizer coverage.
+
+Measured real generated-C++ results:
+
+```text
+SmolVLA prefix cache steady p99: 50.367 -> 29.825 ms (-40.79%)
+OpenVLA prefix cache steady p99: 34.270 -> 3.021 s (-91.18%)
+SmolVLA LICM steady p99: 210.534 -> 50.876 ms (-75.83%)
+OpenVLA LICM: already prehoisted, measured improvement 0%
+SmolVLA static arena: 17,152 -> 15,360 B (-10.45%)
+OpenVLA static arena: 448 -> 192 B (-57.14%)
+```
+
+All compared action lines, evidence hashes, and non-Region state/transaction/
+action traces are exact. SmolVLA arena reduction is below the 20% internal
+target because overlapping 6,400-byte solver lifetimes cannot legally alias.
+OpenVLA LICM reports no speedup because its prefill is already the
+autoregressive loop preheader. These limitations are recorded without
+inflating the result.
+
+Detailed report:
+`doc/reports/vlaforge_whole_program_optimizations.md`.
+
+## Final regression
+
+Status: passed.
+
+```text
+Offline Python: 124 passed, 3 real/CUDA gates deselected in 4.87 s
+Focused optimization/codegen: 30 passed in 2.00 s
+Real SmolVLA Python checkpoint: 1 passed in 12.12 s
+Real OpenVLA Python checkpoint: 1 passed in 29.30 s
+CUDA AOTI opt-in audit: 1 passed in 20.86 s
+C++ Release CTest: 5/5 passed
+C++ ASan+UBSan CTest: 5/5 passed
+Generated C++ optimization audit: gate_passed=true
+Default SmolVLA/OpenVLA codegen golden digests: unchanged
+Python compileall: passed
+CMake install/export with epoch_cache.h: passed
+Wheel contains all three optimization modules: passed
+CLI help smoke: passed
+git diff --check: passed
+```
+
+The two real generated benchmark runners were also verified with invalid
+Python environment variables and no `libpython` dependency. Gate G3 and Gate
+G4 are complete; Jetson/vendor backends, π0, closed-loop robot evaluation, and
+paper artifact freeze remain intentionally out of scope for this Goal.

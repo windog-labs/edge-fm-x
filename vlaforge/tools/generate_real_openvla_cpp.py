@@ -19,6 +19,7 @@ def main() -> int:
     parser.add_argument("--capture-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--optimization-benchmark", action="store_true")
     args = parser.parse_args()
     reports = {
         name: json.loads(
@@ -37,13 +38,17 @@ def main() -> int:
         reports["generate_action_tokens_decode_step"],
         reports["detokenize_action"],
     )
-    sources = generate_real_openvla_torchscript_runner(spec)
+    sources = generate_real_openvla_torchscript_runner(
+        spec,
+        optimization_benchmark=args.optimization_benchmark,
+    )
     sources.write(args.output_dir)
     manifest = {
         "schema": "vlaforge.real_openvla_codegen/1",
         "source_digest": sources.digest(),
         "spec": asdict(spec),
         "files": [name for name, _ in sources.files],
+        "optimization_benchmark": args.optimization_benchmark,
     }
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
     args.manifest.write_text(

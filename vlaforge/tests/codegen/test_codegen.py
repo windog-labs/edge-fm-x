@@ -19,6 +19,7 @@ from vlaforge.codegen import (
     openvla_fixture_runner_source,
     openvla_fixture_validators,
 )
+from vlaforge.codegen.real_aoti import temporal_cache_dependencies
 from vlaforge.interpreter import Interpreter
 from vlaforge.plan import PlanExecutor, lower_to_plan, physicalize_plan
 from vlaforge.validation import normalize_plan_trace_for_runtime
@@ -93,6 +94,17 @@ def test_real_smolvla_aoti_codegen_is_deterministic_and_no_python() -> None:
     assert "std::unordered_map" not in text
     assert "ktasksolver" in text
     assert "for (std::int64_t step = 0; step < 10; ++step)" in text
+    benchmark = generate_real_smolvla_aoti_runner(
+        spec,
+        optimization_benchmark=True,
+    )
+    benchmark_text = "\n".join(
+        content for _, content in benchmark.files
+    )
+    assert "EpochVersionCacheGuard prefix_cache" in benchmark_text
+    assert "benchmark_licm_disabled" in benchmark_text
+    assert "BENCH_TICK_US" in benchmark_text
+    assert benchmark.digest() != first.digest()
 
 
 def test_real_openvla_codegen_is_deterministic_and_no_python() -> None:
@@ -123,6 +135,50 @@ def test_real_openvla_codegen_is_deterministic_and_no_python() -> None:
     assert "std::unordered_map" not in text
     assert "ktaskdecode" in text
     assert "step < kdecodesteps" in text
+    benchmark = generate_real_openvla_torchscript_runner(
+        spec,
+        optimization_benchmark=True,
+    )
+    benchmark_text = "\n".join(
+        content for _, content in benchmark.files
+    )
+    assert "EpochVersionCacheGuard prefill_cache" in benchmark_text
+    assert "BENCH_TICK_US" in benchmark_text
+    assert benchmark.digest() != first.digest()
+
+
+def test_real_codegen_cache_dependencies_come_from_semantic_epochs() -> None:
+    from vlaforge.adapters import (
+        build_real_openvla_action_program,
+        build_real_smolvla_action_program,
+    )
+
+    smol = temporal_cache_dependencies(
+        build_real_smolvla_action_program(
+            chunk_size=50,
+            max_action_dim=32,
+            output_action_dim=6,
+            num_steps=10,
+        ),
+        "prepare_prefix",
+    )
+    assert [
+        (item.kind, item.subject_id, item.max_age_ns)
+        for item in smol
+    ] == [("epoch", 0, 50_000_000)]
+
+    openvla = temporal_cache_dependencies(
+        build_real_openvla_action_program(action_dim=7),
+        "generate_action_tokens_prefill",
+    )
+    assert [
+        (item.kind, item.subject_id, item.max_age_ns)
+        for item in openvla
+    ] == [
+        ("epoch", 0, 60_000_000),
+        ("epoch", 1, 60_000_000),
+        ("epoch", 2, 60_000_000),
+    ]
 
 
 def test_codegen_reports_unsupported_control_without_fallback() -> None:

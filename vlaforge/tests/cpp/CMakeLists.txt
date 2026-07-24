@@ -14,6 +14,10 @@ add_executable(vlaforge_runtime_state_smoke runtime_state_smoke.cpp)
 target_link_libraries(vlaforge_runtime_state_smoke PRIVATE vlaforge_runtime)
 add_test(NAME vlaforge_runtime_state_smoke COMMAND vlaforge_runtime_state_smoke)
 
+add_executable(vlaforge_epoch_cache_smoke epoch_cache_smoke.cpp)
+target_link_libraries(vlaforge_epoch_cache_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_epoch_cache_smoke COMMAND vlaforge_epoch_cache_smoke)
+
 if(TARGET vlaforge_aoti_backend)
     add_executable(vlaforge_aoti_region_smoke aoti_region_smoke.cpp)
     target_link_libraries(vlaforge_aoti_region_smoke PRIVATE

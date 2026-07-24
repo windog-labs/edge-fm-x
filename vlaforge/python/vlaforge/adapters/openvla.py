@@ -58,6 +58,7 @@ def build_openvla_fixture() -> AdapterFixture:
                 Value("instruction_arg", TOKENS),
             ),
             (VECTOR,),
+            metadata={"memoize": True, "loop_invariant": True},
         )
     )
     builder.add_region(
