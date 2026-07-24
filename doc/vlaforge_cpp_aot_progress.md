@@ -488,7 +488,8 @@ paper artifact freeze remain intentionally out of scope for this Goal.
 
 ## Paper Artifact P1: production compiler profiles and certificates
 
-Status: implementation complete; full regression and paper matrix in progress.
+Status: implementation complete; paper matrix passed; final local regression
+in progress.
 
 Implemented on `codex/vlaforge-paper-artifact`:
 
@@ -521,7 +522,7 @@ still points to an incompatible Node executable and fails with
 
 ## Paper Artifact P2: paper benchmark protocol
 
-Status: real matrix running.
+Status: passed.
 
 `vlaforge/tools/benchmark_paper_artifact.py` now enforces:
 
@@ -548,8 +549,69 @@ OpenVLA nominal cache: miss/hit alternation observed
 Both runners: clean -Werror build, invalid PYTHONHOME/PYTHONPATH
 ```
 
-The full 30-sample matrix and local freeze must pass before the Orin phase
-starts.
+The full real-model matrix passed on 2026-07-24:
+
+```text
+Gate: passed
+Exact state/action/evidence: true
+Cells: 28
+Post-warm samples per cell: 30
+Bootstrap resamples: 2,000
+
+SmolVLA nominal p50:
+  off 209.853 ms
+  cache 120.004 ms (-42.82%)
+  LICM 47.849 ms (-77.20%)
+  combined 39.292 ms (-81.28%)
+
+SmolVLA repeat p50:
+  off 210.281 ms
+  cache 29.845 ms (-85.81%)
+  combined 29.917 ms (-85.77%)
+
+OpenVLA nominal p50:
+  off 33.159 s
+  cache/combined 18.146 s (-45.28%)
+
+OpenVLA repeat p50:
+  off 33.159 s
+  cache/combined 2.917 s (-91.20%)
+
+Negative controls:
+  SmolVLA all-miss cache vs off: +0.45%, 0 hits
+  SmolVLA stale cache vs off: +0.01%, 0 hits
+  OpenVLA all-miss cache vs off: +0.50%, 0 hits
+  OpenVLA stale cache vs off: +0.16%, 0 hits
+
+Compiler p50:
+  SmolVLA off 1.773 ms; verified 2.925 ms
+  OpenVLA off 0.967 ms; verified 1.598 ms
+
+Compiler arena:
+  SmolVLA 17,152 -> 15,360 B (-10.45%)
+  OpenVLA 448 -> 192 B (-57.14%)
+```
+
+OpenVLA LICM remains explicitly `already_prehoisted`: prefill is already the
+autoregressive loop preheader, so a separate LICM-only execution mode would
+misrepresent the implementation. Six cells reuse measurements only where the
+generated execution path is identical: each OpenVLA combined cell reuses its
+cache measurement, while repeat/off and all-miss/off reuse nominal/off.
+`measurement_reused_from` is disclosed in JSON, CSV, and Markdown.
+
+Reports:
+
+- `doc/reports/vlaforge_paper_benchmark.json`
+- `doc/reports/vlaforge_paper_benchmark.csv`
+- `doc/reports/vlaforge_paper_benchmark.md`
+
+Raw stdout, stderr, binary evidence, and completion metadata remain at
+`/tmp/vlaforge-paper-artifact-final-20260724/raw`. The checked-in JSON retains
+the exact commands, build commands, environment, source revision, compiler
+scope, raw sample arrays, artifact hashes, evidence digests, and separated
+compiler-arena/backend-tensor/RSS/VRAM measurements.
+
+The local freeze must pass before the Orin phase starts.
 
 Current P1 regression:
 

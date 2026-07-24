@@ -1,0 +1,3045 @@
+{
+  "artifact_hashes": {
+    "open_archive": "f77f68374187adade017e6f5d9e35ba0d97936f144ca7ae4fc5711b4a4c2eaec",
+    "open_codegen_manifest": "73261a1123fea3b957ef0eeee868ab0d20865a461e4b05686712eaf9a52591d7",
+    "open_input_dir": "fe7077d43d516109c5a627d04d376d4d12d037d437bc00e1a4a3522d1676ac46",
+    "open_runner": "a2c08f92430dde1fe935ea30e289a8325c803da2168bea93231766f00ed52fad",
+    "smol_codegen_manifest": "3d64b7b510bcc4ce7f94a5a493b930ce6db65d8f009af226be80030dea033ebc",
+    "smol_prefix": "c9af9b8804824498eb8ebea63977623e5eb1fb82f5141c3e37c1360081dba77c",
+    "smol_runner": "b15d01f8e60201f6c68ce6156c4cf77b1d78ad5e37cf5fa94da2053c43a16718",
+    "smol_solver": "4c56f7487fad8db8ab59797023a5606a6954f72bc65de36b2d6706fa7f6c2419",
+    "smol_trim": "830096848fe4229a8083653480d3fd0e40562c4f5a22e63729c07d15e23a8fcf"
+  },
+  "build_commands": [
+    [
+      "cmake",
+      "-S",
+      "/tmp/vlaforge-paper-final-source-smol",
+      "-B",
+      "/tmp/vlaforge-paper-final-build-smol",
+      "-DVLAFORGE_RUNTIME_ROOT=/home/zhangzimo/Repos/private/edge-fm-x/vlaforge",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DCMAKE_PREFIX_PATH=/home/zhangzimo/miniconda3/envs/horizon_quant/lib/python3.10/site-packages/torch/share/cmake"
+    ],
+    [
+      "cmake",
+      "--build",
+      "/tmp/vlaforge-paper-final-build-smol",
+      "--parallel"
+    ],
+    [
+      "cmake",
+      "-S",
+      "/tmp/vlaforge-paper-source-open",
+      "-B",
+      "/tmp/vlaforge-paper-build-open",
+      "-DVLAFORGE_RUNTIME_ROOT=/home/zhangzimo/Repos/private/edge-fm-x/vlaforge",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DCMAKE_PREFIX_PATH=/home/zhangzimo/miniconda3/envs/horizon_quant/lib/python3.10/site-packages/torch/share/cmake"
+    ],
+    [
+      "cmake",
+      "--build",
+      "/tmp/vlaforge-paper-build-open",
+      "--parallel"
+    ]
+  ],
+  "commands": [
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-licm.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "licm"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-combined.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "combined"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "repeat",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "repeat",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-licm.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "repeat",
+        "VLAFORGE_OPT_BENCHMARK": "licm"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-combined.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "repeat",
+        "VLAFORGE_OPT_BENCHMARK": "combined"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "all-miss",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "all-miss",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-licm.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "all-miss",
+        "VLAFORGE_OPT_BENCHMARK": "licm"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-combined.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "all-miss",
+        "VLAFORGE_OPT_BENCHMARK": "combined"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "stale",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "stale",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-licm.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "stale",
+        "VLAFORGE_OPT_BENCHMARK": "licm"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-final-build-smol/vlaforge_real_aoti_runner",
+        "/tmp/vlaforge-g3-smol-specialized/packages/prepare_prefix.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/solver_step.pt2",
+        "/tmp/vlaforge-g3-smol-specialized/packages/trim_action_chunk.pt2",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-combined.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "stale",
+        "VLAFORGE_OPT_BENCHMARK": "combined"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-repeat-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "repeat",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-repeat-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "repeat",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "nominal",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-all-miss-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "all-miss",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-all-miss-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "all-miss",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-off.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "stale",
+        "VLAFORGE_OPT_BENCHMARK": "off"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "stale",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    },
+    {
+      "argv": [
+        "/tmp/vlaforge-paper-build-open/vlaforge_real_openvla_runner",
+        "/tmp/vlaforge-g3-openvla/torchscript/openvla_regions.pt",
+        "/tmp/vlaforge-g3-openvla/inputs",
+        "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-cache.evidence.bin"
+      ],
+      "environment": {
+        "PYTHONHOME": "/definitely/not/a/python/home",
+        "PYTHONPATH": "/definitely/not/a/python/path",
+        "VLAFORGE_BENCH_ITERATIONS": "31",
+        "VLAFORGE_BENCH_WORKLOAD": "stale",
+        "VLAFORGE_OPT_BENCHMARK": "cache"
+      }
+    }
+  ],
+  "compiler": {
+    "openvla": {
+      "off": {
+        "arena_bytes": 448,
+        "certificate_digest": "68b39436ff6b72c0d0834088005ba0eb35c0b5613788e16da9be38524b728e3f",
+        "compile_time_ms": {
+          "maximum": 1.17968,
+          "mean": 0.973773,
+          "minimum": 0.932782,
+          "p50": {
+            "ci95": [
+              0.9601525,
+              0.973943
+            ],
+            "estimate": 0.9670814999999999
+          },
+          "p95": {
+            "ci95": [
+              0.9782569999999999,
+              1.17968
+            ],
+            "estimate": 1.0040748499999999
+          },
+          "p99": {
+            "ci95": [
+              0.98055899,
+              1.17968
+            ],
+            "estimate": 1.1298281300000002
+          },
+          "samples": [
+            1.007777,
+            0.959358,
+            0.981362,
+            0.969462,
+            0.96045,
+            0.957244,
+            0.975548,
+            0.97365,
+            0.959018,
+            0.978257,
+            0.951502,
+            0.974236,
+            0.976598,
+            0.954758,
+            0.978593,
+            0.974512,
+            0.961389,
+            1.17968,
+            0.99955,
+            0.962594,
+            0.945013,
+            0.971219,
+            0.97094,
+            0.959855,
+            0.96619,
+            0.950269,
+            0.932782,
+            0.967973,
+            0.947445,
+            0.965966
+          ]
+        },
+        "plan_digest": "3519d197a4d4e076cea0d4942192de5c8a5ab29147809b8b03514807a59a509a"
+      },
+      "verified": {
+        "arena_bytes": 192,
+        "certificate_digest": "5ad50cde7bebf41f29bb6ca62462c814c9e73a7949f9bb88fb3af8ec0d549bad",
+        "compile_time_ms": {
+          "maximum": 1.788218,
+          "mean": 1.6137772000000001,
+          "minimum": 1.568318,
+          "p50": {
+            "ci95": [
+              1.5910579999999999,
+              1.603254
+            ],
+            "estimate": 1.5975595
+          },
+          "p95": {
+            "ci95": [
+              1.6117264,
+              1.788218
+            ],
+            "estimate": 1.7810327
+          },
+          "p99": {
+            "ci95": [
+              1.61739901,
+              1.788218
+            ],
+            "estimate": 1.78739672
+          },
+          "samples": [
+            1.618075,
+            1.785386,
+            1.578925,
+            1.585899,
+            1.578429,
+            1.588127,
+            1.591771,
+            1.606816,
+            1.593149,
+            1.607479,
+            1.603254,
+            1.603791,
+            1.598014,
+            1.788218,
+            1.592234,
+            1.600604,
+            1.568318,
+            1.589882,
+            1.591953,
+            1.582708,
+            1.600703,
+            1.597105,
+            1.605819,
+            1.615744,
+            1.775712,
+            1.598742,
+            1.589563,
+            1.582373,
+            1.601243,
+            1.59328
+          ]
+        },
+        "plan_digest": "8c81256c1c5fe22bfa6a6ba6b4df6fb4de259bf9077e0297cc6b4d6030f3f3d4"
+      }
+    },
+    "smolvla": {
+      "off": {
+        "arena_bytes": 17152,
+        "certificate_digest": "703e16e6aba64abfc623119c837794e3d7616db43c7f96869bd0118f48681ccf",
+        "compile_time_ms": {
+          "maximum": 2.197272,
+          "mean": 1.8019694,
+          "minimum": 1.749427,
+          "p50": {
+            "ci95": [
+              1.765442,
+              1.7785935
+            ],
+            "estimate": 1.7725365
+          },
+          "p95": {
+            "ci95": [
+              1.792315,
+              2.197272
+            ],
+            "estimate": 1.9478616
+          },
+          "p99": {
+            "ci95": [
+              1.87358372,
+              2.197272
+            ],
+            "estimate": 2.1267036900000003
+          },
+          "samples": [
+            2.197272,
+            1.824997,
+            1.78173,
+            1.776282,
+            1.778309,
+            1.776404,
+            1.893429,
+            1.755212,
+            1.772452,
+            1.763029,
+            1.770157,
+            1.779161,
+            1.761203,
+            1.766042,
+            1.763297,
+            1.778878,
+            1.940441,
+            1.772621,
+            1.764842,
+            1.777558,
+            1.757306,
+            1.771755,
+            1.792315,
+            1.770006,
+            1.749427,
+            1.784522,
+            1.762549,
+            1.953933,
+            1.763772,
+            1.760181
+          ]
+        },
+        "plan_digest": "2fc99f470b3bbcaa8f5e2bdb1c9ab114a4c0a5e40ea3e9513e036301d9f91ec1"
+      },
+      "verified": {
+        "arena_bytes": 15360,
+        "certificate_digest": "87a3d0db6675d4f110ded0f04de6d2cd7e7e680358eb00d0657a0f3a1cd86db7",
+        "compile_time_ms": {
+          "maximum": 3.773837,
+          "mean": 2.9725979666666666,
+          "minimum": 2.88711,
+          "p50": {
+            "ci95": [
+              2.9156665000000004,
+              2.933008
+            ],
+            "estimate": 2.924856
+          },
+          "p95": {
+            "ci95": [
+              2.99400615,
+              3.773837
+            ],
+            "estimate": 3.0899751
+          },
+          "p99": {
+            "ci95": [
+              3.06243796,
+              3.7738370000000003
+            ],
+            "estimate": 3.5762794300000005
+          },
+          "samples": [
+            3.002886,
+            2.933378,
+            3.049034,
+            2.930339,
+            2.917333,
+            2.914979,
+            2.928975,
+            3.092604,
+            2.932638,
+            2.90221,
+            2.956472,
+            2.983153,
+            2.924834,
+            2.924878,
+            3.080315,
+            2.917321,
+            2.88711,
+            2.916354,
+            2.925876,
+            2.895052,
+            2.914056,
+            3.773837,
+            2.952366,
+            2.906833,
+            2.900983,
+            2.908033,
+            2.894611,
+            2.918731,
+            3.086762,
+            2.905986
+          ]
+        },
+        "plan_digest": "7a405f3dd0481720b393247a93e5a9bdcd9b9331ccf03ed7036612ad8a03838e"
+      }
+    }
+  },
+  "compiler_time_scope": "VLAForge profile selection, temporal transforms, Plan lowering, physical arena planning, and certificate generation; prebuilt TensorRegion backend artifact compilation is excluded",
+  "environment": {
+    "CUDA_VISIBLE_DEVICES": "",
+    "machine": "x86_64",
+    "platform": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python": "3.13.12"
+  },
+  "evidence_exact": true,
+  "gate_passed": true,
+  "measurements": [
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 210828.879,
+        "mean": 209882.20316666664,
+        "minimum": 208887.584,
+        "p50": {
+          "ci95": [
+            209575.592,
+            210162.0435
+          ],
+          "estimate": 209853.43
+        },
+        "p95": {
+          "ci95": [
+            210547.4115,
+            210828.879
+          ],
+          "estimate": 210700.51834999997
+        },
+        "p99": {
+          "ci95": [
+            210648.951,
+            210828.879
+          ],
+          "estimate": 210800.84122
+        },
+        "samples": [
+          209182.033,
+          208887.584,
+          208934.998,
+          209675.523,
+          209575.592,
+          209311.416,
+          209916.327,
+          209348.086,
+          209431.108,
+          209664.674,
+          208952.697,
+          209820.32,
+          209463.221,
+          209357.152,
+          210648.951,
+          209771.981,
+          209750.785,
+          210661.8,
+          210316.72,
+          209886.54,
+          209913.702,
+          210430.52,
+          210211.283,
+          210657.103,
+          210390.758,
+          210643.05,
+          210828.879,
+          210732.197,
+          209988.291,
+          210112.804
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2665529344,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-off.stdout",
+      "wall_seconds": 9.56758835609071,
+      "workload": "nominal"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 15,
+      "cache_misses": 16,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 211083.713,
+        "mean": 120149.35676666666,
+        "minimum": 29496.772,
+        "p50": {
+          "ci95": [
+            30097.625,
+            210153.261
+          ],
+          "estimate": 120003.836
+        },
+        "p95": {
+          "ci95": [
+            210442.43219999998,
+            211083.713
+          ],
+          "estimate": 210690.18300000002
+        },
+        "p99": {
+          "ci95": [
+            210617.68183,
+            211083.713
+          ],
+          "estimate": 210974.16723999998
+        },
+        "samples": [
+          30102.816,
+          209798.273,
+          30131.959,
+          210544.342,
+          29712.242,
+          211083.713,
+          29871.662,
+          210053.262,
+          29833.71,
+          210705.969,
+          30015.766,
+          210019.689,
+          30147.315,
+          210487.416,
+          30049.435,
+          210316.321,
+          30102.058,
+          210387.452,
+          29496.772,
+          210243.669,
+          30097.625,
+          210133.827,
+          29904.95,
+          210656.228,
+          30209.399,
+          209945.018,
+          29894.988,
+          210670.889,
+          29691.243,
+          210172.695
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2664968192,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-cache.stdout",
+      "wall_seconds": 5.661110809072852,
+      "workload": "nominal"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 50418.095,
+        "mean": 47897.768233333336,
+        "minimum": 47248.358,
+        "p50": {
+          "ci95": [
+            47755.865000000005,
+            47930.67
+          ],
+          "estimate": 47848.75
+        },
+        "p95": {
+          "ci95": [
+            48057.69595,
+            50418.095
+          ],
+          "estimate": 48179.17805
+        },
+        "p99": {
+          "ci95": [
+            48148.631590000005,
+            50418.095
+          ],
+          "estimate": 49770.2669
+        },
+        "samples": [
+          50418.095,
+          47887.278,
+          47570.762,
+          47700.247,
+          47617.827,
+          47721.055,
+          47257.665,
+          48169.636,
+          47764.626,
+          48173.034,
+          47855.611,
+          47900.883,
+          47876.179,
+          47306.052,
+          47817.952,
+          48097.207,
+          47944.272,
+          47975.361,
+          47814.106,
+          47964.779,
+          48184.205,
+          47248.358,
+          47783.008,
+          47705.151,
+          47841.889,
+          47917.068,
+          48064.981,
+          48048.792,
+          47559.864,
+          47747.104
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2665267200,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "licm",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-licm.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-licm.stdout",
+      "wall_seconds": 3.327240620041266,
+      "workload": "nominal"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 15,
+      "cache_misses": 16,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 50639.821,
+        "mean": 39036.6019,
+        "minimum": 29645.307,
+        "p50": {
+          "ci95": [
+            30016.9315,
+            47832.7675
+          ],
+          "estimate": 39291.883
+        },
+        "p95": {
+          "ci95": [
+            47993.6521,
+            50639.821
+          ],
+          "estimate": 48177.041849999994
+        },
+        "p99": {
+          "ci95": [
+            48021.51901,
+            50639.821
+          ],
+          "estimate": 49942.34867
+        },
+        "samples": [
+          31540.879,
+          50639.821,
+          29983.244,
+          47848.79,
+          29958.073,
+          47816.745,
+          29939.549,
+          47042.887,
+          30088.252,
+          47804.72,
+          29952.007,
+          47942.9,
+          29645.307,
+          47669.5,
+          30123.179,
+          48234.744,
+          30005.184,
+          48022.224,
+          29678.589,
+          47658.475,
+          29710.021,
+          48106.517,
+          29853.935,
+          47972.487,
+          30170.362,
+          47851.86,
+          29778.365,
+          48010.969,
+          30028.679,
+          48019.793
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655510528,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-combined.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-nominal-combined.stdout",
+      "wall_seconds": 3.0427750409580767,
+      "workload": "nominal"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 211916.934,
+        "mean": 210307.92543333335,
+        "minimum": 209483.168,
+        "p50": {
+          "ci95": [
+            209992.99200000003,
+            210485.16950000002
+          ],
+          "estimate": 210281.257
+        },
+        "p95": {
+          "ci95": [
+            210687.876,
+            211916.934
+          ],
+          "estimate": 211049.9687
+        },
+        "p99": {
+          "ci95": [
+            210889.74031999998,
+            211916.934
+          ],
+          "estimate": 211690.77025
+        },
+        "samples": [
+          211916.934,
+          210390.137,
+          209920.188,
+          210021.129,
+          211137.059,
+          209769.167,
+          210564.769,
+          209959.415,
+          210943.525,
+          210469.102,
+          209592.067,
+          210331.523,
+          209991.64,
+          210687.876,
+          210676.607,
+          210310.105,
+          210176.413,
+          210861.133,
+          209902.719,
+          210313.818,
+          209929.419,
+          210901.425,
+          210146.37,
+          209965.033,
+          210252.409,
+          210514.824,
+          209483.168,
+          210501.237,
+          209614.208,
+          209994.344
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2665787392,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-off.stdout",
+      "wall_seconds": 8.36191484821029,
+      "workload": "repeat"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 30,
+      "cache_misses": 1,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 31417.623,
+        "mean": 29874.45926666667,
+        "minimum": 29223.881,
+        "p50": {
+          "ci95": [
+            29748.955,
+            30007.424
+          ],
+          "estimate": 29844.61
+        },
+        "p95": {
+          "ci95": [
+            30066.823,
+            31417.623
+          ],
+          "estimate": 30118.645600000003
+        },
+        "p99": {
+          "ci95": [
+            30092.17301,
+            31417.623
+          ],
+          "estimate": 31044.2045
+        },
+        "samples": [
+          31417.623,
+          30044.508,
+          29915.563,
+          29783.785,
+          29613.676,
+          29695.965,
+          29929.054,
+          29763.756,
+          29748.955,
+          29687.999,
+          29755.175,
+          30051.138,
+          29579.16,
+          30129.973,
+          29388.102,
+          30104.801,
+          29757.072,
+          30079.584,
+          29592.041,
+          29955.523,
+          29725.974,
+          30097.315,
+          30027.319,
+          29223.881,
+          29905.435,
+          29987.529,
+          30066.044,
+          29773.04,
+          29366.965,
+          30066.823
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2665107456,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-cache.stdout",
+      "wall_seconds": 2.971208164934069,
+      "workload": "repeat"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 51182.862,
+        "mean": 48227.21773333333,
+        "minimum": 47175.203,
+        "p50": {
+          "ci95": [
+            47845.887,
+            48051.2985
+          ],
+          "estimate": 47892.5475
+        },
+        "p95": {
+          "ci95": [
+            48218.041,
+            51182.862
+          ],
+          "estimate": 50532.58379999999
+        },
+        "p99": {
+          "ci95": [
+            49624.26114,
+            51182.862
+          ],
+          "estimate": 51015.547080000004
+        },
+        "samples": [
+          51182.862,
+          50442.958,
+          50605.914,
+          50173.415,
+          48218.041,
+          47182.142,
+          47988.274,
+          47780.578,
+          47953.34,
+          48114.323,
+          47873.41,
+          47864.903,
+          47832.401,
+          47729.381,
+          47851.393,
+          48188.755,
+          47902.133,
+          47783.78,
+          47804.123,
+          48208.384,
+          47971.086,
+          47175.203,
+          47972.706,
+          47882.962,
+          48279.781,
+          47769.742,
+          48097.168,
+          47866.218,
+          47840.381,
+          47280.775
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2665324544,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "licm",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-licm.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-licm.stdout",
+      "wall_seconds": 3.350136117078364,
+      "workload": "repeat"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 30,
+      "cache_misses": 1,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 31657.98,
+        "mean": 30105.406166666668,
+        "minimum": 29197.544,
+        "p50": {
+          "ci95": [
+            29758.9845,
+            30041.9245
+          ],
+          "estimate": 29916.5775
+        },
+        "p95": {
+          "ci95": [
+            30956.553600000003,
+            31657.979999999996
+          ],
+          "estimate": 31551.266499999998
+        },
+        "p99": {
+          "ci95": [
+            31279.45373,
+            31657.980000000003
+          ],
+          "estimate": 31635.918830000002
+        },
+        "samples": [
+          31142.308,
+          30862.937,
+          31581.907,
+          31657.98,
+          31513.817,
+          31335.471,
+          31033.149,
+          29818.444,
+          29270.015,
+          29812.721,
+          29508.912,
+          29687.304,
+          29906.069,
+          29479.505,
+          29721.007,
+          29947.926,
+          30043.43,
+          29197.544,
+          29972.995,
+          30063.209,
+          29813.537,
+          29927.086,
+          29261.132,
+          30040.419,
+          29796.962,
+          29647.931,
+          30091.667,
+          29402.866,
+          29941.142,
+          29682.793
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655342592,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-combined.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-repeat-combined.stdout",
+      "wall_seconds": 2.7714072631206363,
+      "workload": "repeat"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 211952.31,
+        "mean": 210455.00389999998,
+        "minimum": 209852.923,
+        "p50": {
+          "ci95": [
+            210241.07,
+            210479.1745
+          ],
+          "estimate": 210347.9435
+        },
+        "p95": {
+          "ci95": [
+            210717.421,
+            211952.31
+          ],
+          "estimate": 211395.6097
+        },
+        "p99": {
+          "ci95": [
+            210975.33206,
+            211952.31
+          ],
+          "estimate": 211862.27573000002
+        },
+        "samples": [
+          211952.31,
+          210247.246,
+          210410.819,
+          210511.655,
+          209937.39,
+          210247.97,
+          210078.751,
+          210680.761,
+          210293.83,
+          210375.273,
+          210638.822,
+          210573.487,
+          209852.923,
+          210106.336,
+          210292.997,
+          210382.659,
+          210234.894,
+          210011.708,
+          210446.694,
+          210193.724,
+          210123.187,
+          210136.717,
+          210320.614,
+          209911.409,
+          210383.52,
+          210717.421,
+          210806.007,
+          211641.847,
+          211044.493,
+          211094.653
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2665869312,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-off.stdout",
+      "wall_seconds": 8.357131712138653,
+      "workload": "all-miss"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 212042.109,
+        "mean": 211220.56333333335,
+        "minimum": 210095.813,
+        "p50": {
+          "ci95": [
+            211052.088,
+            211429.5615
+          ],
+          "estimate": 211296.8075
+        },
+        "p95": {
+          "ci95": [
+            211635.04230000003,
+            212042.109
+          ],
+          "estimate": 211986.37910000002
+        },
+        "p99": {
+          "ci95": [
+            211848.30139,
+            212042.109
+          ],
+          "estimate": 212034.3022
+        },
+        "samples": [
+          212042.109,
+          210625.814,
+          210656.532,
+          210145.6,
+          211130.002,
+          210095.813,
+          210519.969,
+          211556.026,
+          210970.812,
+          211105.195,
+          211159.509,
+          211589.253,
+          211499.016,
+          211319.706,
+          211430.095,
+          211668.127,
+          211285.476,
+          210998.981,
+          211296.278,
+          211429.028,
+          211417.693,
+          210792.808,
+          211951.167,
+          211699.692,
+          210822.094,
+          212015.189,
+          211325.416,
+          210863.162,
+          211297.337,
+          211909.001
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655465472,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-cache.stdout",
+      "wall_seconds": 8.404680198989809,
+      "workload": "all-miss"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 50981.408,
+        "mean": 48229.84386666667,
+        "minimum": 47344.624,
+        "p50": {
+          "ci95": [
+            47885.154500000004,
+            48112.1925
+          ],
+          "estimate": 47946.841
+        },
+        "p95": {
+          "ci95": [
+            48260.6726475,
+            50981.408
+          ],
+          "estimate": 50731.36585
+        },
+        "p99": {
+          "ci95": [
+            48334.869,
+            50981.408
+          ],
+          "estimate": 50915.309460000004
+        },
+        "samples": [
+          50753.482,
+          50981.408,
+          50704.335,
+          48260.838,
+          47868.635,
+          47976.965,
+          47914.567,
+          47919.673,
+          48334.869,
+          48162.326,
+          48018.602,
+          47466.072,
+          48049.473,
+          48104.831,
+          47895.886,
+          47914.223,
+          47782.901,
+          47816.215,
+          48246.14,
+          47344.624,
+          47974.009,
+          47894.345,
+          47874.556,
+          48275.678,
+          47875.964,
+          48119.554,
+          47854.555,
+          47477.225,
+          48222.503,
+          47810.862
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655346688,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "licm",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-licm.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-licm.stdout",
+      "wall_seconds": 3.31783270300366,
+      "workload": "all-miss"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 50717.277,
+        "mean": 48274.958366666666,
+        "minimum": 47280.23,
+        "p50": {
+          "ci95": [
+            47851.4305,
+            48066.594
+          ],
+          "estimate": 47886.4875
+        },
+        "p95": {
+          "ci95": [
+            48323.3903375,
+            50717.277
+          ],
+          "estimate": 50658.1485
+        },
+        "p99": {
+          "ci95": [
+            49961.16227,
+            50717.277
+          ],
+          "estimate": 50705.264910000005
+        },
+        "samples": [
+          50636.506,
+          50605.089,
+          50717.277,
+          50675.856,
+          48086.602,
+          48248.542,
+          47850.065,
+          47759.229,
+          47852.796,
+          47874.69,
+          47943.582,
+          47868.659,
+          47743.983,
+          47818.443,
+          47862.764,
+          47829.01,
+          48235.217,
+          48202.709,
+          48046.586,
+          47280.23,
+          47869.377,
+          48322.916,
+          48038.145,
+          47903.141,
+          47796.635,
+          47898.285,
+          48384.652,
+          47447.528,
+          47607.707,
+          47842.53
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2665029632,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "smolvla",
+      "non_region_trace_digest": "7cb90087f5a96f619f8613370fb1ab8cba1ad14b8b3ab31e592ce39b5d2e61f8",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-combined.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-all-miss-combined.stdout",
+      "wall_seconds": 3.3256444588769227,
+      "workload": "all-miss"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 212106.963,
+        "mean": 211154.1806,
+        "minimum": 209669.817,
+        "p50": {
+          "ci95": [
+            211002.83299999998,
+            211492.443
+          ],
+          "estimate": 211278.9005
+        },
+        "p95": {
+          "ci95": [
+            211571.9824,
+            212106.963
+          ],
+          "estimate": 211775.7923
+        },
+        "p99": {
+          "ci95": [
+            211601.70652,
+            212106.963
+          ],
+          "estimate": 212032.73865999997
+        },
+        "samples": [
+          210401.666,
+          210278.965,
+          210645.063,
+          209669.817,
+          210140.427,
+          210688.624,
+          211012.709,
+          211548.744,
+          211353.423,
+          211577.629,
+          211683.851,
+          211294.604,
+          210952.325,
+          211851.017,
+          211565.081,
+          210992.957,
+          212106.963,
+          211502.905,
+          211316.339,
+          211481.981,
+          211207.796,
+          211119.571,
+          211276.215,
+          211611.541,
+          210789.435,
+          211572.859,
+          211281.586,
+          211192.416,
+          210949.266,
+          211559.643
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655330304,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "smolvla",
+      "non_region_trace_digest": "f40f1b475aaacb5e9166b65a6e3f98db3feca8d59aa6f421064ac4e47df5e707",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-off.stdout",
+      "wall_seconds": 8.407135511981323,
+      "workload": "stale"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 212128.366,
+        "mean": 211257.33156666666,
+        "minimum": 209487.433,
+        "p50": {
+          "ci95": [
+            211152.5765,
+            211422.676
+          ],
+          "estimate": 211304.27649999998
+        },
+        "p95": {
+          "ci95": [
+            211666.012,
+            212128.366
+          ],
+          "estimate": 211748.7448
+        },
+        "p99": {
+          "ci95": [
+            211718.27618,
+            212128.36600000004
+          ],
+          "estimate": 212020.70524
+        },
+        "samples": [
+          211738.506,
+          209487.433,
+          210621.207,
+          211298.778,
+          211168.201,
+          211360.973,
+          211319.184,
+          210963.035,
+          211153.088,
+          212128.366,
+          211015.043,
+          210879.598,
+          211058.865,
+          211708.461,
+          211450.836,
+          211309.775,
+          211757.122,
+          211038.802,
+          211152.065,
+          211258.747,
+          211568.292,
+          211499.969,
+          211662.668,
+          211249.183,
+          211736.086,
+          211668.748,
+          211080.142,
+          211353.99,
+          211394.516,
+          210638.268
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655436800,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "smolvla",
+      "non_region_trace_digest": "f40f1b475aaacb5e9166b65a6e3f98db3feca8d59aa6f421064ac4e47df5e707",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-cache.stdout",
+      "wall_seconds": 8.399837187957019,
+      "workload": "stale"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 51017.46,
+        "mean": 48312.07116666667,
+        "minimum": 47286.122,
+        "p50": {
+          "ci95": [
+            47936.5625,
+            48200.0325
+          ],
+          "estimate": 48089.903999999995
+        },
+        "p95": {
+          "ci95": [
+            48476.835,
+            51017.46
+          ],
+          "estimate": 50633.75005
+        },
+        "p99": {
+          "ci95": [
+            48653.23431,
+            51017.46
+          ],
+          "estimate": 50908.944319999995
+        },
+        "samples": [
+          50643.268,
+          51017.46,
+          50622.117,
+          48541.508,
+          47531.227,
+          48146.527,
+          47897.762,
+          48133.406,
+          47923.59,
+          47949.535,
+          47885.254,
+          48476.835,
+          47286.122,
+          47754.639,
+          48043.62,
+          48082.125,
+          48219.666,
+          47971.316,
+          47849.721,
+          47915.746,
+          47502.727,
+          48257.328,
+          48401.854,
+          48097.683,
+          48058.881,
+          48698.869,
+          48107.832,
+          48231.5,
+          48180.399,
+          47933.618
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655371264,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "licm",
+      "model": "smolvla",
+      "non_region_trace_digest": "f40f1b475aaacb5e9166b65a6e3f98db3feca8d59aa6f421064ac4e47df5e707",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-licm.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-licm.stdout",
+      "wall_seconds": 3.3096242998726666,
+      "workload": "stale"
+    },
+    {
+      "action_digest": "764b0b0a547f1b95c7a5fc0a3503f8e236fe86a68a7641d518b21dd9039828b5",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "e364fe1f4fda141b937c574e75c563a7b14c10015a5764cf5e9eb98fea8c89d4",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 50990.017,
+        "mean": 48280.77193333334,
+        "minimum": 47553.886,
+        "p50": {
+          "ci95": [
+            47831.3415,
+            48033.431500000006
+          ],
+          "estimate": 47937.1985
+        },
+        "p95": {
+          "ci95": [
+            48301.591,
+            50990.017
+          ],
+          "estimate": 50682.56435
+        },
+        "p99": {
+          "ci95": [
+            49810.36716,
+            50990.017
+          ],
+          "estimate": 50924.50455
+        },
+        "samples": [
+          50764.112,
+          50990.017,
+          50582.895,
+          50375.953,
+          48059.027,
+          47624.925,
+          47930.443,
+          48104.985,
+          47826.669,
+          47935.93,
+          47836.014,
+          48425.657,
+          47798.0,
+          47637.198,
+          47621.915,
+          47967.663,
+          48301.591,
+          47932.057,
+          47822.43,
+          47976.089,
+          47769.533,
+          47553.886,
+          47938.467,
+          47868.091,
+          47942.563,
+          48007.836,
+          47787.101,
+          48218.558,
+          47766.768,
+          48056.785
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 3121645,
+        "compiler_arena_bytes": 15360,
+        "process_rss_peak_bytes": 2655502336,
+        "process_vram_peak_bytes": 2059403264,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "smolvla",
+      "non_region_trace_digest": "f40f1b475aaacb5e9166b65a6e3f98db3feca8d59aa6f421064ac4e47df5e707",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-combined.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/smolvla-stale-combined.stdout",
+      "wall_seconds": 3.3607841439079493,
+      "workload": "stale"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 34672235.471,
+        "mean": 33133517.98736667,
+        "minimum": 32571677.987,
+        "p50": {
+          "ci95": [
+            33031279.6505,
+            33216828.07
+          ],
+          "estimate": 33158838.3905
+        },
+        "p95": {
+          "ci95": [
+            33262466.2817825,
+            34672235.471
+          ],
+          "estimate": 33373212.04755
+        },
+        "p99": {
+          "ci95": [
+            33280929.44082,
+            34672235.471
+          ],
+          "estimate": 34313151.900970004
+        },
+        "samples": [
+          34672235.471,
+          32841872.079,
+          33065124.55,
+          32650271.409,
+          32861645.906,
+          33234113.895,
+          32755065.265,
+          32819983.723,
+          32964050.106,
+          32997434.751,
+          33110760.166,
+          33215381.545,
+          33217989.24,
+          33174798.848,
+          33121942.781,
+          33266260.935,
+          33233962.856,
+          32571677.987,
+          32940789.441,
+          33209827.447,
+          33100413.887,
+          33268308.806,
+          33215666.9,
+          33298895.783,
+          33210774.109,
+          32869856.033,
+          33253457.157,
+          33286084.348,
+          33434016.264,
+          33142877.933
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17019658240,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.stdout",
+      "wall_seconds": 1037.8917221578304,
+      "workload": "nominal"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 15,
+      "cache_misses": 16,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 34964742.464,
+        "mean": 18379039.606599998,
+        "minimum": 2910098.716,
+        "p50": {
+          "ci95": [
+            2997767.1815,
+            33469417.054
+          ],
+          "estimate": 18145733.3125
+        },
+        "p95": {
+          "ci95": [
+            33808573.622,
+            34964742.464
+          ],
+          "estimate": 34328115.3715
+        },
+        "p99": {
+          "ci95": [
+            34123497.122140005,
+            34964742.464
+          ],
+          "estimate": 34793571.89337
+        },
+        "samples": [
+          3063253.391,
+          33823583.016,
+          2923558.834,
+          33791628.255,
+          3005941.037,
+          34245997.25,
+          2910098.716,
+          33434317.136,
+          2931714.523,
+          33473208.203,
+          2917398.07,
+          33808573.622,
+          2997327.996,
+          33465625.905,
+          2966742.046,
+          33335773.905,
+          2964129.938,
+          34374499.117,
+          3005120.296,
+          33649098.113,
+          2912138.112,
+          34964742.464,
+          2996937.19,
+          33228213.234,
+          2998206.367,
+          34271424.127,
+          3005811.754,
+          33245891.822,
+          2917322.731,
+          33742911.028
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17791643648,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-cache.stdout",
+      "wall_seconds": 598.0157877351157,
+      "workload": "nominal"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 15,
+      "cache_misses": 16,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 34964742.464,
+        "mean": 18379039.606599998,
+        "minimum": 2910098.716,
+        "p50": {
+          "ci95": [
+            2997767.1815,
+            33469417.054
+          ],
+          "estimate": 18145733.3125
+        },
+        "p95": {
+          "ci95": [
+            33808573.622,
+            34964742.464
+          ],
+          "estimate": 34328115.3715
+        },
+        "p99": {
+          "ci95": [
+            34123497.122140005,
+            34964742.464
+          ],
+          "estimate": 34793571.89337
+        },
+        "samples": [
+          3063253.391,
+          33823583.016,
+          2923558.834,
+          33791628.255,
+          3005941.037,
+          34245997.25,
+          2910098.716,
+          33434317.136,
+          2931714.523,
+          33473208.203,
+          2917398.07,
+          33808573.622,
+          2997327.996,
+          33465625.905,
+          2966742.046,
+          33335773.905,
+          2964129.938,
+          34374499.117,
+          3005120.296,
+          33649098.113,
+          2912138.112,
+          34964742.464,
+          2996937.19,
+          33228213.234,
+          2998206.367,
+          34271424.127,
+          3005811.754,
+          33245891.822,
+          2917322.731,
+          33742911.028
+        ]
+      },
+      "measurement_reused_from": "cache",
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17791643648,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-cache.stdout",
+      "wall_seconds": 598.0157877351157,
+      "workload": "nominal"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 34672235.471,
+        "mean": 33133517.98736667,
+        "minimum": 32571677.987,
+        "p50": {
+          "ci95": [
+            33014587.328,
+            33216857.09925
+          ],
+          "estimate": 33158838.3905
+        },
+        "p95": {
+          "ci95": [
+            33261625.563950002,
+            34672235.471
+          ],
+          "estimate": 33373212.04755
+        },
+        "p99": {
+          "ci95": [
+            33280929.44082,
+            34672235.471
+          ],
+          "estimate": 34313151.900970004
+        },
+        "samples": [
+          34672235.471,
+          32841872.079,
+          33065124.55,
+          32650271.409,
+          32861645.906,
+          33234113.895,
+          32755065.265,
+          32819983.723,
+          32964050.106,
+          32997434.751,
+          33110760.166,
+          33215381.545,
+          33217989.24,
+          33174798.848,
+          33121942.781,
+          33266260.935,
+          33233962.856,
+          32571677.987,
+          32940789.441,
+          33209827.447,
+          33100413.887,
+          33268308.806,
+          33215666.9,
+          33298895.783,
+          33210774.109,
+          32869856.033,
+          33253457.157,
+          33286084.348,
+          33434016.264,
+          33142877.933
+        ]
+      },
+      "measurement_reused_from": "nominal/off",
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17019658240,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.stdout",
+      "wall_seconds": 1037.8917221578304,
+      "workload": "repeat"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 30,
+      "cache_misses": 1,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 2999695.449,
+        "mean": 2921725.0833,
+        "minimum": 2895912.799,
+        "p50": {
+          "ci95": [
+            2906043.766,
+            2932589.83
+          ],
+          "estimate": 2916611.4634999996
+        },
+        "p95": {
+          "ci95": [
+            2939225.0023999996,
+            2999695.449
+          ],
+          "estimate": 2943439.041
+        },
+        "p99": {
+          "ci95": [
+            2940376.57199,
+            2999695.449
+          ],
+          "estimate": 2983405.73952
+        },
+        "samples": [
+          2999695.449,
+          2943524.037,
+          2905185.815,
+          2905714.059,
+          2924580.03,
+          2931823.55,
+          2926211.659,
+          2904364.048,
+          2908169.502,
+          2906373.473,
+          2933356.11,
+          2938407.104,
+          2937585.417,
+          2943335.157,
+          2940491.519,
+          2938338.257,
+          2939894.192,
+          2940095.15,
+          2917745.729,
+          2907914.639,
+          2905429.312,
+          2915477.198,
+          2909765.033,
+          2903423.244,
+          2902585.82,
+          2928056.614,
+          2897705.183,
+          2895912.799,
+          2896353.228,
+          2904239.172
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 16848867328,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-repeat-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-repeat-cache.stdout",
+      "wall_seconds": 130.93038037791848,
+      "workload": "repeat"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 30,
+      "cache_misses": 1,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 2999695.449,
+        "mean": 2921725.0833,
+        "minimum": 2895912.799,
+        "p50": {
+          "ci95": [
+            2906043.766,
+            2932589.83
+          ],
+          "estimate": 2916611.4634999996
+        },
+        "p95": {
+          "ci95": [
+            2939225.0023999996,
+            2999695.449
+          ],
+          "estimate": 2943439.041
+        },
+        "p99": {
+          "ci95": [
+            2940376.57199,
+            2999695.449
+          ],
+          "estimate": 2983405.73952
+        },
+        "samples": [
+          2999695.449,
+          2943524.037,
+          2905185.815,
+          2905714.059,
+          2924580.03,
+          2931823.55,
+          2926211.659,
+          2904364.048,
+          2908169.502,
+          2906373.473,
+          2933356.11,
+          2938407.104,
+          2937585.417,
+          2943335.157,
+          2940491.519,
+          2938338.257,
+          2939894.192,
+          2940095.15,
+          2917745.729,
+          2907914.639,
+          2905429.312,
+          2915477.198,
+          2909765.033,
+          2903423.244,
+          2902585.82,
+          2928056.614,
+          2897705.183,
+          2895912.799,
+          2896353.228,
+          2904239.172
+        ]
+      },
+      "measurement_reused_from": "cache",
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 16848867328,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-repeat-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-repeat-cache.stdout",
+      "wall_seconds": 130.93038037791848,
+      "workload": "repeat"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 34672235.471,
+        "mean": 33133517.98736667,
+        "minimum": 32571677.987,
+        "p50": {
+          "ci95": [
+            33031279.6505,
+            33217989.24
+          ],
+          "estimate": 33158838.3905
+        },
+        "p95": {
+          "ci95": [
+            33260499.2349,
+            34672235.471
+          ],
+          "estimate": 33373212.04755
+        },
+        "p99": {
+          "ci95": [
+            33280929.44082,
+            34672235.471
+          ],
+          "estimate": 34313151.900970004
+        },
+        "samples": [
+          34672235.471,
+          32841872.079,
+          33065124.55,
+          32650271.409,
+          32861645.906,
+          33234113.895,
+          32755065.265,
+          32819983.723,
+          32964050.106,
+          32997434.751,
+          33110760.166,
+          33215381.545,
+          33217989.24,
+          33174798.848,
+          33121942.781,
+          33266260.935,
+          33233962.856,
+          32571677.987,
+          32940789.441,
+          33209827.447,
+          33100413.887,
+          33268308.806,
+          33215666.9,
+          33298895.783,
+          33210774.109,
+          32869856.033,
+          33253457.157,
+          33286084.348,
+          33434016.264,
+          33142877.933
+        ]
+      },
+      "measurement_reused_from": "nominal/off",
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17019658240,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-nominal-off.stdout",
+      "wall_seconds": 1037.8917221578304,
+      "workload": "all-miss"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 33689256.321,
+        "mean": 33261356.578933336,
+        "minimum": 32559853.238,
+        "p50": {
+          "ci95": [
+            33215214.035,
+            33423431.7145
+          ],
+          "estimate": 33324024.8595
+        },
+        "p95": {
+          "ci95": [
+            33499126.0259,
+            33689256.321
+          ],
+          "estimate": 33559222.31315
+        },
+        "p99": {
+          "ci95": [
+            33539065.01641,
+            33689256.321
+          ],
+          "estimate": 33653104.60954
+        },
+        "samples": [
+          33474939.908,
+          33490642.578,
+          33689256.321,
+          33371944.06,
+          33443026.72,
+          33314666.764,
+          33263615.489,
+          32863235.66,
+          32967933.503,
+          33256641.823,
+          33564595.247,
+          33016471.342,
+          32981368.073,
+          33253390.849,
+          33054535.62,
+          33272993.89,
+          33333382.955,
+          33505792.023,
+          33010146.674,
+          32943788.646,
+          33336034.725,
+          32559853.238,
+          33511899.923,
+          33370184.307,
+          33215214.035,
+          33483513.485,
+          32783405.619,
+          33403836.709,
+          33552655.394,
+          33551731.788
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17840340992,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-all-miss-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-all-miss-cache.stdout",
+      "wall_seconds": 1041.9871181808412,
+      "workload": "all-miss"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 33689256.321,
+        "mean": 33261356.578933336,
+        "minimum": 32559853.238,
+        "p50": {
+          "ci95": [
+            33215214.035,
+            33423431.7145
+          ],
+          "estimate": 33324024.8595
+        },
+        "p95": {
+          "ci95": [
+            33499126.0259,
+            33689256.321
+          ],
+          "estimate": 33559222.31315
+        },
+        "p99": {
+          "ci95": [
+            33539065.01641,
+            33689256.321
+          ],
+          "estimate": 33653104.60954
+        },
+        "samples": [
+          33474939.908,
+          33490642.578,
+          33689256.321,
+          33371944.06,
+          33443026.72,
+          33314666.764,
+          33263615.489,
+          32863235.66,
+          32967933.503,
+          33256641.823,
+          33564595.247,
+          33016471.342,
+          32981368.073,
+          33253390.849,
+          33054535.62,
+          33272993.89,
+          33333382.955,
+          33505792.023,
+          33010146.674,
+          32943788.646,
+          33336034.725,
+          32559853.238,
+          33511899.923,
+          33370184.307,
+          33215214.035,
+          33483513.485,
+          32783405.619,
+          33403836.709,
+          33552655.394,
+          33551731.788
+        ]
+      },
+      "measurement_reused_from": "cache",
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17840340992,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "openvla",
+      "non_region_trace_digest": "39f2c53020ac6a9bfba90be4fdef15d98f9b8f0819cf4c89fc989ec0738687fe",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-all-miss-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-all-miss-cache.stdout",
+      "wall_seconds": 1041.9871181808412,
+      "workload": "all-miss"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 33430919.291,
+        "mean": 33040819.816299997,
+        "minimum": 32601827.05,
+        "p50": {
+          "ci95": [
+            32967958.483,
+            33131182.978
+          ],
+          "estimate": 33064058.53
+        },
+        "p95": {
+          "ci95": [
+            33241672.547,
+            33430919.291
+          ],
+          "estimate": 33363521.581699997
+        },
+        "p99": {
+          "ci95": [
+            33305464.696670003,
+            33430919.291
+          ],
+          "estimate": 33418765.73552
+        },
+        "samples": [
+          33306434.682,
+          32922621.261,
+          33086390.806,
+          33005510.051,
+          33068006.299,
+          33164546.163,
+          32946175.328,
+          33109655.444,
+          32981205.025,
+          33131182.978,
+          32734410.613,
+          33238500.518,
+          32983519.021,
+          32734526.416,
+          32874580.332,
+          32601827.05,
+          33061520.755,
+          32956128.222,
+          33127712.466,
+          32698837.603,
+          32707452.313,
+          33430919.291,
+          32835372.211,
+          33066596.305,
+          33389010.479,
+          33332368.485,
+          33241672.547,
+          33205033.176,
+          33303089.905,
+          32979788.744
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17902243840,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "off",
+      "model": "openvla",
+      "non_region_trace_digest": "6b55829b0d8b05f4a197b69931c3a5ca76ea26572123ad61aede04b6359e4835",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-off.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-off.stdout",
+      "wall_seconds": 1035.0788264758885,
+      "workload": "stale"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 34207874.896,
+        "mean": 33207427.8299,
+        "minimum": 32625325.784,
+        "p50": {
+          "ci95": [
+            33065904.657,
+            33260806.306
+          ],
+          "estimate": 33117132.7795
+        },
+        "p95": {
+          "ci95": [
+            33430329.5098,
+            34207874.896
+          ],
+          "estimate": 33910310.1485
+        },
+        "p99": {
+          "ci95": [
+            33480621.152879998,
+            34207874.896
+          ],
+          "estimate": 34165194.71904
+        },
+        "samples": [
+          34207874.896,
+          32651313.202,
+          32933108.115,
+          33230146.251,
+          33058916.53,
+          33213608.027,
+          33446357.571,
+          33092797.546,
+          33726498.042,
+          33291466.361,
+          33014401.135,
+          32625325.784,
+          33466396.567,
+          33034744.283,
+          32888955.803,
+          32952143.124,
+          33092427.746,
+          32936528.439,
+          33067553.486,
+          33386247.551,
+          33135517.083,
+          33486431.195,
+          33064255.828,
+          33336996.505,
+          33182314.329,
+          33296484.435,
+          33098748.476,
+          33163515.228,
+          33081059.487,
+          34060701.872
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17818689536,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "cache",
+      "model": "openvla",
+      "non_region_trace_digest": "6b55829b0d8b05f4a197b69931c3a5ca76ea26572123ad61aede04b6359e4835",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-cache.stdout",
+      "wall_seconds": 1040.3563265712,
+      "workload": "stale"
+    },
+    {
+      "action_digest": "3736f28a42bbe12799a7da5b8268948daca550fe7e7e0fa143bcbace14b4a31e",
+      "cache_hits": 0,
+      "cache_misses": 31,
+      "evidence_digest": "57f7688682699a35a89011bdfb45c0cb4ec970f9d240c1f894bbfcd369a72294",
+      "evidence_mismatches": [],
+      "exact_vs_off": true,
+      "latency_us": {
+        "maximum": 34207874.896,
+        "mean": 33207427.8299,
+        "minimum": 32625325.784,
+        "p50": {
+          "ci95": [
+            33065904.657,
+            33260806.306
+          ],
+          "estimate": 33117132.7795
+        },
+        "p95": {
+          "ci95": [
+            33430329.5098,
+            34207874.896
+          ],
+          "estimate": 33910310.1485
+        },
+        "p99": {
+          "ci95": [
+            33480621.152879998,
+            34207874.896
+          ],
+          "estimate": 34165194.71904
+        },
+        "samples": [
+          34207874.896,
+          32651313.202,
+          32933108.115,
+          33230146.251,
+          33058916.53,
+          33213608.027,
+          33446357.571,
+          33092797.546,
+          33726498.042,
+          33291466.361,
+          33014401.135,
+          32625325.784,
+          33466396.567,
+          33034744.283,
+          32888955.803,
+          32952143.124,
+          33092427.746,
+          32936528.439,
+          33067553.486,
+          33386247.551,
+          33135517.083,
+          33486431.195,
+          33064255.828,
+          33336996.505,
+          33182314.329,
+          33296484.435,
+          33098748.476,
+          33163515.228,
+          33081059.487,
+          34060701.872
+        ]
+      },
+      "measurement_reused_from": "cache",
+      "memory": {
+        "backend_declared_tensor_bytes": 1021764824,
+        "compiler_arena_bytes": 192,
+        "process_rss_peak_bytes": 17818689536,
+        "process_vram_peak_bytes": 0,
+        "scope_note": "compiler arena, declared backend tensors, process RSS, and whole-process VRAM are distinct measurements"
+      },
+      "mode": "combined",
+      "model": "openvla",
+      "non_region_trace_digest": "6b55829b0d8b05f4a197b69931c3a5ca76ea26572123ad61aede04b6359e4835",
+      "post_warm_samples": 30,
+      "stderr_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-cache.stderr",
+      "stdout_path": "/tmp/vlaforge-paper-artifact-final-20260724/raw/openvla-stale-cache.stdout",
+      "wall_seconds": 1040.3563265712,
+      "workload": "stale"
+    }
+  ],
+  "modes": {
+    "cache": "memoization on, temporal LICM off",
+    "combined": "verified memoization, LICM, and arena reuse",
+    "licm": "memoization off, temporal LICM on",
+    "off": "memoization off, temporal LICM off"
+  },
+  "openvla_licm": {
+    "reason": "prefill produces the autoregressive loop seed and is structurally required in the loop preheader",
+    "status": "already_prehoisted"
+  },
+  "revision": "d818bf6d611e8ad257a7ff434934c8e14e8f868f",
+  "sample_contract": {
+    "bootstrap_resamples": 2000,
+    "confidence": 0.95,
+    "post_warm_samples": 30,
+    "warmup": 1
+  },
+  "schema": "vlaforge.paper_benchmark/1",
+  "source_dirty": false,
+  "workloads": {
+    "all-miss": "every tick carries a new input epoch",
+    "nominal": "every input epoch is reused by two adjacent ticks",
+    "repeat": "one fresh input epoch is reused for all measured ticks",
+    "stale": "the repeated epoch exceeds its max_age_ns bound"
+  }
+}
