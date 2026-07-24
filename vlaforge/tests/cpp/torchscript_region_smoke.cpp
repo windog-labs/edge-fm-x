@@ -1,14 +1,11 @@
-#include "vlaforge/backends/aoti_region_executable.h"
+#include "vlaforge/backends/torchscript_region_executable.h"
 
 #include <ATen/ATen.h>
-#include <c10/cuda/CUDAGuard.h>
-#include <c10/cuda/CUDAFunctions.h>
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <optional>
 #include <string>
 
 namespace {
@@ -24,80 +21,59 @@ bool Check(VLAForgeStatus status, const char* operation) {
 
 VLAForgeTensorView View(at::Tensor& tensor,
                         const std::int64_t* dimensions,
-                        std::uint32_t rank,
-                        VLAForgeDeviceKind device_kind) {
+                        std::uint32_t rank) {
   return VLAForgeTensorView{
       tensor.data_ptr(),
       static_cast<std::uint64_t>(tensor.nbytes()),
       dimensions,
       rank,
       VLAFORGE_DTYPE_F32,
-      {device_kind, tensor.is_cuda() ? tensor.get_device() : 0},
+      {VLAFORGE_DEVICE_CPU, 0},
   };
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 2 || argc > 3) {
-    std::fprintf(stderr, "usage: %s REGION.pt2 [cuda|cpu]\n", argv[0]);
+  if (argc != 2) {
+    std::fprintf(stderr, "usage: %s REGION.pt\n", argv[0]);
     return 2;
   }
-
-  const std::string requested_device = argc == 3 ? argv[2] : "cuda";
-  const bool use_cuda = requested_device == "cuda";
-  if (!use_cuda && requested_device != "cpu") {
-    std::fprintf(stderr, "device must be cuda or cpu\n");
-    return 2;
-  }
-  std::optional<c10::cuda::CUDAGuard> guard;
-  if (use_cuda) {
-    guard.emplace(0);
-  }
-  const auto device =
-      use_cuda ? at::Device(at::kCUDA) : at::Device(at::kCPU);
-  const auto device_kind =
-      use_cuda ? VLAFORGE_DEVICE_CUDA : VLAFORGE_DEVICE_CPU;
   at::Tensor input =
-      at::arange(16, at::TensorOptions().dtype(at::kFloat).device(device))
+      at::arange(16, at::TensorOptions().dtype(at::kFloat))
           .reshape({4, 4})
           .div(8.0);
   at::Tensor gain =
-      at::full({}, 0.75,
-               at::TensorOptions().dtype(at::kFloat).device(device));
+      at::full({}, 0.75, at::TensorOptions().dtype(at::kFloat));
   at::Tensor output = at::empty_like(input);
   constexpr std::array<std::int64_t, 2> kMatrixShape = {4, 4};
-
-  const auto* api = vlaforge_aoti_region_executable_api();
+  const auto* api = vlaforge_torchscript_region_executable_api();
   if (!Check(vlaforge_region_executable_api_validate(api),
              "validate API")) {
     return 3;
   }
-
   VLAForgeRegionExecutable* executable = nullptr;
   const VLAForgeRegionCreateOptions options{
       sizeof(VLAForgeRegionCreateOptions),
       VLAFORGE_REGION_EXECUTABLE_ABI_VERSION,
       0u,
-      {device_kind, 0},
+      {VLAFORGE_DEVICE_CPU, 0},
   };
   if (!Check(api->create(&options, &executable), "create")) {
     return 4;
   }
-
-  const std::string package_path(argv[1]);
+  const std::string archive_path(argv[1]);
   const VLAForgeArtifactDescriptor artifact{
       sizeof(VLAForgeArtifactDescriptor),
       VLAFORGE_REGION_EXECUTABLE_ABI_VERSION,
-      package_path.data(),
-      package_path.size(),
+      archive_path.data(),
+      archive_path.size(),
       nullptr,
       0u,
   };
-  auto input_view = View(input, kMatrixShape.data(), 2u, device_kind);
-  auto gain_view = View(gain, nullptr, 0u, device_kind);
-  auto output_view = View(output, kMatrixShape.data(), 2u, device_kind);
-
+  auto input_view = View(input, kMatrixShape.data(), 2u);
+  auto gain_view = View(gain, nullptr, 0u);
+  auto output_view = View(output, kMatrixShape.data(), 2u);
   const bool passed =
       Check(api->load(executable, &artifact), "load") &&
       Check(api->bind_input(executable, 0u, &input_view), "bind input") &&
@@ -109,11 +85,9 @@ int main(int argc, char** argv) {
   if (!passed) {
     return 5;
   }
-
-  const at::Tensor cpu = output.cpu().contiguous().view({-1});
-  const auto* values = cpu.const_data_ptr<float>();
+  const auto* values = output.contiguous().const_data_ptr<float>();
   std::printf("OUTPUT");
-  for (std::int64_t index = 0; index < cpu.numel(); ++index) {
+  for (std::int64_t index = 0; index < output.numel(); ++index) {
     std::printf(",%.9g", static_cast<double>(values[index]));
   }
   std::printf("\n");

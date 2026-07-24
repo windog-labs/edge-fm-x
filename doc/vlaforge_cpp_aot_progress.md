@@ -380,12 +380,50 @@ git diff --check: passed
 Detailed report:
 `doc/reports/vlaforge_cpp_codegen_aoti.md`.
 
+## Gate G3: two real models, no Python
+
+Status: passed.
+
+SmolVLA:
+
+```text
+backend: CUDA AOTInductor
+generated source digest:
+  352ae0704404984afe5d8243ffc7d79ebffd556e083d143f61502295ff10cab0
+Semantic/Plan/C++ execution events: 66/66 exact
+reset event: exact
+transactions: 0, 1, 2
+action_queue and queue_cursor versions: 1, 2, 3
+numeric comparisons: 50/50 within explicit BF16 contract
+maximum published-action absolute error: 0.010336
+```
+
+OpenVLA:
+
+```text
+backend: shared CPU TorchScript archive after documented AOTI host OOM
+archive size: 15,085,415,106 bytes
+archive SHA-256:
+  f77f68374187adade017e6f5d9e35ba0d97936f144ca7ae4fc5711b4a4c2eaec
+generated source digest:
+  cefbb5b403dce15ea675d7f2d0b4696256a8b7f4d6dfae0199b9e877ec111e3d
+official/Python/C++ token IDs: exact
+region/decode-step tensors: 460/460 exact
+Semantic/Plan/C++ execution events: 54/54 exact
+transactions: 0, 1, 2
+persistent states and state commit events: 0
+```
+
+Both clean C++ runners pass with invalid `PYTHONHOME/PYTHONPATH` and neither
+links `libpython`. Runtime backends contain no model name or model-specific
+branch.
+
+Detailed reports:
+
+- `doc/reports/vlaforge_cpp_smolvla_real.md`
+- `doc/reports/vlaforge_cpp_openvla_real.md`
+
 ## Next
 
-1. Compile and bind real SmolVLA prefix/solver/trim artifacts, then complete
-   queue refill/reuse, cursor commit, multiple ticks, and reset in generated
-   C++.
-2. Compile and bind real OpenVLA prefill/decode/extract/detokenize artifacts
-   with the fixed autoregressive loop.
-3. Capture eager/Semantic/Plan/C++ region, step, state, action, and
-   commit/publish evidence for Gate G3.
+Gate G4: implement and measure epoch-keyed cache synthesis, temporal
+loop-invariant motion, and lifetime-proven cross-cycle arena reuse.

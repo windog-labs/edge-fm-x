@@ -150,7 +150,23 @@ int main() {
     const Epoch tick{0, sequence - 1, sequence * 20, 0};
     const Epoch state_epoch{0, sequence, sequence * 20, 0};
     latest_value = static_cast<std::int64_t>(100 + sequence);
-    if (!store.Begin(&transaction, tick, 20).ok() ||
+    if (!store.Begin(&transaction, tick, 20).ok()) {
+      return 10;
+    }
+    if (sequence == 2) {
+      StateSnapshot in_transaction_snapshot;
+      if (!store
+               .ReadLatest(
+                   0, 0, std::numeric_limits<std::uint64_t>::max(),
+                   false, 25, &in_transaction_snapshot)
+               .ok() ||
+          traces.count == 0 ||
+          traces.events[traces.count - 1].transaction_id !=
+              transaction.id()) {
+        return 10;
+      }
+    }
+    if (
         !store
              .Stage(&transaction, 0, state_epoch, &latest_value,
                     sizeof(latest_value), 21)

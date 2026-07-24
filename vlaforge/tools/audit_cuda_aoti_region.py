@@ -53,21 +53,21 @@ def _parse_output(text: str) -> list[float]:
     return [float(item) for item in line.split(",")[1:]]
 
 
-def _audit(root: Path) -> dict[str, object]:
-    if not torch.cuda.is_available():
+def _audit(root: Path, device: str = "cuda") -> dict[str, object]:
+    if device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA is unavailable")
 
     source_root = Path(__file__).resolve().parents[1]
     package_path = root / "audit_tensor_region.pt2"
     build_dir = root / "build"
 
-    model = AuditTensorRegion().eval().cuda()
+    model = AuditTensorRegion().eval().to(device)
     values = (
-        torch.arange(16, dtype=torch.float32, device="cuda")
+        torch.arange(16, dtype=torch.float32, device=device)
         .reshape(4, 4)
         .div(8.0)
     )
-    gain = torch.tensor(0.75, dtype=torch.float32, device="cuda")
+    gain = torch.tensor(0.75, dtype=torch.float32, device=device)
     expected = model(values, gain).detach().cpu().flatten().tolist()
 
     compile_start = time.perf_counter()
@@ -117,7 +117,7 @@ def _audit(root: Path) -> dict[str, object]:
     )
     run_start = time.perf_counter()
     completed = _run(
-        [str(runner), str(package_path)], env=clean_environment
+        [str(runner), str(package_path), device], env=clean_environment
     )
     run_seconds = time.perf_counter() - run_start
     actual = _parse_output(completed.stdout)
@@ -142,11 +142,13 @@ def _audit(root: Path) -> dict[str, object]:
         raise RuntimeError("C++ AOTI runner unexpectedly links Python")
 
     return {
-        "schema": "vlaforge.cuda_aoti_audit/1",
+        "schema": "vlaforge.aoti_audit/1",
         "status": "passed",
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
-        "device": torch.cuda.get_device_name(0),
+        "device": (
+            torch.cuda.get_device_name(0) if device == "cuda" else "cpu"
+        ),
         "package": {
             "path": str(package_path),
             "sha256": _sha256(package_path),
@@ -171,6 +173,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Persistent audit directory; a temporary directory is used by default.",
     )
     parser.add_argument("--report", help="Optional JSON report path.")
+    parser.add_argument(
+        "--device", choices=("cuda", "cpu"), default="cuda"
+    )
     args = parser.parse_args(argv)
 
     context = (
@@ -185,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
             else Path(selected).resolve()
         )
         root.mkdir(parents=True, exist_ok=True)
-        report = _audit(root)
+        report = _audit(root, args.device)
     text = json.dumps(report, indent=2, sort_keys=True)
     print(text)
     if args.report:

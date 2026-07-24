@@ -20,6 +20,8 @@ def main() -> int:
     parser.add_argument("--instruction", default="pick up the block")
     parser.add_argument("--cpu-threads", type=int, default=16)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--export-dir", type=Path)
+    parser.add_argument("--torchscript-dir", type=Path)
     args = parser.parse_args()
 
     report = audit_real_openvla_frontend(
@@ -31,6 +33,8 @@ def main() -> int:
             cpu_threads=args.cpu_threads,
         ),
         report_path=args.report,
+        export_dir=args.export_dir,
+        torchscript_dir=args.torchscript_dir,
     )
     print(
         f"model={report.model} regions={len(report.regions)} "

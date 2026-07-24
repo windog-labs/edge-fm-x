@@ -5,6 +5,7 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <c10/cuda/CUDAFunctions.h>
 #include <torch/csrc/inductor/aoti_package/model_package_loader.h>
+#include <torch/version.h>
 
 #include <algorithm>
 #include <array>
@@ -15,6 +16,7 @@
 #include <limits>
 #include <memory>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -22,7 +24,7 @@
 
 namespace {
 
-constexpr std::size_t kMaximumBindings = 16u;
+constexpr std::size_t kMaximumBindings = 128u;
 constexpr std::size_t kErrorCapacity = 256u;
 
 struct Binding {
@@ -71,8 +73,10 @@ std::size_t ElementSize(VLAForgeDType dtype) {
   return 0u;
 }
 
-bool ValidTensorView(const VLAForgeTensorView& view, int device_ordinal) {
-  if (view.data == nullptr || view.device.kind != VLAFORGE_DEVICE_CUDA ||
+bool ValidTensorView(const VLAForgeTensorView& view,
+                     VLAForgeDeviceKind device_kind,
+                     int device_ordinal) {
+  if (view.data == nullptr || view.device.kind != device_kind ||
       view.device.ordinal != device_ordinal ||
       (view.rank != 0u && view.dimensions == nullptr) ||
       ElementSize(view.dtype) == 0u) {
@@ -96,16 +100,24 @@ bool ValidTensorView(const VLAForgeTensorView& view, int device_ordinal) {
 
 at::Tensor TensorFromView(const VLAForgeTensorView& view) {
   const c10::IntArrayRef shape(view.dimensions, view.rank);
+  const c10::Device device =
+      view.device.kind == VLAFORGE_DEVICE_CUDA
+      ? c10::Device(c10::DeviceType::CUDA, view.device.ordinal)
+      : c10::Device(c10::DeviceType::CPU);
   const auto options =
       at::TensorOptions()
           .dtype(ToScalarType(view.dtype))
-          .device(c10::Device(c10::DeviceType::CUDA, view.device.ordinal));
+          .device(device);
   return at::from_blob(view.data, shape, options);
 }
 
 bool SameMetadata(const at::Tensor& tensor,
                   const VLAForgeTensorView& view) {
-  if (!tensor.is_cuda() || tensor.get_device() != view.device.ordinal ||
+  const bool device_matches =
+      view.device.kind == VLAFORGE_DEVICE_CUDA
+      ? tensor.is_cuda() && tensor.get_device() == view.device.ordinal
+      : tensor.device().is_cpu() && view.device.ordinal == 0;
+  if (!device_matches ||
       tensor.scalar_type() != ToScalarType(view.dtype) ||
       tensor.dim() != static_cast<std::int64_t>(view.rank)) {
     return false;
@@ -122,6 +134,7 @@ bool SameMetadata(const at::Tensor& tensor,
 
 struct VLAForgeRegionExecutable {
   std::uint32_t region_id = 0u;
+  VLAForgeDeviceKind device_kind = VLAFORGE_DEVICE_CPU;
   int device_ordinal = 0;
   std::unique_ptr<torch::inductor::AOTIModelPackageLoader> loader;
   std::array<Binding, kMaximumBindings> inputs{};
@@ -145,10 +158,13 @@ VLAForgeStatus AotiCreate(
   if (options == nullptr || output == nullptr ||
       options->struct_size < sizeof(*options) ||
       options->abi_version != VLAFORGE_REGION_EXECUTABLE_ABI_VERSION ||
-      options->device.kind != VLAFORGE_DEVICE_CUDA ||
-      options->device.ordinal < 0) {
+      (options->device.kind != VLAFORGE_DEVICE_CPU &&
+       options->device.kind != VLAFORGE_DEVICE_CUDA) ||
+      options->device.ordinal < 0 ||
+      (options->device.kind == VLAFORGE_DEVICE_CPU &&
+       options->device.ordinal != 0)) {
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid CUDA AOTI create options");
+                                 "invalid AOTI create options");
   }
   auto* executable = new (std::nothrow) VLAForgeRegionExecutable();
   if (executable == nullptr) {
@@ -156,6 +172,7 @@ VLAForgeStatus AotiCreate(
                                  "AOTI executable allocation failed");
   }
   executable->region_id = options->region_id;
+  executable->device_kind = options->device.kind;
   executable->device_ordinal = options->device.ordinal;
   *output = executable;
   return vlaforge_status_ok();
@@ -173,11 +190,24 @@ VLAForgeStatus AotiLoad(
                                  "invalid AOTI artifact descriptor");
   }
   try {
-    const c10::cuda::CUDAGuard guard(executable->device_ordinal);
+    std::optional<c10::cuda::CUDAGuard> guard;
+    if (executable->device_kind == VLAFORGE_DEVICE_CUDA) {
+      guard.emplace(executable->device_ordinal);
+    }
+#if TORCH_VERSION_MAJOR > 2 || \
+    (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 10)
     executable->loader =
         std::make_unique<torch::inductor::AOTIModelPackageLoader>(
             std::string(artifact->path, artifact->path_size), "model",
-            true, 1u, executable->device_ordinal);
+            true, 1u,
+            executable->device_kind == VLAFORGE_DEVICE_CUDA
+                ? executable->device_ordinal
+                : -1);
+#else
+    executable->loader =
+        std::make_unique<torch::inductor::AOTIModelPackageLoader>(
+            std::string(artifact->path, artifact->path_size), "model");
+#endif
   } catch (const std::exception& error) {
     return executable->RecordError(error.what());
   }
@@ -193,7 +223,7 @@ VLAForgeStatus AotiQueryWorkspace(
   }
   requirement->size_bytes = 0u;
   requirement->alignment = 1u;
-  requirement->device = {VLAFORGE_DEVICE_CUDA,
+  requirement->device = {executable->device_kind,
                          executable->device_ordinal};
   return vlaforge_status_ok();
 }
@@ -203,9 +233,10 @@ VLAForgeStatus Bind(
     const VLAForgeTensorView* tensor, bool input) {
   if (executable == nullptr || tensor == nullptr ||
       index >= kMaximumBindings ||
-      !ValidTensorView(*tensor, executable->device_ordinal)) {
+      !ValidTensorView(*tensor, executable->device_kind,
+                       executable->device_ordinal)) {
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid CUDA AOTI tensor binding");
+                                 "invalid AOTI tensor binding");
   }
   auto& bindings = input ? executable->inputs : executable->outputs;
   auto& count = input ? executable->input_count : executable->output_count;
@@ -232,7 +263,7 @@ VLAForgeStatus AotiBindWorkspace(
   if (executable == nullptr ||
       (workspace_size != 0u && workspace == nullptr)) {
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid CUDA AOTI workspace binding");
+                                 "invalid AOTI workspace binding");
   }
   if (workspace_size != 0u) {
     return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
@@ -260,7 +291,10 @@ VLAForgeStatus AotiRun(VLAForgeRegionExecutable* executable) {
   }
 
   try {
-    const c10::cuda::CUDAGuard guard(executable->device_ordinal);
+    std::optional<c10::cuda::CUDAGuard> guard;
+    if (executable->device_kind == VLAFORGE_DEVICE_CUDA) {
+      guard.emplace(executable->device_ordinal);
+    }
     std::vector<at::Tensor> inputs;
     inputs.reserve(executable->input_count);
     for (std::size_t index = 0; index < executable->input_count; ++index) {
@@ -288,6 +322,9 @@ VLAForgeStatus AotiSynchronize(
   if (executable == nullptr) {
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
                                  "AOTI executable is null");
+  }
+  if (executable->device_kind == VLAFORGE_DEVICE_CPU) {
+    return vlaforge_status_ok();
   }
   try {
     const c10::cuda::CUDAGuard guard(executable->device_ordinal);

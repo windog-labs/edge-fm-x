@@ -12,6 +12,7 @@ from vlaforge.frontend import (
     ModelFrontendAudit,
     RegionAuditRecord,
     capture_region,
+    save_exported_region,
 )
 from vlaforge.ir.program import TensorRegion, Value
 from vlaforge.ir.types import TensorType
@@ -21,6 +22,7 @@ def audit_real_smolvla_frontend(
     config: RealSmolVLAConfig,
     *,
     report_path: str | Path | None = None,
+    export_dir: str | Path | None = None,
 ) -> ModelFrontendAudit:
     import torch
     from lerobot.configs.policies import PreTrainedConfig
@@ -127,6 +129,21 @@ def audit_real_smolvla_frontend(
     prefix_args = (image, state, language_tokens, language_masks)
     with torch.inference_mode():
         prefix_outputs = prefix_module(*prefix_args)
+    position_specialization = False
+    if export_dir is not None:
+        profile_images, _ = policy.prepare_images({image_key: image})
+        profile_image = profile_images[0]
+        _specialize_fixed_vision_positions(
+            torch,
+            policy,
+            height=int(profile_image.shape[-2]),
+            width=int(profile_image.shape[-1]),
+        )
+        with torch.inference_mode():
+            specialized_outputs = prefix_module(*prefix_args)
+        _assert_tensor_tuples_exact(torch, prefix_outputs, specialized_outputs)
+        prefix_outputs = specialized_outputs
+        position_specialization = True
     prefix_inputs = tuple(
         Value(name, _tensor_type(torch, value))
         for name, value in zip(
@@ -155,6 +172,7 @@ def audit_real_smolvla_frontend(
             major_compute=True,
         )
     ]
+    _save_capture(prefix_capture, export_dir)
     del prefix_capture
 
     sample = torch.linspace(
@@ -231,6 +249,7 @@ def audit_real_smolvla_frontend(
             major_compute=True,
         )
     )
+    _save_capture(solver_capture, export_dir)
     del solver_capture
 
     action_dim = int(policy_config.action_feature.shape[0])
@@ -262,6 +281,7 @@ def audit_real_smolvla_frontend(
             major_compute=False,
         )
     )
+    _save_capture(trim_capture, export_dir)
 
     checkpoint = config.policy_path / "model.safetensors"
     report = ModelFrontendAudit(
@@ -278,11 +298,106 @@ def audit_real_smolvla_frontend(
             "Prefix KV is invocation-local and flattened into explicit tensor ABI values.",
             "Solver sample is loop-carried SSA; it is not a StateSlot.",
             "Noise is an explicit input and no hidden random operator is captured.",
+            *(
+                (
+                    "The fixed 256x256 deployment profile replaces data-dependent "
+                    "vision bucketization with exactly-equal constant position IDs.",
+                )
+                if position_specialization
+                else ()
+            ),
         ),
     )
     if report_path is not None:
         report.write(report_path)
     return report
+
+
+def _save_capture(capture: Any, export_dir: str | Path | None) -> None:
+    if export_dir is None:
+        return
+    output = Path(export_dir)
+    save_exported_region(
+        capture,
+        program_path=output / f"{capture.region.name}.pt2e",
+        evidence_path=output / f"{capture.region.name}.capture.json",
+    )
+
+
+def _specialize_fixed_vision_positions(
+    torch: Any,
+    policy: Any,
+    *,
+    height: int,
+    width: int,
+) -> None:
+    vision_model = policy.model.vlm_with_expert.get_vlm_model().vision_model
+    source = vision_model.embeddings
+    patch_size = int(source.patch_size)
+    patches_h = height // patch_size
+    patches_w = width // patch_size
+    dtype = vision_model.dtype
+    device = vision_model.device
+    boundaries = torch.arange(
+        1 / source.num_patches_per_side,
+        1.0,
+        1 / source.num_patches_per_side,
+        device=device,
+    )
+    h_indices = torch.arange(patches_h, device=device, dtype=dtype)
+    w_indices = torch.arange(patches_w, device=device, dtype=dtype)
+    bucket_h = torch.bucketize(
+        h_indices / patches_h * (1 - 1e-6), boundaries, right=True
+    )
+    bucket_w = torch.bucketize(
+        w_indices / patches_w * (1 - 1e-6), boundaries, right=True
+    )
+    position_ids = (
+        bucket_h[:, None] * source.num_patches_per_side + bucket_w
+    ).flatten()
+
+    class StaticVisionEmbeddings(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.patch_embedding = source.patch_embedding
+            self.position_embedding = source.position_embedding
+            self.register_buffer(
+                "fixed_position_ids", position_ids.detach().clone()
+            )
+
+        def forward(
+            self, pixel_values: Any, patch_attention_mask: Any
+        ) -> Any:
+            del patch_attention_mask
+            patch_embeds = self.patch_embedding(pixel_values)
+            embeddings = patch_embeds.flatten(2).transpose(1, 2)
+            ids = self.fixed_position_ids.unsqueeze(0).expand(
+                pixel_values.shape[0], -1
+            )
+            return embeddings + self.position_embedding(ids)
+
+    vision_model.embeddings = StaticVisionEmbeddings()
+
+
+def _assert_tensor_tuples_exact(
+    torch: Any, expected: tuple[Any, ...], actual: tuple[Any, ...]
+) -> None:
+    if len(expected) != len(actual):
+        raise AssertionError("fixed-position specialization output arity changed")
+    for index, (left, right) in enumerate(
+        zip(expected, actual, strict=True)
+    ):
+        if not torch.equal(left, right):
+            maximum = float(
+                (left.to(torch.float64) - right.to(torch.float64))
+                .abs()
+                .max()
+                .item()
+            )
+            raise AssertionError(
+                "fixed-position specialization changed prefix output "
+                f"{index}: max_abs_error={maximum}"
+            )
 
 
 def _tensor_type(torch: Any, value: Any) -> TensorType:

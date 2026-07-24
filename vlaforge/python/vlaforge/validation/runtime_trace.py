@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from vlaforge.interpreter.trace import Trace, TraceEvent
 from vlaforge.ir.program import Module
 from vlaforge.plan.model import PlanModule, Task
+
+
+TaskSelector = Callable[[TraceEvent, tuple[Task, ...]], Task]
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +43,8 @@ def normalize_plan_trace_for_runtime(
     trace: Trace,
     plan: PlanModule,
     module: Module,
+    *,
+    task_selector: TaskSelector | None = None,
 ) -> tuple[RuntimeTraceEvent, ...]:
     clock_ids = {
         clock.name: index for index, clock in enumerate(module.clocks)
@@ -49,7 +55,7 @@ def normalize_plan_trace_for_runtime(
     current_transaction = 0
     result: list[RuntimeTraceEvent] = []
     for event in trace.events:
-        task = _task_for_event(event, plan)
+        task = _task_for_event(event, plan, task_selector=task_selector)
         tick = event.tick
         transaction_id = current_transaction
         if event.kind == "transaction_begin":
@@ -88,7 +94,7 @@ def normalize_plan_trace_for_runtime(
                     state_ids[str(event.data["state"])],
                     int(event.data["version"]),
                     transaction_id,
-                    tick,
+                    event.data["epoch"],
                     clock_ids,
                 )
             )
@@ -100,7 +106,7 @@ def normalize_plan_trace_for_runtime(
                     state_ids[str(event.data["state"])],
                     0,
                     transaction_id,
-                    tick,
+                    event.data["epoch"],
                     clock_ids,
                 )
             )
@@ -150,7 +156,12 @@ def normalize_plan_trace_for_runtime(
     return tuple(result)
 
 
-def _task_for_event(event: TraceEvent, plan: PlanModule) -> Task:
+def _task_for_event(
+    event: TraceEvent,
+    plan: PlanModule,
+    *,
+    task_selector: TaskSelector | None = None,
+) -> Task:
     candidates = [task for task in plan.tasks if task.opcode == event.op]
     if event.kind == "input":
         candidates = [
@@ -176,6 +187,13 @@ def _task_for_event(event: TraceEvent, plan: PlanModule) -> Task:
             for task in candidates
             if task.attributes.get("state") == event.data["state"]
         ]
+    if len(candidates) != 1 and task_selector is not None:
+        selected = task_selector(event, tuple(candidates))
+        if selected not in candidates:
+            raise ValueError(
+                "runtime trace task selector returned a non-candidate task"
+            )
+        return selected
     if len(candidates) != 1:
         raise ValueError(
             f"runtime trace task mapping is ambiguous for {event.kind}: "

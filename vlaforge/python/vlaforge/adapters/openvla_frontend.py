@@ -15,6 +15,7 @@ from vlaforge.frontend import (
     ModelFrontendAudit,
     RegionAuditRecord,
     capture_region,
+    save_exported_region,
 )
 from vlaforge.ir.program import TensorRegion, Value
 from vlaforge.ir.types import TensorType
@@ -35,6 +36,8 @@ def audit_real_openvla_frontend(
     config: OpenVLAFrontendConfig,
     *,
     report_path: str | Path | None = None,
+    export_dir: str | Path | None = None,
+    torchscript_dir: str | Path | None = None,
 ) -> ModelFrontendAudit:
     import numpy as np
     import torch
@@ -92,12 +95,35 @@ def audit_real_openvla_frontend(
         def forward(
             self, pixels: Any, tokens: Any, masks: Any
         ) -> tuple[Any, ...]:
-            output = self.model(
-                input_ids=tokens,
-                attention_mask=masks,
-                pixel_values=pixels,
+            patch_features = self.model.vision_backbone(pixels)
+            projected_patches = self.model.projector(patch_features)
+            projected_mask = masks.new_ones(
+                (
+                    projected_patches.shape[0],
+                    projected_patches.shape[1],
+                )
+            )
+            token_embeddings = self.model.get_input_embeddings()(tokens)
+            embeddings = torch.cat(
+                (
+                    token_embeddings[:, :1, :],
+                    projected_patches,
+                    token_embeddings[:, 1:, :],
+                ),
+                dim=1,
+            )
+            multimodal_mask = torch.cat(
+                (masks[:, :1], projected_mask, masks[:, 1:]), dim=1
+            )
+            output = self.model.language_model(
+                input_ids=None,
+                inputs_embeds=embeddings,
+                attention_mask=multimodal_mask,
+                position_ids=None,
                 past_key_values=None,
                 use_cache=True,
+                output_attentions=False,
+                output_hidden_states=False,
                 return_dict=False,
             )
             return (output[0][:, -1, :],) + tuple(
@@ -107,7 +133,27 @@ def audit_real_openvla_frontend(
     prefill_module = PrefillModule(model).eval()
     prefill_args = (pixel_values, input_ids, attention_mask)
     with torch.inference_mode():
+        official_output = model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            pixel_values=pixel_values,
+            past_key_values=None,
+            use_cache=True,
+            return_dict=False,
+        )
+        official_prefill_outputs = (
+            official_output[0][:, -1, :],
+        ) + tuple(value for layer in official_output[1] for value in layer)
+        original_prefill_outputs = prefill_module(*prefill_args)
+    _assert_tensor_tuples_exact(
+        torch, official_prefill_outputs, original_prefill_outputs
+    )
+    _specialize_exportable_rope(torch, model)
+    with torch.inference_mode():
         prefill_outputs = prefill_module(*prefill_args)
+    _assert_tensor_tuples_exact(
+        torch, original_prefill_outputs, prefill_outputs
+    )
     prefill_region = TensorRegion(
         "generate_action_tokens_prefill",
         tuple(
@@ -138,6 +184,7 @@ def audit_real_openvla_frontend(
             major_compute=True,
         )
     ]
+    _save_capture(prefill_capture, export_dir)
     del prefill_capture
 
     cache_layers = (len(prefill_outputs) - 1) // 2
@@ -204,6 +251,7 @@ def audit_real_openvla_frontend(
             major_compute=True,
         )
     )
+    _save_capture(decode_capture, export_dir)
     del decode_capture
 
     explicit_tokens = [first_token]
@@ -295,6 +343,19 @@ def audit_real_openvla_frontend(
             major_compute=False,
         )
     )
+    _save_capture(detokenize_capture, export_dir)
+    torchscript_saved = _save_combined_torchscript(
+        torch,
+        model,
+        cache_layers,
+        detokenize_module,
+        prefill_args,
+        decode_args,
+        prefill_outputs,
+        first_decode_outputs,
+        explicit_action_tokens,
+        torchscript_dir,
+    )
 
     shard_digests = tuple(
         sorted(
@@ -331,6 +392,18 @@ def audit_real_openvla_frontend(
         ),
         notes=(
             "The same checkpoint is loaded in BF16 on CPU for exportability.",
+            "The fixed deployment profile replaces only the Transformers "
+            "no_grad/autocast RoPE wrapper with a bit-exact pure tensor module "
+            "so PyTorch 2.6 can deserialize the saved ExportedProgram.",
+            *(
+                (
+                    "The same pure regions are also frozen as TorchScript "
+                    "archives for the no-Python C++ fallback backend after "
+                    "AOTInductor exceeded the host memory budget.",
+                )
+                if torchscript_saved
+                else ()
+            ),
             "NF4 loading remains a deployment strategy; bitsandbytes Params4bit "
             "cannot currently be fake-tensor exported by PyTorch 2.6.",
             "KV is explicit loop-carried SSA and is not persistent policy state.",
@@ -339,6 +412,184 @@ def audit_real_openvla_frontend(
     if report_path is not None:
         report.write(report_path)
     return report
+
+
+def _save_capture(capture: Any, export_dir: str | Path | None) -> None:
+    if export_dir is None:
+        return
+    output = Path(export_dir)
+    save_exported_region(
+        capture,
+        program_path=output / f"{capture.region.name}.pt2e",
+        evidence_path=output / f"{capture.region.name}.capture.json",
+    )
+
+
+def _save_combined_torchscript(
+    torch: Any,
+    model: Any,
+    cache_layers: int,
+    detokenize_module: Any,
+    prefill_arguments: tuple[Any, ...],
+    decode_arguments: tuple[Any, ...],
+    expected_prefill: tuple[Any, ...],
+    expected_decode: tuple[Any, ...],
+    action_tokens: Any,
+    output_dir: str | Path | None,
+) -> bool:
+    if output_dir is None:
+        return False
+    _sanitize_torchscript_qualified_names(model)
+
+    class CombinedRegions(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.model = model
+            self.detokenizer = detokenize_module
+
+        def prefill(
+            self, pixels: Any, tokens: Any, masks: Any
+        ) -> tuple[Any, ...]:
+            patch_features = self.model.vision_backbone(pixels)
+            projected_patches = self.model.projector(patch_features)
+            projected_mask = masks.new_ones(
+                (
+                    projected_patches.shape[0],
+                    projected_patches.shape[1],
+                )
+            )
+            token_embeddings = self.model.get_input_embeddings()(tokens)
+            embeddings = torch.cat(
+                (
+                    token_embeddings[:, :1, :],
+                    projected_patches,
+                    token_embeddings[:, 1:, :],
+                ),
+                dim=1,
+            )
+            multimodal_mask = torch.cat(
+                (masks[:, :1], projected_mask, masks[:, 1:]), dim=1
+            )
+            output = self.model.language_model(
+                input_ids=None,
+                inputs_embeds=embeddings,
+                attention_mask=multimodal_mask,
+                position_ids=None,
+                past_key_values=None,
+                use_cache=True,
+                output_attentions=False,
+                output_hidden_states=False,
+                return_dict=False,
+            )
+            return (output[0][:, -1, :],) + tuple(
+                value for layer in output[1] for value in layer
+            )
+
+        def decode(self, token: Any, *cache_values: Any) -> tuple[Any, ...]:
+            cache = tuple(
+                (
+                    cache_values[index * 2],
+                    cache_values[index * 2 + 1],
+                )
+                for index in range(cache_layers)
+            )
+            output = self.model(
+                input_ids=token,
+                attention_mask=None,
+                pixel_values=None,
+                past_key_values=cache,
+                use_cache=True,
+                return_dict=False,
+            )
+            return (output[0][:, -1, :],) + tuple(
+                value for layer in output[1] for value in layer
+            )
+
+        def detokenize(self, tokens: Any) -> Any:
+            return self.detokenizer(tokens)
+
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    with torch.inference_mode():
+        traced = torch.jit.trace_module(
+            CombinedRegions().eval(),
+            {
+                "prefill": prefill_arguments,
+                "decode": decode_arguments,
+                "detokenize": (action_tokens,),
+            },
+            strict=False,
+            check_trace=False,
+        )
+        actual_prefill = tuple(traced.prefill(*prefill_arguments))
+        actual_decode = tuple(traced.decode(*decode_arguments))
+        actual_action = traced.detokenize(action_tokens)
+    _assert_tensor_tuples_exact(torch, expected_prefill, actual_prefill)
+    _assert_tensor_tuples_exact(torch, expected_decode, actual_decode)
+    _assert_tensor_tuples_exact(
+        torch,
+        (detokenize_module(action_tokens),),
+        (actual_action,),
+    )
+    torch.jit.save(traced, destination / "openvla_regions.pt")
+    return True
+
+
+def _sanitize_torchscript_qualified_names(model: Any) -> None:
+    for module in model.modules():
+        module_type = type(module)
+        qualified_module = str(module_type.__module__)
+        if "-" in qualified_module:
+            module_type.__module__ = qualified_module.replace("-", "_")
+
+
+def _specialize_exportable_rope(torch: Any, model: Any) -> None:
+    class ExportableRotaryEmbedding(torch.nn.Module):
+        def __init__(self, source: Any):
+            super().__init__()
+            self.register_buffer(
+                "inv_freq", source.inv_freq.detach().clone()
+            )
+
+        def forward(self, value: Any, position_ids: Any) -> tuple[Any, Any]:
+            inv_freq = self.inv_freq[None, :, None].float().expand(
+                position_ids.shape[0], -1, 1
+            )
+            positions = position_ids[:, None, :].float()
+            frequencies = (inv_freq @ positions).transpose(1, 2)
+            embedding = torch.cat((frequencies, frequencies), dim=-1)
+            return (
+                embedding.cos().to(dtype=value.dtype),
+                embedding.sin().to(dtype=value.dtype),
+            )
+
+    layers = model.language_model.model.layers
+    for layer in layers:
+        layer.self_attn.rotary_emb = ExportableRotaryEmbedding(
+            layer.self_attn.rotary_emb
+        )
+
+
+def _assert_tensor_tuples_exact(
+    torch: Any,
+    expected: tuple[Any, ...],
+    actual: tuple[Any, ...],
+) -> None:
+    if len(expected) != len(actual):
+        raise RuntimeError("RoPE specialization changed output arity")
+    for index, (left, right) in enumerate(
+        zip(expected, actual, strict=True)
+    ):
+        if not torch.equal(left, right):
+            error = float(
+                torch.max(
+                    torch.abs(left.to(torch.float32) - right.to(torch.float32))
+                ).item()
+            )
+            raise RuntimeError(
+                "RoPE specialization is not bit-exact: "
+                f"output={index} max_abs={error}"
+            )
 
 
 def _tensor_type(torch: Any, value: Any) -> TensorType:

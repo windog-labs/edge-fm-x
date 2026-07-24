@@ -27,3 +27,19 @@ if(TARGET vlaforge_aoti_backend)
             -Wall -Wextra -Wpedantic -Werror)
     endif()
 endif()
+
+if(TARGET vlaforge_torchscript_backend)
+    add_executable(vlaforge_torchscript_region_smoke
+        torchscript_region_smoke.cpp)
+    target_link_libraries(vlaforge_torchscript_region_smoke PRIVATE
+        vlaforge_torchscript_backend)
+    target_compile_options(vlaforge_torchscript_region_smoke PRIVATE
+        ${VLAFORGE_TORCH_CXX_FLAGS})
+    if(MSVC)
+        target_compile_options(vlaforge_torchscript_region_smoke PRIVATE
+            /W4 /WX)
+    else()
+        target_compile_options(vlaforge_torchscript_region_smoke PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()

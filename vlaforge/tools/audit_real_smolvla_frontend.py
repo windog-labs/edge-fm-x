@@ -19,6 +19,7 @@ def main() -> int:
     parser.add_argument("--num-steps", type=int, default=10)
     parser.add_argument("--tolerance", type=float, default=1e-5)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--export-dir", type=Path)
     args = parser.parse_args()
 
     report = audit_real_smolvla_frontend(
@@ -31,6 +32,7 @@ def main() -> int:
             lerobot_revision=args.revision,
         ),
         report_path=args.report,
+        export_dir=args.export_dir,
     )
     print(
         f"model={report.model} regions={len(report.regions)} "

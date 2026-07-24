@@ -8,8 +8,13 @@ import pytest
 
 from vlaforge.adapters import build_openvla_fixture, build_smolvla_fixture
 from vlaforge.codegen import (
+    AotiTensorSpec,
     CodegenUnsupportedError,
+    OpenVLATorchScriptSpec,
+    SmolVLAAotiSpec,
     generate_cpp_session,
+    generate_real_smolvla_aoti_runner,
+    generate_real_openvla_torchscript_runner,
     openvla_fixture_regions,
     openvla_fixture_runner_source,
     openvla_fixture_validators,
@@ -21,6 +26,12 @@ from vlaforge.validation import normalize_plan_trace_for_runtime
 
 SOURCE_GOLDEN_DIGEST = (
     "d05684708daa9e96c15d26319bdfdb8fefcca3eb3a57920abfc815e53764ef9d"
+)
+REAL_SMOLVLA_SOURCE_GOLDEN_DIGEST = (
+    "635704062f39cfa2db9d05b1652722b2537ab1e72fbf20fb12b1591fe4b7e455"
+)
+REAL_OPENVLA_SOURCE_GOLDEN_DIGEST = (
+    "cefbb5b403dce15ea675d7f2d0b4696256a8b7f4d6dfae0199b9e877ec111e3d"
 )
 
 
@@ -55,6 +66,63 @@ def test_codegen_is_deterministic_and_matches_golden() -> None:
     assert "nlohmann" not in generated_text
     assert "smolvla" not in generated_text
     assert "openvla" not in generated_text
+
+
+def test_real_smolvla_aoti_codegen_is_deterministic_and_no_python() -> None:
+    spec = SmolVLAAotiSpec(
+        image=AotiTensorSpec((1, 3, 256, 256), "f32"),
+        state=AotiTensorSpec((1, 6), "f32"),
+        token_ids=(1, 2, 3),
+        token_mask=(True, True, False),
+        prefix_outputs=(
+            AotiTensorSpec((1, 113), "bool"),
+            AotiTensorSpec((1, 113, 5, 64), "bf16"),
+            AotiTensorSpec((1, 113, 5, 64), "bf16"),
+        ),
+        solver_output=AotiTensorSpec((1, 50, 32), "f32"),
+        action_chunk=AotiTensorSpec((1, 50, 6), "f32"),
+    )
+    first = generate_real_smolvla_aoti_runner(spec)
+    second = generate_real_smolvla_aoti_runner(spec)
+    assert first == second
+    assert first.digest() == REAL_SMOLVLA_SOURCE_GOLDEN_DIGEST
+    text = "\n".join(content for _, content in first.files).lower()
+    assert "python.h" not in text
+    assert "pybind" not in text
+    assert "nlohmann" not in text
+    assert "std::unordered_map" not in text
+    assert "ktasksolver" in text
+    assert "for (std::int64_t step = 0; step < 10; ++step)" in text
+
+
+def test_real_openvla_codegen_is_deterministic_and_no_python() -> None:
+    prefill_cache = AotiTensorSpec((1, 32, 275, 128), "bf16")
+    decode_cache = AotiTensorSpec((1, 32, 276, 128), "bf16")
+    logits = AotiTensorSpec((1, 32064), "f32")
+    spec = OpenVLATorchScriptSpec(
+        prefill_inputs=(
+            AotiTensorSpec((1, 6, 224, 224), "bf16"),
+            AotiTensorSpec((1, 19), "i64"),
+            AotiTensorSpec((1, 19), "i64"),
+        ),
+        prefill_outputs=(logits,) + (prefill_cache,) * 64,
+        decode_inputs=(AotiTensorSpec((1, 1), "i64"),)
+        + (prefill_cache,) * 64,
+        decode_outputs=(logits,) + (decode_cache,) * 64,
+        action_tokens=AotiTensorSpec((1, 7), "i64"),
+        action=AotiTensorSpec((7,), "f64"),
+    )
+    first = generate_real_openvla_torchscript_runner(spec)
+    second = generate_real_openvla_torchscript_runner(spec)
+    assert first == second
+    assert first.digest() == REAL_OPENVLA_SOURCE_GOLDEN_DIGEST
+    text = "\n".join(content for _, content in first.files).lower()
+    assert "python.h" not in text
+    assert "pybind" not in text
+    assert "nlohmann" not in text
+    assert "std::unordered_map" not in text
+    assert "ktaskdecode" in text
+    assert "step < kdecodesteps" in text
 
 
 def test_codegen_reports_unsupported_control_without_fallback() -> None:

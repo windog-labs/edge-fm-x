@@ -12,7 +12,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(VLAFORGE_ENABLE_SANITIZERS "Enable address and undefined sanitizers" OFF)
 option(VLAFORGE_BUILD_AOTI_BACKEND
-       "Build the optional CUDA AOTInductor RegionExecutable backend" OFF)
+       "Build the optional CPU/CUDA AOTInductor RegionExecutable backend" OFF)
+option(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND
+       "Build the optional CPU TorchScript RegionExecutable backend" OFF)
 
 add_library(vlaforge_runtime STATIC
     runtime/action_queue.cpp
@@ -38,8 +40,13 @@ if(VLAFORGE_ENABLE_SANITIZERS AND NOT MSVC)
     target_link_options(vlaforge_runtime PUBLIC -fsanitize=address,undefined)
 endif()
 
-if(VLAFORGE_BUILD_AOTI_BACKEND)
+if(VLAFORGE_BUILD_AOTI_BACKEND OR VLAFORGE_BUILD_TORCHSCRIPT_BACKEND)
     find_package(Torch REQUIRED CONFIG)
+    separate_arguments(VLAFORGE_TORCH_CXX_FLAGS
+        NATIVE_COMMAND "${TORCH_CXX_FLAGS}")
+endif()
+
+if(VLAFORGE_BUILD_AOTI_BACKEND)
     add_library(vlaforge_aoti_backend STATIC
         backends/aoti_region_executable.cpp
     )
@@ -51,8 +58,6 @@ if(VLAFORGE_BUILD_AOTI_BACKEND)
     target_link_libraries(vlaforge_aoti_backend
         PUBLIC vlaforge_runtime ${TORCH_LIBRARIES}
     )
-    separate_arguments(VLAFORGE_TORCH_CXX_FLAGS
-        NATIVE_COMMAND "${TORCH_CXX_FLAGS}")
     target_compile_options(vlaforge_aoti_backend
         PRIVATE ${VLAFORGE_TORCH_CXX_FLAGS}
     )
@@ -60,6 +65,29 @@ if(VLAFORGE_BUILD_AOTI_BACKEND)
         target_compile_options(vlaforge_aoti_backend PRIVATE /W4 /WX)
     else()
         target_compile_options(vlaforge_aoti_backend PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
+
+if(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND)
+    add_library(vlaforge_torchscript_backend STATIC
+        backends/torchscript_region_executable.cpp
+    )
+    target_include_directories(vlaforge_torchscript_backend
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+    )
+    target_link_libraries(vlaforge_torchscript_backend
+        PUBLIC vlaforge_runtime ${TORCH_LIBRARIES}
+    )
+    target_compile_options(vlaforge_torchscript_backend
+        PRIVATE ${VLAFORGE_TORCH_CXX_FLAGS}
+    )
+    if(MSVC)
+        target_compile_options(vlaforge_torchscript_backend PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_torchscript_backend PRIVATE
             -Wall -Wextra -Wpedantic -Werror)
     endif()
 endif()
@@ -74,6 +102,12 @@ install(TARGETS vlaforge_runtime
 )
 if(TARGET vlaforge_aoti_backend)
     install(TARGETS vlaforge_aoti_backend
+        EXPORT VLAForgeRuntimeTargets
+        ARCHIVE DESTINATION lib
+    )
+endif()
+if(TARGET vlaforge_torchscript_backend)
+    install(TARGETS vlaforge_torchscript_backend
         EXPORT VLAForgeRuntimeTargets
         ARCHIVE DESTINATION lib
     )

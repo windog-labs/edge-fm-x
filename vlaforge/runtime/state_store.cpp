@@ -172,8 +172,12 @@ Status StateStore::ReadLatest(std::uint32_t state_id,
   output->epoch = selected->epoch;
   output->data = SlotData(*descriptor, selected_slot);
   output->size_bytes = descriptor->slot_size;
+  const std::uint64_t transaction_id =
+      active_transaction_id_ == kNoTransaction
+          ? 0u
+          : active_transaction_id_;
   EmitTrace(trace_, TraceEvent{TraceKind::kStateRead, task_id, state_id,
-                               selected->logical_version, 0,
+                               selected->logical_version, transaction_id,
                                selected->epoch});
   return Status::Ok();
 }

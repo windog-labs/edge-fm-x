@@ -32,6 +32,7 @@ def _require_power_of_two(value: int, field: str) -> None:
 class ArtifactKind(str, Enum):
     CPU_FIXTURE = "cpu_fixture"
     AOTI_PACKAGE = "aoti_package"
+    TORCHSCRIPT_ARCHIVE = "torchscript_archive"
     SHARED_LIBRARY = "shared_library"
     STATIC_LIBRARY = "static_library"
     CUDA_BINARY = "cuda_binary"
