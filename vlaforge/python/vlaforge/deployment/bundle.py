@@ -8,10 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
+from vlaforge.compiler import CompilationCertificate
 from vlaforge.deployment.contract import RegionArtifactContract
 
 
-BUNDLE_SCHEMA = "vlaforge.compile_bundle/1"
+BUNDLE_SCHEMA = "vlaforge.compile_bundle/2"
 _REQUIRED_ROLES = {
     "semantic_ir",
     "scheduled_plan",
@@ -185,6 +186,7 @@ class CompileBundleManifest:
     toolchain_versions: tuple[VersionEntry, ...]
     backend_versions: tuple[VersionEntry, ...]
     reproducibility: ReproducibilityManifest
+    compilation_certificate: CompilationCertificate
     schema: str = BUNDLE_SCHEMA
 
     def __post_init__(self) -> None:
@@ -290,6 +292,7 @@ class CompileBundleManifest:
                 for item in sorted(self.backend_versions, key=lambda entry: entry.name)
             ],
             "reproducibility": self.reproducibility.to_dict(),
+            "compilation_certificate": self.compilation_certificate.to_dict(),
         }
 
     def canonical_json(self, *, indent: int | None = None) -> str:
@@ -340,6 +343,9 @@ class CompileBundleManifest:
             ),
             reproducibility=ReproducibilityManifest.from_dict(
                 data["reproducibility"]
+            ),
+            compilation_certificate=CompilationCertificate.from_dict(
+                data["compilation_certificate"]
             ),
         )
 

@@ -13,12 +13,14 @@ from vlaforge.codegen import (
     OpenVLATorchScriptSpec,
     SmolVLAAotiSpec,
     generate_cpp_session,
+    generate_compiled_cpp_session,
     generate_real_smolvla_aoti_runner,
     generate_real_openvla_torchscript_runner,
     openvla_fixture_regions,
     openvla_fixture_runner_source,
     openvla_fixture_validators,
 )
+from vlaforge.compiler import compile_module
 from vlaforge.codegen.real_aoti import temporal_cache_dependencies
 from vlaforge.interpreter import Interpreter
 from vlaforge.plan import PlanExecutor, lower_to_plan, physicalize_plan
@@ -26,13 +28,13 @@ from vlaforge.validation import normalize_plan_trace_for_runtime
 
 
 SOURCE_GOLDEN_DIGEST = (
-    "d05684708daa9e96c15d26319bdfdb8fefcca3eb3a57920abfc815e53764ef9d"
+    "024fcaace55af835665232bce50e013cd968474629b351af0107ba44240b1315"
 )
 REAL_SMOLVLA_SOURCE_GOLDEN_DIGEST = (
-    "635704062f39cfa2db9d05b1652722b2537ab1e72fbf20fb12b1591fe4b7e455"
+    "aecc8a598256d59e63b62c7b6ef6e414df80996eb1a67ab495e62b22ee25d057"
 )
 REAL_OPENVLA_SOURCE_GOLDEN_DIGEST = (
-    "cefbb5b403dce15ea675d7f2d0b4696256a8b7f4d6dfae0199b9e877ec111e3d"
+    "7ea0c7ce6ea16263132b24df50f4eb52ee90199b12c9792cae654fc9dbfe1558"
 )
 
 
@@ -69,6 +71,38 @@ def test_codegen_is_deterministic_and_matches_golden() -> None:
     assert "openvla" not in generated_text
 
 
+def test_normal_codegen_consumes_verified_certificate() -> None:
+    fixture = build_openvla_fixture()
+    compilation = compile_module(fixture.module, profile="verified")
+    sources = generate_compiled_cpp_session(
+        compilation,
+        regions=openvla_fixture_regions(),
+        validators=openvla_fixture_validators(),
+        runner_source=openvla_fixture_runner_source(),
+    )
+    files = sources.as_dict()
+    assert "optimization_certificate.h" in files
+    assert compilation.certificate.digest() in files[
+        "optimization_certificate.h"
+    ]
+    assert "cache_guards_[0u].Lookup" in files["session_generated.cpp"]
+    assert "cache.Invalidate()" in files["session_generated.cpp"]
+
+
+def test_codegen_rejects_certificate_plan_mismatch() -> None:
+    fixture = build_openvla_fixture()
+    compilation = compile_module(fixture.module, profile="verified")
+    baseline = compile_module(fixture.module, profile="off")
+    with pytest.raises(ValueError, match="plan digest mismatch"):
+        generate_cpp_session(
+            baseline.plan,
+            baseline.module,
+            regions=openvla_fixture_regions(),
+            validators=openvla_fixture_validators(),
+            compilation_certificate=compilation.certificate,
+        )
+
+
 def test_real_smolvla_aoti_codegen_is_deterministic_and_no_python() -> None:
     spec = SmolVLAAotiSpec(
         image=AotiTensorSpec((1, 3, 256, 256), "f32"),
@@ -94,6 +128,8 @@ def test_real_smolvla_aoti_codegen_is_deterministic_and_no_python() -> None:
     assert "std::unordered_map" not in text
     assert "ktasksolver" in text
     assert "for (std::int64_t step = 0; step < 10; ++step)" in text
+    assert "epochversioncacheguard prefix_cache" in text
+    assert "compilation_certificate.json" in first.as_dict()
     benchmark = generate_real_smolvla_aoti_runner(
         spec,
         optimization_benchmark=True,
@@ -135,6 +171,8 @@ def test_real_openvla_codegen_is_deterministic_and_no_python() -> None:
     assert "std::unordered_map" not in text
     assert "ktaskdecode" in text
     assert "step < kdecodesteps" in text
+    assert "epochversioncacheguard prefill_cache" in text
+    assert "compilation_certificate.json" in first.as_dict()
     benchmark = generate_real_openvla_torchscript_runner(
         spec,
         optimization_benchmark=True,

@@ -375,6 +375,8 @@ def _task_kind(opcode: str) -> TaskKind:
 
 def _buffer_class(operation: Operation, result: Value) -> BufferClass:
     opcode = operation.opcode
+    if opcode == "vla.invoke" and operation.attributes.get("memoize_key"):
+        return BufferClass.TEMPORAL_CACHE
     if opcode == "vla.sample_input":
         return (
             BufferClass.CONTROL

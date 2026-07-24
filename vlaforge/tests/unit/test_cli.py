@@ -1,4 +1,6 @@
 from pathlib import Path
+import os
+import subprocess
 
 from vlaforge.adapters import build_smolvla_fixture
 from vlaforge.cli import main
@@ -65,3 +67,43 @@ def test_codegen_cli_is_reproducible(tmp_path, capsys):
     }
     assert second == first
     capsys.readouterr()
+
+
+def test_compile_bundle_cli_builds_and_verifies_no_python(
+    tmp_path,
+    capsys,
+) -> None:
+    output = tmp_path / "bundle"
+    assert (
+        main(
+            [
+                "compile",
+                "--adapter",
+                "openvla-fixture",
+                "--profile",
+                "verified",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert "Compile Bundle passed" in capsys.readouterr().out
+    assert main(["bundle-verify", str(output / "bundle.json")]) == 0
+    assert "verification passed" in capsys.readouterr().out
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "PYTHONHOME": "/definitely/not/a/python/home",
+            "PYTHONPATH": "/definitely/not/a/python/path",
+        }
+    )
+    completed = subprocess.run(
+        [str(output / "bin" / "vlaforge_generated_runner")],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    assert "ACTION,0" in completed.stdout
+    assert "TRACE," in completed.stdout

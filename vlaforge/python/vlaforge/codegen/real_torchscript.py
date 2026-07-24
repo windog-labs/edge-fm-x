@@ -10,10 +10,10 @@ from vlaforge.codegen.model import GeneratedSources
 from vlaforge.codegen.real_aoti import (
     AotiTensorSpec,
     TemporalCacheDependencySpec,
+    certified_cache_dependencies,
     render_cpp_cache_dependencies,
-    temporal_cache_dependencies,
 )
-from vlaforge.plan import lower_to_plan, physicalize_plan
+from vlaforge.compiler import CompilerProfile, compile_module
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,17 +76,20 @@ def openvla_spec_from_capture_reports(
 def generate_real_openvla_torchscript_runner(
     spec: OpenVLATorchScriptSpec,
     *,
+    compiler_profile: CompilerProfile | str = CompilerProfile.VERIFIED,
+    allow_test_profile: bool = False,
     optimization_benchmark: bool = False,
 ) -> GeneratedSources:
     module = build_real_openvla_action_program(action_dim=spec.action_dim)
-    plan = physicalize_plan(lower_to_plan(module))
-    cache_dependencies = (
-        temporal_cache_dependencies(
-            module,
-            "generate_action_tokens_prefill",
-        )
-        if optimization_benchmark
-        else ()
+    compilation = compile_module(
+        module,
+        profile=compiler_profile,
+        allow_test_profile=allow_test_profile,
+    )
+    plan = compilation.plan
+    cache_dependencies = certified_cache_dependencies(
+        compilation.certificate,
+        "generate_action_tokens_prefill",
     )
     tasks = {
         "image": _task_id(plan, "vla.sample_input", stream="image"),
@@ -120,12 +123,18 @@ def generate_real_openvla_torchscript_runner(
         (
             ("CMakeLists.txt", _cmake()),
             (
+                "compilation_certificate.json",
+                compilation.certificate.canonical_json(indent=2) + "\n",
+            ),
+            (
                 "runner.cpp",
                 _source(
                     spec,
                     tasks,
+                    optimization_enabled=bool(cache_dependencies),
                     optimization_benchmark=optimization_benchmark,
                     cache_dependencies=cache_dependencies,
+                    certificate_digest=compilation.certificate.digest(),
                 ),
             ),
         )
@@ -136,8 +145,10 @@ def _source(
     spec: OpenVLATorchScriptSpec,
     tasks: dict[str, int],
     *,
+    optimization_enabled: bool,
     optimization_benchmark: bool,
     cache_dependencies: tuple[TemporalCacheDependencySpec, ...],
+    certificate_digest: str,
 ) -> str:
     constants = "\n".join(
         f"constexpr std::uint32_t kTask{_camel(name)} = {value}u;"
@@ -170,11 +181,12 @@ def _source(
     task_constants = constants
     benchmark_runtime_header = (
         '#include "vlaforge/runtime/epoch_cache.h"\n'
-        if optimization_benchmark
+        if optimization_enabled or optimization_benchmark
         else ""
     )
     benchmark_standard_headers = (
-        "#include <chrono>\n#include <cstdlib>\n#include <cstring>\n"
+        "#include <algorithm>\n#include <chrono>\n#include <cstdlib>\n"
+        "#include <cstring>\n"
         if optimization_benchmark
         else ""
     )
@@ -183,37 +195,85 @@ def _source(
       std::getenv("VLAFORGE_OPT_BENCHMARK");
   const bool benchmark_enabled = benchmark_mode != nullptr;
   const bool benchmark_cache =
-      benchmark_enabled && std::strcmp(benchmark_mode, "cache") == 0;
+      benchmark_enabled &&
+      (std::strcmp(benchmark_mode, "cache") == 0 ||
+       std::strcmp(benchmark_mode, "combined") == 0);
+  const char* workload_value = std::getenv("VLAFORGE_BENCH_WORKLOAD");
+  const std::string benchmark_workload =
+      workload_value == nullptr ? "nominal" : workload_value;
+  const char* iteration_value = std::getenv("VLAFORGE_BENCH_ITERATIONS");
+  const std::uint64_t benchmark_iterations =
+      iteration_value == nullptr
+          ? 3u
+          : std::max<std::uint64_t>(
+                3u, std::strtoull(iteration_value, nullptr, 10));
   vlaforge::runtime::EpochVersionCacheGuard prefill_cache;
+"""
+        if optimization_benchmark
+        else (
+            """  constexpr bool benchmark_cache = true;
+  vlaforge::runtime::EpochVersionCacheGuard prefill_cache;
+"""
+            if optimization_enabled
+            else ""
+        )
+    )
+    tick_timestamp = (
+        '(benchmark_workload == "stale" '
+        "? sequence * 100000000u : sequence * 1000000u)"
+        if optimization_benchmark
+        else "sequence * kControlPeriodNs"
+    )
+    timer_start = (
+        """    const auto benchmark_started =
+        std::chrono::steady_clock::now();
 """
         if optimization_benchmark
         else ""
     )
-    tick_timestamp = (
-        "sequence * (benchmark_enabled ? 25000000u : kControlPeriodNs)"
-        if optimization_benchmark
-        else "sequence * kControlPeriodNs"
-    )
+    dependency_qualifier = "" if optimization_benchmark else "const "
     benchmark_tick_start = (
-        """    const auto benchmark_started =
-        std::chrono::steady_clock::now();
-    const vlaforge::runtime::TemporalDependency cache_dependencies[] = {
+        timer_start
+        + f"""    {dependency_qualifier}vlaforge::runtime::TemporalDependency cache_dependencies[] = {{
 """
         + render_cpp_cache_dependencies(cache_dependencies)
         + """
     };
+"""
+        + (
+            """    const std::uint64_t dependency_sequence =
+        benchmark_workload == "all-miss"
+            ? sequence
+            : (benchmark_workload == "nominal" ? sequence / 2u : 0u);
+    const std::uint64_t dependency_timestamp =
+        benchmark_workload == "all-miss"
+            ? tick.timestamp_ns
+            : (benchmark_workload == "nominal"
+                   ? dependency_sequence * 2000000u
+                   : 0u);
+    for (auto& dependency : cache_dependencies) {
+      dependency.logical_version = dependency_sequence;
+      dependency.epoch.sequence = dependency_sequence;
+      dependency.epoch.timestamp_ns = dependency_timestamp;
+      dependency.epoch.episode = tick.episode;
+    }
+"""
+            if optimization_benchmark
+            else ""
+        )
+        + """
     const bool benchmark_cache_hit =
         benchmark_cache &&
         prefill_cache.Lookup(cache_dependencies, """
         + f"{len(cache_dependencies)}u"
         + """, tick);
 """
-        if optimization_benchmark
+        if optimization_enabled or optimization_benchmark
         else ""
     )
     benchmark_cache_open = (
         "    if (!benchmark_cache_hit) {\n"
-        if optimization_benchmark
+        if optimization_enabled or optimization_benchmark
         else ""
     )
     benchmark_cache_close = (
@@ -226,7 +286,7 @@ def _source(
       }
     }
 """
-        if optimization_benchmark
+        if optimization_enabled or optimization_benchmark
         else ""
     )
     benchmark_tick_end = (
@@ -247,6 +307,10 @@ def _source(
         if optimization_benchmark
         else ""
     )
+    iteration_limit = (
+        "benchmark_iterations" if optimization_benchmark else "3u"
+    )
+    trace_capacity = 4096 if optimization_benchmark else 256
     return f"""#include "vlaforge/backends/torchscript_region_executable.h"
 #include "vlaforge/runtime/action_queue.h"
 {benchmark_runtime_header}#include "vlaforge/runtime/state_store.h"
@@ -268,6 +332,8 @@ def _source(
 namespace {{
 
 {task_constants}
+[[maybe_unused]] constexpr char kCompilationCertificateDigest[] =
+    "{certificate_digest}";
 constexpr std::uint32_t kControlClock = 1u;
 constexpr std::uint64_t kControlPeriodNs = 50000000u;
 constexpr std::size_t kCacheCount = {cache_count}u;
@@ -275,7 +341,7 @@ constexpr std::size_t kDecodeSteps = {spec.decode_steps}u;
 constexpr std::size_t kActionDim = {spec.action_dim}u;
 
 struct TraceCollector {{
-  std::array<vlaforge::runtime::TraceEvent, 256> events{{}};
+  std::array<vlaforge::runtime::TraceEvent, {trace_capacity}> events{{}};
   std::size_t count = 0u;
 }};
 
@@ -478,7 +544,8 @@ int main(int argc, char** argv) {{
   vlaforge::runtime::StateStore state_store(arena, nullptr, 0u, trace);
   vlaforge::runtime::Transaction transaction(0u);
   vlaforge::runtime::ActionQueue action_queue(nullptr, nullptr, trace);
-  for (std::uint64_t sequence = 0u; sequence < 3u; ++sequence) {{
+  for (std::uint64_t sequence = 0u;
+       sequence < {iteration_limit}; ++sequence) {{
     const vlaforge::runtime::Epoch tick{{
         kControlClock, sequence, {tick_timestamp}, 0u}};
 {benchmark_tick_start}    Emit(trace, vlaforge::runtime::TraceKind::kInput,

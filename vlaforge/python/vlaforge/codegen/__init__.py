@@ -2,6 +2,7 @@
 
 from vlaforge.codegen.cpp import (
     CodegenUnsupportedError,
+    generate_compiled_cpp_session,
     generate_cpp_session,
 )
 from vlaforge.codegen.fixtures import (
@@ -35,6 +36,7 @@ __all__ = [
     "OpenVLATorchScriptSpec",
     "SmolVLAAotiSpec",
     "generate_cpp_session",
+    "generate_compiled_cpp_session",
     "generate_real_smolvla_aoti_runner",
     "generate_real_openvla_torchscript_runner",
     "openvla_fixture_regions",

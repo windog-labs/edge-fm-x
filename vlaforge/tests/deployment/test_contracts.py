@@ -6,6 +6,12 @@ from pathlib import Path
 
 import pytest
 
+from vlaforge.compiler import (
+    ArenaCertificate,
+    CompilationCertificate,
+    CompilerProfile,
+    PassCertificate,
+)
 from vlaforge.deployment import (
     ArtifactDiagnostic,
     ArtifactKind,
@@ -129,6 +135,30 @@ def _bundle(root: Path) -> CompileBundleManifest:
             build_commands=("vlaforge compile program.vla",),
             random_seed=7,
             environment=(("TARGET", "sm_86"),),
+        ),
+        compilation_certificate=CompilationCertificate(
+            profile=CompilerProfile.OFF,
+            test_only=False,
+            input_semantic_digest="0" * 64,
+            compiled_semantic_digest="0" * 64,
+            plan_digest="0" * 64,
+            passes=(
+                PassCertificate(
+                    "epoch_memoization",
+                    enabled=False,
+                    applied=False,
+                    reason="fixture",
+                ),
+            ),
+            caches=(),
+            licm=(),
+            arena=ArenaCertificate(
+                enabled=False,
+                baseline_bytes=0,
+                compiled_bytes=0,
+                baseline_allocations=0,
+                compiled_allocations=0,
+            ),
         ),
     )
 

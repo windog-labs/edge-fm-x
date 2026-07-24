@@ -441,6 +441,11 @@ def can_reuse_physical_storage(
     the same scheduled task.
     """
 
+    if (
+        left.buffer_class is BufferClass.TEMPORAL_CACHE
+        or right.buffer_class is BufferClass.TEMPORAL_CACHE
+    ):
+        return False
     return (
         left.device == right.device
         and (

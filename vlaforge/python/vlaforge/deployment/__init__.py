@@ -22,6 +22,14 @@ from vlaforge.deployment.bundle import (
     load_bundle_manifest,
 )
 
+
+def build_compile_bundle(*args, **kwargs):
+    """Lazily import the build pipeline to keep frontend contracts acyclic."""
+
+    from vlaforge.deployment.build import build_compile_bundle as build
+
+    return build(*args, **kwargs)
+
 __all__ = [
     "ARTIFACT_SCHEMA",
     "BUNDLE_SCHEMA",
@@ -40,4 +48,5 @@ __all__ = [
     "VersionEntry",
     "WorkspaceContract",
     "load_bundle_manifest",
+    "build_compile_bundle",
 ]

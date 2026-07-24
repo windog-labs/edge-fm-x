@@ -6,11 +6,13 @@ import re
 from dataclasses import dataclass
 from typing import Mapping
 
+from vlaforge.codegen.certificate import render_optimization_certificate_header
 from vlaforge.codegen.model import (
     CppRegionDefinition,
     CppValidatorDefinition,
     GeneratedSources,
 )
+from vlaforge.compiler import CompilationCertificate, CompilationResult
 from vlaforge.ir.program import Module
 from vlaforge.ir.serializer import module_digest
 from vlaforge.ir.types import (
@@ -44,6 +46,7 @@ def generate_cpp_session(
     validators: Mapping[str, CppValidatorDefinition],
     runner_source: str | None = None,
     namespace: str = "vlaforge_generated",
+    compilation_certificate: CompilationCertificate | None = None,
 ) -> GeneratedSources:
     verify_plan(plan)
     if plan.arena is None:
@@ -56,6 +59,16 @@ def generate_cpp_session(
         )
     if not _IDENTIFIER.fullmatch(namespace):
         raise ValueError("C++ namespace must be an identifier")
+    if compilation_certificate is not None:
+        if compilation_certificate.plan_digest != plan.digest():
+            raise ValueError("compilation certificate plan digest mismatch")
+        if (
+            compilation_certificate.compiled_semantic_digest
+            != module_digest(semantic_module)
+        ):
+            raise ValueError(
+                "compilation certificate semantic digest mismatch"
+            )
 
     required_regions = {artifact.region_name for artifact in plan.artifacts}
     missing_regions = sorted(required_regions - set(regions))
@@ -80,6 +93,7 @@ def generate_cpp_session(
         regions,
         validators,
         namespace=namespace,
+        compilation_certificate=compilation_certificate,
     )
     files = {
         "CMakeLists.txt": _cmake_source(runner_source is not None),
@@ -89,9 +103,37 @@ def generate_cpp_session(
         "session_generated.cpp": emitter.source(),
         "session_generated.h": emitter.header(),
     }
+    if compilation_certificate is not None:
+        files["optimization_certificate.h"] = (
+            render_optimization_certificate_header(
+                compilation_certificate,
+                namespace=namespace,
+            )
+        )
     if runner_source is not None:
         files["runner.cpp"] = runner_source
     return GeneratedSources(tuple(sorted(files.items())))
+
+
+def generate_compiled_cpp_session(
+    compilation: CompilationResult,
+    *,
+    regions: Mapping[str, CppRegionDefinition],
+    validators: Mapping[str, CppValidatorDefinition],
+    runner_source: str | None = None,
+    namespace: str = "vlaforge_generated",
+) -> GeneratedSources:
+    """Generate the normal Session from one certified compiler result."""
+
+    return generate_cpp_session(
+        compilation.plan,
+        compilation.module,
+        regions=regions,
+        validators=validators,
+        runner_source=runner_source,
+        namespace=namespace,
+        compilation_certificate=compilation.certificate,
+    )
 
 
 class _CppEmitter:
@@ -103,12 +145,37 @@ class _CppEmitter:
         validators: Mapping[str, CppValidatorDefinition],
         *,
         namespace: str,
+        compilation_certificate: CompilationCertificate | None,
     ):
         self.plan = plan
         self.module = module
         self.regions = dict(regions)
         self.validators = dict(validators)
         self.namespace = namespace
+        self.compilation_certificate = compilation_certificate
+        self.cache_certificates = {
+            item.task_id: item
+            for item in (
+                ()
+                if compilation_certificate is None
+                else compilation_certificate.caches
+            )
+            if item.enabled
+        }
+        self.cache_indices = {
+            task_id: index
+            for index, task_id in enumerate(sorted(self.cache_certificates))
+        }
+        for task_id, certificate in self.cache_certificates.items():
+            task = plan.task(task_id)
+            if task.opcode != "vla.invoke":
+                raise CodegenUnsupportedError(
+                    f"cache certificate task {task_id} is not a region invoke"
+                )
+            if str(task.attributes.get("region")) != certificate.region:
+                raise CodegenUnsupportedError(
+                    f"cache certificate region mismatch for task {task_id}"
+                )
         self.input_ids = {
             stream.name: index for index, stream in enumerate(module.inputs)
         }
@@ -125,6 +192,17 @@ class _CppEmitter:
     def header(self) -> str:
         artifact_count = len(self.plan.artifacts)
         input_count = len(self.module.inputs)
+        cache_include = (
+            '#include "vlaforge/runtime/epoch_cache.h"\n'
+            if self.compilation_certificate is not None
+            else ""
+        )
+        cache_member = (
+            "  std::array<vlaforge::runtime::EpochVersionCacheGuard,\n"
+            f"             {len(self.cache_certificates)}> cache_guards_{{}};\n"
+            if self.compilation_certificate is not None
+            else ""
+        )
         return f"""#ifndef VLAFORGE_GENERATED_SESSION_H_
 #define VLAFORGE_GENERATED_SESSION_H_
 
@@ -133,7 +211,7 @@ class _CppEmitter:
 #include <cstdint>
 
 #include "vlaforge/runtime/action_queue.h"
-#include "vlaforge/runtime/region_executable.h"
+{cache_include}#include "vlaforge/runtime/region_executable.h"
 #include "vlaforge/runtime/session.h"
 #include "vlaforge/runtime/state_store.h"
 #include "vlaforge/runtime/static_arena.h"
@@ -169,6 +247,8 @@ class GeneratedSession final : public vlaforge::runtime::Session {{
 
   void InitializeBufferObjects() noexcept;
   vlaforge::runtime::Status InitializeArtifacts() noexcept;
+  vlaforge::runtime::Status AbortTick(
+      vlaforge::runtime::Status cause) noexcept;
   void* BufferData(std::uint32_t logical_id) noexcept;
   VLAForgeTensorView MakeRegionView(
       std::uint32_t logical_id, void* data) const noexcept;
@@ -182,7 +262,7 @@ class GeneratedSession final : public vlaforge::runtime::Session {{
   vlaforge::runtime::Status initialization_status_{{}};
   std::array<BoundInput, {input_count}> inputs_{{}};
   std::array<VLAForgeRegionExecutable*, {artifact_count}> executables_{{}};
-}};
+{cache_member}}};
 
 }}  // namespace {self.namespace}
 
@@ -193,6 +273,10 @@ class GeneratedSession final : public vlaforge::runtime::Session {{
         sections = [
             '#include "session_generated.h"',
             '#include "memory_constants.h"',
+        ]
+        if self.compilation_certificate is not None:
+            sections.append('#include "optimization_certificate.h"')
+        sections.extend([
             "",
             "#include <array>",
             "#include <cmath>",
@@ -220,7 +304,7 @@ class GeneratedSession final : public vlaforge::runtime::Session {{
             "",
             f"}}  // namespace {self.namespace}",
             "",
-        ]
+        ])
         return "\n".join(sections)
 
     def _fixture_executable_declaration(self) -> str:
@@ -536,6 +620,10 @@ constexpr VLAForgeRegionExecutableApi kFixtureApi = {
             ),
             indent=2,
         )
+        run_body = run_body.replace(
+            "return status;",
+            "return AbortTick(status);",
+        )
         init_objects = []
         for buffer in self.plan.buffers:
             if buffer.id not in self.physical:
@@ -552,6 +640,13 @@ constexpr VLAForgeRegionExecutableApi kFixtureApi = {
         make_view_cases = []
         for buffer in self.plan.buffers:
             make_view_cases.append(self._make_view_case(buffer.id, buffer.type))
+        cache_reset = (
+            "    for (auto& cache : cache_guards_) {\n"
+            "      cache.Invalidate();\n"
+            "    }\n"
+            if self.compilation_certificate is not None
+            else ""
+        )
         return f"""GeneratedSession::GeneratedSession()
     : arena_(kArenaSize, kArenaAlignment),
       state_arena_(kStateArenaSize, kStateArenaAlignment),
@@ -614,6 +709,14 @@ vlaforge::runtime::Status GeneratedSession::InitializeArtifacts() noexcept {{
   return vlaforge::runtime::Status::Ok();
 }}
 
+vlaforge::runtime::Status GeneratedSession::AbortTick(
+    vlaforge::runtime::Status cause) noexcept {{
+  if (transaction_.active()) {{
+    (void)state_store_.Abort(&transaction_, 0u);
+  }}
+  return cause;
+}}
+
 void* GeneratedSession::BufferData(std::uint32_t logical_id) noexcept {{
   if (logical_id >=
       sizeof(kLogicalBuffers) / sizeof(kLogicalBuffers[0])) {{
@@ -644,7 +747,7 @@ vlaforge::runtime::Status GeneratedSession::ResetEpisode(
   const auto status = state_store_.ResetEpisode(new_episode, 0u);
   if (status.ok()) {{
     actions_.Reset();
-  }}
+{cache_reset}  }}
   return status;
 }}
 
@@ -916,6 +1019,57 @@ void GeneratedSession::SetTraceSink(
                 "}",
             ]
         )
+        certificate = self.cache_certificates.get(task.id)
+        if certificate is not None:
+            dependencies = []
+            for item in certificate.dependencies:
+                if item.kind != "epoch":
+                    raise CodegenUnsupportedError(
+                        "generated fixture Session needs an explicit "
+                        "StateVersion binding before state-version caching"
+                    )
+                dependency = (
+                    "vlaforge::runtime::TemporalDependency{"
+                    "vlaforge::runtime::TemporalDependencyKind::kInputEpoch, "
+                    f"{item.subject_id}u, "
+                    f"inputs_[{item.subject_id}u].epoch.sequence, "
+                    f"inputs_[{item.subject_id}u].epoch, "
+                    f"kCacheTask{task.id}Dependencies"
+                    f"[{len(dependencies)}u].max_age_ns, "
+                    f"kCacheTask{task.id}Dependencies"
+                    f"[{len(dependencies)}u].max_versions"
+                    "}"
+                )
+                dependencies.append(f"    {dependency},")
+            cache_index = self.cache_indices[task.id]
+            trace_line = lines[-2]
+            region_body = lines[1:-2]
+            return [
+                "{",
+                (
+                    "  const vlaforge::runtime::TemporalDependency "
+                    f"cache_dependencies_{task.id}[] = {{"
+                ),
+                *dependencies,
+                "  };",
+                (
+                    f"  const bool cache_hit_{task.id} = "
+                    f"cache_guards_[{cache_index}u].Lookup("
+                    f"cache_dependencies_{task.id}, "
+                    f"kCacheTask{task.id}DependencyCount, tick);"
+                ),
+                f"  if (!cache_hit_{task.id}) {{",
+                *_indent_lines(region_body, 2),
+                (
+                    f"    status = cache_guards_[{cache_index}u].Update("
+                    f"cache_dependencies_{task.id}, "
+                    f"kCacheTask{task.id}DependencyCount);"
+                ),
+                "    if (!status.ok()) { return status; }",
+                "  }",
+                trace_line,
+                "}",
+            ]
         return lines
 
     def _region_status_check(
@@ -925,9 +1079,10 @@ void GeneratedSession::SetTraceSink(
         return [
             f"{prefix}if (region_status.code != VLAFORGE_STATUS_OK) {{",
             (
-                f"{prefix}  return vlaforge::runtime::Status::Error("
+                f"{prefix}  return AbortTick("
+                "vlaforge::runtime::Status::Error("
                 "vlaforge::runtime::StatusCode::kInternal, "
-                f"{task_id}u, region_status.message);"
+                f"{task_id}u, region_status.message));"
             ),
             f"{prefix}}}",
         ]
@@ -1165,7 +1320,11 @@ target_compile_options(vlaforge_generated_session PRIVATE
 install(TARGETS vlaforge_generated_session
     EXPORT VLAForgeRuntimeTargets
     ARCHIVE DESTINATION ${{CMAKE_INSTALL_LIBDIR}})
-install(FILES session_generated.h memory_constants.h
+set(VLAFORGE_GENERATED_HEADERS session_generated.h memory_constants.h)
+if(EXISTS "${{CMAKE_CURRENT_SOURCE_DIR}}/optimization_certificate.h")
+  list(APPEND VLAFORGE_GENERATED_HEADERS optimization_certificate.h)
+endif()
+install(FILES ${{VLAFORGE_GENERATED_HEADERS}}
     DESTINATION ${{CMAKE_INSTALL_INCLUDEDIR}}/vlaforge/generated)
 {runner}"""
 

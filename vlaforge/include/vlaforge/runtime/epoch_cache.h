@@ -25,6 +25,7 @@ struct TemporalDependency final {
   std::uint64_t logical_version = 0;
   Epoch epoch{};
   std::uint64_t max_age_ns = kUnboundedAge;
+  std::uint64_t max_versions = kUnboundedAge;
 };
 
 class EpochVersionCacheGuard final {

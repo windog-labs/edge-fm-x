@@ -11,7 +11,8 @@ bool SameDependency(const TemporalDependency& left,
          left.subject_id == right.subject_id &&
          left.logical_version == right.logical_version &&
          left.epoch == right.epoch &&
-         left.max_age_ns == right.max_age_ns;
+         left.max_age_ns == right.max_age_ns &&
+         left.max_versions == right.max_versions;
 }
 
 bool Fresh(const TemporalDependency& dependency,

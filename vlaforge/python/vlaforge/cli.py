@@ -4,20 +4,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
+import subprocess
 from pathlib import Path
 
 from vlaforge.adapters import build_openvla_fixture, build_smolvla_fixture
 from vlaforge.analysis import verify
 from vlaforge.codegen import (
-    generate_cpp_session,
+    generate_compiled_cpp_session,
     openvla_fixture_regions,
     openvla_fixture_runner_source,
     openvla_fixture_validators,
 )
+from vlaforge.compiler import CompilerProfile, compile_module
+from vlaforge.deployment import build_compile_bundle, load_bundle_manifest
 from vlaforge.interpreter import Epoch, InputSample, Interpreter, Trace
 from vlaforge.ir.parser import parse_module
 from vlaforge.ir.serializer import module_digest
-from vlaforge.plan import lower_to_plan, physicalize_plan
 from vlaforge.validation import NumericContract, compare_traces
 
 
@@ -128,16 +132,20 @@ def _codegen(args: argparse.Namespace) -> int:
         raise ValueError(
             "static C++ fixture codegen currently supports openvla-fixture"
         )
-    plan = physicalize_plan(lower_to_plan(fixture.module))
-    sources = generate_cpp_session(
-        plan,
+    compilation = compile_module(
         fixture.module,
+        profile=args.profile,
+        allow_test_profile=args.allow_test_profile,
+    )
+    sources = generate_compiled_cpp_session(
+        compilation,
         regions=openvla_fixture_regions(),
         validators=openvla_fixture_validators(),
         runner_source=openvla_fixture_runner_source(),
     )
     output = Path(args.output)
     expected_names = {name for name, _ in sources.files}
+    expected_names.add("compilation_certificate.json")
     if output.exists():
         unexpected = sorted(
             path.name for path in output.iterdir()
@@ -149,9 +157,77 @@ def _codegen(args: argparse.Namespace) -> int:
                 f"with unrelated entries: {unexpected}"
             )
     sources.write(output)
+    (output / "compilation_certificate.json").write_text(
+        compilation.certificate.canonical_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
     print(
         f"C++ generation passed: adapter={args.adapter} "
+        f"profile={compilation.certificate.profile.value} "
+        f"certificate={compilation.certificate.digest()} "
         f"digest={sources.digest()} output={output}"
+    )
+    return 0
+
+
+def _compile(args: argparse.Namespace) -> int:
+    fixture = _fixture(args.adapter)
+    if args.adapter != "openvla-fixture":
+        raise ValueError(
+            "standalone fixture bundle currently supports openvla-fixture"
+        )
+    repository = Path(__file__).resolve().parents[3]
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dirty = bool(
+        subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    environment = {
+        "host": platform.platform(),
+        "machine": platform.machine(),
+    }
+    for name in ("CXX", "CUDA_VISIBLE_DEVICES"):
+        if name in os.environ:
+            environment[name] = os.environ[name]
+    manifest = build_compile_bundle(
+        fixture.module,
+        args.output,
+        regions=openvla_fixture_regions(),
+        validators=openvla_fixture_validators(),
+        runner_source=openvla_fixture_runner_source(),
+        runtime_root=Path(__file__).resolve().parents[2],
+        profile=args.profile,
+        allow_test_profile=args.allow_test_profile,
+        source_revision=revision,
+        source_dirty=dirty,
+        environment=environment,
+    )
+    print(
+        f"Compile Bundle passed: adapter={args.adapter} "
+        f"profile={manifest.compilation_certificate.profile.value} "
+        f"digest={manifest.digest()} output={args.output}"
+    )
+    return 0
+
+
+def _bundle_verify(args: argparse.Namespace) -> int:
+    manifest_path = Path(args.manifest)
+    manifest = load_bundle_manifest(manifest_path)
+    manifest.verify_files(manifest_path.parent)
+    print(
+        f"Compile Bundle verification passed: "
+        f"digest={manifest.digest()} root={manifest_path.parent}"
     )
     return 0
 
@@ -194,7 +270,48 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("openvla-fixture",),
     )
     codegen_parser.add_argument("--output", required=True)
+    codegen_parser.add_argument(
+        "--profile",
+        default=CompilerProfile.VERIFIED.value,
+        choices=(
+            CompilerProfile.OFF.value,
+            "conservative",
+            CompilerProfile.VERIFIED.value,
+            "auto",
+            CompilerProfile.FORCE_ON.value,
+        ),
+    )
+    codegen_parser.add_argument(
+        "--allow-test-profile",
+        action="store_true",
+        help="allow the force-on profile, which is never for production",
+    )
     codegen_parser.set_defaults(handler=_codegen)
+
+    compile_parser = commands.add_parser("compile")
+    compile_parser.add_argument(
+        "--adapter",
+        required=True,
+        choices=("openvla-fixture",),
+    )
+    compile_parser.add_argument("--output", required=True)
+    compile_parser.add_argument(
+        "--profile",
+        default=CompilerProfile.VERIFIED.value,
+        choices=(
+            CompilerProfile.OFF.value,
+            "conservative",
+            CompilerProfile.VERIFIED.value,
+            "auto",
+            CompilerProfile.FORCE_ON.value,
+        ),
+    )
+    compile_parser.add_argument("--allow-test-profile", action="store_true")
+    compile_parser.set_defaults(handler=_compile)
+
+    bundle_verify_parser = commands.add_parser("bundle-verify")
+    bundle_verify_parser.add_argument("manifest")
+    bundle_verify_parser.set_defaults(handler=_bundle_verify)
     return parser
 
 

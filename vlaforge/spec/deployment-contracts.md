@@ -1,4 +1,4 @@
-# VLAForge Deployment Contracts v1
+# VLAForge Deployment Contracts v2
 
 ## Scope
 
@@ -55,7 +55,7 @@ an undersized table, an unsupported version, or a missing function.
 
 ## Compile bundle
 
-Schema: `vlaforge.compile_bundle/1`.
+Schema: `vlaforge.compile_bundle/2`.
 
 A complete bundle manifest contains:
 
@@ -70,6 +70,9 @@ A complete bundle manifest contains:
 - toolchain and backend versions;
 - source revision, dirty flag, build commands, seed, and sorted reproducibility
   environment.
+- a `vlaforge.compilation_certificate/1` legality certificate that binds the
+  selected compiler profile to the compiled Semantic IR and physical Plan
+  digests.
 
 All files use normalized relative paths and carry SHA-256 plus exact byte size.
 Duplicate paths, region IDs, region names, or version keys are illegal.
@@ -79,3 +82,47 @@ The canonical JSON form is a control-plane artifact used during compilation,
 packaging, and evidence collection. It is not parsed in the per-tick C++ hot
 path; later static code generation turns plan IDs and bindings into constant
 tables.
+
+## Compiler profiles and legality certificates
+
+The VLA-specific compiler exposes three profiles:
+
+- `off` (alias `conservative`): no epoch memoization, temporal LICM, or
+  temporary arena reuse;
+- `verified` (alias `auto`): enable only cache entries with complete
+  Epoch/StateVersion provenance, serialize every LICM disposition, and reuse
+  arena storage only under exact scheduled-lifetime non-interference;
+- `force-on`: test-only. The Python API requires
+  `allow_test_profile=True`, and the CLI requires
+  `--allow-test-profile`. Bundles carrying this profile are stamped
+  `test_only=true`.
+
+`CompilationCertificate` records input and compiled Semantic IR digests, the
+physical Plan digest, per-pass enable/application decisions, every cache task
+and its dependency signature, every temporal LICM decision, and baseline versus
+compiled arena layouts. Generated C++ includes deterministic certificate tables
+and refuses a certificate whose Plan or Semantic digest does not match.
+
+Temporal cache output buffers use the dedicated `temporal_cache` buffer class.
+They cannot alias any other allocation across ticks. Cache lookup checks exact
+input Epoch or StateVersion signatures, freshness, and episode. Episode reset
+invalidates every generated guard. A failed generated tick aborts an active
+state transaction; a pure cache entry remains valid only when its certified
+Epoch/StateVersion dependencies remain unchanged.
+
+## Compile Bundle CLI
+
+The normal no-Python fixture path is:
+
+```bash
+vlaforge compile \
+  --adapter openvla-fixture \
+  --profile verified \
+  --output /tmp/openvla-fixture.vlabundle
+
+vlaforge bundle-verify /tmp/openvla-fixture.vlabundle/bundle.json
+```
+
+This performs compiler lowering, certificate generation, static C++ emission,
+clean Release CMake build, binary packaging, manifest hashing, and complete
+on-disk verification. The resulting runner does not require Python.

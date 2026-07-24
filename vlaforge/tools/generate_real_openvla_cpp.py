@@ -19,6 +19,12 @@ def main() -> int:
     parser.add_argument("--capture-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--profile",
+        choices=("off", "conservative", "verified", "auto", "force-on"),
+        default="verified",
+    )
+    parser.add_argument("--allow-test-profile", action="store_true")
     parser.add_argument("--optimization-benchmark", action="store_true")
     args = parser.parse_args()
     reports = {
@@ -40,15 +46,21 @@ def main() -> int:
     )
     sources = generate_real_openvla_torchscript_runner(
         spec,
+        compiler_profile=args.profile,
+        allow_test_profile=args.allow_test_profile,
         optimization_benchmark=args.optimization_benchmark,
     )
     sources.write(args.output_dir)
     manifest = {
-        "schema": "vlaforge.real_openvla_codegen/1",
+        "schema": "vlaforge.real_openvla_codegen/2",
         "source_digest": sources.digest(),
         "spec": asdict(spec),
         "files": [name for name, _ in sources.files],
         "optimization_benchmark": args.optimization_benchmark,
+        "compiler_profile": args.profile,
+        "compilation_certificate": json.loads(
+            sources.as_dict()["compilation_certificate.json"]
+        ),
     }
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
     args.manifest.write_text(

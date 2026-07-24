@@ -42,6 +42,7 @@ class BufferClass(str, Enum):
     PENDING_ACTION = "pending_action"
     COMMITTED_ACTION = "committed_action"
     REGION_WORKSPACE = "region_workspace"
+    TEMPORAL_CACHE = "temporal_cache"
 
 
 @dataclass(frozen=True, slots=True)

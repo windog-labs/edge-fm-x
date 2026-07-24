@@ -111,10 +111,13 @@ recorded in:
 - [`../doc/reports/vlaforge_cpp_openvla_real.md`](../doc/reports/vlaforge_cpp_openvla_real.md)
 - [`../doc/reports/vlaforge_whole_program_optimizations.md`](../doc/reports/vlaforge_whole_program_optimizations.md)
 
-`generate_real_smolvla_cpp.py` and `generate_real_openvla_cpp.py` produce the
-normal audited runner by default. Pass `--optimization-benchmark` only for the
-instrumented cache/LICM measurement build; this keeps deployment-source golden
-digests stable.
+`generate_real_smolvla_cpp.py` and `generate_real_openvla_cpp.py` use the
+`verified` production profile by default and emit
+`compilation_certificate.json`. Use `--profile off` for the conservative
+control. `--profile force-on` is rejected unless `--allow-test-profile` is
+also present. Pass `--optimization-benchmark` only to add workload and
+per-tick measurement instrumentation; it does not create a separate legality
+path.
 
 The combined benchmark/audit entry point is:
 
@@ -127,3 +130,16 @@ It runs generated C++ with an invalid Python environment, measures tick p99
 and peak RSS, verifies exact action/evidence/non-Region traces, measures
 compiler-pass cost and static-arena peak, and exits nonzero on a Gate G4
 regression.
+
+The paper/release matrix uses:
+
+```bash
+PYTHONPATH=vlaforge/python \
+python vlaforge/tools/benchmark_paper_artifact.py --help
+```
+
+It requires at least 30 post-warm samples for nominal, repeat, all-miss, and
+stale workloads; reports p50/p95/p99 with bootstrap 95% confidence intervals;
+separates compiler arena, declared backend tensors, process RSS, and
+whole-process VRAM; and writes JSON, CSV, Markdown, raw outputs, exact commands,
+environment, source revision, and artifact hashes.

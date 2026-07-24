@@ -8,7 +8,9 @@ no-Python execution for SmolVLA and OpenVLA. The terminal gates are G3
 (two-model C++ correctness) and G4 (three VLA-semantic optimizations with
 evidence).
 
-Branch: `codex/vlaforge-plan-cpp-aot`
+Original implementation branch: `codex/vlaforge-plan-cpp-aot`
+
+Paper/release branch: `codex/vlaforge-paper-artifact`
 
 Base: `2c46ce5`
 
@@ -483,3 +485,81 @@ The two real generated benchmark runners were also verified with invalid
 Python environment variables and no `libpython` dependency. Gate G3 and Gate
 G4 are complete; Jetson/vendor backends, π0, closed-loop robot evaluation, and
 paper artifact freeze remain intentionally out of scope for this Goal.
+
+## Paper Artifact P1: production compiler profiles and certificates
+
+Status: implementation complete; full regression and paper matrix in progress.
+
+Implemented on `codex/vlaforge-paper-artifact`:
+
+- `off`/`conservative`, `verified`/`auto`, and test-only `force-on`
+  profiles;
+- deterministic `vlaforge.compilation_certificate/1` with compiler profile,
+  input/compiled Semantic IR hashes, physical Plan hash, pass decisions,
+  cache legality signatures, temporal LICM dispositions, and arena evidence;
+- explicit test authority required for `force-on`;
+- `temporal_cache` physical buffer class whose cross-tick results cannot alias;
+- certificate-driven cache guards in the normal generated `Session`;
+- exact certificate/Plan/Semantic digest checks before code generation;
+- generated certificate header and manifest serialization;
+- cache invalidation on episode reset and generated transaction abort on tick
+  failure;
+- `vlaforge.compile_bundle/2`, clean Release build, complete hashes, binary,
+  toolchain/backend versions, commands, environment, and verification;
+- `vlaforge codegen --profile ...`, `vlaforge compile`, and
+  `vlaforge bundle-verify`;
+- real SmolVLA AOTI and OpenVLA TorchScript generators default to `verified`
+  and embed the same compiler certificate instead of using a benchmark-only
+  optimization path;
+- negative/fault coverage for changed Epoch, changed StateVersion, stale
+  dependencies, episode reset, transaction abort, missing signature, and
+  unversioned operands.
+
+The local CodeGraph database remains intentionally untracked. Its launcher
+still points to an incompatible Node executable and fails with
+`Exec format error`; no `.codegraph/` file was modified or staged.
+
+## Paper Artifact P2: paper benchmark protocol
+
+Status: real matrix running.
+
+`vlaforge/tools/benchmark_paper_artifact.py` now enforces:
+
+- SmolVLA and OpenVLA;
+- nominal, repeat, all-miss, and stale workloads;
+- off, cache-only, LICM-only where applicable, and combined modes;
+- at least 30 post-warm samples;
+- p50/p95/p99 plus bootstrap 95% confidence intervals;
+- byte-exact action, binary evidence, and non-Region trace comparison against
+  the off profile;
+- compiler time, compiler-owned arena, declared backend tensor footprint,
+  process RSS, and whole-process VRAM as separate fields;
+- JSON, CSV, Markdown, raw output, commands, environment, revision, dirty flag,
+  and SHA-256 for runners, backend artifacts, input tree, and codegen
+  manifests.
+
+Current real-runner smoke evidence:
+
+```text
+SmolVLA: off/cache/LICM/combined evidence SHA-256 exact
+OpenVLA: off/cache/combined evidence SHA-256 exact
+SmolVLA nominal cache: miss/hit alternation observed
+OpenVLA nominal cache: miss/hit alternation observed
+Both runners: clean -Werror build, invalid PYTHONHOME/PYTHONPATH
+```
+
+The full 30-sample matrix and local freeze must pass before the Orin phase
+starts.
+
+Current P1 regression:
+
+```text
+Offline Python: 137 passed, 3 real/CUDA gates deselected
+Python compileall: passed
+Wheel: 166,484 bytes; compiler/certificate/bundle modules present
+C++ Release: 5/5 passed
+Certified fixture Compile Bundle: clean CMake build and no-Python E2E passed
+Real SmolVLA instrumented runner: clean -Werror build passed
+Real OpenVLA instrumented runner: clean -Werror build passed
+git diff --check: passed
+```
