@@ -135,7 +135,7 @@ detokenize_action: 17 nodes, export 0.093 s, max abs error 0
 effect audit: pass
 explicit fixed-loop tokens == BF16 model.generate tokens: true
 persistent state: none
-real NF4 Semantic IR gate: 1 passed, 5 warnings in 19.22 s
+real NF4 Semantic IR gate: 1 passed, 5 warnings in 21.14 s
 ```
 
 The OpenVLA export audit uses the same pinned checkpoint in BF16 on CPU.
@@ -164,11 +164,66 @@ git diff --check: passed
 Detailed report:
 `doc/reports/vlaforge_frontend_real_models.md`.
 
+## Gate C: internal Scheduled Execution
+
+Status: passed.
+
+Milestone commit:
+`feat(vlaforge): add deterministic scheduled execution plan`.
+
+Implemented:
+
+- compact internal `PlanModule` with deterministic integer policy, block,
+  task, logical-buffer, state, and artifact IDs;
+- one VLA-focused `Task` record with input, region, loop, branch, state,
+  validation, commit, publish, and control kinds;
+- typed input/output bindings, explicit producer dependencies, bounded
+  freshness/deadline guards, artifact variants, and source-op/location maps;
+- structured fixed loops and branches as nested Plan blocks;
+- canonical deterministic serialization, SHA-256 digest, and round-trip load;
+- Semantic IR to Plan lowering with no public Plan DSL;
+- verifier for IDs, graph cycles, read-before-produce, artifacts, freshness,
+  loop bounds, validation/commit, and commit/publish ordering;
+- direct Plan reference executor using Plan tasks rather than reconstructing
+  the Semantic Interpreter;
+- byte-equivalent normalized Semantic Interpreter/Plan Executor traces across
+  three SmolVLA and OpenVLA fixture ticks.
+
+The real OpenVLA Semantic IR was strengthened during this gate. It no longer
+wraps Hugging Face `generate()` in one region; it now contains prefill, a fixed
+six-iteration decode-step loop, token extraction, and detokenization. The same
+NF4 checkpoint matches official `predict_action()` token IDs and action
+exactly. KV is invocation-local loop carry and the persistent state table
+remains empty.
+
+Deterministic real-program plans:
+
+```text
+SmolVLA: 28 tasks, 4 blocks, 30 buffers, 2 states, 7 artifacts
+digest: 8d4c00ad2006157650620bf93a552b3b0a6ca039a448d6d3b1172bba57f88b76
+
+OpenVLA: 15 tasks, 2 blocks, 18 buffers, 0 states, 4 artifacts
+digest: 73e46eb3e1532143b78d6e64425bd7464368a515ac6ac4c30b5f4b54fdc04882
+```
+
+Current evidence:
+
+```text
+Plan focused suite: 11 passed
+Python full offline suite: 96 passed, 2 real-model tests skipped in 2.49 s
+Python 3.10 Plan/model suite: 17 passed in 0.11 s
+Real OpenVLA NF4 explicit-loop gate: 1 passed, 5 warnings in 21.14 s
+Python compileall: passed
+Wheel: vlaforge-0.1.0.dev0-py3-none-any.whl, 111,314 bytes
+git diff --check: passed
+```
+
+Detailed contract:
+`doc/reports/vlaforge_plan_and_runtime_contract.md`.
+
 ## Next
 
-1. Lower verified Semantic IR into deterministic internal Scheduled Execution
-   Plans for SmolVLA and OpenVLA.
-2. Add the Plan verifier, reference executor, trace mapping, and required
-   negative tests.
-3. Physicalize state rings and temporary tensor storage into a deterministic
-   static arena.
+1. Physicalize state rings from retention/in-flight/lag/fallback proofs.
+2. Compute nested-task liveness, typed sizes/alignment, and a deterministic
+   Static Arena with safe lifetime reuse.
+3. Emit C++ constexpr state/buffer tables and add arena sanitizer tests.

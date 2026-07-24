@@ -131,6 +131,11 @@ The official BF16 `model.generate()` path produced the same seven token IDs.
 The 32-layer KV is flattened into 64 explicit loop-carried tensors. It is not
 persistent policy state, and the OpenVLA program has no `StateSlot`.
 
+The real NF4 Semantic IR gate follows the same decomposition: prefill, six
+explicit cached decode iterations, token extraction, and detokenization. It
+matches the official NF4 `predict_action()` token sequence and final action;
+`generate()` is no longer hidden inside the Semantic IR region.
+
 ### Reproduction
 
 ```bash

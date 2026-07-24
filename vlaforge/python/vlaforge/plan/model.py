@@ -1,0 +1,633 @@
+"""Compact internal Scheduled Execution representation.
+
+This is intentionally not a second user-facing IR.  One immutable task record
+is used for all semantic operations; ``TaskKind`` only exposes the distinctions
+needed by verification, memory planning, and code generation.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass, field
+from enum import Enum
+from types import MappingProxyType
+from typing import Any, Mapping
+
+from vlaforge.ir.types import IRType, type_from_dict
+
+
+PLAN_SCHEMA = "vlaforge.scheduled_plan/1"
+
+
+class TaskKind(str, Enum):
+    INPUT = "input"
+    REGION = "region"
+    LOOP = "loop"
+    BRANCH = "branch"
+    STATE = "state"
+    VALIDATION = "validation"
+    COMMIT = "commit"
+    PUBLISH = "publish"
+    CONTROL = "control"
+
+
+class BufferClass(str, Enum):
+    EXTERNAL = "external"
+    SSA = "ssa"
+    CONTROL = "control"
+    LOOP_CARRIED = "loop_carried"
+    STATE_SNAPSHOT = "state_snapshot"
+    STATE_PENDING = "state_pending"
+    PENDING_ACTION = "pending_action"
+    COMMITTED_ACTION = "committed_action"
+    REGION_WORKSPACE = "region_workspace"
+
+
+@dataclass(frozen=True, slots=True)
+class FreshnessGuard:
+    max_age_ns: int | None = None
+    max_versions: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.max_age_ns is None and self.max_versions is None:
+            raise ValueError("freshness guard requires at least one bound")
+        if self.max_age_ns is not None and self.max_age_ns < 0:
+            raise ValueError("freshness max_age_ns must be non-negative")
+        if self.max_versions is not None and self.max_versions < 0:
+            raise ValueError("freshness max_versions must be non-negative")
+
+    def to_dict(self) -> dict[str, int | None]:
+        return {
+            "max_age_ns": self.max_age_ns,
+            "max_versions": self.max_versions,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "FreshnessGuard":
+        return cls(
+            max_age_ns=(
+                None if data.get("max_age_ns") is None else int(data["max_age_ns"])
+            ),
+            max_versions=(
+                None
+                if data.get("max_versions") is None
+                else int(data["max_versions"])
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DeadlineGuard:
+    deadline_ns: int
+
+    def __post_init__(self) -> None:
+        if self.deadline_ns <= 0:
+            raise ValueError("deadline must be positive")
+
+    def to_dict(self) -> dict[str, int]:
+        return {"deadline_ns": self.deadline_ns}
+
+
+@dataclass(frozen=True, slots=True)
+class FallbackTarget:
+    target: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        if not self.target or not self.reason:
+            raise ValueError("fallback target requires target and reason")
+
+    def to_dict(self) -> dict[str, str]:
+        return {"target": self.target, "reason": self.reason}
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalBuffer:
+    id: int
+    name: str
+    type: IRType
+    buffer_class: BufferClass
+    producer_task: int | None
+    external: bool = False
+    source: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.id < 0 or not self.name:
+            raise ValueError("logical buffer requires non-negative id and name")
+        if self.external != (self.producer_task is None):
+            raise ValueError(
+                "external logical buffers must have no producer and internal "
+                "logical buffers must have one producer"
+            )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "type": self.type.to_dict(),
+            "buffer_class": self.buffer_class.value,
+            "producer_task": self.producer_task,
+            "external": self.external,
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class StateBinding:
+    state_id: int
+    name: str
+    payload: IRType
+    retention: int
+    max_in_flight: int = 1
+    consumer_lag: int = 0
+    fallback_snapshots: int = 0
+    slot_capacity: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.state_id < 0 or not self.name or self.retention < 1:
+            raise ValueError("invalid state binding")
+        if self.max_in_flight < 1:
+            raise ValueError("state max_in_flight must be positive")
+        if self.consumer_lag < 0 or self.fallback_snapshots < 0:
+            raise ValueError("state lag/snapshot counts must be non-negative")
+        if self.slot_capacity is not None and self.slot_capacity < 1:
+            raise ValueError("state slot capacity must be positive")
+
+    @property
+    def required_capacity(self) -> int:
+        return max(
+            self.retention,
+            1
+            + self.max_in_flight
+            + self.consumer_lag
+            + self.fallback_snapshots,
+        )
+
+    def slot_for(self, logical_version: int) -> int:
+        if self.slot_capacity is None:
+            raise ValueError(f"state {self.name} has not been physicalized")
+        if logical_version < 0:
+            raise ValueError("logical version must be non-negative")
+        return logical_version % self.slot_capacity
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "state_id": self.state_id,
+            "name": self.name,
+            "payload": self.payload.to_dict(),
+            "retention": self.retention,
+            "max_in_flight": self.max_in_flight,
+            "consumer_lag": self.consumer_lag,
+            "fallback_snapshots": self.fallback_snapshots,
+            "slot_capacity": self.slot_capacity,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactBinding:
+    artifact_id: int
+    region_name: str
+    backend: str
+    variant: str
+    artifact_path: str | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            self.artifact_id < 0
+            or not self.region_name
+            or not self.backend
+            or not self.variant
+        ):
+            raise ValueError("invalid artifact binding")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "artifact_id": self.artifact_id,
+            "region_name": self.region_name,
+            "backend": self.backend,
+            "variant": self.variant,
+            "artifact_path": self.artifact_path,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Task:
+    id: int
+    kind: TaskKind
+    opcode: str
+    inputs: tuple[int, ...]
+    outputs: tuple[int, ...]
+    dependencies: tuple[int, ...]
+    attributes: Mapping[str, Any] = field(default_factory=dict)
+    blocks: tuple[int, ...] = ()
+    artifact_id: int | None = None
+    source_op: str | None = None
+    source_location: str | None = None
+    freshness_guard: FreshnessGuard | None = None
+    deadline_guard: DeadlineGuard | None = None
+    fallback: FallbackTarget | None = None
+
+    def __post_init__(self) -> None:
+        if self.id < 0 or not self.opcode:
+            raise ValueError("task requires non-negative id and opcode")
+        if tuple(sorted(set(self.dependencies))) != self.dependencies:
+            raise ValueError("task dependencies must be sorted and unique")
+        object.__setattr__(
+            self,
+            "attributes",
+            MappingProxyType(
+                {
+                    str(key): value
+                    for key, value in sorted(self.attributes.items())
+                }
+            ),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "kind": self.kind.value,
+            "opcode": self.opcode,
+            "inputs": list(self.inputs),
+            "outputs": list(self.outputs),
+            "dependencies": list(self.dependencies),
+            "attributes": _plain(self.attributes),
+            "blocks": list(self.blocks),
+            "artifact_id": self.artifact_id,
+            "source_op": self.source_op,
+            "source_location": self.source_location,
+            "freshness_guard": (
+                None
+                if self.freshness_guard is None
+                else self.freshness_guard.to_dict()
+            ),
+            "deadline_guard": (
+                None
+                if self.deadline_guard is None
+                else self.deadline_guard.to_dict()
+            ),
+            "fallback": (
+                None if self.fallback is None else self.fallback.to_dict()
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PlanBlock:
+    id: int
+    arguments: tuple[int, ...]
+    tasks: tuple[int, ...]
+    source: str
+
+    def __post_init__(self) -> None:
+        if self.id < 0 or not self.source:
+            raise ValueError("plan block requires non-negative id and source")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "arguments": list(self.arguments),
+            "tasks": list(self.tasks),
+            "source": self.source,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PlanPolicy:
+    id: int
+    name: str
+    clock: str
+    inputs: tuple[int, ...]
+    body_block: int
+    deadline_guard: DeadlineGuard | None = None
+
+    def __post_init__(self) -> None:
+        if self.id < 0 or not self.name or not self.clock or self.body_block < 0:
+            raise ValueError("invalid plan policy")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "clock": self.clock,
+            "inputs": list(self.inputs),
+            "body_block": self.body_block,
+            "deadline_guard": (
+                None
+                if self.deadline_guard is None
+                else self.deadline_guard.to_dict()
+            ),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PhysicalBuffer:
+    id: int
+    logical_buffers: tuple[int, ...]
+    buffer_class: BufferClass
+    device: str
+    size_bytes: int
+    alignment: int
+    offset: int
+    first_task: int
+    last_task: int
+
+    def __post_init__(self) -> None:
+        if (
+            self.id < 0
+            or not self.logical_buffers
+            or not self.device
+            or self.size_bytes < 0
+            or self.alignment < 1
+            or self.offset < 0
+            or self.first_task < 0
+            or self.last_task < self.first_task
+        ):
+            raise ValueError("invalid physical buffer")
+        if self.alignment & (self.alignment - 1):
+            raise ValueError("physical buffer alignment must be a power of two")
+        if self.offset % self.alignment:
+            raise ValueError("physical buffer offset violates alignment")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "logical_buffers": list(self.logical_buffers),
+            "buffer_class": self.buffer_class.value,
+            "device": self.device,
+            "size_bytes": self.size_bytes,
+            "alignment": self.alignment,
+            "offset": self.offset,
+            "first_task": self.first_task,
+            "last_task": self.last_task,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class StaticArenaPlan:
+    device: str
+    size_bytes: int
+    alignment: int
+    physical_buffers: tuple[PhysicalBuffer, ...]
+
+    def __post_init__(self) -> None:
+        if not self.device or self.size_bytes < 0 or self.alignment < 1:
+            raise ValueError("invalid static arena")
+        if self.alignment & (self.alignment - 1):
+            raise ValueError("static arena alignment must be a power of two")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "device": self.device,
+            "size_bytes": self.size_bytes,
+            "alignment": self.alignment,
+            "physical_buffers": [
+                item.to_dict() for item in self.physical_buffers
+            ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PlanModule:
+    name: str
+    semantic_digest: str
+    policies: tuple[PlanPolicy, ...]
+    tasks: tuple[Task, ...]
+    blocks: tuple[PlanBlock, ...]
+    buffers: tuple[LogicalBuffer, ...]
+    states: tuple[StateBinding, ...]
+    artifacts: tuple[ArtifactBinding, ...]
+    arena: StaticArenaPlan | None = None
+    schema: str = PLAN_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema != PLAN_SCHEMA:
+            raise ValueError(f"unsupported scheduled plan schema: {self.schema!r}")
+        if not self.name or len(self.semantic_digest) != 64:
+            raise ValueError("plan requires name and semantic SHA-256 digest")
+
+    def policy(self, name: str) -> PlanPolicy:
+        for policy in self.policies:
+            if policy.name == name:
+                return policy
+        raise KeyError(f"unknown plan policy: {name}")
+
+    def task(self, task_id: int) -> Task:
+        if 0 <= task_id < len(self.tasks) and self.tasks[task_id].id == task_id:
+            return self.tasks[task_id]
+        for task in self.tasks:
+            if task.id == task_id:
+                return task
+        raise KeyError(f"unknown task id: {task_id}")
+
+    def block(self, block_id: int) -> PlanBlock:
+        if 0 <= block_id < len(self.blocks) and self.blocks[block_id].id == block_id:
+            return self.blocks[block_id]
+        for block in self.blocks:
+            if block.id == block_id:
+                return block
+        raise KeyError(f"unknown block id: {block_id}")
+
+    def buffer(self, buffer_id: int) -> LogicalBuffer:
+        if (
+            0 <= buffer_id < len(self.buffers)
+            and self.buffers[buffer_id].id == buffer_id
+        ):
+            return self.buffers[buffer_id]
+        for buffer in self.buffers:
+            if buffer.id == buffer_id:
+                return buffer
+        raise KeyError(f"unknown buffer id: {buffer_id}")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": self.schema,
+            "name": self.name,
+            "semantic_digest": self.semantic_digest,
+            "policies": [item.to_dict() for item in self.policies],
+            "tasks": [item.to_dict() for item in self.tasks],
+            "blocks": [item.to_dict() for item in self.blocks],
+            "buffers": [item.to_dict() for item in self.buffers],
+            "states": [item.to_dict() for item in self.states],
+            "artifacts": [item.to_dict() for item in self.artifacts],
+            "arena": None if self.arena is None else self.arena.to_dict(),
+        }
+
+    def canonical_json(self, *, indent: int | None = None) -> str:
+        return json.dumps(
+            self.to_dict(),
+            sort_keys=True,
+            separators=(",", ":") if indent is None else None,
+            ensure_ascii=False,
+            indent=indent,
+        )
+
+    def digest(self) -> str:
+        return hashlib.sha256(self.canonical_json().encode()).hexdigest()
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "PlanModule":
+        def deadline(value: object) -> DeadlineGuard | None:
+            if value is None:
+                return None
+            assert isinstance(value, Mapping)
+            return DeadlineGuard(int(value["deadline_ns"]))
+
+        def fallback(value: object) -> FallbackTarget | None:
+            if value is None:
+                return None
+            assert isinstance(value, Mapping)
+            return FallbackTarget(str(value["target"]), str(value["reason"]))
+
+        tasks = tuple(
+            Task(
+                id=int(item["id"]),
+                kind=TaskKind(str(item["kind"])),
+                opcode=str(item["opcode"]),
+                inputs=tuple(int(value) for value in item.get("inputs", ())),
+                outputs=tuple(int(value) for value in item.get("outputs", ())),
+                dependencies=tuple(
+                    int(value) for value in item.get("dependencies", ())
+                ),
+                attributes=dict(item.get("attributes", {})),
+                blocks=tuple(int(value) for value in item.get("blocks", ())),
+                artifact_id=(
+                    None
+                    if item.get("artifact_id") is None
+                    else int(item["artifact_id"])
+                ),
+                source_op=(
+                    None if item.get("source_op") is None else str(item["source_op"])
+                ),
+                source_location=(
+                    None
+                    if item.get("source_location") is None
+                    else str(item["source_location"])
+                ),
+                freshness_guard=(
+                    None
+                    if item.get("freshness_guard") is None
+                    else FreshnessGuard.from_dict(item["freshness_guard"])
+                ),
+                deadline_guard=deadline(item.get("deadline_guard")),
+                fallback=fallback(item.get("fallback")),
+            )
+            for item in data.get("tasks", ())
+        )
+        arena_data = data.get("arena")
+        arena = None
+        if arena_data is not None:
+            arena = StaticArenaPlan(
+                device=str(arena_data["device"]),
+                size_bytes=int(arena_data["size_bytes"]),
+                alignment=int(arena_data["alignment"]),
+                physical_buffers=tuple(
+                    PhysicalBuffer(
+                        id=int(item["id"]),
+                        logical_buffers=tuple(
+                            int(value)
+                            for value in item.get("logical_buffers", ())
+                        ),
+                        buffer_class=BufferClass(str(item["buffer_class"])),
+                        device=str(item["device"]),
+                        size_bytes=int(item["size_bytes"]),
+                        alignment=int(item["alignment"]),
+                        offset=int(item["offset"]),
+                        first_task=int(item["first_task"]),
+                        last_task=int(item["last_task"]),
+                    )
+                    for item in arena_data.get("physical_buffers", ())
+                ),
+            )
+        return cls(
+            schema=str(data["schema"]),
+            name=str(data["name"]),
+            semantic_digest=str(data["semantic_digest"]),
+            policies=tuple(
+                PlanPolicy(
+                    id=int(item["id"]),
+                    name=str(item["name"]),
+                    clock=str(item["clock"]),
+                    inputs=tuple(int(value) for value in item.get("inputs", ())),
+                    body_block=int(item["body_block"]),
+                    deadline_guard=deadline(item.get("deadline_guard")),
+                )
+                for item in data.get("policies", ())
+            ),
+            tasks=tasks,
+            blocks=tuple(
+                PlanBlock(
+                    id=int(item["id"]),
+                    arguments=tuple(
+                        int(value) for value in item.get("arguments", ())
+                    ),
+                    tasks=tuple(int(value) for value in item.get("tasks", ())),
+                    source=str(item["source"]),
+                )
+                for item in data.get("blocks", ())
+            ),
+            buffers=tuple(
+                LogicalBuffer(
+                    id=int(item["id"]),
+                    name=str(item["name"]),
+                    type=type_from_dict(item["type"]),
+                    buffer_class=BufferClass(str(item["buffer_class"])),
+                    producer_task=(
+                        None
+                        if item.get("producer_task") is None
+                        else int(item["producer_task"])
+                    ),
+                    external=bool(item.get("external", False)),
+                    source=(
+                        None if item.get("source") is None else str(item["source"])
+                    ),
+                )
+                for item in data.get("buffers", ())
+            ),
+            states=tuple(
+                StateBinding(
+                    state_id=int(item["state_id"]),
+                    name=str(item["name"]),
+                    payload=type_from_dict(item["payload"]),
+                    retention=int(item["retention"]),
+                    max_in_flight=int(item.get("max_in_flight", 1)),
+                    consumer_lag=int(item.get("consumer_lag", 0)),
+                    fallback_snapshots=int(item.get("fallback_snapshots", 0)),
+                    slot_capacity=(
+                        None
+                        if item.get("slot_capacity") is None
+                        else int(item["slot_capacity"])
+                    ),
+                )
+                for item in data.get("states", ())
+            ),
+            artifacts=tuple(
+                ArtifactBinding(
+                    artifact_id=int(item["artifact_id"]),
+                    region_name=str(item["region_name"]),
+                    backend=str(item["backend"]),
+                    variant=str(item["variant"]),
+                    artifact_path=(
+                        None
+                        if item.get("artifact_path") is None
+                        else str(item["artifact_path"])
+                    ),
+                )
+                for item in data.get("artifacts", ())
+            ),
+            arena=arena,
+        )
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _plain(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, tuple | list):
+        return [_plain(item) for item in value]
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    raise TypeError(f"plan attribute is not JSON serializable: {type(value).__name__}")

@@ -2,10 +2,10 @@
 
 OpenVLA's reference ``predict_action`` path is stateless across control ticks:
 it deterministically generates a bounded set of action tokens, converts them to
-continuous values, validates the action, and publishes it.  The Hugging Face
-generation implementation remains inside one pure ``TensorRegion``.  This is
-intentional: KV-cache details are local implementation state, not VLA session
-state, and therefore do not belong in the business IR.
+continuous values, validates the action, and publishes it.  The Semantic IR
+separates multimodal prefill from one cached decode step and composes the step
+in a fixed bounded loop.  KV remains invocation-local loop-carried SSA and is
+never promoted to VLA session state.
 """
 
 from __future__ import annotations
@@ -29,7 +29,10 @@ from vlaforge.ir.program import (
     TensorRegion,
     Value,
 )
-from vlaforge.ir.types import EpochType, TensorType
+from vlaforge.ir.types import EpochType, ScalarType, TensorType
+
+
+OPAQUE = ScalarType("opaque")
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +88,8 @@ class RealOpenVLAEvidence:
 def build_real_openvla_action_program(*, action_dim: int) -> Any:
     """Build the minimal stateless OpenVLA policy program."""
 
+    if action_dim < 2:
+        raise ValueError("OpenVLA explicit token loop requires action_dim >= 2")
     tokens = TensorType((1, action_dim), "i64")
     action = TensorType((action_dim,), "f64")
     pixels = TensorType((1, 6, 224, 224), "bf16")
@@ -118,12 +123,29 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
     )
     builder.add_region(
         TensorRegion(
-            "generate_action_tokens",
+            "generate_action_tokens_prefill",
             (
                 Value("image_arg", pixels),
                 Value("tokens_arg", language),
                 Value("mask_arg", language),
             ),
+            (OPAQUE,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "generate_action_tokens_decode_step",
+            (
+                Value("carry_arg", OPAQUE),
+                Value("step_arg", ScalarType("index")),
+            ),
+            (OPAQUE,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "extract_action_tokens",
+            (Value("carry_arg", OPAQUE),),
             (tokens,),
         )
     )
@@ -132,6 +154,17 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
             "detokenize_action",
             (Value("tokens_arg", tokens),),
             (action,),
+        )
+    )
+    token_loop = Block.of(
+        (
+            ops.invoke(
+                ("generation_next",),
+                (OPAQUE,),
+                "generate_action_tokens_decode_step",
+                ("generation_iter", "token_step"),
+            ),
+            ops.yield_values("generation_next"),
         )
     )
     body = Block.of(
@@ -162,14 +195,29 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
             ),
             ops.transaction_begin("txn", "tick"),
             ops.invoke(
-                ("action_tokens",),
-                (tokens,),
-                "generate_action_tokens",
+                ("generation_initial",),
+                (OPAQUE,),
+                "generate_action_tokens_prefill",
                 (
                     "image_value",
                     "instruction_value",
                     "instruction_mask_value",
                 ),
+            ),
+            ops.for_loop(
+                Value("generation_final", OPAQUE),
+                "generation_initial",
+                Value("token_step", ScalarType("index")),
+                Value("generation_iter", OPAQUE),
+                token_loop,
+                lower=0,
+                upper=action_dim - 1,
+            ),
+            ops.invoke(
+                ("action_tokens",),
+                (tokens,),
+                "extract_action_tokens",
+                ("generation_final",),
             ),
             ops.invoke(
                 ("decoded_action",),
@@ -327,7 +375,7 @@ def run_real_openvla(
 
     ir_token_runs: list[Any] = []
 
-    def generate_action_tokens(
+    def generate_action_tokens_prefill(
         pixel_values: Any,
         input_ids: Any,
         attention_mask: Any,
@@ -339,15 +387,35 @@ def run_real_openvla(
                 device=input_ids.device,
             )
             input_ids = torch.cat((input_ids, empty_token), dim=1)
-        generated = original_generate(
+        output = model(
             input_ids=input_ids,
             attention_mask=attention_mask,
             pixel_values=pixel_values,
-            max_new_tokens=action_dim,
-            do_sample=False,
+            past_key_values=None,
             use_cache=True,
+            return_dict=False,
         )
-        action_tokens = generated[:, -action_dim:]
+        token = torch.argmax(output[0][:, -1, :], dim=-1, keepdim=True)
+        return token, token, output[1]
+
+    def generate_action_tokens_decode_step(
+        carry: tuple[Any, Any, Any],
+        _step: int,
+    ) -> tuple[Any, Any, Any]:
+        tokens, token, cache = carry
+        output = model(
+            input_ids=token,
+            attention_mask=None,
+            pixel_values=None,
+            past_key_values=cache,
+            use_cache=True,
+            return_dict=False,
+        )
+        token = torch.argmax(output[0][:, -1, :], dim=-1, keepdim=True)
+        return torch.cat((tokens, token), dim=1), token, output[1]
+
+    def extract_action_tokens(carry: tuple[Any, Any, Any]) -> Any:
+        action_tokens = carry[0]
         ir_token_runs.append(action_tokens.detach().clone())
         return action_tokens
 
@@ -377,7 +445,11 @@ def run_real_openvla(
     runtime = Interpreter(
         module,
         regions={
-            "generate_action_tokens": generate_action_tokens,
+            "generate_action_tokens_prefill": generate_action_tokens_prefill,
+            "generate_action_tokens_decode_step": (
+                generate_action_tokens_decode_step
+            ),
+            "extract_action_tokens": extract_action_tokens,
             "detokenize_action": detokenize_action,
         },
         validators={"finite_action": lambda action: bool(np.isfinite(action).all())},
@@ -410,7 +482,7 @@ def run_real_openvla(
 
     if len(ir_token_runs) != 1:
         raise RuntimeError(
-            f"OpenVLA IR called generate_action_tokens {len(ir_token_runs)} times"
+            f"OpenVLA IR extracted action tokens {len(ir_token_runs)} times"
         )
     token_ids_equal = bool(torch.equal(eager_tokens, ir_token_runs[0]))
     action_error = float(np.max(np.abs(eager_action - ir_action)))

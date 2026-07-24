@@ -67,12 +67,20 @@ def test_real_openvla_program_is_stateless_and_vla_focused():
         "vla.sample_input",
         "vla.txn.begin",
         "vla.invoke",
+        "vla.for",
+        "vla.invoke",
         "vla.invoke",
         "vla.validate",
         "vla.action.create",
         "vla.txn.commit",
         "vla.action.publish",
         "vla.return",
+    )
+    assert tuple(region.name for region in module.regions) == (
+        "generate_action_tokens_prefill",
+        "generate_action_tokens_decode_step",
+        "extract_action_tokens",
+        "detokenize_action",
     )
 
 
