@@ -639,3 +639,30 @@ git diff --check: passed
 
 The local implementation and paper artifacts are frozen. Orin validation is a
 separate P3 report and does not replace the x86 real-model evidence above.
+
+## Paper Artifact P3: Jetson Orin validation
+
+Status: blocked before container startup; explicit host authority required.
+
+The required `nvcr.io/nvidia/l4t-jetpack:r36.4.0` image was pulled and
+verified as arm64. Its image ID is:
+
+```text
+sha256:34ccf0f3b63c6da9eee45f2e79de9bf7fdf3beda9abfd72bbf285ae9d40bb673
+```
+
+The frozen `docker run --platform linux/arm64` command fails before CMake with
+`exec /usr/bin/bash: exec format error`. A minimal `/bin/true` probe also
+fails. The x86 host has no `qemu-aarch64-static` executable or registered
+`qemu-aarch64` binfmt entry, and `build-orin/` was not created.
+
+Continuing requires explicit authorization for the host-wide privileged
+registration:
+
+```text
+docker run --privileged --rm tonistiigi/binfmt --install arm64
+```
+
+No Thor substitute, alternate image, or unverified cross-platform result was
+used. Detailed report:
+`doc/reports/vlaforge_orin_validation.md`.
