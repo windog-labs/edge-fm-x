@@ -624,6 +624,7 @@ def _write_csv(path: Path, cells: list[dict[str, object]]) -> None:
         "model",
         "workload",
         "mode",
+        "measurement_reused_from",
         "post_warm_samples",
         "p50_us",
         "p95_us",
@@ -652,6 +653,9 @@ def _write_csv(path: Path, cells: list[dict[str, object]]) -> None:
                 "model": cell["model"],
                 "workload": cell["workload"],
                 "mode": cell["mode"],
+                "measurement_reused_from": cell.get(
+                    "measurement_reused_from", ""
+                ),
                 "post_warm_samples": cell["post_warm_samples"],
                 "cache_hits": cell["cache_hits"],
                 "cache_misses": cell["cache_misses"],
@@ -678,18 +682,24 @@ def _markdown(result: dict[str, object]) -> str:
         f"- Gate passed: `{str(result['gate_passed']).lower()}`",
         f"- Exact state/action/evidence: `{str(result['evidence_exact']).lower()}`",
         "",
-        "| Model | Workload | Mode | n | p50 us | p95 us | p99 us | RSS MiB | VRAM MiB |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| Model | Workload | Mode | Measurement | n | p50 us | p95 us | p99 us | RSS MiB | VRAM MiB |",
+        "|---|---|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     for cell in result["measurements"]:
         memory = cell["memory"]
         latency = cell["latency_us"]
         lines.append(
-            "| {model} | {workload} | {mode} | {n} | {p50:.3f} | "
+            "| {model} | {workload} | {mode} | {measurement} | {n} | {p50:.3f} | "
             "{p95:.3f} | {p99:.3f} | {rss:.1f} | {vram:.1f} |".format(
                 model=cell["model"],
                 workload=cell["workload"],
                 mode=cell["mode"],
+                measurement=(
+                    "measured"
+                    if "measurement_reused_from" not in cell
+                    else "reused from "
+                    + str(cell["measurement_reused_from"])
+                ),
                 n=cell["post_warm_samples"],
                 p50=latency["p50"]["estimate"],
                 p95=latency["p95"]["estimate"],
