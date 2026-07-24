@@ -80,7 +80,17 @@ def main() -> int:
         for workload in WORKLOADS:
             baseline = None
             for mode in MODEL_MODES[model]:
-                if model == "openvla" and mode == "combined":
+                if (
+                    model == "openvla"
+                    and mode == "off"
+                    and workload in {"repeat", "all-miss"}
+                ):
+                    result = copy.deepcopy(
+                        completed_cells[(model, "nominal", "off")]
+                    )
+                    result["workload"] = workload
+                    result["measurement_reused_from"] = "nominal/off"
+                elif model == "openvla" and mode == "combined":
                     result = copy.deepcopy(
                         completed_cells[(model, workload, "cache")]
                     )
