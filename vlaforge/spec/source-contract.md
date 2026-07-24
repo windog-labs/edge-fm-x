@@ -15,8 +15,10 @@ contract.
   occur.
 - Dynamic shapes are represented by declared shape dimensions and guards.
 
-The `@tensor_region` annotation records this contract. A later
-`torch.export` frontend will audit the captured `ExportedProgram` against it.
+The `@tensor_region` annotation records this contract. The restricted
+`torch.export` frontend audits each captured `ExportedProgram` against it and
+returns a versioned unsupported report instead of silently falling back to
+eager Python.
 
 ## Program semantics
 

@@ -3,6 +3,7 @@ import pytest
 from vlaforge.adapters import (
     build_openvla_fixture,
     build_real_openvla_action_program,
+    build_real_smolvla_action_program,
     build_smolvla_fixture,
 )
 from vlaforge.analysis import verify
@@ -73,3 +74,27 @@ def test_real_openvla_program_is_stateless_and_vla_focused():
         "vla.action.publish",
         "vla.return",
     )
+
+
+def test_real_smolvla_program_exposes_only_cross_tick_queue_state():
+    module = build_real_smolvla_action_program(
+        chunk_size=50,
+        max_action_dim=32,
+        output_action_dim=6,
+        num_steps=10,
+    )
+    assert verify(module, raise_on_error=False) == ()
+    assert tuple(state.name for state in module.states) == (
+        "action_queue",
+        "queue_cursor",
+    )
+    assert all(state.authoritative for state in module.states)
+    assert "prefix" not in {state.name for state in module.states}
+    assert "solver" not in {state.name for state in module.states}
+    policy = module.policies[0]
+    assert policy.metadata["persistent_state"] == "action_queue,queue_cursor"
+    assert any(operation.opcode == "vla.if" for operation in policy.body.operations)
+    assert sum(
+        operation.opcode == "vla.state.stage_write"
+        for operation in policy.body.operations
+    ) == 2

@@ -5,7 +5,8 @@ has no model dependency. This adapter validates a real checkpoint in two ways:
 
 1. eager ``predict_action_chunk`` versus the VLAForge IR interpreter split into
    prefix, bounded solver-step, and action-trim TensorRegions;
-2. LeRobot's real action queue across repeated ``select_action`` calls.
+2. LeRobot's real action queue versus explicit cross-tick StateSlots and
+   transaction commits across repeated IR control ticks.
 """
 
 from __future__ import annotations
@@ -20,12 +21,21 @@ from typing import Any
 from vlaforge.frontend.builder import ModuleBuilder
 from vlaforge.interpreter import Epoch, InputSample, Interpreter
 from vlaforge.ir import ops
-from vlaforge.ir.attrs import FreshnessConstraint
+from vlaforge.ir.attrs import (
+    CheckpointPolicy,
+    ConsistencyPolicy,
+    EpochExpr,
+    FreshnessConstraint,
+    Ownership,
+    ResetPolicy,
+    StateScope,
+)
 from vlaforge.ir.program import (
     Block,
     ClockDomain,
     InputStream,
     Policy,
+    StateSlot,
     TensorRegion,
     Value,
 )
@@ -105,8 +115,10 @@ def build_real_smolvla_action_program(
     num_steps: int,
 ) -> Any:
     solver = TensorType((1, chunk_size, max_action_dim), "f32")
-    action = TensorType((1, chunk_size, output_action_dim), "f32")
-    builder = ModuleBuilder("smolvla_real_action_chunk")
+    action_chunk = TensorType((1, chunk_size, output_action_dim), "f32")
+    action_step = TensorType((1, output_action_dim), "f32")
+    cursor = ScalarType("i32")
+    builder = ModuleBuilder("smolvla_real_control")
     builder.add_clock(ClockDomain("observation", period_ns=33_333_333))
     builder.add_clock(ClockDomain("control", period_ns=20_000_000))
     builder.add_input(
@@ -115,6 +127,34 @@ def build_real_smolvla_action_program(
             OPAQUE,
             "observation",
             FreshnessConstraint(max_age_ns=50_000_000),
+        )
+    )
+    builder.add_state(
+        StateSlot(
+            "action_queue",
+            action_chunk,
+            StateScope.EPISODE,
+            "control",
+            retention=5,
+            consistency=ConsistencyPolicy.SNAPSHOT,
+            reset=ResetPolicy.EPISODE_START,
+            authoritative=True,
+            ownership=Ownership.HOST,
+            checkpoint=CheckpointPolicy.ON_COMMIT,
+        )
+    )
+    builder.add_state(
+        StateSlot(
+            "queue_cursor",
+            cursor,
+            StateScope.EPISODE,
+            "control",
+            retention=5,
+            consistency=ConsistencyPolicy.SNAPSHOT,
+            reset=ResetPolicy.EPISODE_START,
+            authoritative=True,
+            ownership=Ownership.HOST,
+            checkpoint=CheckpointPolicy.ON_COMMIT,
         )
     )
     builder.add_input(
@@ -140,8 +180,37 @@ def build_real_smolvla_action_program(
         )
     )
     builder.add_region(
-        TensorRegion("trim_action_chunk", (Value("sample_arg", solver),), (action,))
+        TensorRegion(
+            "trim_action_chunk",
+            (Value("sample_arg", solver),),
+            (action_chunk,),
+        )
     )
+    builder.add_region(
+        TensorRegion(
+            "queue_is_empty",
+            (Value("cursor_arg", cursor),),
+            (ScalarType("bool"),),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "queue_select",
+            (
+                Value("queue_arg", action_chunk),
+                Value("cursor_arg", cursor),
+            ),
+            (action_step,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "queue_advance",
+            (Value("cursor_arg", cursor),),
+            (cursor,),
+        )
+    )
+    builder.add_region(TensorRegion("queue_zero", (), (cursor,)))
     loop = Block.of(
         (
             ops.invoke(
@@ -151,6 +220,64 @@ def build_real_smolvla_action_program(
                 ("prefix", "sample_iter", "step"),
             ),
             ops.yield_values("sample_next"),
+        )
+    )
+    refill = Block.of(
+        (
+            ops.invoke(("prefix",), (OPAQUE,), "prepare_prefix", ("batch_value",)),
+            ops.for_loop(
+                Value("sample_final", solver),
+                "noise_value",
+                Value("step", ScalarType("index")),
+                Value("sample_iter", solver),
+                loop,
+                lower=0,
+                upper=num_steps,
+            ),
+            ops.invoke(
+                ("refilled_queue",),
+                (action_chunk,),
+                "trim_action_chunk",
+                ("sample_final",),
+            ),
+            ops.invoke(
+                ("refilled_action",),
+                (action_step,),
+                "queue_select",
+                ("refilled_queue", "zero_cursor"),
+            ),
+            ops.invoke(
+                ("cursor_after_refill",),
+                (cursor,),
+                "queue_advance",
+                ("zero_cursor",),
+            ),
+            ops.yield_values(
+                "refilled_action",
+                "refilled_queue",
+                "cursor_after_refill",
+            ),
+        )
+    )
+    reuse = Block.of(
+        (
+            ops.invoke(
+                ("queued_action",),
+                (action_step,),
+                "queue_select",
+                ("queue_value", "cursor_value"),
+            ),
+            ops.invoke(
+                ("cursor_after_reuse",),
+                (cursor,),
+                "queue_advance",
+                ("cursor_value",),
+            ),
+            ops.yield_values(
+                "queued_action",
+                "queue_value",
+                "cursor_after_reuse",
+            ),
         )
     )
     body = Block.of(
@@ -172,29 +299,69 @@ def build_real_smolvla_action_program(
                 max_age_ns=50_000_000,
             ),
             ops.transaction_begin("txn", "tick"),
-            ops.invoke(("prefix",), (OPAQUE,), "prepare_prefix", ("batch_value",)),
-            ops.for_loop(
-                Value("sample_final", solver),
-                "noise_value",
-                Value("step", ScalarType("index")),
-                Value("sample_iter", solver),
-                loop,
-                lower=0,
-                upper=num_steps,
+            ops.state_read(
+                "queue_snapshot",
+                action_chunk,
+                "action_queue",
+                "txn",
+                epoch=EpochExpr.current("control"),
+            ),
+            ops.snapshot_value(
+                "queue_value", action_chunk, "queue_snapshot"
+            ),
+            ops.state_read(
+                "cursor_snapshot",
+                cursor,
+                "queue_cursor",
+                "txn",
+                epoch=EpochExpr.current("control"),
+            ),
+            ops.snapshot_value("cursor_value", cursor, "cursor_snapshot"),
+            ops.invoke(
+                ("queue_empty",),
+                (ScalarType("bool"),),
+                "queue_is_empty",
+                ("cursor_value",),
             ),
             ops.invoke(
-                ("action_chunk",),
-                (action,),
-                "trim_action_chunk",
-                ("sample_final",),
+                ("zero_cursor",),
+                (cursor,),
+                "queue_zero",
+                (),
             ),
-            ops.validate("action_valid", "action_chunk", "finite_action"),
+            ops.if_op(
+                (
+                    Value("selected_action", action_step),
+                    Value("queue_next", action_chunk),
+                    Value("cursor_next", cursor),
+                ),
+                "queue_empty",
+                refill,
+                reuse,
+            ),
+            ops.stage_write(
+                "queue_pending",
+                action_chunk,
+                "action_queue",
+                "txn",
+                "queue_next",
+                epoch=EpochExpr.next("control"),
+            ),
+            ops.stage_write(
+                "cursor_pending",
+                cursor,
+                "queue_cursor",
+                "txn",
+                "cursor_next",
+                epoch=EpochExpr.next("control"),
+            ),
+            ops.validate("action_valid", "selected_action", "finite_action"),
             ops.action_create(
-                "pending_action", "action_chunk", action, "tick"
+                "pending_action", "selected_action", action_step, "tick"
             ),
             ops.transaction_commit(
                 "committed_action",
-                action,
+                action_step,
                 "txn",
                 "pending_action",
                 "action_valid",
@@ -209,7 +376,10 @@ def build_real_smolvla_action_program(
             "control",
             body,
             inputs=(Value("tick", EpochType("control")),),
-            metadata={"action_generation": "real_iterative_continuous"},
+            metadata={
+                "action_generation": "real_iterative_continuous",
+                "persistent_state": "action_queue,queue_cursor",
+            },
         )
     )
     return builder.build()
@@ -357,32 +527,65 @@ def run_real_smolvla(
     def trim_action_chunk(sample: Any) -> Any:
         return sample[:, :, :action_dim]
 
+    def queue_is_empty(cursor: int) -> bool:
+        return int(cursor) >= policy_config.chunk_size
+
+    def queue_select(action_queue: Any, cursor: int) -> Any:
+        return action_queue[:, int(cursor)]
+
+    def queue_advance(cursor: int) -> int:
+        return int(cursor) + 1
+
+    def queue_zero() -> int:
+        return 0
+
     runtime = Interpreter(
         module,
         regions={
             "prepare_prefix": prepare_prefix,
             "solver_step": solver_step,
             "trim_action_chunk": trim_action_chunk,
+            "queue_is_empty": queue_is_empty,
+            "queue_select": queue_select,
+            "queue_advance": queue_advance,
+            "queue_zero": queue_zero,
         },
         validators={"finite_action": lambda action: bool(torch.isfinite(action).all())},
+        initial_state={
+            "action_queue": torch.zeros_like(eager_action),
+            "queue_cursor": policy_config.chunk_size,
+        },
     )
-    tick = Epoch("control", 0, 0, 0)
-    observation_epoch = Epoch("observation", 0, 0, 0)
+    ir_queue_actions = []
     started = time.perf_counter()
     with torch.inference_mode():
-        ir_result = runtime.run_tick(
-            "act",
-            tick,
-            {
-                "batch": InputSample(batch, observation_epoch),
-                "noise": InputSample(noise, observation_epoch),
-            },
-        )
+        for index in range(3):
+            timestamp = index * 20_000_000
+            ir_result = runtime.run_tick(
+                "act",
+                Epoch("control", index, timestamp, 0),
+                {
+                    "batch": InputSample(
+                        batch,
+                        Epoch("observation", index, timestamp, 0),
+                    ),
+                    "noise": InputSample(
+                        noise,
+                        Epoch("observation", index, timestamp, 0),
+                    ),
+                },
+            )
+            ir_queue_actions.append(ir_result.returns[0].value.detach().clone())
     _synchronize(torch, config.device)
     ir_seconds = time.perf_counter() - started
-    ir_action = ir_result.returns[0].value
+    queue_versions = runtime.state_store.versions("action_queue")
+    if len(queue_versions) != 4:
+        raise RuntimeError(
+            f"expected initial + 3 action queue versions, got {len(queue_versions)}"
+        )
+    ir_action_chunk = queue_versions[1].value
 
-    action_error = float((eager_action - ir_action).abs().max().cpu())
+    action_error = float((eager_action - ir_action_chunk).abs().max().cpu())
     solver_errors = tuple(
         float((left - right).abs().max().cpu())
         for left, right in zip(eager_velocities, ir_velocities, strict=True)
@@ -398,8 +601,10 @@ def run_real_smolvla(
             _synchronize(torch, config.device)
             queue_seconds.append(time.perf_counter() - started)
     queue_errors = tuple(
-        float((action - eager_action[:, index]).abs().max().cpu())
-        for index, action in enumerate(queue_actions)
+        float((eager - actual).abs().max().cpu())
+        for eager, actual in zip(
+            queue_actions, ir_queue_actions, strict=True
+        )
     )
 
     if trace_path is not None:
