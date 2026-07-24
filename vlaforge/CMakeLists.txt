@@ -13,8 +13,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(VLAFORGE_ENABLE_SANITIZERS "Enable address and undefined sanitizers" OFF)
 
 add_library(vlaforge_runtime STATIC
+    runtime/action_queue.cpp
     runtime/region_executable.c
     runtime/static_arena.cpp
+    runtime/state_store.cpp
+    runtime/transaction.cpp
 )
 target_include_directories(vlaforge_runtime
     PUBLIC

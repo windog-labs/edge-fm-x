@@ -94,7 +94,7 @@ Contract specification:
 Status: passed.
 
 Milestone commit:
-`feat(vlaforge): add explicit PyTorch frontend capture`.
+`1c6dc0d` (`feat(vlaforge): add explicit PyTorch frontend capture`).
 
 Implemented:
 
@@ -169,7 +169,7 @@ Detailed report:
 Status: passed.
 
 Milestone commit:
-`feat(vlaforge): add deterministic scheduled execution plan`.
+`23f61c1` (`feat(vlaforge): add deterministic scheduled execution plan`).
 
 Implemented:
 
@@ -226,7 +226,7 @@ Detailed contract:
 Status: passed.
 
 Milestone commit:
-`feat(vlaforge): physicalize state and static memory`.
+`1ce45f4` (`feat(vlaforge): physicalize state and static memory`).
 
 Implemented:
 
@@ -283,10 +283,63 @@ Wheel: vlaforge-0.1.0.dev0-py3-none-any.whl, 116,570 bytes
 git diff --check: passed
 ```
 
+## Gate E: lightweight C++ Runtime
+
+Status: passed.
+
+Milestone commit:
+`feat(vlaforge): add preallocated C++ state runtime`.
+
+Implemented:
+
+- fixed `Status`, `Epoch`, `TensorView`, and integer `TraceEvent` contracts;
+- preallocated bounded `StateStore` over physical ring descriptors;
+- preallocated per-state transaction staging;
+- synchronous begin/read/stage/commit/abort/reset semantics;
+- exactly-once transaction close and duplicate-stage rejection;
+- typed `PendingAction` versus `CommittedAction`;
+- `ActionQueue::Publish` accepting only committed actions;
+- model-independent generated `Session` interface;
+- optional function-pointer trace sink with no string payload;
+- multi-tick global allocation-counter test proving no heap allocations after
+  runtime construction.
+
+The C++ state smoke test covers:
+
+```text
+initialize/read
+stage/commit
+ring wraparound and overwritten-version rejection
+duplicate stage
+validation abort without state mutation
+explicit abort
+double commit/abort rejection
+episode reset
+committed action publish
+ten consecutive allocation-free ticks
+```
+
+Current evidence:
+
+```text
+Python full offline suite: 107 passed, 2 real-model tests skipped in 2.51 s
+C++ Release configure/build with -Werror: passed
+C++ Release CTest: 4/4 passed
+C++ ASan+UBSan configure/build with -Werror: passed
+C++ ASan+UBSan CTest: 4/4 passed
+CMake install/export of all runtime headers: passed
+Hot-path allocation counter: unchanged across 10 ticks
+Forbidden runtime scan: no model names, JSON, Python.h, std::string, or maps
+Python compileall: passed
+Wheel: vlaforge-0.1.0.dev0-py3-none-any.whl, 116,570 bytes
+git diff --check: passed
+```
+
 ## Next
 
-1. Implement the C++ Epoch, StateStore, transaction, and action-commit
-   semantics over the preallocated rings and arena.
-2. Add reset/retention/abort/fault unit tests and a normalized trace sink.
-3. Prove the tick hot path contains no JSON, Python, dynamic string dispatch,
-   or general allocator operation.
+1. Generate deterministic `session_generated.h/.cpp`, task/buffer/state
+   tables, and a standalone runner from a physical Plan.
+2. Bind a CPU fixture artifact backend and prove clean-process no-Python
+   semantic/Plan/C++ trace equivalence.
+3. Add one real CUDA/AOT TensorRegion artifact path with explicit failure
+   evidence and fallback policy where the backend cannot compile a region.

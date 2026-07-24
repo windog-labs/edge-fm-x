@@ -8,7 +8,8 @@ lightweight C++ runtime.
 
 - Scheduled Plan lowering/verifier/reference executor: implemented.
 - Physical state and static arena: implemented.
-- C++ runtime and generated session: pending Milestones E and F.
+- Lightweight C++ runtime: implemented.
+- Generated session: pending Milestone F.
 
 ## Representation boundary
 
@@ -210,18 +211,77 @@ prevalidated offset/size/alignment slices without allocation, rejects
 out-of-bounds or misaligned requests, and supports move-only ownership.
 Release and ASan+UBSan CTest exercise the arena.
 
-## C++ runtime boundary
+## Lightweight C++ runtime
 
-The future generated session will consume only integer IDs and constexpr
-tables derived from this verified Plan. The runtime will not parse Semantic IR
-or dispatch on model names. Its stable responsibilities are:
+The runtime consumes only integer IDs and constexpr tables derived from the
+verified Plan. It does not parse Semantic IR and does not dispatch on model
+names.
 
-- bind typed external input/output views;
-- own the static arena and bounded state rings;
-- call `RegionExecutable` artifacts by integer ID;
-- execute bounded task/control descriptors;
-- enforce transaction and action-commit ordering;
-- optionally emit the same normalized logical trace IDs.
+Implemented headers:
 
-No JSON parsing, Python callback, dynamic model string lookup, or general
-allocator operation is permitted in the tick hot path.
+- `status.h`: fixed structured status code, subject ID, and static message;
+- `epoch.h`: clock ID, sequence, timestamp, and episode;
+- `tensor_view.h`: non-owning typed external tensor binding;
+- `static_arena.h`: one startup allocation and checked offset resolution;
+- `transaction.h`: pre-sized staged writes and distinct pending/committed
+  action types;
+- `state_store.h`: preallocated state rings, staging bytes, version metadata,
+  reset, read, stage, commit, and abort;
+- `action_queue.h`: publish API that accepts only `CommittedAction`;
+- `trace.h`: optional function-pointer sink with fixed integer/logical fields;
+- `session.h`: model-independent generated-session interface;
+- `region_executable.h`: pure-C tensor artifact ABI.
+
+### State and transaction semantics
+
+`StateStore` copies descriptors and allocates all metadata/staging arrays in
+its constructor. The tick path:
+
+1. begins at most one synchronous transaction;
+2. rejects duplicate state staging;
+3. copies staged bytes into preallocated per-state staging ranges;
+4. aborts exactly once on failed validation;
+5. on success maps each next logical version through modulo capacity and
+   copies it to the proven ring slot;
+6. materializes a typed `CommittedAction`;
+7. permits publication only through `ActionQueue::Publish(CommittedAction)`.
+
+Repeated commit or abort returns `kFailedPrecondition`. Failed validation
+leaves every committed state version unchanged. Episode reset invalidates the
+configured state rings and resets their logical version counters, matching the
+normative Python store.
+
+### Trace contract
+
+The optional trace event contains:
+
+- fixed `TraceKind`;
+- task ID;
+- state ID;
+- logical version;
+- transaction ID;
+- complete epoch.
+
+It covers transaction begin/commit/abort, state read/stage/commit, action
+commit/publish, and reset. The fields are the integer equivalents of the
+normalized Python trace fields, allowing generated-session trace diff without
+runtime strings. A null sink compiles to one predictable branch and no data
+allocation.
+
+### Hot-path evidence
+
+The runtime smoke test installs a global allocation counter, constructs the
+arena/store/transaction/action queue, records the allocation count, then runs
+ten stage/commit/publish ticks. The allocation count does not change. The same
+test covers ring wraparound, retention loss of overwritten versions, duplicate
+stage, validation abort, explicit abort, double-close rejection, reset, and
+committed-action publication.
+
+A source scan of `vlaforge/runtime` and public runtime headers finds no model
+names, JSON libraries, `Python.h`, `std::string`, or dynamic map dispatch.
+Release and ASan+UBSan CTest both pass.
+
+The generated session will bind typed inputs, call `RegionExecutable`
+artifacts by integer ID, execute bounded control descriptors, and expose the
+same `Session` API. No JSON parsing, Python callback, dynamic model string
+lookup, or general allocator operation is permitted in its tick hot path.
