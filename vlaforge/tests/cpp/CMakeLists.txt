@@ -1,0 +1,7 @@
+add_executable(vlaforge_region_c_abi_smoke region_c_abi_smoke.c)
+target_link_libraries(vlaforge_region_c_abi_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_region_c_abi_smoke COMMAND vlaforge_region_c_abi_smoke)
+
+add_executable(vlaforge_region_cpp_abi_smoke region_cpp_abi_smoke.cpp)
+target_link_libraries(vlaforge_region_cpp_abi_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_region_cpp_abi_smoke COMMAND vlaforge_region_cpp_abi_smoke)
