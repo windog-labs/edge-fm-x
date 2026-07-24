@@ -36,6 +36,7 @@ testpaths = ["tests"]
 addopts = "-ra"
 pythonpath = ["python"]
 markers = [
+  "cuda_aoti: opt-in CUDA AOTInductor C++ backend tests",
   "model: deterministic model-adapter tests",
   "real_model: opt-in tests that execute real checkpoints",
 ]

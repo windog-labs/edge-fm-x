@@ -250,18 +250,18 @@ Current real-program layouts:
 
 ```text
 SmolVLA:
-  static arena: 17,024 bytes, alignment 64, allocations 25
+  static arena: 17,152 bytes, alignment 64, allocations 25
   state arena: 6,100 bytes
   action_queue: 5 slots x 1,216 bytes
   queue_cursor: 5 slots x 4 bytes
   physical digest:
-    6d9c634c430e7abffa456b0c501caf2672b706027ad095cc88d6f083ea8b5be4
+    cf0c90793e1831152eec634af192506d30faa7bd5802dfcbdb8377989ef1be0f
 
 OpenVLA:
   static arena: 448 bytes, alignment 64, allocations 12
   persistent state arena: none
   physical digest:
-    632fe0d1829ebed928e8cebf7be9afb0d8f2c3b78111197eb9cc9f1fcf4cce05
+    0ce0443c792434a1d85dd71125cab7f393068e6c4da62e0f001515c8531127ca
 ```
 
 The baseline allocator intentionally performs no address reuse. Safe
@@ -288,7 +288,7 @@ git diff --check: passed
 Status: passed.
 
 Milestone commit:
-`feat(vlaforge): add preallocated C++ state runtime`.
+`f61a24d` (`feat(vlaforge): add preallocated C++ state runtime`).
 
 Implemented:
 
@@ -335,11 +335,57 @@ Wheel: vlaforge-0.1.0.dev0-py3-none-any.whl, 116,570 bytes
 git diff --check: passed
 ```
 
+## Gate F: static C++ AOT Codegen
+
+Status: passed.
+
+Milestone commit:
+`feat(vlaforge): generate standalone C++ sessions`.
+
+Implemented:
+
+- deterministic physical-Plan to C++17 source generation;
+- concrete `Session` with epoch-qualified inputs, reset, bounded tick
+  execution, committed-action reads, trace sink, and destruction;
+- integer/`constexpr` task, buffer, state, input, clock, and artifact tables;
+- fixed-loop emission and explicit rejection of unsupported constructs;
+- embedded CPU fixture artifact backend for offline CI;
+- standalone runner, clean CMake build, install, and export;
+- reproducible `vlaforge codegen` CLI;
+- exact Semantic IR/Plan/C++ normalized trace comparison over three ticks;
+- optional CUDA AOTInductor `RegionExecutable` backend;
+- real `.pt2` export/load/run audit in a no-Python C++ process.
+
+Current evidence:
+
+```text
+Generated source-set golden:
+  d05684708daa9e96c15d26319bdfdb8fefcca3eb3a57920abfc815e53764ef9d
+Three-way fixture trace: 42/42 fixed events exact across 3 ticks
+Three-way action comparison: passed, absolute tolerance 1e-6
+Clean runner with invalid PYTHONHOME/PYTHONPATH: passed
+Runner libpython dependency: none
+CUDA AOTI on RTX 3060: max abs error 4.341e-9, 16 outputs
+CUDA AOTI opt-in pytest: 1 passed in 18.80 s
+Offline Python suite: 111 passed, 3 skipped in 3.67 s
+Python 3.10 focused suite: 48 passed in 1.14 s
+C++ Release CTest: 4/4 passed
+C++ ASan+UBSan CTest: 4/4 passed
+Generated clean build/run/install/export: passed
+Wheel: 131,057 bytes
+Python compileall: passed
+git diff --check: passed
+```
+
+Detailed report:
+`doc/reports/vlaforge_cpp_codegen_aoti.md`.
+
 ## Next
 
-1. Generate deterministic `session_generated.h/.cpp`, task/buffer/state
-   tables, and a standalone runner from a physical Plan.
-2. Bind a CPU fixture artifact backend and prove clean-process no-Python
-   semantic/Plan/C++ trace equivalence.
-3. Add one real CUDA/AOT TensorRegion artifact path with explicit failure
-   evidence and fallback policy where the backend cannot compile a region.
+1. Compile and bind real SmolVLA prefix/solver/trim artifacts, then complete
+   queue refill/reuse, cursor commit, multiple ticks, and reset in generated
+   C++.
+2. Compile and bind real OpenVLA prefill/decode/extract/detokenize artifacts
+   with the fixed autoregressive loop.
+3. Capture eager/Semantic/Plan/C++ region, step, state, action, and
+   commit/publish evidence for Gate G3.

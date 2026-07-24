@@ -18,6 +18,9 @@ enum class TraceKind : std::uint32_t {
   kActionCommit = 7,
   kActionPublish = 8,
   kReset = 9,
+  kInput = 10,
+  kRegion = 11,
+  kValidation = 12,
 };
 
 struct TraceEvent final {

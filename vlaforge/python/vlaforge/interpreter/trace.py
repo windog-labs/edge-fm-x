@@ -49,6 +49,19 @@ def normalize_value(value: Any) -> Any:
         if isinstance(value, CommittedAction):
             result["transaction_id"] = value.transaction_id
         return result
+    if (
+        type(value).__name__ == "StateVersion"
+        and hasattr(value, "state")
+        and hasattr(value, "version")
+        and hasattr(value, "epoch")
+        and hasattr(value, "value")
+    ):
+        return {
+            "state": str(value.state),
+            "version": int(value.version),
+            "epoch": normalize_value(value.epoch),
+            "value": normalize_value(value.value),
+        }
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, Mapping):

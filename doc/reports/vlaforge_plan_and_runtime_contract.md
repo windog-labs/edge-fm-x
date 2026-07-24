@@ -9,7 +9,8 @@ lightweight C++ runtime.
 - Scheduled Plan lowering/verifier/reference executor: implemented.
 - Physical state and static arena: implemented.
 - Lightweight C++ runtime: implemented.
-- Generated session: pending Milestone F.
+- Generated session and CUDA AOTI region backend: implemented.
+- Real-checkpoint generated sessions: pending Milestone G.
 
 ## Representation boundary
 
@@ -193,10 +194,10 @@ deferred to the measured whole-program optimization pass.
 
 | Program | Static arena | Alignment | Allocations | Physical Plan digest |
 |---|---:|---:|---:|---|
-| SmolVLA fixture | 1,088 B | 64 B | 30 | `374302b140459769db6dcd2b6aa9993aa3726f99dcfa3e5e75ec7090e4fd2615` |
-| OpenVLA fixture | 320 B | 64 B | 11 | `7f2bd7e6057c345b5e0d60f9919a1d2283d054327038d166fa72751885c2d191` |
-| Real SmolVLA program | 17,024 B | 64 B | 25 | `6d9c634c430e7abffa456b0c501caf2672b706027ad095cc88d6f083ea8b5be4` |
-| Real OpenVLA program | 448 B | 64 B | 12 | `632fe0d1829ebed928e8cebf7be9afb0d8f2c3b78111197eb9cc9f1fcf4cce05` |
+| SmolVLA fixture | 1,152 B | 64 B | 30 | `16dcf37d318ae88c12702faa264818e5c809f5b16f4a77a52fd6d9799d36f175` |
+| OpenVLA fixture | 320 B | 64 B | 11 | `b7df97b22ef057d5df9324852a8326b1eff10d033abc8811cf2b98e14a8755d2` |
+| Real SmolVLA program | 17,152 B | 64 B | 25 | `cf0c90793e1831152eec634af192506d30faa7bd5802dfcbdb8377989ef1be0f` |
+| Real OpenVLA program | 448 B | 64 B | 12 | `0ce0443c792434a1d85dd71125cab7f393068e6c4da62e0f001515c8531127ca` |
 
 Opaque Semantic IR values occupy fixed descriptor handles only. The concrete
 flattened tensor ABI and its storage/workspace remain part of the bound region
@@ -281,7 +282,15 @@ A source scan of `vlaforge/runtime` and public runtime headers finds no model
 names, JSON libraries, `Python.h`, `std::string`, or dynamic map dispatch.
 Release and ASan+UBSan CTest both pass.
 
-The generated session will bind typed inputs, call `RegionExecutable`
-artifacts by integer ID, execute bounded control descriptors, and expose the
-same `Session` API. No JSON parsing, Python callback, dynamic model string
-lookup, or general allocator operation is permitted in its tick hot path.
+The generated session binds typed, epoch-qualified inputs, calls
+`RegionExecutable` artifacts by integer ID, executes bounded control
+descriptors, and exposes the same `Session` API. It uses generated
+`constexpr` memory tables and performs no JSON parsing, Python callback, or
+dynamic model-string lookup in its tick path.
+
+The offline backend embeds deterministic CPU region bodies. The optional
+production CUDA backend implements the same pure-C ABI around
+`AOTIModelPackageLoader`, accepts pre-owned CUDA tensor views, loads verified
+`.pt2` artifacts at startup, and executes without a Python dependency. The
+full Gate F evidence is recorded in
+`doc/reports/vlaforge_cpp_codegen_aoti.md`.

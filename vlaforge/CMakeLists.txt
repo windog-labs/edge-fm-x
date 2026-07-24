@@ -11,6 +11,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(VLAFORGE_ENABLE_SANITIZERS "Enable address and undefined sanitizers" OFF)
+option(VLAFORGE_BUILD_AOTI_BACKEND
+       "Build the optional CUDA AOTInductor RegionExecutable backend" OFF)
 
 add_library(vlaforge_runtime STATIC
     runtime/action_queue.cpp
@@ -36,6 +38,32 @@ if(VLAFORGE_ENABLE_SANITIZERS AND NOT MSVC)
     target_link_options(vlaforge_runtime PUBLIC -fsanitize=address,undefined)
 endif()
 
+if(VLAFORGE_BUILD_AOTI_BACKEND)
+    find_package(Torch REQUIRED CONFIG)
+    add_library(vlaforge_aoti_backend STATIC
+        backends/aoti_region_executable.cpp
+    )
+    target_include_directories(vlaforge_aoti_backend
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+    )
+    target_link_libraries(vlaforge_aoti_backend
+        PUBLIC vlaforge_runtime ${TORCH_LIBRARIES}
+    )
+    separate_arguments(VLAFORGE_TORCH_CXX_FLAGS
+        NATIVE_COMMAND "${TORCH_CXX_FLAGS}")
+    target_compile_options(vlaforge_aoti_backend
+        PRIVATE ${VLAFORGE_TORCH_CXX_FLAGS}
+    )
+    if(MSVC)
+        target_compile_options(vlaforge_aoti_backend PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_aoti_backend PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
+
 if(BUILD_TESTING)
     add_subdirectory(tests/cpp)
 endif()
@@ -44,6 +72,12 @@ install(TARGETS vlaforge_runtime
     EXPORT VLAForgeRuntimeTargets
     ARCHIVE DESTINATION lib
 )
+if(TARGET vlaforge_aoti_backend)
+    install(TARGETS vlaforge_aoti_backend
+        EXPORT VLAForgeRuntimeTargets
+        ARCHIVE DESTINATION lib
+    )
+endif()
 install(DIRECTORY include/ DESTINATION include)
 install(EXPORT VLAForgeRuntimeTargets
     NAMESPACE VLAForge::

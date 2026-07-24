@@ -166,15 +166,15 @@ def storage_size_bytes(type: IRType) -> int:
     if isinstance(type, EpochType):
         return 32
     if isinstance(type, SnapshotType):
-        return 48
+        return 64
     if isinstance(type, PendingType):
-        return 40
+        return 56
     if isinstance(type, TransactionType):
         return 32
     if isinstance(type, ActionType):
-        return 32
+        return 48
     if isinstance(type, CommittedActionType):
-        return 40
+        return 64
     if isinstance(type, EventType):
         return 8
     if isinstance(type, FutureType):
@@ -235,27 +235,30 @@ def emit_memory_constants(
             f"{plan.arena.alignment}u;"
         ),
         "",
-        "inline constexpr StateRingDesc kStateRings[] = {",
     ]
-    for state in plan.states:
-        assert state.slot_capacity is not None
-        assert state.slot_size_bytes is not None
-        assert state.alignment is not None
-        assert state.offset is not None
-        lines.append(
-            "  {"
-            f"{state.state_id}u, {state.slot_capacity}u, "
-            f"{state.slot_size_bytes}u, {state.alignment}u, "
-            f"{state.offset}u"
-            "},"
+    if plan.states:
+        lines.append("inline constexpr StateRingDesc kStateRings[] = {")
+        for state in plan.states:
+            assert state.slot_capacity is not None
+            assert state.slot_size_bytes is not None
+            assert state.alignment is not None
+            assert state.offset is not None
+            lines.append(
+                "  {"
+                f"{state.state_id}u, {state.slot_capacity}u, "
+                f"{state.slot_size_bytes}u, {state.alignment}u, "
+                f"{state.offset}u"
+                "},"
+            )
+        lines.extend(["};", ""])
+    else:
+        lines.extend(
+            [
+                "inline constexpr const StateRingDesc* kStateRings = nullptr;",
+                "",
+            ]
         )
-    lines.extend(
-        [
-            "};",
-            "",
-            "inline constexpr BufferDesc kBuffers[] = {",
-        ]
-    )
+    lines.append("inline constexpr BufferDesc kBuffers[] = {")
     class_ids = {item: index for index, item in enumerate(BufferClass)}
     for physical in plan.arena.physical_buffers:
         if len(physical.logical_buffers) != 1:

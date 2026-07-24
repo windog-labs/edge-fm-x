@@ -13,3 +13,17 @@ add_test(NAME vlaforge_static_arena_smoke COMMAND vlaforge_static_arena_smoke)
 add_executable(vlaforge_runtime_state_smoke runtime_state_smoke.cpp)
 target_link_libraries(vlaforge_runtime_state_smoke PRIVATE vlaforge_runtime)
 add_test(NAME vlaforge_runtime_state_smoke COMMAND vlaforge_runtime_state_smoke)
+
+if(TARGET vlaforge_aoti_backend)
+    add_executable(vlaforge_aoti_region_smoke aoti_region_smoke.cpp)
+    target_link_libraries(vlaforge_aoti_region_smoke PRIVATE
+        vlaforge_aoti_backend)
+    target_compile_options(vlaforge_aoti_region_smoke PRIVATE
+        ${VLAFORGE_TORCH_CXX_FLAGS})
+    if(MSVC)
+        target_compile_options(vlaforge_aoti_region_smoke PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_aoti_region_smoke PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
