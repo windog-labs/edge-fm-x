@@ -180,8 +180,10 @@ bool RevisionPresent(const std::string& mode) {{
 
 void PrintSummary(
     std::uint64_t initialization_ns,
+    std::uint64_t rss_initialized_kib,
     std::uint64_t rss_start_kib,
     std::uint64_t rss_end_kib,
+    std::uint64_t cuda_initialized_bytes,
     std::uint64_t cuda_start_bytes,
     std::uint64_t cuda_end_bytes,
     std::uint64_t cuda_peak_sampled_bytes,
@@ -189,12 +191,14 @@ void PrintSummary(
     const Counts& before,
     const Counts& after) {{
   std::printf(
-      "SUMMARY,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%.17g,"
+      "SUMMARY,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%.17g,"
       "%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu\\n",
       static_cast<unsigned long long>(initialization_ns),
+      static_cast<unsigned long long>(rss_initialized_kib),
       static_cast<unsigned long long>(rss_start_kib),
       static_cast<unsigned long long>(rss_end_kib),
       static_cast<unsigned long long>(MaxRssKiB()),
+      static_cast<unsigned long long>(cuda_initialized_bytes),
       static_cast<unsigned long long>(cuda_start_bytes),
       static_cast<unsigned long long>(cuda_end_bytes),
       static_cast<unsigned long long>(cuda_peak_sampled_bytes),
@@ -261,18 +265,24 @@ int main(int argc, char** argv) {
   session.SetTraceSink({&counts, &benchmark::Count});
 
   const std::uint64_t total = warmup + samples;
-  std::uint64_t cuda_start = 0u;
-  std::uint64_t cuda_peak = 0u;
-  if (!benchmark::CudaUsed(&cuda_start)) {
+  std::uint64_t cuda_initialized = 0u;
+  if (!benchmark::CudaUsed(&cuda_initialized)) {
     return 5;
   }
-  cuda_peak = cuda_start;
-  const auto rss_start = benchmark::RssKiB();
+  const auto rss_initialized = benchmark::RssKiB();
+  std::uint64_t cuda_start = cuda_initialized;
+  std::uint64_t cuda_peak = cuda_initialized;
+  std::uint64_t rss_start = rss_initialized;
   benchmark::Counts measured_before{};
   double checksum = 0.0;
   for (std::uint64_t iteration = 0u; iteration < total; ++iteration) {
     if (iteration == warmup) {
       measured_before = counts;
+      if (!benchmark::CudaUsed(&cuda_start)) {
+        return 5;
+      }
+      cuda_peak = cuda_start;
+      rss_start = benchmark::RssKiB();
     }
     if (mode == "full" &&
         !session.ResetEpisode(iteration + 1u).ok()) {
@@ -322,7 +332,8 @@ int main(int argc, char** argv) {
       static_cast<std::uint64_t>(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
               initialize_finished - initialize_started).count()),
-      rss_start, benchmark::RssKiB(), cuda_start, cuda_end, cuda_peak,
+      rss_initialized, rss_start, benchmark::RssKiB(),
+      cuda_initialized, cuda_start, cuda_end, cuda_peak,
       checksum, measured_before, counts);
   return counts.transaction_aborts == 0u ? 0 : 11;
 }
@@ -370,18 +381,24 @@ int main(int argc, char** argv) {
   session.SetTraceSink({&counts, &benchmark::Count});
 
   const std::uint64_t total = warmup + samples;
-  std::uint64_t cuda_start = 0u;
-  std::uint64_t cuda_peak = 0u;
-  if (!benchmark::CudaUsed(&cuda_start)) {
+  std::uint64_t cuda_initialized = 0u;
+  if (!benchmark::CudaUsed(&cuda_initialized)) {
     return 5;
   }
-  cuda_peak = cuda_start;
-  const auto rss_start = benchmark::RssKiB();
+  const auto rss_initialized = benchmark::RssKiB();
+  std::uint64_t cuda_start = cuda_initialized;
+  std::uint64_t cuda_peak = cuda_initialized;
+  std::uint64_t rss_start = rss_initialized;
   benchmark::Counts measured_before{};
   double checksum = 0.0;
   for (std::uint64_t iteration = 0u; iteration < total; ++iteration) {
     if (iteration == warmup) {
       measured_before = counts;
+      if (!benchmark::CudaUsed(&cuda_start)) {
+        return 5;
+      }
+      cuda_peak = cuda_start;
+      rss_start = benchmark::RssKiB();
     }
     const auto revision = benchmark::Revision(mode, iteration);
     const auto stamp = Stamp(
@@ -436,7 +453,8 @@ int main(int argc, char** argv) {
       static_cast<std::uint64_t>(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
               initialize_finished - initialize_started).count()),
-      rss_start, benchmark::RssKiB(), cuda_start, cuda_end, cuda_peak,
+      rss_initialized, rss_start, benchmark::RssKiB(),
+      cuda_initialized, cuda_start, cuda_end, cuda_peak,
       checksum, measured_before, counts);
   return counts.transaction_aborts == 0u ? 0 : 10;
 }
@@ -548,26 +566,28 @@ def _parse_output(text: str) -> tuple[list[dict[str, object]], dict[str, object]
                     "output_probe": float(fields[5]),
                 }
             )
-        elif fields[0] == "SUMMARY" and len(fields) == 19:
+        elif fields[0] == "SUMMARY" and len(fields) == 21:
             summary = {
                 "initialization_ns": int(fields[1]),
-                "rss_start_kib": int(fields[2]),
-                "rss_end_kib": int(fields[3]),
-                "maximum_rss_kib": int(fields[4]),
-                "cuda_used_start_bytes": int(fields[5]),
-                "cuda_used_end_bytes": int(fields[6]),
-                "cuda_used_peak_sampled_bytes": int(fields[7]),
-                "checksum": float(fields[8]),
-                "regions": int(fields[9]),
-                "cache_hits": int(fields[10]),
-                "cache_misses": int(fields[11]),
-                "state_commits": int(fields[12]),
-                "transaction_commits": int(fields[13]),
-                "transaction_aborts": int(fields[14]),
-                "output_commits": int(fields[15]),
-                "resets": int(fields[16]),
-                "state_0_version": int(fields[17]),
-                "state_1_version": int(fields[18]),
+                "rss_initialized_kib": int(fields[2]),
+                "rss_start_kib": int(fields[3]),
+                "rss_end_kib": int(fields[4]),
+                "maximum_rss_kib": int(fields[5]),
+                "cuda_used_initialized_bytes": int(fields[6]),
+                "cuda_used_start_bytes": int(fields[7]),
+                "cuda_used_end_bytes": int(fields[8]),
+                "cuda_used_peak_sampled_bytes": int(fields[9]),
+                "checksum": float(fields[10]),
+                "regions": int(fields[11]),
+                "cache_hits": int(fields[12]),
+                "cache_misses": int(fields[13]),
+                "state_commits": int(fields[14]),
+                "transaction_commits": int(fields[15]),
+                "transaction_aborts": int(fields[16]),
+                "output_commits": int(fields[17]),
+                "resets": int(fields[18]),
+                "state_0_version": int(fields[19]),
+                "state_1_version": int(fields[20]),
             }
     if summary is None or not samples:
         raise RuntimeError(f"benchmark runner output is incomplete: {text}")
@@ -714,9 +734,17 @@ def main(argv: list[str] | None = None) -> int:
         "latency": _summary(latencies),
         "runtime": runtime,
         "memory": {
+            "warmup_rss_residency_kib": (
+                int(runtime["rss_start_kib"])
+                - int(runtime["rss_initialized_kib"])
+            ),
             "rss_drift_kib": (
                 int(runtime["rss_end_kib"])
                 - int(runtime["rss_start_kib"])
+            ),
+            "warmup_cuda_residency_bytes": (
+                int(runtime["cuda_used_start_bytes"])
+                - int(runtime["cuda_used_initialized_bytes"])
             ),
             "cuda_used_drift_bytes": (
                 int(runtime["cuda_used_end_bytes"])

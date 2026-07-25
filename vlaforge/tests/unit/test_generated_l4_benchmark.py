@@ -42,7 +42,7 @@ def test_runner_output_parser_preserves_trace_and_samples() -> None:
             (
                 "SAMPLE,0,100,7,1,0.25",
                 "SAMPLE,1,90,8,1,0.5",
-                "SUMMARY,10,20,21,22,30,31,32,0.75,"
+                "SUMMARY,10,19,20,21,22,29,30,31,32,0.75,"
                 "2,3,4,5,6,0,6,1,7,8",
             )
         )
