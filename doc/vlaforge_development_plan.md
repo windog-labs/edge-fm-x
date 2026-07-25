@@ -305,7 +305,7 @@ opcode 或任意未验证 opcode。
 | P7 | robot/driving executable fixtures、fixture C++ parity | 完成 |
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
-| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L2 完成，L3/L4 待完成 |
+| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 待资源受控尝试 |
 | P11 | Host CUDA 性能、消融、长稳 | 待完成 |
 | P12 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
 
@@ -329,7 +329,7 @@ Host release gate：
 14. invalid `PYTHONHOME/PYTHONPATH` 仍运行，`ldd` 无 Python；
 15. 完整 Python tests 与 CTest 通过。
 
-2026-07-25 当前结果：offline Python 188 passed/7 opt-in skipped；real
+2026-07-25 当前结果：offline Python 194 passed/8 opt-in skipped；real
 SmolVLA L4、DiffusionDrive L2/L3/L4 opt-in 均各 1 passed；clean C++ Release、CPU 7/7 CTest、CUDA/AOTI
 8/8 CTest 与 install-export 均通过。RTX 3060
 `sm_86` 上真实 AOTI
@@ -348,6 +348,13 @@ exact，artifact trajectory 最大误差 `7.84e-4`，重复执行 exact。
 六个 named outputs 对 direct AOTI byte-exact，typed/generic ABI 等价，并覆盖
 revision cache、reset、validation abort 与事务输出一致性，因此达到真实
 Host-CUDA L4，新增 core op 仍为 0。
+OpenVLA-7B 已将 logical prefill/decode/detokenize 细化为 36 个
+backend-owned two-layer physical Regions，并完成真实 `sm_86` L3：
+26.316 GiB artifacts 的逐 Region 最大 NRMSE 为 `0.02688469`，
+integer/token 输出 exact；两次完整 pipeline 的 7 个 token bit-exact，
+最终 action 相对 L2 reference 最大绝对误差 `1.13e-17`。固定 KV derived
+cache 为 140.5 MiB，capture/audit 峰值 CUDA allocated 为
+2.686/1.778 GiB，core op delta 仍为 0。
 
 论文 release gate 另要求：
 
@@ -361,7 +368,8 @@ Host-CUDA L4，新增 core op 仍为 0。
 
 ## 10. 剩余开发顺序
 
-1. OpenVLA：在已通过真实 L2 基础上完成分 Region L3，12GB 允许时推进 L4；
+1. OpenVLA：在已通过真实 L3 基础上尝试 generic weight-paged generated
+   Session L4；若 12GB/32GB 环境代价不合理，保留可复现 blocker 并进入性能实验；
 2. 为已完成的 SmolVLA、DiffusionDrive L4 补齐 Host CUDA benchmark、消融、nsys/ncu 与
    10k+ Run soak；
 3. 选择 Octo/GR00T 与 AutoVLA/ReCogDrive 做 frozen-core held-out；

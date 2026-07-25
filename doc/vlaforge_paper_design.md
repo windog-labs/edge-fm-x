@@ -413,15 +413,18 @@ Generality：
   L4：20 条 candidates、scores、selected trajectory 和三个 aux outputs
   对 direct artifact byte-exact，并覆盖 stateless revision cache、事务失败、
   reset 与 typed/generic ABI，新增 core op 为 0；
+- OpenVLA-7B 真实 36 Region `sm_86` AOTInductor L3：two-layer
+  prefill/decode physical partition、fixed loop-carried KV、两次完整
+  autoregressive pipeline token/action parity，新增 core op 为 0；
 - pinned upstream source audit 与 Model Adaptation Cards。
 
 尚未完成、且决定投稿强度：
 
-- OpenVLA 的真实 L3/L4；
+- OpenVLA 的真实 generated no-Python C++ L4（L3 已完成）；
 - real-model optimization speedup 与 memory 消融；
 - frozen-core held-out model 数据；
 - Host CUDA 长稳与 profile；
-- Orin 真机 latency/power/closed-loop。
+- Orin 真机 latency/power/closed-loop 后置，不进入当前 Host-CUDA claim。
 
 小型 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
 不能计入模型覆盖表中的 real-model L3/L4。SmolVLA 的 L3 是独立的固定

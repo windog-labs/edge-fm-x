@@ -35,7 +35,7 @@ fixture、真实模型 capture 和完整 C++ 部署混为一谈。
 |---|---|---|---|
 | StatelessTrajectory | DrivingTrajectory fixture | multi-camera、ego history、route、valid-count | L1 |
 | AutoregressiveTrajectory | DrivingAR/AutoVLA | fast-slow branch、bounded token decode | L1，真实 L2+ |
-| DiffusionPlanner | DrivingDiffusion/DiffusionDrive | 2-step denoise、K candidates+score | fixture-L4 + real L2/L3，真实 L4 待完成 |
+| DiffusionPlanner | DrivingDiffusion/DiffusionDrive | 2-step denoise、K candidates+score | fixture-L4 + real L2/L3/L4 |
 | HybridVLMPlanner | ReCogDrive-like | VLM + diffusion 跨 artifact 组合 | L1/L2+ |
 | MultiTaskDriving | UniDriveVLA/OpenDriveVLA-like | 2D/3D token、多专家、多 named outputs | L1/L2+ |
 | ExternalFeature Hybrid | DriveVLM-Dual-like fixture | C++ BEV/agent/map Region plugin | L1/L4 |
@@ -75,11 +75,11 @@ memory/performance results
 | RT-1 | L0 + L1 | 是 | 否 | L2–L4 |
 | ACT | L0 + L1 | 是 | 否 | L2–L4 |
 | Octo | L0 + L1 | 是 | 否 | JAX capture 与 L2–L4 |
-| OpenVLA | L0 + L1 + L2 + fixture-L4 | 是 | fixture | real artifact/Session |
+| OpenVLA | L0 + L1 + real L2 + real L3 + fixture-L4 | 是 | fixture | real generated Session L4 |
 | π0 | L0 + L1 | 是 | 否 | real capture/artifact |
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
-| DiffusionDrive | L0 + L1 + real L2 + real L3 + fixture-L4 | 是 | real artifact | real generated Session L4 |
+| DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | AutoVLA | L0 + L1 | 是 | 否 | real fast/slow parity |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
@@ -94,7 +94,8 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
 1. 稳定 generic InputPort、bounded profile、transactional output group 和 plugin ABI；
 2. 完成四类 driving fixture 与 OpenVLA/SmolVLA/π0 fixture 迁移；
 3. 完成通用 C ABI、typed wrapper 和 clean C++ parity；
-4. SmolVLA real L4 与 DiffusionDrive real L2/L3 已完成；下一优先级是 DiffusionDrive 真实 L4，
-   然后推进 OpenVLA 分 Region L3/L4；
+4. SmolVLA、DiffusionDrive real L4 与 OpenVLA 分 Region real L3 已完成；
+   下一优先级是评估 OpenVLA weight-paged real L4，并补齐 Host-CUDA
+   性能、消融和长稳；
 5. 评估 Octo/GR00T 与 AutoVLA/ReCogDrive 中各一个真实对象；
 6. 冻结 core 后统计 held-out model 的 core-op 增量和 Adapter 成本。

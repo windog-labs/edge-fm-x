@@ -102,20 +102,24 @@ backend；VLAForge portability gate 不再全量编译旧 EdgeFM CUDA operators�
 
 OpenVLA 与 SmolVLA 已在 2026-07-25 重新通过 v0.2 真实 checkpoint
 eager/IR L2；报告位于 `doc/reports/vlaforge_real_v02/`。SmolVLA 又完成真实
-artifact L3 与 generated no-Python C++ Session L4；OpenVLA 当前仍停留在
-真实 L2。
+artifact L3 与 generated no-Python C++ Session L4。OpenVLA-7B 已通过
+36 个 memory-bounded physical Regions 完成真实 `sm_86` artifact L3，
+但尚未形成真实 generated Session L4。
 
 因此当前可以声称：
 
 - Invocation IR/Plan/C++ substrate 已贯通；
 - 模型范式 fixture 已证明 core expressiveness；
 - clean no-Python C/C++ ABI 已验证；
-- 固定 `SmolVLA-Base` checkpoint 已达到 real Host-CUDA L4。
+- 固定 `SmolVLA-Base` 与 DiffusionDrive checkpoint 已达到 real
+  Host-CUDA L4；
+- OpenVLA-7B 已达到 real Host-CUDA L3；
+- robot/flow、robot/autoregressive 和 driving/diffusion 三种真实模型范式
+  已达到 L3，新增 core op 均为 0。
 
 当前不能声称：
 
-- OpenVLA 7B 已完成 v0.2 real L3/L4；
-- DiffusionDrive checkpoint 已运行 generated C++；
+- OpenVLA 7B 已完成 v0.2 real L4；
 - Orin 真机性能或闭环已验证。
 
 ## Host CUDA production artifact audit
@@ -151,20 +155,42 @@ cache、CUDA authoritative queue/cursor、152 次事务提交、episode reset、
 typed/generic C ABI 与 NaN validation abort 均通过。`ldd` 无 `libpython`。
 详细证据见 `doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json`。
 
+## OpenVLA-7B real Host-CUDA L3
+
+OpenVLA-7B 的 logical prefill/decode/detokenize 被细化为 36 个 backend-owned
+physical Regions，以 two-layer chunk 在 RTX 3060 12GB 上完成 capture、
+active-version normalization、`sm_86` AOTI compile 和 artifact-only
+autoregressive pipeline。KV 使用固定 `[1,32,281,128]` buffer、显式
+`cache_position` 和 loop-carried SSA，是 140.5 MiB derived cache，不是
+persistent state。
+
+26.316 GiB artifacts 的逐 Region 最大 NRMSE 为 `0.02688469`，integer/token
+输出 exact；两次完整 pipeline 的 7 个 action token 与最终 action
+bit-exact，且与真实 L2 action 的最大绝对误差仅 `1.13e-17`。报告来自 clean
+revision `7ea773e`，core op delta 为 0。详细证据见
+`doc/reports/vlaforge_real_v03/openvla_artifact_l3.json`。
+
+这是 real L3，不是 L4。当前 eager-load generated Session 会同时常驻所有
+Region weights，不适合 12GB GPU；下一步只通过 generic artifact residency
+policy 尝试 weight paging，不把模型专属路由写入 core。
+
 ## 下一步
 
-1. 完成 DiffusionDrive L3/L4 与 OpenVLA 分 Region L3/L4；
-2. 为 SmolVLA real L4 补齐 Host CUDA latency/memory/profile、消融与 10k+
-   Run 长稳；
+1. 尝试 OpenVLA weight-paged generated no-Python C++ L4；如果资源代价不合理，
+   保持 real L3 并记录 blocker；
+2. 为 SmolVLA 与 DiffusionDrive real L4 补齐 Host CUDA
+   latency/memory/profile、消融与 10k+ Run 长稳；
 3. 冻结 core 后完成 robot/driving held-out；
 4. Orin 台架就绪后运行模型专属 SM87 artifact、性能和长稳测试。
 
 ## 2026-07-25 Release audit
 
-- offline Python suite：187 passed，4 个 opt-in gate skipped；
+- offline Python suite：194 passed，8 个 opt-in gate skipped；
 - real SmolVLA checkpoint gate：1 passed；
 - real SmolVLA L4 opt-in gate：1 passed；
 - real OpenVLA-7B 4-bit gate：1 passed；
+- real OpenVLA-7B partitioned artifact L3：36/36 Regions 与两次完整
+  pipeline passed；
 - clean C++ Release build：passed；
 - CPU CTest：7/7 passed；CUDA/AOTI CTest：8/8 passed；
 - CPU 与 AOTI CMake install/export consumer：passed；

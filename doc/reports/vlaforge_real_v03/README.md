@@ -126,3 +126,41 @@ the schema digest, bundle and runner hashes, C++ trace summaries, memory-plan
 classes, and reproduction command. This is real Host-CUDA L4 on RTX 3060
 `sm_86`; it is not an Orin claim and its audit runtime is not yet a
 paper-grade latency benchmark.
+
+## OpenVLA-7B real L3
+
+The pinned `openvla/openvla-7b` checkpoint at Hugging Face revision
+`47a0ec7fc4ec123775a391911046cf33cf9ed83f` was physically partitioned without
+changing the logical Invocation IR. The three logical stages remain bounded
+prefill, autoregressive decode, and detokenize; the backend owns 36 physical
+Regions:
+
+- multimodal prefix preparation;
+- sixteen two-layer prefill chunks;
+- token embedding;
+- sixteen fixed-KV two-layer decode chunks;
+- logits head and action detokenization.
+
+The fixed KV profile covers a 275-token prefix and six decode positions in a
+maximum length of 281. Its 64 key/value tensors occupy 147,324,928 bytes and
+are loop-carried derived cache, never authoritative Session state.
+
+All active-version normalized exports replayed exactly. The 36 `sm_86`
+AOTInductor packages total 28,256,718,272 bytes and compiled in 311.44
+seconds; the largest single compile process used 6,549,436 KiB peak host RSS.
+Across every artifact output, maximum NRMSE was `0.02688469`, below the fixed
+BF16 contract of `0.05`; integer token/mask/position outputs were exact.
+
+Two complete artifact-only pipelines both produced:
+
+`31857, 31864, 31900, 31840, 31860, 31868, 31872`
+
+The runs were bit-exact to each other. Their final actions differed from the
+real L2 reference by at most `1.13e-17`. Capture and audit peak CUDA allocated
+memory were 2.686 and 1.778 GiB respectively. These are correctness-audit
+metadata, not latency benchmark results.
+
+The report `openvla_artifact_l3.json` was produced from clean revision
+`7ea773e53c8b24fc96708cd87aa5a4f7d5985b1c`. This is real-checkpoint L3 with
+zero new core ops. It does not claim generated no-Python C++ L4; weight-paged
+Session artifact residency is a separate gate.
