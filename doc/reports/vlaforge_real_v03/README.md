@@ -104,3 +104,25 @@ These timings are single-run audit metadata rather than a paper benchmark.
 Hashes, sizes, compile manifests, per-Region metrics, tolerances, and the clean
 source revision are recorded in `diffusiondrive_artifact_l3.json`. Generated
 no-Python C++ Session parity remains the L4 gate.
+
+## DiffusionDrive real L4
+
+The five fixed-checkpoint AOTInductor packages were assembled into a verified
+Compile Bundle at clean repository revision
+`2ba35b5e71da0b20f02830682baf2cffaf622f23`. The generated runner executed
+with invalid `PYTHONHOME` and `PYTHONPATH`, and `ldd` confirmed that it does not
+link `libpython`. Its typed model API and generic C ABI produced identical
+results. All six named outputs were byte-exact to the direct AOTI pipeline.
+
+The successful sequence records one exact-cache hit, four misses, five
+transaction/output commits, no state commits, and one reset. A NaN failure
+injection exposed no uncommitted output, recorded one transaction abort, and
+then reused the already committed condition cache when the same revision was
+retried successfully. This is a stateless multi-output driving planner path:
+there is no action queue and no new core op.
+
+The report `diffusiondrive_artifact_l4.json` records artifact/checkpoint hashes,
+the schema digest, bundle and runner hashes, C++ trace summaries, memory-plan
+classes, and reproduction command. This is real Host-CUDA L4 on RTX 3060
+`sm_86`; it is not an Orin claim and its audit runtime is not yet a
+paper-grade latency benchmark.

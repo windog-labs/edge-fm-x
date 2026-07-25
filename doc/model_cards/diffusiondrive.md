@@ -6,7 +6,7 @@
 | License / checkpoint | code MIT；checkpoint 按 Hugging Face model card 为 non-commercial |
 | Checkpoint | `hustvl/DiffusionDrive@8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71`，SHA256 `008ffc39cc6c57ff9007025217e601f408818afa036c0bae4e543907993a005b` |
 | Source entry | `transfuser_agent.py`、`V2TransfuserModel`、`TrajectoryHead.forward_test` |
-| 当前证据 | L0 + L1 + real L2 + real Host-CUDA L3 + deterministic fixture-L4 |
+| 当前证据 | L0 + L1 + real L2 + real Host-CUDA L3 + real Host-CUDA L4 |
 | Real Adapter | `diffusiondrive_real.py`，1,241 LOC，复用 `DiffusionPlanner` template |
 | Core op 增量 | 0 |
 
@@ -40,6 +40,17 @@ trajectory 最大绝对误差 `7.84e-4`、均值 `1.15e-4`、NRMSE
 artifact 与 eager bit-exact。完整证据见
 [`diffusiondrive_artifact_l3.json`](../reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json)。
 
+同一组固定 checkpoint artifacts 已进入 verified Compile Bundle，并由生成的
+强类型 C++ API 与 generic C ABI 在无效 `PYTHONHOME/PYTHONPATH` 环境中执行；
+`ldd` 证明 runner 不链接 `libpython`。生成 C++ Session 的六个命名输出与
+直接 AOTI pipeline 全部 byte-exact，typed/generic 输出一致。连续 invocation
+覆盖 same revision hit、new/missing revision miss、episode reset，以及
+validation failure 后不暴露未提交输出、事务 abort 后以同 revision 重试命中
+condition cache。成功序列 trace 为 1 hit、4 misses、5 output commits、0 state
+commits、1 reset；失败/重试序列为 1 hit、1 miss、1 abort、1 output commit。
+这说明 driving planner 不依赖 action queue，也不需要修改 core op。完整证据见
+[`diffusiondrive_artifact_l4.json`](../reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json)。
+
 VLAForge fixture 仍使用缩小的 K=3、两步 denoise 来验证 generated C++
 transaction/cache 行为：
 生成的无 Python C++ Session 已逐元素对齐全部 3×6×2 candidates、3 个 scores
@@ -47,5 +58,5 @@ transaction/cache 行为：
 DiffusionDrive-like fixture，不是 checkpoint 证据。
 
 传感器 stitching/点云 histogram 属于底软或外部 preprocessing Region，不进入
-core IR。真实 generated C++ Session、paper-grade latency 和长稳仍待 L4；
-fixture-L4 不得标为 real deployment。
+core IR。paper-grade latency/profile 和长稳仍待补齐；当前 real L4 是 Host
+RTX 3060 `sm_86` 证据，不是 Orin 性能声明。

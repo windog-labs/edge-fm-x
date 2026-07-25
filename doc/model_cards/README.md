@@ -12,7 +12,7 @@ fixture 已经生成并运行无 Python C++ Session，不表示真实 checkpoint
 | π0 | L0 + L1 | 0 | [pi0.md](pi0.md) |
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 0 | [smolvla.md](smolvla.md) |
 | GR00T N1.7 | L0 + L1 | 0 | [groot_n1.md](groot_n1.md) |
-| DiffusionDrive | L0 + L1 + real L2 + real L3 + fixture-L4 | 0 | [diffusiondrive.md](diffusiondrive.md) |
+| DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 0 | [diffusiondrive.md](diffusiondrive.md) |
 | AutoVLA | L0 + L1 | 0 | [autovla.md](autovla.md) |
 | ReCogDrive | L0 + structural L1 | 0 | [recogdrive.md](recogdrive.md) |
 | UniDriveVLA | L0 + structural L1 | 0 | [unidrivevla.md](unidrivevla.md) |

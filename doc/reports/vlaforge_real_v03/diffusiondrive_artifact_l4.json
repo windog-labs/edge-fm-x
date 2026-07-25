@@ -1,0 +1,301 @@
+{
+  "artifact_total_bytes": 248879397,
+  "artifacts": [
+    {
+      "artifact_sha256": "cb6ce47324f331b3bfb50c9045e40bd3496730b3f3df8c8cee170c926c304ce0",
+      "artifact_size_bytes": 227103162,
+      "capture_graph_sha256": "477e0ab4f2c10d8c1d24935d427a0f5ad1b7da1cc948c10239ebca2e9d4dbcc3",
+      "compile_seconds": 22.585871784947813,
+      "graph_nodes": 1437,
+      "name": "condition_encoder",
+      "region_id": 0
+    },
+    {
+      "artifact_sha256": "8c0a6e3497c98afede7a534f73bd9a796f406566ca5405dc56975f5e16879ecf",
+      "artifact_size_bytes": 441565,
+      "capture_graph_sha256": "4a8018aaa922be711e590b889214bfb32a061d41dca435d42901d5ff0da35ebc",
+      "compile_seconds": 5.383075990946963,
+      "graph_nodes": 35,
+      "name": "initialize_planner_state",
+      "region_id": 1
+    },
+    {
+      "artifact_sha256": "383bb129f5ff6d6626d941960df8bcbd397ed4b3ac445d2755d2b5a437ae8e36",
+      "artifact_size_bytes": 421156,
+      "capture_graph_sha256": "38f21034b826abb73535e97bed2dc8b009fc1f18312a92627c64e68a86921b2a",
+      "compile_seconds": 4.929484492866322,
+      "graph_nodes": 9,
+      "name": "make_denoise_timestep",
+      "region_id": 2
+    },
+    {
+      "artifact_sha256": "0e4b4251b2616a30cb4f479feedd9414fbbd3142c9d5714be5ea3b9c51535c16",
+      "artifact_size_bytes": 20469925,
+      "capture_graph_sha256": "a96d810f97d857ccf99857faff0bf18f84dec95f4cb52f0a82e5668150c5a7de",
+      "compile_seconds": 10.75681466399692,
+      "graph_nodes": 492,
+      "name": "denoise_planner_step",
+      "region_id": 3
+    },
+    {
+      "artifact_sha256": "4692fbc4247d4ff47b23ad64a5c42912e7e14dc6556fcf2ccf069ce0dcd05ab0",
+      "artifact_size_bytes": 443589,
+      "capture_graph_sha256": "0c50af4e71a61fd03b8ebb13305edc4b2176142082d4aaa15f19521c118a1433",
+      "compile_seconds": 5.046226636972278,
+      "graph_nodes": 12,
+      "name": "decode_planner_outputs",
+      "region_id": 4
+    }
+  ],
+  "bundle": {
+    "build_seconds": 8.496153294108808,
+    "bundle_verified": true,
+    "digest": "c4589468aa82de07837384265bb43235a7b837348354675e317d2c7cc53f1781",
+    "invalid_python_environment": true,
+    "linked_dependencies": "/tmp/vlaforge-diffusiondrive-l4-clean/support/diffusiondrive_real_l4_runner.ldd",
+    "links_libpython": false,
+    "manifest": "/tmp/vlaforge-diffusiondrive-l4-clean/bundle/bundle.json",
+    "path": "/tmp/vlaforge-diffusiondrive-l4-clean/bundle",
+    "reused_existing_verified_bundle": false,
+    "runner": "/tmp/vlaforge-diffusiondrive-l4-clean/bundle/bin/vlaforge_generated_runner",
+    "runner_sha256": "e281d833b76ac19a24ea3fecce880b41a520e77a8d71d26d3c8fff94206b0e43"
+  },
+  "cache": {
+    "episode_reset_invalidates": true,
+    "hits": 1,
+    "key_inputs": [
+      "camera_feature",
+      "lidar_feature",
+      "status_feature"
+    ],
+    "key_states": [],
+    "misses": 4,
+    "missing_revision_miss": true,
+    "new_revision_miss": true,
+    "same_revision_hit": true
+  },
+  "checkpoint": {
+    "path": "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+    "revision": "8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71",
+    "sha256": "008ffc39cc6c57ff9007025217e601f408818afa036c0bae4e543907993a005b",
+    "size_bytes": 729518199
+  },
+  "correctness": {
+    "all_named_outputs_exact": true,
+    "direct_artifact_vs_generated_outputs": {
+      "agent_labels": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "shape": [
+          1,
+          30
+        ]
+      },
+      "agent_states": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "shape": [
+          1,
+          30,
+          5
+        ]
+      },
+      "bev_semantic_map": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "shape": [
+          1,
+          7,
+          128,
+          256
+        ]
+      },
+      "candidate_scores": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "shape": [
+          1,
+          20
+        ]
+      },
+      "candidate_trajectories": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "shape": [
+          1,
+          20,
+          8,
+          3
+        ]
+      },
+      "trajectory": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "shape": [
+          1,
+          8,
+          3
+        ]
+      }
+    },
+    "typed_generic_equal": true
+  },
+  "deterministic_inputs": {
+    "manifest": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/inputs.json",
+    "values": {
+      "camera_feature": {
+        "device_generated": "cuda:0",
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/camera_feature.bin",
+        "sha256": "99944f971a4dee3faffc8c1af0f52cc593516725bef0609edc3750940786d440",
+        "shape": [
+          1,
+          3,
+          256,
+          1024
+        ],
+        "size_bytes": 3145728
+      },
+      "lidar_feature": {
+        "device_generated": "cuda:0",
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/lidar_feature.bin",
+        "sha256": "7c1f0087d158382aa7372c043f1785cd09c903f742cf989910184171e16e80fb",
+        "shape": [
+          1,
+          1,
+          256,
+          256
+        ],
+        "size_bytes": 262144
+      },
+      "noise": {
+        "device_generated": "cuda:0",
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/noise.bin",
+        "sha256": "999c40889f61f6527517b322205ca3f95fec1ee1afa776e474fb92c72fdb14d2",
+        "shape": [
+          1,
+          20,
+          8,
+          2
+        ],
+        "size_bytes": 1280
+      },
+      "status_feature": {
+        "device_generated": "cuda:0",
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/status_feature.bin",
+        "sha256": "e1c53cc804b0b35d7d9e2d8961f27f871ce3e39b8730fc41f572194201b86347",
+        "shape": [
+          1,
+          8
+        ],
+        "size_bytes": 32
+      }
+    }
+  },
+  "environment": {
+    "cuda": "12.8",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python": "3.13.12",
+    "target": "sm_86",
+    "torch": "2.10.0+cu128"
+  },
+  "evidence_kind": "real-checkpoint-generated-session-parity",
+  "evidence_level": "L4",
+  "execution": {
+    "failure_injection_runs": 1,
+    "runner_seconds": 1.6936535187996924,
+    "stdout": "/tmp/vlaforge-diffusiondrive-l4-clean/support/diffusiondrive_real_l4_runner.stdout",
+    "successful_generic_runs": 1,
+    "successful_typed_runs": 6
+  },
+  "l3_chain": {
+    "artifact_evidence_level": "L3",
+    "artifact_report": "/tmp/vlaforge-diffusiondrive-l3-clean/artifact-l3.json",
+    "artifact_report_sha256": "b0e3259124def7ba99a979af7bde92934877b85dbbe0925c448234b6cfc72a29",
+    "frontend_evidence_level": "L2",
+    "frontend_report": "/tmp/vlaforge-diffusiondrive-l3-clean/frontend.json",
+    "frontend_report_sha256": "140c8c255bf01c9d0aab621e0e2d54db9bd45ef1c1714bcdf13c91f43ebae8cf"
+  },
+  "license": {
+    "checkpoint": "non-commercial per Hugging Face model card",
+    "upstream_source": "MIT"
+  },
+  "memory": {
+    "arena_baseline_bytes": 5158016,
+    "arena_compiled_bytes": 5155392,
+    "arena_saved_bytes": 2624,
+    "authoritative_state_bytes": 0,
+    "derived_cache_bytes": 5145296
+  },
+  "model": "DiffusionDrive NAVSIM 88.1 PDMS",
+  "passed": true,
+  "repository": {
+    "revision": "2ba35b5e71da0b20f02830682baf2cffaf622f23",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command": [
+      "/tmp/vlaforge-smolvla-env/bin/python",
+      "vlaforge/tools/build_real_diffusiondrive_l4.py",
+      "--l3-root",
+      "/tmp/vlaforge-diffusiondrive-l3-clean",
+      "--support-root",
+      "/tmp/vlaforge-diffusiondrive-l4-clean/support",
+      "--bundle-root",
+      "/tmp/vlaforge-diffusiondrive-l4-clean/bundle",
+      "--checkpoint",
+      "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+      "--upstream-revision",
+      "9b52ed0ec06b073d82d6f392ab084c7b301c8681",
+      "--checkpoint-revision",
+      "8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71",
+      "--target",
+      "sm_86",
+      "--report",
+      "<report.json>"
+    ]
+  },
+  "schema": "vlaforge.diffusiondrive_real_l4/1",
+  "semantic_ir": {
+    "adapter_template": "DiffusionPlanner",
+    "bounded_denoise_steps": 2,
+    "core_op_delta": 0,
+    "io_schema_digest": "971574b96dc06a33abb5b036d3392cefbb3d48a1df74433ca91eb3e626f39997",
+    "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/diffusiondrive_real_l4.ir.json",
+    "persistent_state_slots": 0,
+    "regions": [
+      "condition_encoder",
+      "initialize_planner_state",
+      "make_denoise_timestep",
+      "denoise_planner_step",
+      "decode_planner_outputs"
+    ]
+  },
+  "status": "passed",
+  "transaction": {
+    "aborts_in_success_sequence": 0,
+    "committed_output_groups": 5,
+    "failure_exposed_no_uncommitted_output": true,
+    "failure_retry_cache_hits": 1,
+    "failure_retry_cache_misses": 1,
+    "failure_retry_output_commits": 1,
+    "failure_retry_state_commits": 0,
+    "failure_retry_transaction_aborts": 1,
+    "failure_retry_transaction_commits": 1,
+    "resets": 1,
+    "state_commits": 0,
+    "successful_transactions": 5,
+    "validation_failure_status_code": 7
+  },
+  "upstream_revision": "9b52ed0ec06b073d82d6f392ab084c7b301c8681"
+}

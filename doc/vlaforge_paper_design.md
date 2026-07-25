@@ -409,11 +409,15 @@ Generality：
 - SmolVLA 真实八 Region verified bundle 与 generated no-Python C++ L4：
   direct artifact/C++ action chunk bit-exact，并覆盖 revision cache、CUDA
   authoritative state、事务失败回滚、reset 和 typed/generic ABI；
+- DiffusionDrive 真实五 Region verified bundle 与 generated no-Python C++
+  L4：20 条 candidates、scores、selected trajectory 和三个 aux outputs
+  对 direct artifact byte-exact，并覆盖 stateless revision cache、事务失败、
+  reset 与 typed/generic ABI，新增 core op 为 0；
 - pinned upstream source audit 与 Model Adaptation Cards。
 
 尚未完成、且决定投稿强度：
 
-- DiffusionDrive 的真实 L4 与 OpenVLA 的真实 L3/L4；
+- OpenVLA 的真实 L3/L4；
 - real-model optimization speedup 与 memory 消融；
 - frozen-core held-out model 数据；
 - Host CUDA 长稳与 profile；
