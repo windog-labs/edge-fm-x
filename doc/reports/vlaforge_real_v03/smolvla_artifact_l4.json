@@ -1,0 +1,379 @@
+{
+  "artifact_total_bytes": 819673392,
+  "artifacts": [
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l3.hr4TVE/artifacts/prepare_prefix.pt2",
+      "artifact_sha256": "f6b6b691cf52a7c585f22d1b360aafba4f67bb59806ca3e34ffd86762b1f6905",
+      "artifact_size_bytes": 608580305,
+      "capture": "/tmp/vlaforge-smolvla-l3.hr4TVE/exports/prepare_prefix.capture.json",
+      "capture_graph_sha256": "12349f15df1aa568770b41835ae94a862515d0660abad85b3065b8470ff0aa7e",
+      "compile_seconds": 23.91377918701619,
+      "export_seconds": 2.128793162992224,
+      "graph_nodes": 2935,
+      "maximum_export_error": 0.0,
+      "name": "prepare_prefix",
+      "region_id": 0
+    },
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/make_timestep.pt2",
+      "artifact_sha256": "9889ba6a54a681fb51fa48fa301727b92a97129775f3fc99079592b7e2435f4f",
+      "artifact_size_bytes": 395839,
+      "capture": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/make_timestep.capture.json",
+      "capture_graph_sha256": "cbbc02364d7978db377be953a5b0cef38d1a6109505dceb05ae225f0679cdc71",
+      "compile_seconds": 5.099646685877815,
+      "export_seconds": 0.6379426610656083,
+      "graph_nodes": 9,
+      "maximum_export_error": 0.0,
+      "name": "make_timestep",
+      "region_id": 1
+    },
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l3.hr4TVE/artifacts/solver_step.pt2",
+      "artifact_sha256": "43d8694ce95fa31b4d718104eb13581646bfb786983de78f6317eeb821c87b00",
+      "artifact_size_bytes": 208608106,
+      "capture": "/tmp/vlaforge-smolvla-l3.hr4TVE/exports/solver_step.capture.json",
+      "capture_graph_sha256": "59f0908e8a03434989ec8cb099944c0e666f58a0af6a41a8359cdfee43ed14a3",
+      "compile_seconds": 17.859540849924088,
+      "export_seconds": 1.6514985000248998,
+      "graph_nodes": 2545,
+      "maximum_export_error": 0.0,
+      "name": "solver_step",
+      "region_id": 2
+    },
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l3.hr4TVE/artifacts/trim_action_chunk.pt2",
+      "artifact_sha256": "3ee7d4f7e9f1d463a5368de7ce7e8a2f6fb329e71ade770c023e93f37560ce43",
+      "artifact_size_bytes": 396391,
+      "capture": "/tmp/vlaforge-smolvla-l3.hr4TVE/exports/trim_action_chunk.capture.json",
+      "capture_graph_sha256": "57d8eb8408267cb6e489c179ddaf717ba6ad3ba7eb5893b81c9c9d27baf97204",
+      "compile_seconds": 4.385674476856366,
+      "export_seconds": 0.09309762506745756,
+      "graph_nodes": 3,
+      "maximum_export_error": 0.0,
+      "name": "trim_action_chunk",
+      "region_id": 3
+    },
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_is_empty.pt2",
+      "artifact_sha256": "9364f29478e50dce65aba4ab447ee73c0c38444dc1a3df4246674df3ed4cf31c",
+      "artifact_size_bytes": 425687,
+      "capture": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_is_empty.capture.json",
+      "capture_graph_sha256": "af863419d788c5e9e0bfcb912e23b975878c072ce448f490142989dd9d159808",
+      "compile_seconds": 4.732317634159699,
+      "export_seconds": 0.02938599302433431,
+      "graph_nodes": 3,
+      "maximum_export_error": 0.0,
+      "name": "queue_is_empty",
+      "region_id": 4
+    },
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_select.pt2",
+      "artifact_sha256": "57b533d221053a6f39ba321e98a8c61950dc5ad470993dc843dc10331d99bb69",
+      "artifact_size_bytes": 434561,
+      "capture": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_select.capture.json",
+      "capture_graph_sha256": "e6a15d2f880c685531cb258ec9ccbad3a1c1782952d2e16a86ab82f93378cbc3",
+      "compile_seconds": 4.779217624105513,
+      "export_seconds": 0.04568159696646035,
+      "graph_nodes": 9,
+      "maximum_export_error": 0.0,
+      "name": "queue_select",
+      "region_id": 5
+    },
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_advance.pt2",
+      "artifact_sha256": "c479a30583665322de53d1b27981a584a6fb32c828440d37dd99c3873b4c680c",
+      "artifact_size_bytes": 425676,
+      "capture": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_advance.capture.json",
+      "capture_graph_sha256": "8938f6c522cb0b40d826c312c3b219309da6aaab179e9a75165fda722732844d",
+      "compile_seconds": 4.797470408026129,
+      "export_seconds": 0.027896820101886988,
+      "graph_nodes": 3,
+      "maximum_export_error": 0.0,
+      "name": "queue_advance",
+      "region_id": 6
+    },
+    {
+      "artifact": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_zero.pt2",
+      "artifact_sha256": "0c034bd1e4945d2ab009c6b61019e361211d2dcb8766786d683ff2ba8686d2c3",
+      "artifact_size_bytes": 406827,
+      "capture": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_zero.capture.json",
+      "capture_graph_sha256": "cce16c3c3b45af00278104aac176b8f7974579b1cc9b5b4502197c3b0925c2b4",
+      "compile_seconds": 4.776958978036419,
+      "export_seconds": 0.09789472306147218,
+      "graph_nodes": 2,
+      "maximum_export_error": 0.0,
+      "name": "queue_zero",
+      "region_id": 7
+    }
+  ],
+  "bundle": {
+    "build_seconds": 10.018271769862622,
+    "bundle_verified": true,
+    "digest": "e527fe804f35bcaa1409b527a3dff86fb898d0812bde50e4157b16f06efed622",
+    "invalid_python_environment": true,
+    "linked_dependencies": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4_runner.ldd",
+    "links_libpython": false,
+    "manifest": "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d/bundle.json",
+    "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d",
+    "reused_existing_verified_bundle": false,
+    "runner": "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d/bin/vlaforge_generated_runner",
+    "runner_sha256": "faf23a756a2f9cd61a84c07f46d2c9436cf21152c3730943bff48e15f31176c6"
+  },
+  "cache": {
+    "episode_reset_invalidates": true,
+    "hits": 1,
+    "key_inputs": [
+      "image",
+      "state",
+      "instruction_tokens",
+      "instruction_mask"
+    ],
+    "key_states": [],
+    "misses": 4,
+    "missing_revision_miss": true,
+    "new_revision_miss": true,
+    "same_revision_hit": true
+  },
+  "checkpoint": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base/model.safetensors",
+    "sha256": "7cd549ac2351fb069c0ddb3c34ad2d09cfc92b56a15dccdfc2e41467aaca01eb",
+    "size_bytes": 906712520
+  },
+  "correctness": {
+    "direct_artifact_vs_generated_chunk": {
+      "exact": true,
+      "maximum_absolute_error": 0.0,
+      "mean_absolute_error": 0.0,
+      "normalized_root_mean_square_error": 0.0,
+      "shape": [
+        1,
+        50,
+        6
+      ]
+    },
+    "milestones": {
+      "episode_reset": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          1,
+          6
+        ]
+      },
+      "generic_c_abi": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          1,
+          6
+        ]
+      },
+      "missing_revision_cache_miss": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          1,
+          6
+        ]
+      },
+      "new_revision_cache_miss": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          1,
+          6
+        ]
+      },
+      "same_revision_cache_hit": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          1,
+          6
+        ]
+      }
+    },
+    "typed_generic_max_abs": 0.0
+  },
+  "deterministic_inputs": {
+    "manifest": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/inputs.json",
+    "values": {
+      "image": {
+        "device_generated": "cuda:0",
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/image.bin",
+        "sha256": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+        "shape": [
+          1,
+          3,
+          256,
+          256
+        ],
+        "size_bytes": 786432
+      },
+      "mask": {
+        "device_generated": "cuda:0",
+        "dtype": "bool",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/mask.bin",
+        "sha256": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+        "shape": [
+          1,
+          48
+        ],
+        "size_bytes": 48
+      },
+      "noise": {
+        "device_generated": "cuda:0",
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/noise.bin",
+        "sha256": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+        "shape": [
+          1,
+          50,
+          32
+        ],
+        "size_bytes": 6400
+      },
+      "state": {
+        "device_generated": "cuda:0",
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/state.bin",
+        "sha256": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+        "shape": [
+          1,
+          6
+        ],
+        "size_bytes": 24
+      },
+      "tokens": {
+        "device_generated": "cuda:0",
+        "dtype": "int64",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/tokens.bin",
+        "sha256": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f",
+        "shape": [
+          1,
+          48
+        ],
+        "size_bytes": 384
+      }
+    }
+  },
+  "environment": {
+    "cuda": "12.8",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python": "3.13.12",
+    "target": "sm_86",
+    "torch": "2.10.0+cu128"
+  },
+  "evidence_kind": "real-checkpoint-generated-session-parity",
+  "evidence_level": "L4",
+  "execution": {
+    "failure_injection_runs": 2,
+    "runner_seconds": 4.160586112877354,
+    "stdout": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4_runner.stdout",
+    "successful_runs": 152
+  },
+  "l3_chain": {
+    "claim": "The existing real L3 report connects upstream eager to these same prefix/solver/trim artifacts; this report connects the same artifacts to the generated no-Python C++ Session.",
+    "report": "/tmp/vlaforge-smolvla-l3.hr4TVE/smolvla-l3.json",
+    "root": "/tmp/vlaforge-smolvla-l3.hr4TVE"
+  },
+  "license": {
+    "policy_checkpoint_card": "not present in local checkpoint directory",
+    "upstream_source": "Apache-2.0",
+    "vlm_checkpoint": "Apache-2.0"
+  },
+  "memory": {
+    "arena_baseline_bytes": 2331584,
+    "arena_compiled_bytes": 2329792,
+    "arena_saved_bytes": 1792,
+    "authoritative_state_bytes": 2440,
+    "derived_cache_bytes": 2314353,
+    "note": "Derived-cache and state bytes are taken from the verified static memory plan; artifact package bytes are reported separately."
+  },
+  "model": "SmolVLA-Base",
+  "passed": true,
+  "repository": {
+    "revision": "53dad4d41a85d76a38d44fbf183f61d06c87b803",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command": [
+      "/home/zhangzimo/miniconda3/bin/python3.13",
+      "vlaforge/tools/build_real_smolvla_l4.py",
+      "--l3-root",
+      "/tmp/vlaforge-smolvla-l3.hr4TVE",
+      "--support-root",
+      "/tmp/vlaforge-smolvla-l4.oYi5dQ",
+      "--bundle-root",
+      "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d",
+      "--checkpoint",
+      "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base/model.safetensors",
+      "--vlm-path",
+      "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLM2-500M-Video-Instruct",
+      "--upstream-revision",
+      "8fff0fde7c79f23a93d845d1a50e985de01f8b8a",
+      "--target",
+      "sm_86",
+      "--python",
+      "/home/zhangzimo/miniconda3/bin/python3.13",
+      "--report",
+      "<report.json>"
+    ],
+    "environment": {
+      "HF_HUB_OFFLINE": "1",
+      "PYTHONPATH": "/path/to/lerobot/src:/path/to/edge-fm-x/vlaforge/python",
+      "TRANSFORMERS_OFFLINE": "1"
+    }
+  },
+  "schema": "vlaforge.smolvla_real_l4/1",
+  "semantic_ir": {
+    "adapter_template": "ChunkedAction",
+    "core_op_delta": 0,
+    "io_schema_digest": "5afb44dec96ea1d51c1e0971817f3c331a1c31dcc998a2b5b2755789184d0b77",
+    "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4.ir.json",
+    "regions": [
+      "prepare_prefix",
+      "make_timestep",
+      "solver_step",
+      "trim_action_chunk",
+      "queue_is_empty",
+      "queue_select",
+      "queue_advance",
+      "queue_zero"
+    ]
+  },
+  "status": "passed",
+  "transaction": {
+    "aborts_in_success_sequence": 0,
+    "committed_outputs": 152,
+    "failure_preserved_uncommitted_output": true,
+    "failure_retry_cache_hits": 1,
+    "failure_retry_cache_misses": 1,
+    "failure_retry_state_commits": 2,
+    "failure_retry_transaction_aborts": 1,
+    "failure_retry_transaction_commits": 1,
+    "resets": 1,
+    "state_commits": 304,
+    "state_version_sequence": "passed",
+    "successful_transactions": 152,
+    "validation_failure_status_code": 7
+  },
+  "upstream_revision": "8fff0fde7c79f23a93d845d1a50e985de01f8b8a"
+}
