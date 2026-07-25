@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import os
 import platform
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -72,6 +74,85 @@ _CPP_FIXTURES = {
         smolvla_fixture_runner_source,
     ),
 }
+
+
+def _source_provenance() -> tuple[str, bool]:
+    """Return immutable package or source-checkout provenance.
+
+    A wheel installation is not a Git checkout. An explicit revision may be
+    supplied by a release builder; otherwise the installed distribution
+    version is a stable, honest fallback.
+    """
+
+    explicit_revision = os.environ.get("VLAFORGE_SOURCE_REVISION")
+    if explicit_revision:
+        dirty = os.environ.get("VLAFORGE_SOURCE_DIRTY", "0")
+        if dirty not in {"0", "1"}:
+            raise ValueError("VLAFORGE_SOURCE_DIRTY must be 0 or 1")
+        return explicit_revision, dirty == "1"
+
+    repository = Path(__file__).resolve().parents[3]
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if revision.returncode == 0 and revision.stdout.strip():
+        status = subprocess.run(
+            [
+                "git",
+                "status",
+                "--porcelain",
+                "--untracked-files=no",
+            ],
+            cwd=repository,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if status.returncode != 0:
+            raise RuntimeError("failed to inspect VLAForge Git source status")
+        return revision.stdout.strip(), bool(status.stdout.strip())
+
+    try:
+        version = importlib.metadata.version("vlaforge")
+    except importlib.metadata.PackageNotFoundError:
+        version = "0.2.0.dev0"
+    return f"package:vlaforge-{version}", False
+
+
+def _runtime_root(explicit: str | None = None) -> Path:
+    """Resolve the standalone C++ runtime source shipped with VLAForge."""
+
+    candidates = []
+    if explicit:
+        candidates.append(Path(explicit))
+    environment = os.environ.get("VLAFORGE_RUNTIME_ROOT")
+    if environment:
+        candidates.append(Path(environment))
+    candidates.extend(
+        (
+            Path(__file__).resolve().parents[2],
+            Path(sys.prefix) / "share" / "vlaforge",
+        )
+    )
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if all(
+            (resolved / relative).is_file()
+            for relative in (
+                "CMakeLists.txt",
+                "runtime/state_store.cpp",
+                "include/vlaforge/runtime/session.h",
+            )
+        ):
+            return resolved
+    raise FileNotFoundError(
+        "VLAForge C++ runtime source was not found; install a complete wheel "
+        "or pass --runtime-root / VLAFORGE_RUNTIME_ROOT"
+    )
 
 
 def _load_module(path: str):
@@ -274,23 +355,7 @@ def _codegen(args: argparse.Namespace) -> int:
 def _compile(args: argparse.Namespace) -> int:
     fixture = _fixture(args.adapter)
     regions, validators, runner = _cpp_fixture(args.adapter)
-    repository = Path(__file__).resolve().parents[3]
-    revision = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repository,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    dirty = bool(
-        subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
-            cwd=repository,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    )
+    revision, dirty = _source_provenance()
     environment = {
         "host": platform.platform(),
         "machine": platform.machine(),
@@ -304,7 +369,7 @@ def _compile(args: argparse.Namespace) -> int:
         regions=regions,
         validators=validators,
         runner_source=runner,
-        runtime_root=Path(__file__).resolve().parents[2],
+        runtime_root=_runtime_root(args.runtime_root),
         profile=args.profile,
         allow_test_profile=args.allow_test_profile,
         source_revision=revision,
@@ -467,23 +532,7 @@ def _build_artifact_bundle(args: argparse.Namespace) -> int:
             }
     else:
         prefix = args.cmake_prefix_path
-    repository = Path(__file__).resolve().parents[3]
-    revision = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repository,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    dirty = bool(
-        subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
-            cwd=repository,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    )
+    revision, dirty = _source_provenance()
     initial_state = (
         None
         if args.initial_state is None
@@ -503,7 +552,7 @@ def _build_artifact_bundle(args: argparse.Namespace) -> int:
         artifact_sources=source_paths,
         validators=validators,
         runner_source=Path(args.runner_source).read_text(encoding="utf-8"),
-        runtime_root=Path(__file__).resolve().parents[2],
+        runtime_root=_runtime_root(args.runtime_root),
         cmake_prefix_path=prefix,
         backend_versions=backend_versions,
         profile=args.profile,
@@ -594,6 +643,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--adapter", required=True, choices=tuple(_CPP_FIXTURES)
     )
     compile_parser.add_argument("--output", required=True)
+    compile_parser.add_argument("--runtime-root")
     _profile_argument(compile_parser)
     compile_parser.set_defaults(handler=_compile)
 
@@ -622,6 +672,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     build_bundle_parser.add_argument("--runner-source", required=True)
     build_bundle_parser.add_argument("--initial-state")
+    build_bundle_parser.add_argument("--runtime-root")
     build_bundle_parser.add_argument("--cmake-prefix-path")
     build_bundle_parser.add_argument(
         "--backend-version", action="append", default=[]

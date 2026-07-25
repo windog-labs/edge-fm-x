@@ -31,6 +31,21 @@ package-dir = { "" = "python" }
 [tool.setuptools.packages.find]
 where = ["python"]
 
+[tool.setuptools.data-files]
+"share/vlaforge" = ["CMakeLists.txt"]
+"share/vlaforge/cmake" = ["cmake/VLAForgeRuntimeConfig.cmake.in"]
+"share/vlaforge/runtime" = [
+  "runtime/*.c",
+  "runtime/*.cpp",
+]
+"share/vlaforge/backends" = ["backends/*.cpp"]
+"share/vlaforge/include/vlaforge/runtime" = [
+  "include/vlaforge/runtime/*.h",
+]
+"share/vlaforge/include/vlaforge/backends" = [
+  "include/vlaforge/backends/*.h",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
