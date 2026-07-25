@@ -189,6 +189,21 @@ dependency, CUDA kernel source, or edge to old EdgeFM operator code. CUDA is
 used only by the optional AOTI backend/runtime memory path for externally
 compiled artifacts.
 
+## Final Host-CUDA release gate
+
+The final clean gate passed 215 offline Python tests with nine explicitly
+gated real-model tests, one live CUDA AOTI package test, 7/7 CPU CTests, and
+8/8 CUDA/AOTI CTests. Both CPU and CUDA installed-package consumers built and
+ran.
+
+The gate found and fixed a wheel-only defect: the CLI previously assumed a
+Git checkout and did not ship its C++ runtime source. The installed wheel now
+contains 24 runtime/CMake/header/backend entries. From a non-Git working
+directory it generated and verified an OpenVLA-like Compile Bundle whose
+runner executed with invalid `PYTHONHOME/PYTHONPATH` and linked no
+`libpython`. Full hashes and test inventories are in
+`../vlaforge_release_v01/release_gate.{json,md}`.
+
 ## OpenVLA-7B real L3
 
 The pinned `openvla/openvla-7b` checkpoint at Hugging Face revision

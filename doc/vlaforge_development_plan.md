@@ -330,7 +330,8 @@ Host release gate：
 14. invalid `PYTHONHOME/PYTHONPATH` 仍运行，`ldd` 无 Python；
 15. 完整 Python tests 与 CTest 通过。
 
-2026-07-25 当前结果：offline Python 199 passed/9 opt-in skipped；real
+2026-07-25 最终 Host-CUDA release gate：offline Python 215 passed/9
+opt-in skipped；CUDA AOTI 现场 opt-in 1 passed；real
 SmolVLA L4、DiffusionDrive L2/L3/L4 opt-in 均各 1 passed；clean C++ Release、CPU 7/7 CTest、CUDA/AOTI
 8/8 CTest 与 install-export 均通过。RTX 3060
 `sm_86` 上真实 AOTI
@@ -393,6 +394,12 @@ edge 或根 EdgeFM `src/operators` 依赖；可选 CUDA target 只通过
 引用被单独列出，不属于 production surface。报告见
 `doc/reports/vlaforge_architecture_v01/architecture_surface.md`。
 
+最终门禁还从 wheel 安装环境发现并修复了 CLI 对 Git checkout 和未打包 C++
+runtime source 的隐式依赖。当前 wheel 包含 24 个 CMake/runtime/header/backend
+entries；从非 Git cwd 安装后可生成和验证 Compile Bundle。生成 runner 在无效
+`PYTHONHOME/PYTHONPATH` 下运行，`ldd` 无 `libpython`。正式汇总见
+`doc/reports/vlaforge_release_v01/release_gate.md`。
+
 论文 release gate 另要求：
 
 - 至少一个 manipulation、一个 AR VLA、一个 diffusion/flow VLA 和一个
@@ -405,13 +412,13 @@ edge 或根 EdgeFM `src/operators` 依赖；可选 CUDA target 只通过
 
 ## 10. 剩余开发顺序
 
-1. 运行 Python/C++ clean build、install/export、bundle 和 no-Python
-   release gate；
-2. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
+1. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
    shared-library/cubin mapping 与 per-invocation CUDA weight residency 分离，
    不得扩 core IR，也不得阻塞 held-out；
-3. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
+2. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
    runtime/generated Session 的 JetPack arm64 portability 已通过。
+
+以上两项均不属于当前 Host-CUDA 论文实现的完成条件。
 
 ## 11. 风险控制
 

@@ -438,13 +438,16 @@ Generality：
   的前提下完成 pinned-source L0 与 executable L1；三个 fixture 的
   Semantic/verified-Plan output、state、完整 trace exact，core op delta=0。
   冻结路径 combined fingerprint 为
-  `cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`。
+  `cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`；
+- 最终 Host-CUDA release gate 为 Python `215 passed/9 opt-in skipped`、
+  CUDA AOTI 现场 `1 passed`、CPU/CUDA CTest `7/7` 与 `8/8`。wheel
+  安装后的 CLI 可从非 Git cwd 生成 verified Compile Bundle，runner 在无效
+  Python 环境执行且不链接 `libpython`。
 
-尚未完成、且决定投稿强度：
+非 Host-CUDA release blocker 的后续工作：
 
 - OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
   已记录，不能把成功 build 写成 L4 execution；
-- 最终 clean build/install/export 与 bundle release gate 复核；
 - Orin 真机 latency/power/closed-loop 后置，不进入当前 Host-CUDA claim。
 
 小型 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
@@ -459,6 +462,8 @@ Architecture negative evidence 见
 `doc/reports/vlaforge_architecture_v01/architecture_surface.{json,md}`：
 production surface 与 CMake build graph 均不包含物理调度、middleware、
 publish、core action queue、Python runtime 或旧 EdgeFM CUDA kernel。
+最终发布证据见
+`doc/reports/vlaforge_release_v01/release_gate.{json,md}`。
 
 ## 13. 投稿 go/no-go
 
@@ -473,3 +478,8 @@ publish、core action queue、Python runtime 或旧 EdgeFM CUDA kernel。
 
 若只完成 fixture-L4 和 source audit，应定位为 design/prototype，不应声称完整
 real-model deployment compiler。
+
+当前 Host-CUDA 结果已满足上述 go 条件：三个真实模型达到 L3，其中 robot
+SmolVLA 与 driving DiffusionDrive 达到真实 L4；held-out core op delta=0；
+性能、消融、failure injection、trace、clean build、wheel install 和
+no-Python 证据齐全。Orin 只能作为后续平台扩展实验，不能回填到当前 claim。
