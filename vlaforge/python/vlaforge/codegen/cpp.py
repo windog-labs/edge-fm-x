@@ -286,6 +286,10 @@ class _Emitter:
         artifact_methods = (
             """  vlaforge::runtime::Status InitializeRegions(
       const char* bundle_root) noexcept;
+  vlaforge::runtime::Status LoadRegion(std::size_t slot) noexcept;
+  vlaforge::runtime::Status FailArtifactRegion(
+      vlaforge::runtime::Status status, std::size_t slot) noexcept;
+  void DestroyRegion(std::size_t slot) noexcept;
   void DestroyRegions() noexcept;"""
             if self.artifact_mode
             else ""
@@ -504,7 +508,9 @@ constexpr char kArtifactShaHex{index}[] =
     "{artifact.artifact_sha256}";
 constexpr std::uint8_t kArtifactSha{index}[] = {{{digest}}};
 constexpr char kArtifactTarget{index}[] = "{artifact.target}";
-constexpr char kArtifactVariant{index}[] = "{variant}";"""
+constexpr char kArtifactVariant{index}[] = "{variant}";
+constexpr bool kArtifactInvocationResident{index} =
+    {str(artifact.residency == "invocation").lower()};"""
             )
         return "\n\n".join(definitions)
 
@@ -750,28 +756,8 @@ vlaforge::runtime::Status ReadBool(
     def _artifact_session_methods(self) -> str:
         if not self.artifact_mode:
             return ""
-        initialize = [
-            """ModelSession::~ModelSession() { DestroyRegions(); }
-
-void ModelSession::DestroyRegions() noexcept {
-  for (std::size_t index = region_executables_.size(); index > 0u; --index) {
-    const auto slot = index - 1u;
-    if (region_apis_[slot] != nullptr &&
-        region_executables_[slot] != nullptr) {
-      region_apis_[slot]->destroy(region_executables_[slot]);
-      region_executables_[slot] = nullptr;
-    }
-  }
-}
-
-vlaforge::runtime::Status ModelSession::InitializeRegions(
-    const char* bundle_root) noexcept {
-  if (bundle_root == nullptr || bundle_root[0] == '\\0') {
-    return vlaforge::runtime::Status::Error(
-        vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
-        "bundle root is empty");
-  }"""
-        ]
+        verify = []
+        load_cases = []
         for index, region in enumerate(self.module.regions):
             artifact = self.artifact_regions[region.name]
             kind = _device(artifact.device)
@@ -786,7 +772,7 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
                 if artifact.backend_variant is not None
                 else "0u"
             )
-            initialize.append(
+            verify.append(
                 f"""  {{
     auto verify_status = vlaforge::runtime::VerifyArtifactFile(
         bundle_root, kArtifactPath{index}, kArtifactShaHex{index},
@@ -804,13 +790,34 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
           "AOTI Region value ABI validation failed");
     }}
     region_apis_[{index}u] = api;
+    if (!kArtifactInvocationResident{index}) {{
+      auto load_status = LoadRegion({index}u);
+      if (!load_status.ok()) {{
+        DestroyRegions();
+        return load_status;
+      }}
+    }}
+  }}"""
+            )
+            load_cases.append(
+                f"""    case {index}u: {{
+      if (region_executables_[{index}u] != nullptr) {{
+        return vlaforge::runtime::Status::Ok();
+      }}
+      const auto* api = region_apis_[{index}u];
+      if (api == nullptr || region_paths_[{index}u].empty()) {{
+        return vlaforge::runtime::Status::Error(
+            vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+            "AOTI Region artifact is not verified");
+      }}
     const VLAForgeRegionCreateOptions options{{
         sizeof(VLAForgeRegionCreateOptions),
         VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION,
         {index}u, {{{kind}, {ordinal}}}}};
-    c_status = api->create(&options, &region_executables_[{index}u]);
+      auto c_status =
+          api->create(&options, &region_executables_[{index}u]);
     if (c_status.code != VLAFORGE_STATUS_OK) {{
-      DestroyRegions();
+        DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kInternal, {index}u,
           "AOTI Region creation failed");
@@ -825,7 +832,7 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
         {variant_pointer}, {variant_size}}};
     c_status = api->load(region_executables_[{index}u], &descriptor);
     if (c_status.code != VLAFORGE_STATUS_OK) {{
-      DestroyRegions();
+        DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
           "AOTI Region load failed");
@@ -835,7 +842,7 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
                                     &requirement);
     if (c_status.code != VLAFORGE_STATUS_OK ||
         requirement.size_bytes != 0u) {{
-      DestroyRegions();
+        DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
           "AOTI Region workspace contract mismatch");
@@ -843,15 +850,60 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
     c_status = api->bind_workspace(region_executables_[{index}u],
                                    nullptr, 0u);
     if (c_status.code != VLAFORGE_STATUS_OK) {{
-      DestroyRegions();
+        DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
           "AOTI Region workspace binding failed");
     }}
-  }}"""
+      return vlaforge::runtime::Status::Ok();
+    }}"""
             )
-        initialize.append("  return vlaforge::runtime::Status::Ok();\n}")
-        return "\n".join(initialize)
+        return f"""ModelSession::~ModelSession() {{ DestroyRegions(); }}
+
+void ModelSession::DestroyRegion(std::size_t slot) noexcept {{
+  if (slot >= region_executables_.size()) {{
+    return;
+  }}
+  if (region_apis_[slot] != nullptr &&
+      region_executables_[slot] != nullptr) {{
+    region_apis_[slot]->destroy(region_executables_[slot]);
+    region_executables_[slot] = nullptr;
+  }}
+}}
+
+void ModelSession::DestroyRegions() noexcept {{
+  for (std::size_t index = region_executables_.size(); index > 0u; --index) {{
+    DestroyRegion(index - 1u);
+  }}
+}}
+
+vlaforge::runtime::Status ModelSession::FailArtifactRegion(
+    vlaforge::runtime::Status status, std::size_t slot) noexcept {{
+  DestroyRegion(slot);
+  return Fail(status);
+}}
+
+vlaforge::runtime::Status ModelSession::LoadRegion(
+    std::size_t slot) noexcept {{
+  switch (slot) {{
+{chr(10).join(load_cases)}
+    default:
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
+          "artifact Region slot is out of range");
+  }}
+}}
+
+vlaforge::runtime::Status ModelSession::InitializeRegions(
+    const char* bundle_root) noexcept {{
+  if (bundle_root == nullptr || bundle_root[0] == '\\0') {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
+        "bundle root is empty");
+  }}
+{chr(10).join(verify)}
+  return vlaforge::runtime::Status::Ok();
+}}"""
 
     def _validator_functions(self) -> str:
         functions = []
@@ -1345,17 +1397,48 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
     def _emit_artifact_region(
         self, task: Any, region_id: int
     ) -> list[str]:
+        definition = self.artifact_regions[
+            self.module.regions[region_id].name
+        ]
+        invocation_resident = definition.residency == "invocation"
+        fail_status = (
+            f"FailArtifactRegion(status, {region_id}u)"
+            if invocation_resident
+            else "Fail(status)"
+        )
+        fail_uninitialized = (
+            "FailArtifactRegion("
+            "vlaforge::runtime::Status::Error("
+            "vlaforge::runtime::StatusCode::kFailedPrecondition, "
+            f"{task.id}u, \"artifact Region is not initialized\"), "
+            f"{region_id}u)"
+            if invocation_resident
+            else (
+                "Fail(vlaforge::runtime::Status::Error("
+                "vlaforge::runtime::StatusCode::kFailedPrecondition, "
+                f"{task.id}u, \"artifact Region is not initialized\"))"
+            )
+        )
         run = [
             "{",
+        ]
+        if invocation_resident:
+            run.extend(
+                (
+                    f"  status = LoadRegion({region_id}u);",
+                    "  if (!status.ok()) { return Fail(status); }",
+                )
+            )
+        run.extend(
+            (
             f"  const auto* api = region_apis_[{region_id}u];",
             f"  auto* executable = region_executables_[{region_id}u];",
             "  if (api == nullptr || executable == nullptr) {",
-            "    return Fail(vlaforge::runtime::Status::Error(",
-            "        vlaforge::runtime::StatusCode::kFailedPrecondition, "
-            f"{task.id}u, \"artifact Region is not initialized\"));",
+            f"    return {fail_uninitialized};",
             "  }",
             "  VLAForgeStatus region_status{};",
-        ]
+            )
+        )
         for category, buffers in (
             ("input", task.inputs),
             ("output", task.outputs),
@@ -1383,7 +1466,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                         f"      executable, {index}u, &{variable});",
                         "  status = FromCStatus(region_status, "
                         f"{task.id}u);",
-                        "  if (!status.ok()) { return Fail(status); }",
+                        "  if (!status.ok()) { "
+                        f"return {fail_status}; }}",
                     )
                 )
         run.extend(
@@ -1391,19 +1475,23 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 "  region_status = api->run(executable);",
                 "  status = FromCStatus(region_status, "
                 f"{task.id}u);",
-                "  if (!status.ok()) { return Fail(status); }",
+                "  if (!status.ok()) { "
+                f"return {fail_status}; }}",
                 "  region_status = api->synchronize(executable);",
                 "  status = FromCStatus(region_status, "
                 f"{task.id}u);",
-                "  if (!status.ok()) { return Fail(status); }",
+                "  if (!status.ok()) { "
+                f"return {fail_status}; }}",
                 "  vlaforge::runtime::EmitTrace("
                 "trace_, vlaforge::runtime::TraceEvent{"
                 "vlaforge::runtime::TraceKind::kRegion, "
                 f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
                 "state_store_.episode(), run_index_, 0u});",
-                "}",
             )
         )
+        if invocation_resident:
+            run.append(f"  DestroyRegion({region_id}u);")
+        run.append("}")
         cache = next(
             (item for item in self.caches if item.task_id == task.id),
             None,

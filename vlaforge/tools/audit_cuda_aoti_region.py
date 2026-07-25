@@ -24,6 +24,7 @@ from vlaforge.codegen import CppValidatorDefinition  # noqa: E402
 from vlaforge.deployment import (  # noqa: E402
     ArtifactIdentity,
     ArtifactKind,
+    ArtifactResidency,
     BackendCapability,
     EffectAudit,
     RegionArtifactContract,
@@ -265,10 +266,11 @@ def _audit_generated_session(
     package_sha256: str,
     graph_sha256: str,
     expected: list[float],
+    residency: ArtifactResidency,
 ) -> dict[str, object]:
     module = _semantic_module()
     artifact_relative = "artifacts/audit_tensor_region.pt2"
-    bundle_root = root / "compile-bundle"
+    bundle_root = root / f"compile-bundle-{residency.value}"
     if bundle_root.exists():
         shutil.rmtree(bundle_root)
     matrix = TensorType((4, 4), "f32")
@@ -305,6 +307,7 @@ def _audit_generated_session(
         ),
         effect_audit=EffectAudit(),
         backend_variant="torch-2.10-cu128",
+        residency=residency,
     )
     manifest = build_artifact_compile_bundle(
         module,
@@ -416,6 +419,7 @@ return true;""",
     manifest.verify_files(bundle_root)
     return {
         "status": "passed",
+        "artifact_residency": residency.value,
         "bundle_manifest": str(bundle_root / "bundle.json"),
         "bundle_digest": manifest.digest(),
         "runner": str(runner),
@@ -576,7 +580,20 @@ def _audit(root: Path, device: str = "cuda") -> dict[str, object]:
         backend_negative_cases[mode] = "rejected"
     package_sha256 = _sha256(package_path)
     generated_session = _audit_generated_session(
-        root, package_path, package_sha256, graph_sha256, expected
+        root,
+        package_path,
+        package_sha256,
+        graph_sha256,
+        expected,
+        ArtifactResidency.SESSION,
+    )
+    invocation_resident_generated_session = _audit_generated_session(
+        root,
+        package_path,
+        package_sha256,
+        graph_sha256,
+        expected,
+        ArtifactResidency.INVOCATION,
     )
 
     return {
@@ -601,6 +618,9 @@ def _audit(root: Path, device: str = "cuda") -> dict[str, object]:
         "invalid_python_environment_run": True,
         "backend_negative_cases": backend_negative_cases,
         "generated_session": generated_session,
+        "invocation_resident_generated_session": (
+            invocation_resident_generated_session
+        ),
         "configure_tail": configure.stdout.splitlines()[-5:],
         "build_tail": build.stdout.splitlines()[-5:],
     }

@@ -41,6 +41,13 @@ class ArtifactKind(str, Enum):
     CUDA_BINARY = "cuda_binary"
 
 
+class ArtifactResidency(str, Enum):
+    """Lifetime of one loaded backend artifact inside a generated Session."""
+
+    SESSION = "session"
+    INVOCATION = "invocation"
+
+
 @dataclass(frozen=True, slots=True)
 class ArtifactIdentity:
     """Immutable provenance used to reject silent model/artifact replacement."""
@@ -410,6 +417,7 @@ class RegionArtifactContract:
     capability: BackendCapability
     effect_audit: EffectAudit
     backend_variant: str | None = None
+    residency: ArtifactResidency = ArtifactResidency.SESSION
     plugin_abi: str = REGION_PLUGIN_ABI
     callable_abi_version: int = CALLABLE_ABI_VERSION
     schema: str = ARTIFACT_SCHEMA
@@ -437,6 +445,8 @@ class RegionArtifactContract:
             raise ValueError("artifact size must be non-negative")
         if self.backend_variant is not None:
             _require_nonempty(self.backend_variant, "backend variant")
+        if not isinstance(self.residency, ArtifactResidency):
+            raise ValueError("artifact residency must be a known policy")
         _require_unique_names(self.inputs, "input")
         _require_unique_names(self.outputs, "output")
         if not self.effect_audit.passed:
@@ -495,6 +505,7 @@ class RegionArtifactContract:
             "capability": self.capability.to_dict(),
             "effect_audit": self.effect_audit.to_dict(),
             "backend_variant": self.backend_variant,
+            "residency": self.residency.value,
         }
 
     @classmethod
@@ -524,6 +535,9 @@ class RegionArtifactContract:
                 None
                 if data.get("backend_variant") is None
                 else str(data["backend_variant"])
+            ),
+            residency=ArtifactResidency(
+                str(data.get("residency", ArtifactResidency.SESSION.value))
             ),
         )
         if str(data["input_schema_digest"]) != artifact.input_schema_digest:

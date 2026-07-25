@@ -39,6 +39,7 @@ def test_cuda_aoti_region_backend(tmp_path: Path) -> None:
     }
     generated = payload["generated_session"]
     assert generated["status"] == "passed"
+    assert generated["artifact_residency"] == "session"
     assert generated["bundle_verified"] is True
     assert generated["python_linked"] is False
     assert set(generated["negative_cases"]) == {
@@ -49,3 +50,12 @@ def test_cuda_aoti_region_backend(tmp_path: Path) -> None:
         "wrong-layout",
         "wrong-shape",
     }
+    paged = payload["invocation_resident_generated_session"]
+    assert paged["status"] == "passed"
+    assert paged["artifact_residency"] == "invocation"
+    assert paged["bundle_verified"] is True
+    assert paged["python_linked"] is False
+    assert paged["max_abs_error"] <= 1e-6
+    assert set(paged["negative_cases"]) == set(
+        generated["negative_cases"]
+    )

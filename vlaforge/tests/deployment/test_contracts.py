@@ -16,6 +16,7 @@ from vlaforge.deployment import (
     ArtifactDiagnostic,
     ArtifactIdentity,
     ArtifactKind,
+    ArtifactResidency,
     BackendCapability,
     CompileBundleManifest,
     DiagnosticSeverity,
@@ -99,6 +100,7 @@ def _region(root: Path, *, region_id: int = 0) -> RegionArtifactContract:
             ),
         ),
         backend_variant="test",
+        residency=ArtifactResidency.INVOCATION,
     )
 
 
@@ -181,6 +183,26 @@ def test_region_artifact_round_trip_is_deterministic(tmp_path: Path) -> None:
     assert decoded.inputs[0].dimensions[1].symbol == "tokens"
     assert decoded.input_schema_digest == artifact.input_schema_digest
     assert decoded.output_schema_digest == artifact.output_schema_digest
+    assert decoded.residency is ArtifactResidency.INVOCATION
+
+
+def test_region_artifact_defaults_legacy_residency_to_session(
+    tmp_path: Path,
+) -> None:
+    payload = _region(tmp_path).to_dict()
+    del payload["residency"]
+
+    decoded = RegionArtifactContract.from_dict(payload)
+
+    assert decoded.residency is ArtifactResidency.SESSION
+
+
+def test_region_artifact_rejects_unknown_residency(tmp_path: Path) -> None:
+    payload = _region(tmp_path).to_dict()
+    payload["residency"] = "forever"
+
+    with pytest.raises(ValueError, match="not a valid ArtifactResidency"):
+        RegionArtifactContract.from_dict(payload)
 
 
 def test_region_artifact_rejects_tampered_signature_digest(

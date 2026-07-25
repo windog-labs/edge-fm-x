@@ -31,6 +31,7 @@ class CppArtifactRegionDefinition:
     target: str
     device: str
     backend_variant: str | None = None
+    residency: str = "session"
     callable_abi_version: int = 2
 
     def __post_init__(self) -> None:
@@ -58,6 +59,10 @@ class CppArtifactRegionDefinition:
                 raise ValueError(f"{name} must be lowercase SHA-256")
         if self.backend_variant is not None and not self.backend_variant:
             raise ValueError("backend variant must be non-empty when provided")
+        if self.residency not in {"session", "invocation"}:
+            raise ValueError(
+                "artifact residency must be session or invocation"
+            )
         if self.device != "cpu" and not (
             self.device.startswith("cuda:")
             and self.device[5:].isdigit()

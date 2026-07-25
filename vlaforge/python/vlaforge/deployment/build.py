@@ -420,6 +420,7 @@ def build_artifact_compile_bundle(
             target=contract.capability.target,
             device=_artifact_execution_device(contract),
             backend_variant=contract.backend_variant,
+            residency=contract.residency.value,
             callable_abi_version=contract.callable_abi_version,
         )
         for name, contract in contracts.items()

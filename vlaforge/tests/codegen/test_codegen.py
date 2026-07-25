@@ -97,6 +97,7 @@ def test_codegen_emits_bundle_loaded_aoti_regions() -> None:
             target="sm_86",
             device="cuda:0",
             backend_variant="torch-2.10-cu128",
+            residency="invocation" if index == 0 else "session",
         )
         for index, region in enumerate(compilation.module.regions)
     }
@@ -119,6 +120,9 @@ def test_codegen_emits_bundle_loaded_aoti_regions() -> None:
     assert "vlaforge_aoti_region_executable_value_api" in source
     assert "api->load" in source
     assert "api->run" in source
+    assert "kArtifactInvocationResident0 =\n    true" in source
+    assert "FailArtifactRegion" in source
+    assert "DestroyRegion(0u);" in source
     assert "VLAFORGE_BUILD_AOTI_BACKEND ON" in cmake
     assert "RunRegion0" not in source
 
