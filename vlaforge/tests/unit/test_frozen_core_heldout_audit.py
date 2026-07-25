@@ -59,6 +59,7 @@ def test_heldout_fixtures_compile_and_match_verified_plan(
 
     assert record["passed"] is True
     assert record["adapter_template"] == template
+    assert not Path(record["adapter_source"]).is_absolute()
     assert record["core_op_delta"] == 0
     assert record["unknown_opcodes"] == []
     assert record["semantic_plan_output_state_parity"] is True

@@ -378,10 +378,11 @@ def audit_fixture(
         if event.kind == "cache"
     ]
     source_lines, source_line = inspect.getsourcelines(factory)
+    source_file = Path(inspect.getsourcefile(factory) or "").resolve()
     return {
         "module": fixture.module.name,
         "adapter_factory": factory.__name__,
-        "adapter_source": inspect.getsourcefile(factory),
+        "adapter_source": source_file.relative_to(_REPOSITORY_ROOT).as_posix(),
         "adapter_start_line": source_line,
         "adapter_loc": len(source_lines),
         "adapter_template": invocation.metadata["adapter_template"],
