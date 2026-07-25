@@ -1,5 +1,27 @@
 # VLAForge 论文研究方案：持续化状态 VLA 程序的时序编译与高性能边缘部署
 
+> **2026-07-25 论文定位更新（权威）**
+>
+> 论文主线改为 **VLA-specific stateful invocation whole-program
+> compilation**，不再把 VLAForge 描述为物理时钟调度器。底软负责传感器
+> 同步、帧率、周期、丢帧、topic 与底盘发布；VLAForge 只编译一次被动
+> `Run()` invocation 及跨调用模型状态。输入 identity 用
+> `InputRevision`，state version 只在成功事务 commit 时递增，输出通过
+> `ReadOutput()` 返回。权威 v0.2 设计和旧→新迁移表见
+> [vlaforge_invocation_ir_v0_2.md](./vlaforge_invocation_ir_v0_2.md)。
+>
+> 修订后的三项贡献是：
+>
+> 1. 区分 stamped input、authoritative persistent state、derived cache 与
+>    transactional output 的 VLA Invocation IR；
+> 2. 由 input revision/state snapshot version 证明合法性的 exact
+>    memoization、LICM、state physicalization 和 static-arena rewrite；
+> 3. 生成无 Python 的 C++ `Session::Run/ReadOutput`，并验证
+>    Semantic IR、Plan 与 C++ 的 state/output trace 等价。
+>
+> 本文后续出现的 multi-clock runtime、deadline analysis、内部 async
+> scheduler 和 action publish 只作为历史草案，不应进入最终论文 claim。
+
 > 文档状态：研究方案 v1
 >
 > 更新时间：2026-07-23

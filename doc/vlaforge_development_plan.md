@@ -1,5 +1,17 @@
 # VLAForge Clean-slate 开发计划：从持续化状态 IR 到高性能 C++ AOT 部署
 
+> **2026-07-25 架构更新（权威）**
+>
+> VLAForge 已收敛为被底软调用的 **stateful invocation whole-program
+> compiler**。`ClockDomain`、`Policy.clock`、`RunTick`、内部周期调度、
+> 传感器同步和 `action.publish` 不再属于核心。新 schema、内存分类、C++
+> `Run/ReadOutput` API 以及完整旧→新迁移表见
+> [vlaforge_invocation_ir_v0_2.md](./vlaforge_invocation_ir_v0_2.md)。
+> 本文后续仍出现的 v0.1 多时钟/epoch/deadline/async scheduler 内容只保留为
+> 历史设计记录，不能作为实现或论文 claim。当前实施顺序为：
+> Invocation IR v0.2 → Python/Plan → C++ runtime/codegen → adapters/evidence
+> → arm64 build；Orin 真机 latency/power/closed-loop 后置。
+
 > 文档状态：开发设计 v1
 >
 > 更新时间：2026-07-23
