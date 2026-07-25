@@ -39,13 +39,18 @@ VLAForgeTensorView View(at::Tensor& tensor,
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 2 || argc > 3) {
-    std::fprintf(stderr, "usage: %s REGION.pt2 [cuda|cpu]\n", argv[0]);
+  if (argc < 2 || argc > 5) {
+    std::fprintf(
+        stderr,
+        "usage: %s REGION.pt2 [cuda|cpu] [target|-] [negative-mode]\n",
+        argv[0]);
     return 2;
   }
 
   const std::string requested_device = argc == 3 ? argv[2] : "cuda";
   const bool use_cuda = requested_device == "cuda";
+  const std::string target = argc >= 4 ? argv[3] : "";
+  const std::string mode = argc >= 5 ? argv[4] : "normal";
   if (!use_cuda && requested_device != "cpu") {
     std::fprintf(stderr, "device must be cuda or cpu\n");
     return 2;
@@ -93,15 +98,32 @@ int main(int argc, char** argv) {
       package_path.size(),
       nullptr,
       0u,
+      nullptr,
+      0u,
+      target.empty() || target == "-" ? nullptr : target.data(),
+      target.empty() || target == "-" ? 0u : target.size(),
+      nullptr,
+      0u,
   };
   auto input_view = View(input, kMatrixShape.data(), 2u, device_kind);
   auto gain_view = View(gain, nullptr, 0u, device_kind);
   auto output_view = View(output, kMatrixShape.data(), 2u, device_kind);
+  constexpr std::array<std::int64_t, 2> kWrongShape = {2, 8};
+  if (mode == "wrong-output-shape") {
+    output_view.dimensions = kWrongShape.data();
+  } else if (mode == "missing-input-binding") {
+    // Deliberately leave gain unbound below.
+  } else if (mode != "normal") {
+    std::fprintf(stderr, "unknown negative mode\n");
+    api->destroy(executable);
+    return 2;
+  }
 
   const bool passed =
       Check(api->load(executable, &artifact), "load") &&
       Check(api->bind_input(executable, 0u, &input_view), "bind input") &&
-      Check(api->bind_input(executable, 1u, &gain_view), "bind gain") &&
+      (mode == "missing-input-binding" ||
+       Check(api->bind_input(executable, 1u, &gain_view), "bind gain")) &&
       Check(api->bind_output(executable, 0u, &output_view), "bind output") &&
       Check(api->run(executable), "run") &&
       Check(api->synchronize(executable), "synchronize");

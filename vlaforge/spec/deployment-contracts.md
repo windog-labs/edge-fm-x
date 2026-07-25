@@ -18,6 +18,12 @@ Every generated model also exposes `InputId`, `OutputId`, `ModelInputs`,
 `io_schema_digest` and stable IDs are embedded in source and bundle; mismatch is
 a hard initialization error.
 
+Artifact-backed models additionally expose
+`vlaforge_model_session_create_from_bundle(bundle_root, ...)`. Initialization
+resolves only normalized bundle-relative paths and verifies regular-file
+containment, byte size, SHA-256, callable ABI, I/O schema, backend variant, and
+target compute capability before the first `Run()`.
+
 Bindings are push-only and borrowed until `Run()` returns. The Session never
 pulls sensors or retains/frees host buffers. Compatible CPU/CUDA buffers can be
 zero-copy; mismatches require an explicit preprocessing Region or fail.
@@ -43,10 +49,10 @@ Tensor/Scalar Region boundary.
 
 ## Artifact and bundle
 
-- Region artifact schema: `vlaforge.region_artifact/2`.
+- Region artifact schema: `vlaforge.region_artifact/3`.
 - Input/output schema: `vlaforge.io_schema/2`.
 - Compilation certificate: `vlaforge.compilation_certificate/2`.
-- Compile bundle: `vlaforge.compile_bundle/3`.
+- Compile bundle: `vlaforge.compile_bundle/4`.
 
 The bundle records:
 
@@ -54,7 +60,8 @@ The bundle records:
 - exact input/output schemas, stable IDs, groups, and `io_schema_digest`;
 - state reset/retention schema and four-class memory plan;
 - immutable Region artifacts with SHA-256, byte size, backend, variant,
-  callable ABI, and workspace;
+  callable ABI, model/upstream/checkpoint/graph identity, Region input/output
+  signature digests, target, and workspace;
 - generated sources/binaries and toolchain provenance;
 - exact-cache dependency certificates and loop-invariance dispositions.
 
@@ -82,3 +89,8 @@ schema mismatch, required/optional/default input, Tensor+Scalar binding,
 shape/dtype/device/layout failure, borrowed binding consumption, revision
 hit/miss, typed/generic output parity, external Region ABI, state commit/abort,
 and episode reset. Orin execution is separate hardware evidence.
+
+The production AOTI path may bind CUDA input tensors zero-copy and copy a CUDA
+artifact result into a statically declared CPU output contract. This device
+transition is explicit in the Region artifact value contracts; it is never
+silently inferred from an arbitrary host object.

@@ -13,6 +13,7 @@ from vlaforge.ir.serializer import io_schema_digest, module_digest
 from vlaforge.plan import (
     ArtifactVariant,
     PlanModule,
+    StorageOverride,
     lower_to_plan,
     physicalize_plan,
 )
@@ -297,6 +298,8 @@ def compile_module(
     *,
     profile: CompilerProfile | str = CompilerProfile.VERIFIED,
     artifact_variants: Mapping[str, ArtifactVariant] | None = None,
+    default_device: str = "cpu",
+    state_device: str = "cpu",
     allow_test_profile: bool = False,
 ) -> CompilationResult:
     """Compile one caller-driven VLA invocation with auditable contracts."""
@@ -319,9 +322,20 @@ def compile_module(
         compiled_module,
         artifact_variants=artifact_variants,
     )
-    baseline = physicalize_plan(lowered, reuse_temporaries=False)
+    state_overrides = {
+        state.name: StorageOverride(device=state_device)
+        for state in lowered.states
+    }
+    baseline = physicalize_plan(
+        lowered,
+        state_overrides=state_overrides,
+        default_device=default_device,
+        reuse_temporaries=False,
+    )
     compiled = physicalize_plan(
         lowered,
+        state_overrides=state_overrides,
+        default_device=default_device,
         reuse_temporaries=enabled,
     )
 

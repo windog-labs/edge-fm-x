@@ -9,6 +9,7 @@ torch = pytest.importorskip("torch")
 
 from vlaforge.deployment import (  # noqa: E402
     ArtifactKind,
+    ArtifactIdentity,
     BackendCapability,
     WorkspaceContract,
 )
@@ -226,8 +227,16 @@ def test_compile_request_and_artifact_finalization(tmp_path: Path) -> None:
         artifact_kind=ArtifactKind.CPU_FIXTURE,
         output_path="artifacts/compiled.bin",
         capability=_capability(),
+        io_schema_digest="2" * 64,
+        identity=ArtifactIdentity(
+            model_name="frontend-fixture",
+            upstream_revision="fixture-revision",
+            checkpoint_identity="fixture:no-checkpoint",
+            graph_sha256=capture.evidence.graph_digest,
+        ),
         workspace=WorkspaceContract(64, 64, "cpu"),
         backend_options={"opt_level": "2"},
+        backend_variant="fixture",
     )
 
     artifact_path = tmp_path / request.output_path

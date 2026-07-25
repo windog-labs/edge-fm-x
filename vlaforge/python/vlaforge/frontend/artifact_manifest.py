@@ -11,6 +11,7 @@ from typing import Any, Mapping
 from vlaforge.deployment.contract import (
     CALLABLE_ABI_VERSION,
     ArtifactKind,
+    ArtifactIdentity,
     BackendCapability,
     EffectAudit,
     RegionArtifactContract,
@@ -20,7 +21,7 @@ from vlaforge.deployment.contract import (
 from vlaforge.frontend.region_capture import CaptureOutcome
 
 
-COMPILE_REQUEST_SCHEMA = "vlaforge.region_compile_request/2"
+COMPILE_REQUEST_SCHEMA = "vlaforge.region_compile_request/3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,8 @@ class RegionCompileRequest:
     region_id: int
     region_name: str
     graph_digest: str
+    io_schema_digest: str
+    identity: ArtifactIdentity
     inputs: tuple[ValueContract, ...]
     outputs: tuple[ValueContract, ...]
     artifact_kind: ArtifactKind
@@ -36,6 +39,7 @@ class RegionCompileRequest:
     capability: BackendCapability
     effect_audit: EffectAudit
     backend_options: tuple[tuple[str, str], ...] = ()
+    backend_variant: str | None = None
     callable_abi_version: int = CALLABLE_ABI_VERSION
     schema: str = COMPILE_REQUEST_SCHEMA
 
@@ -46,6 +50,12 @@ class RegionCompileRequest:
             raise ValueError("compile request requires a valid region id and name")
         if len(self.graph_digest) != 64:
             raise ValueError("compile request graph digest must be SHA-256")
+        if self.identity.graph_sha256 != self.graph_digest:
+            raise ValueError(
+                "compile request identity graph digest does not match capture"
+            )
+        if len(self.io_schema_digest) != 64:
+            raise ValueError("compile request I/O schema digest must be SHA-256")
         if self.callable_abi_version != CALLABLE_ABI_VERSION:
             raise ValueError("unsupported compile-request callable ABI")
         candidate = PurePosixPath(self.output_path)
@@ -63,6 +73,8 @@ class RegionCompileRequest:
             raise ValueError("backend options contain duplicate keys")
         if not self.effect_audit.passed:
             raise ValueError("compile request requires a passing effect audit")
+        if self.backend_variant is not None and not self.backend_variant:
+            raise ValueError("backend variant must be non-empty when provided")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -71,6 +83,8 @@ class RegionCompileRequest:
             "region_id": self.region_id,
             "region_name": self.region_name,
             "graph_digest": self.graph_digest,
+            "io_schema_digest": self.io_schema_digest,
+            "identity": self.identity.to_dict(),
             "inputs": [item.to_dict() for item in self.inputs],
             "outputs": [item.to_dict() for item in self.outputs],
             "artifact_kind": self.artifact_kind.value,
@@ -82,6 +96,7 @@ class RegionCompileRequest:
                 {"name": name, "value": value}
                 for name, value in self.backend_options
             ],
+            "backend_variant": self.backend_variant,
         }
 
     def canonical_json(self) -> str:
@@ -100,6 +115,8 @@ class RegionCompileRequest:
             region_id=int(data["region_id"]),
             region_name=str(data["region_name"]),
             graph_digest=str(data["graph_digest"]),
+            io_schema_digest=str(data["io_schema_digest"]),
+            identity=ArtifactIdentity.from_dict(data["identity"]),
             inputs=tuple(
                 ValueContract.from_dict(item) for item in data["inputs"]
             ),
@@ -115,6 +132,11 @@ class RegionCompileRequest:
                 (str(item["name"]), str(item["value"]))
                 for item in data.get("backend_options", ())
             ),
+            backend_variant=(
+                None
+                if data.get("backend_variant") is None
+                else str(data["backend_variant"])
+            ),
         )
 
 
@@ -125,8 +147,11 @@ def make_compile_request(
     artifact_kind: ArtifactKind,
     output_path: str,
     capability: BackendCapability,
+    io_schema_digest: str,
+    identity: ArtifactIdentity,
     workspace: WorkspaceContract = WorkspaceContract(),
     backend_options: Mapping[str, str] | None = None,
+    backend_variant: str | None = None,
 ) -> RegionCompileRequest:
     capture.require_supported()
     assert capture.evidence is not None
@@ -134,6 +159,8 @@ def make_compile_request(
         region_id=region_id,
         region_name=capture.region.name,
         graph_digest=capture.evidence.graph_digest,
+        io_schema_digest=io_schema_digest,
+        identity=identity,
         inputs=capture.evidence.inputs,
         outputs=capture.evidence.outputs,
         artifact_kind=artifact_kind,
@@ -142,6 +169,7 @@ def make_compile_request(
         capability=capability,
         effect_audit=capture.evidence.effect_audit,
         backend_options=tuple(sorted(dict(backend_options or {}).items())),
+        backend_variant=backend_variant,
     )
 
 
@@ -153,6 +181,8 @@ def finalize_region_artifact(
     return RegionArtifactContract(
         region_id=request.region_id,
         region_name=request.region_name,
+        io_schema_digest=request.io_schema_digest,
+        identity=request.identity,
         inputs=request.inputs,
         outputs=request.outputs,
         artifact_kind=request.artifact_kind,
@@ -162,5 +192,6 @@ def finalize_region_artifact(
         workspace=request.workspace,
         capability=request.capability,
         effect_audit=request.effect_audit,
+        backend_variant=request.backend_variant,
         callable_abi_version=request.callable_abi_version,
     )

@@ -70,6 +70,12 @@ int main(int argc, char** argv) {
       archive_path.size(),
       nullptr,
       0u,
+      nullptr,
+      0u,
+      nullptr,
+      0u,
+      nullptr,
+      0u,
   };
   auto input_view = View(input, kMatrixShape.data(), 2u);
   auto gain_view = View(gain, nullptr, 0u);

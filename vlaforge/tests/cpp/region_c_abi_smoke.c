@@ -155,6 +155,12 @@ int main(void) {
       artifact_path,
       sizeof(artifact_path) - 1u,
       digest,
+      0u,
+      NULL,
+      0u,
+      NULL,
+      0u,
+      NULL,
       0u};
   const VLAForgeRegionCreateOptions options = {
       sizeof(VLAForgeRegionCreateOptions),

@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(OpenSSL COMPONENTS Crypto)
+if("@VLAFORGE_CONFIG_HAS_CUDA@" STREQUAL "ON")
+  find_dependency(CUDAToolkit)
+endif()
+if("@VLAFORGE_CONFIG_HAS_TORCH@" STREQUAL "ON")
+  find_dependency(Torch CONFIG)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/VLAForgeRuntimeTargets.cmake")

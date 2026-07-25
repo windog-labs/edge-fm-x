@@ -5,6 +5,7 @@ from vlaforge.deployment.contract import (
     ARTIFACT_SCHEMA,
     REGION_PLUGIN_ABI,
     ArtifactDiagnostic,
+    ArtifactIdentity,
     ArtifactKind,
     BackendCapability,
     DiagnosticSeverity,
@@ -31,12 +32,23 @@ def build_compile_bundle(*args, **kwargs):
 
     return build(*args, **kwargs)
 
+
+def build_artifact_compile_bundle(*args, **kwargs):
+    """Lazily import the real-artifact bundle pipeline."""
+
+    from vlaforge.deployment.build import (
+        build_artifact_compile_bundle as build,
+    )
+
+    return build(*args, **kwargs)
+
 __all__ = [
     "ARTIFACT_SCHEMA",
     "BUNDLE_SCHEMA",
     "CALLABLE_ABI_VERSION",
     "REGION_PLUGIN_ABI",
     "ArtifactDiagnostic",
+    "ArtifactIdentity",
     "ArtifactKind",
     "BackendCapability",
     "CompileBundleManifest",
@@ -50,5 +62,6 @@ __all__ = [
     "VersionEntry",
     "WorkspaceContract",
     "load_bundle_manifest",
+    "build_artifact_compile_bundle",
     "build_compile_bundle",
 ]

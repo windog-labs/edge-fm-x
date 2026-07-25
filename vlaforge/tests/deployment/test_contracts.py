@@ -14,6 +14,7 @@ from vlaforge.compiler import (
 )
 from vlaforge.deployment import (
     ArtifactDiagnostic,
+    ArtifactIdentity,
     ArtifactKind,
     BackendCapability,
     CompileBundleManifest,
@@ -48,6 +49,13 @@ def _region(root: Path, *, region_id: int = 0) -> RegionArtifactContract:
     return RegionArtifactContract(
         region_id=region_id,
         region_name=f"region_{region_id}",
+        io_schema_digest="0" * 64,
+        identity=ArtifactIdentity(
+            model_name="contract-fixture",
+            upstream_revision="fixture-revision",
+            checkpoint_identity="fixture:no-checkpoint",
+            graph_sha256="1" * 64,
+        ),
         inputs=(
             ValueContract.from_ir(
                 "input",
@@ -90,6 +98,7 @@ def _region(root: Path, *, region_id: int = 0) -> RegionArtifactContract:
                 ),
             ),
         ),
+        backend_variant="test",
     )
 
 
@@ -170,6 +179,17 @@ def test_region_artifact_round_trip_is_deterministic(tmp_path: Path) -> None:
     decoded = RegionArtifactContract.from_dict(artifact.to_dict())
     assert decoded == artifact
     assert decoded.inputs[0].dimensions[1].symbol == "tokens"
+    assert decoded.input_schema_digest == artifact.input_schema_digest
+    assert decoded.output_schema_digest == artifact.output_schema_digest
+
+
+def test_region_artifact_rejects_tampered_signature_digest(
+    tmp_path: Path,
+) -> None:
+    payload = _region(tmp_path).to_dict()
+    payload["input_schema_digest"] = "f" * 64
+    with pytest.raises(ValueError, match="input schema digest mismatch"):
+        RegionArtifactContract.from_dict(payload)
 
 
 def test_region_artifact_rejects_unknown_schema(tmp_path: Path) -> None:
@@ -234,6 +254,30 @@ def test_bundle_detects_tampered_file(tmp_path: Path) -> None:
     (tmp_path / bundle.semantic_ir.path).write_bytes(b"tampered")
     with pytest.raises(ValueError, match="semantic_ir"):
         bundle.verify_files(tmp_path)
+
+
+def test_bundle_rejects_artifact_io_schema_mismatch(tmp_path: Path) -> None:
+    bundle = _bundle(tmp_path)
+    with pytest.raises(ValueError, match="I/O schema digest"):
+        replace(
+            bundle,
+            region_artifacts=(
+                replace(
+                    bundle.region_artifacts[0],
+                    io_schema_digest="f" * 64,
+                ),
+            ),
+        )
+
+
+def test_bundle_rejects_symlink_escape(tmp_path: Path) -> None:
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.bin"
+    outside.write_bytes(b"outside")
+    link = tmp_path / "metadata" / "escaped.json"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(outside)
+    with pytest.raises(ValueError, match="escapes bundle root"):
+        FileRecord.from_file(tmp_path, "metadata/escaped.json", "escaped")
 
 
 def test_bundle_rejects_duplicate_region_ids(tmp_path: Path) -> None:

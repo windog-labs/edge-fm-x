@@ -7,6 +7,10 @@
 #include <stdexcept>
 #include <utility>
 
+#if defined(VLAFORGE_ENABLE_CUDA_ARENA)
+#include <cuda_runtime_api.h>
+#endif
+
 namespace vlaforge::runtime {
 namespace {
 
@@ -28,8 +32,9 @@ std::size_t AlignUp(std::size_t value, std::size_t alignment) {
 
 }  // namespace
 
-StaticArena::StaticArena(std::size_t size_bytes, std::size_t alignment)
-    : size_bytes_(size_bytes), alignment_(alignment) {
+StaticArena::StaticArena(std::size_t size_bytes, std::size_t alignment,
+                         VLAForgeDevice device)
+    : size_bytes_(size_bytes), alignment_(alignment), device_(device) {
   if (!IsPowerOfTwo(alignment)) {
     throw std::invalid_argument(
         "static arena alignment must be a non-zero power of two");
@@ -38,7 +43,27 @@ StaticArena::StaticArena(std::size_t size_bytes, std::size_t alignment)
       std::max(alignment, alignof(std::max_align_t));
   allocated_bytes_ =
       AlignUp(std::max<std::size_t>(size_bytes, 1), allocation_alignment);
-  data_ = std::aligned_alloc(allocation_alignment, allocated_bytes_);
+  if (device_.kind == VLAFORGE_DEVICE_CPU && device_.ordinal == 0) {
+    data_ = std::aligned_alloc(allocation_alignment, allocated_bytes_);
+  } else if (device_.kind == VLAFORGE_DEVICE_CUDA &&
+             device_.ordinal >= 0) {
+#if defined(VLAFORGE_ENABLE_CUDA_ARENA)
+    if (cudaSetDevice(device_.ordinal) != cudaSuccess ||
+        cudaMalloc(&data_, allocated_bytes_) != cudaSuccess) {
+      data_ = nullptr;
+    }
+    if (data_ != nullptr &&
+        reinterpret_cast<std::uintptr_t>(data_) % alignment_ != 0u) {
+      cudaFree(data_);
+      data_ = nullptr;
+    }
+#else
+    throw std::invalid_argument(
+        "CUDA static arena requires VLAFORGE_ENABLE_CUDA_ARENA");
+#endif
+  } else {
+    throw std::invalid_argument("unsupported static arena device");
+  }
   if (data_ == nullptr) {
     throw std::bad_alloc();
   }
@@ -50,7 +75,9 @@ StaticArena::StaticArena(StaticArena&& other) noexcept
     : data_(std::exchange(other.data_, nullptr)),
       size_bytes_(std::exchange(other.size_bytes_, 0)),
       allocated_bytes_(std::exchange(other.allocated_bytes_, 0)),
-      alignment_(std::exchange(other.alignment_, 1)) {}
+      alignment_(std::exchange(other.alignment_, 1)),
+      device_(std::exchange(
+          other.device_, VLAForgeDevice{VLAFORGE_DEVICE_CPU, 0})) {}
 
 StaticArena& StaticArena::operator=(StaticArena&& other) noexcept {
   if (this != &other) {
@@ -59,6 +86,8 @@ StaticArena& StaticArena::operator=(StaticArena&& other) noexcept {
     size_bytes_ = std::exchange(other.size_bytes_, 0);
     allocated_bytes_ = std::exchange(other.allocated_bytes_, 0);
     alignment_ = std::exchange(other.alignment_, 1);
+    device_ = std::exchange(
+        other.device_, VLAForgeDevice{VLAFORGE_DEVICE_CPU, 0});
   }
   return *this;
 }
@@ -82,11 +111,21 @@ const void* StaticArena::Resolve(std::size_t offset, std::size_t size_bytes,
 }
 
 void StaticArena::Release() noexcept {
-  std::free(data_);
+  if (device_.kind == VLAFORGE_DEVICE_CUDA) {
+#if defined(VLAFORGE_ENABLE_CUDA_ARENA)
+    if (data_ != nullptr) {
+      (void)cudaSetDevice(device_.ordinal);
+      (void)cudaFree(data_);
+    }
+#endif
+  } else {
+    std::free(data_);
+  }
   data_ = nullptr;
   size_bytes_ = 0;
   allocated_bytes_ = 0;
   alignment_ = 1;
+  device_ = {VLAFORGE_DEVICE_CPU, 0};
 }
 
 }  // namespace vlaforge::runtime

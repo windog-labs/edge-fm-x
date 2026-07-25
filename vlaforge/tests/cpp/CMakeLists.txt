@@ -24,6 +24,12 @@ add_executable(vlaforge_session_c_abi_smoke session_c_abi_smoke.c)
 target_link_libraries(vlaforge_session_c_abi_smoke PRIVATE vlaforge_runtime)
 add_test(NAME vlaforge_session_c_abi_smoke COMMAND vlaforge_session_c_abi_smoke)
 
+add_executable(vlaforge_artifact_verifier_smoke artifact_verifier_smoke.cpp)
+target_link_libraries(vlaforge_artifact_verifier_smoke PRIVATE
+    vlaforge_runtime)
+add_test(NAME vlaforge_artifact_verifier_smoke
+    COMMAND vlaforge_artifact_verifier_smoke)
+
 if(TARGET vlaforge_aoti_backend)
     add_executable(vlaforge_aoti_region_smoke aoti_region_smoke.cpp)
     target_link_libraries(vlaforge_aoti_region_smoke PRIVATE

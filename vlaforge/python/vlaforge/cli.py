@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
 import subprocess
+import time
 from pathlib import Path
 
 from vlaforge.adapters import (
@@ -19,6 +21,7 @@ from vlaforge.adapters import (
 )
 from vlaforge.analysis import verify
 from vlaforge.codegen import (
+    CppValidatorDefinition,
     generate_compiled_cpp_session,
     openvla_fixture_regions,
     openvla_fixture_runner_source,
@@ -28,7 +31,12 @@ from vlaforge.codegen import (
     smolvla_fixture_validators,
 )
 from vlaforge.compiler import CompilerProfile, compile_module
-from vlaforge.deployment import build_compile_bundle, load_bundle_manifest
+from vlaforge.deployment import (
+    RegionArtifactContract,
+    build_artifact_compile_bundle,
+    build_compile_bundle,
+    load_bundle_manifest,
+)
 from vlaforge.interpreter import (
     InputBinding,
     InputStamp,
@@ -326,6 +334,209 @@ def _bundle_verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _compile_artifact(args: argparse.Namespace) -> int:
+    import torch
+
+    exported_path = Path(args.exported_program).resolve()
+    output = Path(args.output).resolve()
+    if output.exists():
+        raise ValueError(f"artifact output already exists: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    program = torch.export.load(exported_path)
+    target = args.target
+    if target is None:
+        if torch.cuda.is_available():
+            major, minor = torch.cuda.get_device_capability(0)
+            target = f"sm_{major}{minor}"
+        else:
+            target = "cpu"
+    configs: dict[str, object] = {
+        "aot_inductor.force_mmap_weights": True,
+    }
+    if args.inductor_profile == "conservative":
+        configs.update(
+            {
+                "force_same_precision": True,
+                "max_autotune_gemm_backends": "ATEN",
+                "mixed_mm_choice": "aten",
+                "epilogue_fusion": False,
+            }
+        )
+    started = time.perf_counter()
+    actual = Path(
+        torch._inductor.aoti_compile_and_package(
+            program,
+            package_path=str(output),
+            inductor_configs=configs,
+        )
+    ).resolve()
+    compile_seconds = time.perf_counter() - started
+    if actual != output or not output.is_file():
+        raise RuntimeError(f"AOTI output mismatch: {actual} != {output}")
+    result = {
+        "schema": "vlaforge.compile_artifact_result/1",
+        "status": "passed",
+        "evidence_level": "L3-candidate",
+        "backend": "aoti",
+        "target": target,
+        "torch_version": torch.__version__,
+        "cuda_version": torch.version.cuda,
+        "inductor_profile": args.inductor_profile,
+        "inductor_configs": configs,
+        "exported_program": {
+            "path": str(exported_path),
+            "sha256": _sha256(exported_path),
+        },
+        "artifact": {
+            "path": str(output),
+            "sha256": _sha256(output),
+            "size_bytes": output.stat().st_size,
+        },
+        "compile_seconds": compile_seconds,
+        "graph_nodes": len(tuple(program.graph_module.graph.nodes)),
+    }
+    text = json.dumps(result, indent=2, sort_keys=True)
+    if args.manifest:
+        manifest = Path(args.manifest)
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
+def _name_value_map(
+    values: list[str], *, category: str
+) -> dict[str, str]:
+    result = {}
+    for item in values:
+        name, separator, value = item.partition("=")
+        if not separator or not name or not value or name in result:
+            raise ValueError(
+                f"{category} entries must be unique NAME=VALUE pairs"
+            )
+        result[name] = value
+    return result
+
+
+def _build_artifact_bundle(args: argparse.Namespace) -> int:
+    module = _load_module(args.program)
+    contract_paths = _name_value_map(
+        args.artifact_contract, category="artifact contract"
+    )
+    source_paths = _name_value_map(
+        args.artifact_source, category="artifact source"
+    )
+    contracts = {
+        name: RegionArtifactContract.from_dict(
+            json.loads(Path(path).read_text(encoding="utf-8"))
+        )
+        for name, path in contract_paths.items()
+    }
+    validator_data = json.loads(
+        Path(args.validator_definitions).read_text(encoding="utf-8")
+    )
+    if not isinstance(validator_data, dict):
+        raise ValueError("validator definitions must be a JSON object")
+    validators = {
+        str(name): CppValidatorDefinition(str(name), str(body))
+        for name, body in validator_data.items()
+    }
+    backend_versions = _name_value_map(
+        args.backend_version, category="backend version"
+    )
+    if args.cmake_prefix_path is None or not backend_versions:
+        import torch
+
+        prefix = (
+            torch.utils.cmake_prefix_path
+            if args.cmake_prefix_path is None
+            else args.cmake_prefix_path
+        )
+        if not backend_versions:
+            backend_versions = {
+                "aoti": f"torch-{torch.__version__}",
+                "cuda": str(torch.version.cuda),
+            }
+    else:
+        prefix = args.cmake_prefix_path
+    repository = Path(__file__).resolve().parents[3]
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    dirty = bool(
+        subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    initial_state = (
+        None
+        if args.initial_state is None
+        else json.loads(
+            Path(args.initial_state).read_text(encoding="utf-8")
+        )
+    )
+    environment = {
+        "host": platform.platform(),
+        "machine": platform.machine(),
+        "TORCH_CUDA_ARCH_LIST": args.cuda_arch,
+    }
+    manifest = build_artifact_compile_bundle(
+        module,
+        args.output,
+        region_artifacts=contracts,
+        artifact_sources=source_paths,
+        validators=validators,
+        runner_source=Path(args.runner_source).read_text(encoding="utf-8"),
+        runtime_root=Path(__file__).resolve().parents[2],
+        cmake_prefix_path=prefix,
+        backend_versions=backend_versions,
+        profile=args.profile,
+        allow_test_profile=args.allow_test_profile,
+        source_revision=revision,
+        source_dirty=dirty,
+        environment=environment,
+        initial_state=initial_state,
+        default_device=args.default_device,
+        state_device=args.state_device,
+    )
+    print(
+        json.dumps(
+            {
+                "schema": "vlaforge.build_bundle_result/1",
+                "status": "passed",
+                "evidence_level": "L4-candidate",
+                "manifest": str(
+                    (Path(args.output) / "bundle.json").resolve()
+                ),
+                "bundle_digest": manifest.digest(),
+                "io_schema_digest": manifest.io_schema_digest,
+                "regions": [
+                    item.region_name for item in manifest.region_artifacts
+                ],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def _profile_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--profile",
@@ -385,6 +596,42 @@ def build_parser() -> argparse.ArgumentParser:
     compile_parser.add_argument("--output", required=True)
     _profile_argument(compile_parser)
     compile_parser.set_defaults(handler=_compile)
+
+    compile_artifact_parser = commands.add_parser("compile-artifact")
+    compile_artifact_parser.add_argument("exported_program")
+    compile_artifact_parser.add_argument("--output", required=True)
+    compile_artifact_parser.add_argument("--manifest")
+    compile_artifact_parser.add_argument("--target")
+    compile_artifact_parser.add_argument(
+        "--inductor-profile",
+        choices=("default", "conservative"),
+        default="default",
+    )
+    compile_artifact_parser.set_defaults(handler=_compile_artifact)
+
+    build_bundle_parser = commands.add_parser("build-bundle")
+    build_bundle_parser.add_argument("program")
+    build_bundle_parser.add_argument(
+        "--artifact-contract", action="append", default=[], required=True
+    )
+    build_bundle_parser.add_argument(
+        "--artifact-source", action="append", default=[], required=True
+    )
+    build_bundle_parser.add_argument(
+        "--validator-definitions", required=True
+    )
+    build_bundle_parser.add_argument("--runner-source", required=True)
+    build_bundle_parser.add_argument("--initial-state")
+    build_bundle_parser.add_argument("--cmake-prefix-path")
+    build_bundle_parser.add_argument(
+        "--backend-version", action="append", default=[]
+    )
+    build_bundle_parser.add_argument("--cuda-arch", default="8.6")
+    build_bundle_parser.add_argument("--default-device", default="cpu")
+    build_bundle_parser.add_argument("--state-device", default="cpu")
+    build_bundle_parser.add_argument("--output", required=True)
+    _profile_argument(build_bundle_parser)
+    build_bundle_parser.set_defaults(handler=_build_artifact_bundle)
 
     bundle_verify_parser = commands.add_parser("bundle-verify")
     bundle_verify_parser.add_argument("manifest")

@@ -20,6 +20,7 @@ from vlaforge.codegen.fixtures import (
     smolvla_fixture_validators,
 )
 from vlaforge.codegen.model import (
+    CppArtifactRegionDefinition,
     CppRegionDefinition,
     CppValidatorDefinition,
     GeneratedSources,
@@ -27,6 +28,7 @@ from vlaforge.codegen.model import (
 
 __all__ = [
     "CodegenUnsupportedError",
+    "CppArtifactRegionDefinition",
     "CppRegionDefinition",
     "CppValidatorDefinition",
     "GeneratedSources",

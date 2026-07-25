@@ -12,7 +12,7 @@ from vlaforge.compiler import CompilationCertificate
 from vlaforge.deployment.contract import RegionArtifactContract
 
 
-BUNDLE_SCHEMA = "vlaforge.compile_bundle/3"
+BUNDLE_SCHEMA = "vlaforge.compile_bundle/4"
 _REQUIRED_ROLES = {
     "semantic_ir",
     "scheduled_plan",
@@ -41,6 +41,15 @@ def _validate_relative_path(path: str) -> None:
         raise ValueError(f"bundle path must be normalized and relative: {path!r}")
 
 
+def _resolve_bundle_file(root: str | Path, path: str) -> Path:
+    _validate_relative_path(path)
+    bundle_root = Path(root).resolve()
+    candidate = (bundle_root / path).resolve()
+    if not candidate.is_relative_to(bundle_root):
+        raise ValueError(f"bundle file escapes bundle root: {path!r}")
+    return candidate
+
+
 @dataclass(frozen=True, slots=True)
 class FileRecord:
     role: str
@@ -67,7 +76,7 @@ class FileRecord:
         executable: bool = False,
     ) -> "FileRecord":
         _validate_relative_path(path)
-        payload = (Path(root) / path).read_bytes()
+        payload = _resolve_bundle_file(root, path).read_bytes()
         return cls(
             role=role,
             path=path,
@@ -77,7 +86,7 @@ class FileRecord:
         )
 
     def verify(self, root: str | Path) -> None:
-        candidate = Path(root) / self.path
+        candidate = _resolve_bundle_file(root, self.path)
         if not candidate.is_file():
             raise FileNotFoundError(candidate)
         payload = candidate.read_bytes()
@@ -229,6 +238,16 @@ class CompileBundleManifest:
             raise ValueError("bundle contains duplicate region ids")
         if len(region_names) != len(set(region_names)):
             raise ValueError("bundle contains duplicate region names")
+        mismatched_io = [
+            item.region_name
+            for item in self.region_artifacts
+            if item.io_schema_digest != self.io_schema_digest
+        ]
+        if mismatched_io:
+            raise ValueError(
+                "region artifacts disagree with bundle I/O schema digest: "
+                f"{mismatched_io}"
+            )
         version_names = [
             item.name for item in self.toolchain_versions + self.backend_versions
         ]

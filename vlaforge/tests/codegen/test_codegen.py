@@ -6,11 +6,15 @@ import pytest
 
 from vlaforge.adapters import (
     build_driving_diffusion_fixture,
+    build_driving_trajectory_fixture,
     build_hybrid_external_feature_fixture,
     build_openvla_fixture,
     build_smolvla_fixture,
 )
 from vlaforge.codegen import (
+    CodegenUnsupportedError,
+    CppArtifactRegionDefinition,
+    CppValidatorDefinition,
     driving_diffusion_regions,
     driving_diffusion_runner_source,
     driving_diffusion_validators,
@@ -25,6 +29,7 @@ from vlaforge.codegen import (
     smolvla_fixture_runner_source,
     smolvla_fixture_validators,
 )
+from vlaforge.compiler import CompilerProfile, compile_module
 from vlaforge.interpreter import (
     InputBinding,
     InputStamp,
@@ -36,7 +41,7 @@ from vlaforge.validation import normalize_plan_trace_for_runtime
 
 
 SOURCE_GOLDEN_DIGEST = (
-    "cc32268b3025343a10d3960f063e70fd5fa90c050e524632368fbdf7795571dc"
+    "857b9c3a87589b6087073159d8be79f4bd87cd5b10f17696f92c4dca12971724"
 )
 
 
@@ -72,6 +77,74 @@ def test_codegen_is_deterministic_and_has_v02_apis():
     assert "ClockDomain" not in header + source
     assert "python.h" not in (header + source).lower()
     assert "pybind" not in (header + source).lower()
+
+
+def test_codegen_emits_bundle_loaded_aoti_regions() -> None:
+    fixture = build_driving_trajectory_fixture()
+    compilation = compile_module(
+        fixture.module,
+        profile=CompilerProfile.OFF,
+        default_device="cuda:0",
+    )
+    definitions = {
+        region.name: CppArtifactRegionDefinition(
+            region_name=region.name,
+            backend="aoti",
+            artifact_path=f"artifacts/{region.name}.pt2",
+            artifact_sha256=f"{index + 1:064x}",
+            artifact_size_bytes=1024 + index,
+            io_schema_digest=compilation.plan.io_schema_digest,
+            target="sm_86",
+            device="cuda:0",
+            backend_variant="torch-2.10-cu128",
+        )
+        for index, region in enumerate(compilation.module.regions)
+    }
+    sources = generate_cpp_session(
+        compilation.plan,
+        compilation.module,
+        artifact_regions=definitions,
+        validators={
+            "finite_trajectory": CppValidatorDefinition(
+                "finite_trajectory", "return data != nullptr && size_bytes > 0u;"
+            )
+        },
+    ).as_dict()
+
+    header = sources["session_generated.h"]
+    source = sources["session_generated.cpp"]
+    cmake = sources["CMakeLists.txt"]
+    assert "vlaforge_model_session_create_from_bundle" in header + source
+    assert "VerifyArtifactFile" in source
+    assert "vlaforge_aoti_region_executable_value_api" in source
+    assert "api->load" in source
+    assert "api->run" in source
+    assert "VLAFORGE_BUILD_AOTI_BACKEND ON" in cmake
+    assert "RunRegion0" not in source
+
+    bad = dict(definitions)
+    first_name = next(iter(bad))
+    bad[first_name] = CppArtifactRegionDefinition(
+        region_name=first_name,
+        backend="aoti",
+        artifact_path=f"artifacts/{first_name}.pt2",
+        artifact_sha256="f" * 64,
+        artifact_size_bytes=1,
+        io_schema_digest="0" * 64,
+        target="sm_86",
+        device="cuda:0",
+    )
+    with pytest.raises(CodegenUnsupportedError, match="schema digest mismatch"):
+        generate_cpp_session(
+            compilation.plan,
+            compilation.module,
+            artifact_regions=bad,
+            validators={
+                "finite_trajectory": CppValidatorDefinition(
+                    "finite_trajectory", "return true;"
+                )
+            },
+        )
 
 
 def test_generated_runner_is_clean_and_matches_python(tmp_path: Path):

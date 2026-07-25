@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from vlaforge.codegen.model import (
+    CppArtifactRegionDefinition,
     CppRegionDefinition,
     CppValidatorDefinition,
     GeneratedSources,
@@ -33,7 +34,10 @@ def generate_cpp_session(
     plan: PlanModule,
     semantic_module: Module,
     *,
-    regions: Mapping[str, CppRegionDefinition],
+    regions: Mapping[str, CppRegionDefinition] | None = None,
+    artifact_regions: Mapping[
+        str, CppArtifactRegionDefinition
+    ] | None = None,
     validators: Mapping[str, CppValidatorDefinition],
     runner_source: str | None = None,
     namespace: str = "vlaforge_generated",
@@ -60,14 +64,21 @@ def generate_cpp_session(
         if certificate_plan != plan.digest():
             raise ValueError("compilation certificate plan digest mismatch")
 
+    inline_regions = dict(regions or {})
+    compiled_regions = dict(artifact_regions or {})
+    if inline_regions and compiled_regions:
+        raise CodegenUnsupportedError(
+            "static C++ v0.2 does not mix inline and artifact Regions"
+        )
     required_regions = {item.region_name for item in plan.artifacts}
     required_validators = {
         str(task.attributes["contract"])
         for task in plan.tasks
         if task.opcode == "vla.validate"
     }
-    missing_regions = sorted(required_regions - set(regions))
-    extra_regions = sorted(set(regions) - required_regions)
+    provided_regions = set(inline_regions) | set(compiled_regions)
+    missing_regions = sorted(required_regions - provided_regions)
+    extra_regions = sorted(provided_regions - required_regions)
     missing_validators = sorted(required_validators - set(validators))
     if missing_regions or extra_regions or missing_validators:
         raise CodegenUnsupportedError(
@@ -76,17 +87,31 @@ def generate_cpp_session(
             f"extra_regions={extra_regions}, "
             f"missing_validators={missing_validators}"
         )
+    for name, definition in compiled_regions.items():
+        if definition.region_name != name:
+            raise CodegenUnsupportedError(
+                f"artifact Region key/name mismatch: {name!r} != "
+                f"{definition.region_name!r}"
+            )
+        if definition.io_schema_digest != plan.io_schema_digest:
+            raise CodegenUnsupportedError(
+                f"artifact Region {name}: I/O schema digest mismatch"
+            )
 
     emitter = _Emitter(
         plan,
         semantic_module,
-        regions,
+        inline_regions,
+        compiled_regions,
         validators,
         namespace,
         dict(initial_state or {}),
     )
     files = {
-        "CMakeLists.txt": _cmake_source(runner_source is not None),
+        "CMakeLists.txt": _cmake_source(
+            runner_source is not None,
+            artifact_backend=bool(compiled_regions),
+        ),
         "memory_constants.h": emit_memory_constants(
             plan, namespace=namespace
         ),
@@ -101,7 +126,10 @@ def generate_cpp_session(
 def generate_compiled_cpp_session(
     compilation: object,
     *,
-    regions: Mapping[str, CppRegionDefinition],
+    regions: Mapping[str, CppRegionDefinition] | None = None,
+    artifact_regions: Mapping[
+        str, CppArtifactRegionDefinition
+    ] | None = None,
     validators: Mapping[str, CppValidatorDefinition],
     runner_source: str | None = None,
     namespace: str = "vlaforge_generated",
@@ -111,6 +139,7 @@ def generate_compiled_cpp_session(
         compilation.plan,
         compilation.module,
         regions=regions,
+        artifact_regions=artifact_regions,
         validators=validators,
         runner_source=runner_source,
         namespace=namespace,
@@ -131,6 +160,7 @@ class _Emitter:
         plan: PlanModule,
         module: Module,
         regions: Mapping[str, CppRegionDefinition],
+        artifact_regions: Mapping[str, CppArtifactRegionDefinition],
         validators: Mapping[str, CppValidatorDefinition],
         namespace: str,
         initial_state: Mapping[str, object],
@@ -138,6 +168,8 @@ class _Emitter:
         self.plan = plan
         self.module = module
         self.regions = dict(regions)
+        self.artifact_regions = dict(artifact_regions)
+        self.artifact_mode = bool(self.artifact_regions)
         self.validators = dict(validators)
         self.namespace = namespace
         self.initial_state = dict(initial_state)
@@ -206,12 +238,44 @@ class _Emitter:
         cache_fields = "\n".join(
             self._cache_field(cache) for cache in self.caches
         )
+        artifact_include = "#include <string>" if self.artifact_mode else ""
+        constructors = (
+            """  explicit ModelSession(const char* bundle_root = ".");
+  ~ModelSession() override;"""
+            if self.artifact_mode
+            else """  ModelSession();
+  ~ModelSession() override = default;"""
+        )
+        artifact_methods = (
+            """  vlaforge::runtime::Status InitializeRegions(
+      const char* bundle_root) noexcept;
+  void DestroyRegions() noexcept;"""
+            if self.artifact_mode
+            else ""
+        )
+        artifact_fields = (
+            f"""  std::array<VLAForgeRegionExecutable*,
+             {len(self.module.regions)}> region_executables_{{}};
+  std::array<const VLAForgeRegionExecutableValueApi*,
+             {len(self.module.regions)}> region_apis_{{}};
+  std::array<std::string, {len(self.module.regions)}> region_paths_{{}};"""
+            if self.artifact_mode
+            else ""
+        )
+        bundle_factory = (
+            """extern "C" VLAForgeStatus vlaforge_model_session_create_from_bundle(
+    const char* bundle_root, size_t bundle_root_size,
+    VLAForgeSession** session);"""
+            if self.artifact_mode
+            else ""
+        )
         return f"""#ifndef VLAFORGE_GENERATED_SESSION_H_
 #define VLAFORGE_GENERATED_SESSION_H_
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+{artifact_include}
 
 #include "vlaforge/runtime/session.h"
 #include "vlaforge/runtime/state_store.h"
@@ -241,8 +305,7 @@ struct ModelOutputs final {{
 
 class ModelSession final : public vlaforge::runtime::Session {{
  public:
-  ModelSession();
-  ~ModelSession() override = default;
+{constructors}
 
   ModelSession(const ModelSession&) = delete;
   ModelSession& operator=(const ModelSession&) = delete;
@@ -269,6 +332,10 @@ class ModelSession final : public vlaforge::runtime::Session {{
   }}
   void SetTraceSink(
       vlaforge::runtime::TraceSink trace) noexcept override;
+  [[nodiscard]] vlaforge::runtime::Status initialization_status()
+      const noexcept {{
+    return initialization_status_;
+  }}
   vlaforge::runtime::Status InitializeStateTensor(
       std::uint32_t state_id,
       const VLAForgeBoundTensor& value) noexcept;
@@ -288,6 +355,7 @@ class ModelSession final : public vlaforge::runtime::Session {{
 
   void InitializeValues() noexcept;
   void ClearBindings() noexcept;
+{artifact_methods}
   vlaforge::runtime::Status PrepareInputs() noexcept;
   vlaforge::runtime::Status Fail(
       vlaforge::runtime::Status status) noexcept;
@@ -315,6 +383,7 @@ class ModelSession final : public vlaforge::runtime::Session {{
       output_valid_{{}};
   std::uint64_t next_auto_revision_ = 1;
   std::uint64_t run_index_ = 0;
+{artifact_fields}
 {cache_fields}
 }};
 
@@ -324,12 +393,19 @@ using GeneratedSession = ModelSession;
 
 extern "C" VLAForgeStatus vlaforge_model_session_create(
     VLAForgeSession** session);
+{bundle_factory}
 extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
 
 #endif  // VLAFORGE_GENERATED_SESSION_H_
 """
 
     def source(self) -> str:
+        artifact_headers = (
+            """#include "vlaforge/backends/aoti_region_executable.h"
+#include "vlaforge/runtime/artifact_verifier.h" """
+            if self.artifact_mode
+            else ""
+        )
         return "\n".join(
             (
                 '#include "session_generated.h"',
@@ -343,10 +419,13 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
                 "#include <cstring>",
                 "#include <new>",
                 "",
+                artifact_headers,
+                "",
                 self._local_executable(),
                 "",
                 "namespace {",
                 self._support_tables(),
+                self._artifact_tables(),
                 self._support_functions(),
                 self._region_functions(),
                 self._validator_functions(),
@@ -362,10 +441,34 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
         )
 
     def _local_executable(self) -> str:
+        if self.artifact_mode:
+            return ""
         return f"""struct VLAForgeRegionExecutable {{
   std::array<VLAForgeTensorView, {self.max_region_inputs}> inputs{{}};
   std::array<VLAForgeTensorView, {self.max_region_outputs}> outputs{{}};
 }};"""
+
+    def _artifact_tables(self) -> str:
+        if not self.artifact_mode:
+            return ""
+        definitions = []
+        for index, region in enumerate(self.module.regions):
+            artifact = self.artifact_regions[region.name]
+            digest = ", ".join(
+                f"0x{artifact.artifact_sha256[offset:offset + 2]}u"
+                for offset in range(0, 64, 2)
+            )
+            variant = artifact.backend_variant or ""
+            definitions.append(
+                f"""constexpr char kArtifactPath{index}[] =
+    "{artifact.artifact_path}";
+constexpr char kArtifactShaHex{index}[] =
+    "{artifact.artifact_sha256}";
+constexpr std::uint8_t kArtifactSha{index}[] = {{{digest}}};
+constexpr char kArtifactTarget{index}[] = "{artifact.target}";
+constexpr char kArtifactVariant{index}[] = "{variant}";"""
+            )
+        return "\n\n".join(definitions)
 
     def _support_tables(self) -> str:
         assert self.plan.arena is not None
@@ -435,7 +538,10 @@ constexpr std::size_t kStateArenaAlignment = {state_alignment}u;
 """
 
     def _support_functions(self) -> str:
-        return """
+        inline_helpers = (
+            ""
+            if self.artifact_mode
+            else """
 template <typename T>
 const T* Input(const VLAForgeRegionExecutable* executable,
                std::size_t index) {
@@ -465,6 +571,9 @@ bool CheckTensor(const VLAForgeTensorView& view, VLAForgeDType dtype,
   return view.data != nullptr && view.dtype == dtype &&
          view.size_bytes == elements * element_size;
 }
+"""
+        )
+        return inline_helpers + """
 
 vlaforge::runtime::Status FromCStatus(VLAForgeStatus status,
                                      std::uint32_t subject) {
@@ -546,7 +655,8 @@ std::size_t ScalarBytes(VLAForgeDType dtype) {
   }
 }
 
-VLAForgeTensorView ScalarView(VLAForgeScalarValue* scalar) {
+[[maybe_unused]] VLAForgeTensorView ScalarView(
+    VLAForgeScalarValue* scalar) {
   return VLAForgeTensorView{ScalarData(scalar), ScalarBytes(scalar->dtype),
                             nullptr, 0u, scalar->dtype,
                             {VLAFORGE_DEVICE_CPU, 0}};
@@ -565,6 +675,8 @@ bool ReadBool(const VLAForgeTensorView& view) {
 """
 
     def _region_functions(self) -> str:
+        if self.artifact_mode:
+            return ""
         functions = []
         for index, region in enumerate(self.module.regions):
             body = self.regions[region.name].body
@@ -575,6 +687,112 @@ bool ReadBool(const VLAForgeTensorView& view) {
 }}"""
             )
         return "\n\n".join(functions)
+
+    def _artifact_session_methods(self) -> str:
+        if not self.artifact_mode:
+            return ""
+        initialize = [
+            """ModelSession::~ModelSession() { DestroyRegions(); }
+
+void ModelSession::DestroyRegions() noexcept {
+  for (std::size_t index = region_executables_.size(); index > 0u; --index) {
+    const auto slot = index - 1u;
+    if (region_apis_[slot] != nullptr &&
+        region_executables_[slot] != nullptr) {
+      region_apis_[slot]->destroy(region_executables_[slot]);
+      region_executables_[slot] = nullptr;
+    }
+  }
+}
+
+vlaforge::runtime::Status ModelSession::InitializeRegions(
+    const char* bundle_root) noexcept {
+  if (bundle_root == nullptr || bundle_root[0] == '\\0') {
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
+        "bundle root is empty");
+  }"""
+        ]
+        for index, region in enumerate(self.module.regions):
+            artifact = self.artifact_regions[region.name]
+            kind = _device(artifact.device)
+            ordinal = _device_ordinal(artifact.device)
+            variant_pointer = (
+                f"kArtifactVariant{index}"
+                if artifact.backend_variant is not None
+                else "nullptr"
+            )
+            variant_size = (
+                f"sizeof(kArtifactVariant{index}) - 1u"
+                if artifact.backend_variant is not None
+                else "0u"
+            )
+            initialize.append(
+                f"""  {{
+    auto verify_status = vlaforge::runtime::VerifyArtifactFile(
+        bundle_root, kArtifactPath{index}, kArtifactShaHex{index},
+        {artifact.artifact_size_bytes}u, &region_paths_[{index}u]);
+    if (!verify_status.ok()) {{
+      DestroyRegions();
+      return verify_status;
+    }}
+    const auto* api = vlaforge_aoti_region_executable_value_api();
+    auto c_status = vlaforge_region_executable_value_api_validate(api);
+    if (c_status.code != VLAFORGE_STATUS_OK) {{
+      DestroyRegions();
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+          "AOTI Region value ABI validation failed");
+    }}
+    region_apis_[{index}u] = api;
+    const VLAForgeRegionCreateOptions options{{
+        sizeof(VLAForgeRegionCreateOptions),
+        VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION,
+        {index}u, {{{kind}, {ordinal}}}}};
+    c_status = api->create(&options, &region_executables_[{index}u]);
+    if (c_status.code != VLAFORGE_STATUS_OK) {{
+      DestroyRegions();
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kInternal, {index}u,
+          "AOTI Region creation failed");
+    }}
+    const VLAForgeArtifactDescriptor descriptor{{
+        sizeof(VLAForgeArtifactDescriptor),
+        VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION,
+        region_paths_[{index}u].data(), region_paths_[{index}u].size(),
+        kArtifactSha{index}, {artifact.artifact_size_bytes}u,
+        kSchemaDigest, VLAFORGE_SCHEMA_DIGEST_HEX_SIZE,
+        kArtifactTarget{index}, sizeof(kArtifactTarget{index}) - 1u,
+        {variant_pointer}, {variant_size}}};
+    c_status = api->load(region_executables_[{index}u], &descriptor);
+    if (c_status.code != VLAFORGE_STATUS_OK) {{
+      DestroyRegions();
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+          "AOTI Region load failed");
+    }}
+    VLAForgeWorkspaceRequirement requirement{{}};
+    c_status = api->query_workspace(region_executables_[{index}u],
+                                    &requirement);
+    if (c_status.code != VLAFORGE_STATUS_OK ||
+        requirement.size_bytes != 0u) {{
+      DestroyRegions();
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+          "AOTI Region workspace contract mismatch");
+    }}
+    c_status = api->bind_workspace(region_executables_[{index}u],
+                                   nullptr, 0u);
+    if (c_status.code != VLAFORGE_STATUS_OK) {{
+      DestroyRegions();
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+          "AOTI Region workspace binding failed");
+    }}
+  }}"""
+            )
+        initialize.append("  return vlaforge::runtime::Status::Ok();\n}")
+        return "\n".join(initialize)
 
     def _validator_functions(self) -> str:
         functions = []
@@ -625,17 +843,36 @@ bool ReadBool(const VLAForgeTensorView& view) {
         state_init_tensor = self._state_init_cases(tensor=True)
         state_init_scalar = self._state_init_cases(tensor=False)
         initial_state = self._initial_state_source()
+        constructor_signature = (
+            "ModelSession::ModelSession(const char* bundle_root)"
+            if self.artifact_mode
+            else "ModelSession::ModelSession()"
+        )
+        artifact_initialize = (
+            """  if (initialization_status_.ok()) {
+    initialization_status_ = InitializeRegions(bundle_root);
+  }"""
+            if self.artifact_mode
+            else ""
+        )
+        artifact_methods = self._artifact_session_methods()
         return f"""
-ModelSession::ModelSession()
-    : arena_(kArenaSize, kArenaAlignment),
-      state_arena_(kStateArenaSize, kStateArenaAlignment),
+{constructor_signature}
+    : arena_(kArenaSize, kArenaAlignment,
+             {{{_device(self.plan.arena.device)},
+               {_device_ordinal(self.plan.arena.device)}}}),
+      state_arena_(kStateArenaSize, kStateArenaAlignment,
+                   {{VLAFORGE_DEVICE_CPU, 0}}),
       state_store_(state_arena_, {state_pointer},
                    {len(self.plan.states)}u),
       transaction_({len(self.plan.states)}u) {{
   InitializeValues();
   initialization_status_ = state_store_.initialization_status();
 {initial_state}
+{artifact_initialize}
 }}
+
+{artifact_methods}
 
 void ModelSession::InitializeValues() noexcept {{
 {init_values}
@@ -959,6 +1196,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             for index, item in enumerate(self.module.regions)
             if item.name == region_name
         )
+        if self.artifact_mode:
+            return self._emit_artifact_region(task, region_id)
         run = [
             "{",
             "  VLAForgeRegionExecutable executable{};",
@@ -1038,6 +1277,79 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             *_indent_lines(miss_copy, 2),
             "}",
         ]
+
+    def _emit_artifact_region(
+        self, task: Any, region_id: int
+    ) -> list[str]:
+        run = [
+            "{",
+            f"  const auto* api = region_apis_[{region_id}u];",
+            f"  auto* executable = region_executables_[{region_id}u];",
+            "  if (api == nullptr || executable == nullptr) {",
+            "    return Fail(vlaforge::runtime::Status::Error(",
+            "        vlaforge::runtime::StatusCode::kFailedPrecondition, "
+            f"{task.id}u, \"artifact Region is not initialized\"));",
+            "  }",
+            "  VLAForgeStatus region_status{};",
+        ]
+        for category, buffers in (
+            ("input", task.inputs),
+            ("output", task.outputs),
+        ):
+            for index, buffer_id in enumerate(buffers):
+                buffer = self.plan.buffer(buffer_id)
+                layout = (
+                    _layout(buffer.type.layout)
+                    if isinstance(buffer.type, TensorType)
+                    else "VLAFORGE_LAYOUT_CONTIGUOUS"
+                )
+                physical = self.physical.get(buffer_id)
+                alignment = 1 if physical is None else physical.alignment
+                variable = f"region_{task.id}_{category}_{index}"
+                run.extend(
+                    (
+                        f"  VLAForgeValueView {variable}{{}};",
+                        f"  {variable}.struct_size = "
+                        "sizeof(VLAForgeValueView);",
+                        f"  {variable}.kind = VLAFORGE_VALUE_TENSOR;",
+                        f"  {variable}.value.tensor = VLAForgeBoundTensor{{",
+                        "      sizeof(VLAForgeBoundTensor), "
+                        f"values_[{buffer_id}u], {layout}, {alignment}u}};",
+                        f"  region_status = api->bind_{category}(",
+                        f"      executable, {index}u, &{variable});",
+                        "  status = FromCStatus(region_status, "
+                        f"{task.id}u);",
+                        "  if (!status.ok()) { return Fail(status); }",
+                    )
+                )
+        run.extend(
+            (
+                "  region_status = api->run(executable);",
+                "  status = FromCStatus(region_status, "
+                f"{task.id}u);",
+                "  if (!status.ok()) { return Fail(status); }",
+                "  region_status = api->synchronize(executable);",
+                "  status = FromCStatus(region_status, "
+                f"{task.id}u);",
+                "  if (!status.ok()) { return Fail(status); }",
+                "  vlaforge::runtime::EmitTrace("
+                "trace_, vlaforge::runtime::TraceEvent{"
+                "vlaforge::runtime::TraceKind::kRegion, "
+                f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
+                "state_store_.episode(), run_index_, 0u});",
+                "}",
+            )
+        )
+        cache = next(
+            (item for item in self.caches if item.task_id == task.id),
+            None,
+        )
+        if cache is not None:
+            raise CodegenUnsupportedError(
+                "artifact C++ exact cache requires device-resident cache "
+                "storage and is not yet available"
+            )
+        return run
 
     def _emit_for(self, task: Any) -> list[str]:
         body = self.plan.block(task.blocks[0])
@@ -1163,7 +1475,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 f"  values_[{buffer_id}u] = VLAForgeTensorView{{"
                 f"BufferData({buffer_id}u), {_bytes(type_)}u, {shape}, "
                 f"{len(type_.shape)}u, {_dtype(type_.dtype)}, "
-                "{VLAFORGE_DEVICE_CPU, 0}};"
+                f"{{{_device(self.plan.arena.device)}, "
+                f"{_device_ordinal(self.plan.arena.device)}}}}};"
             )
         if isinstance(type_, ScalarType | InputRevisionType):
             dtype = (
@@ -1174,7 +1487,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             return (
                 f"  values_[{buffer_id}u] = VLAForgeTensorView{{"
                 f"BufferData({buffer_id}u), {_bytes(type_)}u, nullptr, 0u, "
-                f"{dtype}, {{VLAFORGE_DEVICE_CPU, 0}}}};"
+                f"{dtype}, {{{_device(self.plan.arena.device)}, "
+                f"{_device_ordinal(self.plan.arena.device)}}}}};"
             )
         return ""
 
@@ -1416,10 +1730,61 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
 
     def _c_abi_source(self) -> str:
         ns = self.namespace
-        return f"""
-struct VLAForgeSession {{
+        session_struct = (
+            f"""struct VLAForgeSession {{
+  explicit VLAForgeSession(const char* bundle_root)
+      : implementation(bundle_root) {{}}
   {ns}::ModelSession implementation;
-}};
+}};"""
+            if self.artifact_mode
+            else f"""struct VLAForgeSession {{
+  {ns}::ModelSession implementation;
+}};"""
+        )
+        allocation = (
+            '*session = new (std::nothrow) VLAForgeSession(".");'
+            if self.artifact_mode
+            else "*session = new (std::nothrow) VLAForgeSession;"
+        )
+        bundle_factory = (
+            """
+extern "C" VLAForgeStatus vlaforge_model_session_create_from_bundle(
+    const char* bundle_root, size_t bundle_root_size,
+    VLAForgeSession** session) {
+  if (bundle_root == nullptr || bundle_root_size == 0u ||
+      session == nullptr) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "invalid bundle Session create arguments");
+  }
+  try {
+    const std::string root(bundle_root, bundle_root_size);
+    *session = new (std::nothrow) VLAForgeSession(root.c_str());
+  } catch (const std::bad_alloc&) {
+    return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
+                                 "bundle Session allocation failed");
+  } catch (...) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INTERNAL,
+                                 "bundle Session construction failed");
+  }
+  if (*session == nullptr) {
+    return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
+                                 "session allocation failed");
+  }
+  const auto status = (*session)->implementation.initialization_status();
+  if (!status.ok()) {
+    const auto result = ToCStatus(status);
+    delete *session;
+    *session = nullptr;
+    return result;
+  }
+  return vlaforge_status_ok();
+}
+"""
+            if self.artifact_mode
+            else ""
+        )
+        return f"""
+{session_struct}
 
 namespace {{
 
@@ -1507,14 +1872,30 @@ extern "C" VLAForgeStatus vlaforge_model_session_create(
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
                                  "session output is null");
   }}
-  *session = new (std::nothrow) VLAForgeSession;
+  try {{
+    {allocation}
+  }} catch (const std::bad_alloc&) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
+                                 "session allocation failed");
+  }} catch (...) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INTERNAL,
+                                 "session construction failed");
+  }}
   if (*session == nullptr) {{
     return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
                                  "session allocation failed");
   }}
+  const auto status = (*session)->implementation.initialization_status();
+  if (!status.ok()) {{
+    const auto result = ToCStatus(status);
+    delete *session;
+    *session = nullptr;
+    return result;
+  }}
   return vlaforge_status_ok();
 }}
 
+{bundle_factory}
 extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void) {{
   return &kApi;
 }}
@@ -1549,6 +1930,16 @@ def _device(name: str) -> str:
     if name.startswith("cuda"):
         return "VLAFORGE_DEVICE_CUDA"
     return "VLAFORGE_DEVICE_EXTERNAL"
+
+
+def _device_ordinal(name: str) -> int:
+    if name == "cpu":
+        return 0
+    if name.startswith("cuda:") and name[5:].isdigit():
+        return int(name[5:])
+    raise CodegenUnsupportedError(
+        f"generated Session requires an explicit device ordinal: {name!r}"
+    )
 
 
 def _layout(name: str) -> str:
@@ -1624,12 +2015,21 @@ def _indent_lines(lines: list[str], spaces: int) -> list[str]:
     return [prefix + line if line else "" for line in lines]
 
 
-def _cmake_source(has_runner: bool) -> str:
+def _cmake_source(has_runner: bool, *, artifact_backend: bool = False) -> str:
     runner = """
 add_executable(vlaforge_generated_runner runner.cpp)
 target_link_libraries(vlaforge_generated_runner PRIVATE
     vlaforge_generated_session)
 """ if has_runner else ""
+    backend_option = (
+        'set(VLAFORGE_BUILD_AOTI_BACKEND ON CACHE BOOL "" FORCE)'
+        if artifact_backend
+        else ""
+    )
+    backend_find = (
+        "find_package(Torch REQUIRED CONFIG)" if artifact_backend else ""
+    )
+    backend_library = " vlaforge_aoti_backend" if artifact_backend else ""
     return f"""cmake_minimum_required(VERSION 3.18)
 project(vlaforge_generated_session LANGUAGES C CXX)
 
@@ -1642,12 +2042,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+{backend_option}
+{backend_find}
 add_subdirectory("${{VLAFORGE_RUNTIME_ROOT}}"
                  "${{CMAKE_CURRENT_BINARY_DIR}}/vlaforge_runtime")
 add_library(vlaforge_generated_session STATIC session_generated.cpp)
 target_include_directories(vlaforge_generated_session PUBLIC
     "${{CMAKE_CURRENT_SOURCE_DIR}}")
-target_link_libraries(vlaforge_generated_session PUBLIC vlaforge_runtime)
+target_link_libraries(vlaforge_generated_session PUBLIC
+    vlaforge_runtime{backend_library})
 target_compile_options(vlaforge_generated_session PRIVATE
     -Wall -Wextra -Wpedantic -Werror)
 {runner}"""

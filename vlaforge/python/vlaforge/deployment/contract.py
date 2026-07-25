@@ -8,6 +8,8 @@ and loaded through the C ABI using only stable scalar metadata.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
@@ -15,7 +17,7 @@ from typing import Any, Mapping
 from vlaforge.ir.types import IRType, TensorType, type_from_dict
 
 
-ARTIFACT_SCHEMA = "vlaforge.region_artifact/2"
+ARTIFACT_SCHEMA = "vlaforge.region_artifact/3"
 CALLABLE_ABI_VERSION = 2
 REGION_PLUGIN_ABI = "vlaforge.region_executable/2"
 
@@ -37,6 +39,39 @@ class ArtifactKind(str, Enum):
     SHARED_LIBRARY = "shared_library"
     STATIC_LIBRARY = "static_library"
     CUDA_BINARY = "cuda_binary"
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactIdentity:
+    """Immutable provenance used to reject silent model/artifact replacement."""
+
+    model_name: str
+    upstream_revision: str
+    checkpoint_identity: str
+    graph_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_nonempty(self.model_name, "model name")
+        _require_nonempty(self.upstream_revision, "upstream revision")
+        _require_nonempty(self.checkpoint_identity, "checkpoint identity")
+        _validate_sha256(self.graph_sha256)
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "model_name": self.model_name,
+            "upstream_revision": self.upstream_revision,
+            "checkpoint_identity": self.checkpoint_identity,
+            "graph_sha256": self.graph_sha256,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "ArtifactIdentity":
+        return cls(
+            model_name=str(data["model_name"]),
+            upstream_revision=str(data["upstream_revision"]),
+            checkpoint_identity=str(data["checkpoint_identity"]),
+            graph_sha256=str(data["graph_sha256"]),
+        )
 
 
 class DiagnosticSeverity(str, Enum):
@@ -365,6 +400,8 @@ class RegionArtifactContract:
     region_name: str
     inputs: tuple[ValueContract, ...]
     outputs: tuple[ValueContract, ...]
+    io_schema_digest: str
+    identity: ArtifactIdentity
     artifact_kind: ArtifactKind
     artifact_path: str
     artifact_sha256: str
@@ -372,6 +409,7 @@ class RegionArtifactContract:
     workspace: WorkspaceContract
     capability: BackendCapability
     effect_audit: EffectAudit
+    backend_variant: str | None = None
     plugin_abi: str = REGION_PLUGIN_ABI
     callable_abi_version: int = CALLABLE_ABI_VERSION
     schema: str = ARTIFACT_SCHEMA
@@ -392,10 +430,13 @@ class RegionArtifactContract:
         if self.region_id < 0:
             raise ValueError("region id must be non-negative")
         _require_nonempty(self.region_name, "region name")
+        _validate_sha256(self.io_schema_digest)
         _validate_relative_path(self.artifact_path)
         _validate_sha256(self.artifact_sha256)
         if self.artifact_size_bytes < 0:
             raise ValueError("artifact size must be non-negative")
+        if self.backend_variant is not None:
+            _require_nonempty(self.backend_variant, "backend variant")
         _require_unique_names(self.inputs, "input")
         _require_unique_names(self.outputs, "output")
         if not self.effect_audit.passed:
@@ -425,6 +466,14 @@ class RegionArtifactContract:
                 "backend dynamic-shape capability"
             )
 
+    @property
+    def input_schema_digest(self) -> str:
+        return _value_contract_digest(self.inputs)
+
+    @property
+    def output_schema_digest(self) -> str:
+        return _value_contract_digest(self.outputs)
+
     def to_dict(self) -> dict[str, object]:
         return {
             "schema": self.schema,
@@ -432,6 +481,10 @@ class RegionArtifactContract:
             "callable_abi_version": self.callable_abi_version,
             "region_id": self.region_id,
             "region_name": self.region_name,
+            "io_schema_digest": self.io_schema_digest,
+            "input_schema_digest": self.input_schema_digest,
+            "output_schema_digest": self.output_schema_digest,
+            "identity": self.identity.to_dict(),
             "inputs": [item.to_dict() for item in self.inputs],
             "outputs": [item.to_dict() for item in self.outputs],
             "artifact_kind": self.artifact_kind.value,
@@ -441,16 +494,19 @@ class RegionArtifactContract:
             "workspace": self.workspace.to_dict(),
             "capability": self.capability.to_dict(),
             "effect_audit": self.effect_audit.to_dict(),
+            "backend_variant": self.backend_variant,
         }
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RegionArtifactContract":
-        return cls(
+        artifact = cls(
             schema=str(data["schema"]),
             plugin_abi=str(data["plugin_abi"]),
             callable_abi_version=int(data["callable_abi_version"]),
             region_id=int(data["region_id"]),
             region_name=str(data["region_name"]),
+            io_schema_digest=str(data["io_schema_digest"]),
+            identity=ArtifactIdentity.from_dict(data["identity"]),
             inputs=tuple(
                 ValueContract.from_dict(item) for item in data.get("inputs", ())
             ),
@@ -464,7 +520,17 @@ class RegionArtifactContract:
             workspace=WorkspaceContract.from_dict(data["workspace"]),
             capability=BackendCapability.from_dict(data["capability"]),
             effect_audit=EffectAudit.from_dict(data["effect_audit"]),
+            backend_variant=(
+                None
+                if data.get("backend_variant") is None
+                else str(data["backend_variant"])
+            ),
         )
+        if str(data["input_schema_digest"]) != artifact.input_schema_digest:
+            raise ValueError("artifact input schema digest mismatch")
+        if str(data["output_schema_digest"]) != artifact.output_schema_digest:
+            raise ValueError("artifact output schema digest mismatch")
+        return artifact
 
 
 def _validate_relative_path(path: str) -> None:
@@ -481,6 +547,16 @@ def _validate_relative_path(path: str) -> None:
 def _validate_sha256(value: str) -> None:
     if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
         raise ValueError("sha256 must be 64 lowercase hexadecimal characters")
+
+
+def _value_contract_digest(values: tuple[ValueContract, ...]) -> str:
+    payload = json.dumps(
+        [value.to_dict() for value in values],
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _require_unique_names(

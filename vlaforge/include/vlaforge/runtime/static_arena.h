@@ -3,11 +3,15 @@
 
 #include <cstddef>
 
+#include "vlaforge/runtime/region_executable.h"
+
 namespace vlaforge::runtime {
 
 class StaticArena final {
  public:
-  StaticArena(std::size_t size_bytes, std::size_t alignment);
+  StaticArena(
+      std::size_t size_bytes, std::size_t alignment,
+      VLAForgeDevice device = {VLAFORGE_DEVICE_CPU, 0});
   ~StaticArena();
 
   StaticArena(const StaticArena&) = delete;
@@ -25,6 +29,7 @@ class StaticArena final {
   [[nodiscard]] const void* data() const noexcept { return data_; }
   [[nodiscard]] std::size_t size_bytes() const noexcept { return size_bytes_; }
   [[nodiscard]] std::size_t alignment() const noexcept { return alignment_; }
+  [[nodiscard]] VLAForgeDevice device() const noexcept { return device_; }
 
  private:
   void Release() noexcept;
@@ -33,6 +38,7 @@ class StaticArena final {
   std::size_t size_bytes_ = 0;
   std::size_t allocated_bytes_ = 0;
   std::size_t alignment_ = 1;
+  VLAForgeDevice device_{VLAFORGE_DEVICE_CPU, 0};
 };
 
 }  // namespace vlaforge::runtime

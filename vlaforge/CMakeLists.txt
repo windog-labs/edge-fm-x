@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.18)
 project(vlaforge_runtime VERSION 0.2.0 LANGUAGES C CXX)
 
 include(CTest)
+include(CMakePackageConfigHelpers)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -17,12 +19,14 @@ option(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND
        "Build the optional CPU TorchScript RegionExecutable backend" OFF)
 
 add_library(vlaforge_runtime STATIC
+    runtime/artifact_verifier.cpp
     runtime/region_executable.c
     runtime/session_c.c
     runtime/static_arena.cpp
     runtime/state_store.cpp
     runtime/transaction.cpp
 )
+target_link_libraries(vlaforge_runtime PUBLIC OpenSSL::Crypto)
 target_include_directories(vlaforge_runtime
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -47,6 +51,10 @@ if(VLAFORGE_BUILD_AOTI_BACKEND OR VLAFORGE_BUILD_TORCHSCRIPT_BACKEND)
 endif()
 
 if(VLAFORGE_BUILD_AOTI_BACKEND)
+    find_package(CUDAToolkit REQUIRED)
+    target_compile_definitions(vlaforge_runtime
+        PUBLIC VLAFORGE_ENABLE_CUDA_ARENA=1)
+    target_link_libraries(vlaforge_runtime PUBLIC CUDA::cudart)
     add_library(vlaforge_aoti_backend STATIC
         backends/aoti_region_executable.cpp
     )
@@ -113,7 +121,28 @@ if(TARGET vlaforge_torchscript_backend)
     )
 endif()
 install(DIRECTORY include/ DESTINATION include)
+set(VLAFORGE_CONFIG_HAS_CUDA ${VLAFORGE_BUILD_AOTI_BACKEND})
+if(VLAFORGE_BUILD_AOTI_BACKEND OR VLAFORGE_BUILD_TORCHSCRIPT_BACKEND)
+    set(VLAFORGE_CONFIG_HAS_TORCH ON)
+else()
+    set(VLAFORGE_CONFIG_HAS_TORCH OFF)
+endif()
+configure_package_config_file(
+    cmake/VLAForgeRuntimeConfig.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/VLAForgeRuntimeConfig.cmake"
+    INSTALL_DESTINATION lib/cmake/VLAForgeRuntime
+)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/VLAForgeRuntimeConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
 install(EXPORT VLAForgeRuntimeTargets
     NAMESPACE VLAForge::
+    DESTINATION lib/cmake/VLAForgeRuntime
+)
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/VLAForgeRuntimeConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/VLAForgeRuntimeConfigVersion.cmake"
     DESTINATION lib/cmake/VLAForgeRuntime
 )

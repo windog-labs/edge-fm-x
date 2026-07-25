@@ -1,6 +1,7 @@
 #include "vlaforge/backends/aoti_region_executable.h"
 
 #include <ATen/ATen.h>
+#include <ATen/cuda/CUDAContextLight.h>
 #include <ATen/ops/from_blob.h>
 #include <c10/cuda/CUDAGuard.h>
 #include <c10/cuda/CUDAFunctions.h>
@@ -19,6 +20,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -48,6 +50,10 @@ c10::ScalarType ToScalarType(VLAForgeDType dtype) {
       return c10::ScalarType::Float;
     case VLAFORGE_DTYPE_F64:
       return c10::ScalarType::Double;
+    case VLAFORGE_DTYPE_U64:
+      return c10::ScalarType::UInt64;
+    case VLAFORGE_DTYPE_U8:
+      return c10::ScalarType::Byte;
     case VLAFORGE_DTYPE_INVALID:
       break;
   }
@@ -57,6 +63,7 @@ c10::ScalarType ToScalarType(VLAForgeDType dtype) {
 std::size_t ElementSize(VLAForgeDType dtype) {
   switch (dtype) {
     case VLAFORGE_DTYPE_BOOL:
+    case VLAFORGE_DTYPE_U8:
       return 1u;
     case VLAFORGE_DTYPE_F16:
     case VLAFORGE_DTYPE_BF16:
@@ -65,6 +72,7 @@ std::size_t ElementSize(VLAForgeDType dtype) {
     case VLAFORGE_DTYPE_F32:
       return 4u;
     case VLAFORGE_DTYPE_I64:
+    case VLAFORGE_DTYPE_U64:
     case VLAFORGE_DTYPE_F64:
       return 8u;
     case VLAFORGE_DTYPE_INVALID:
@@ -111,14 +119,9 @@ at::Tensor TensorFromView(const VLAForgeTensorView& view) {
   return at::from_blob(view.data, shape, options);
 }
 
-bool SameMetadata(const at::Tensor& tensor,
-                  const VLAForgeTensorView& view) {
-  const bool device_matches =
-      view.device.kind == VLAFORGE_DEVICE_CUDA
-      ? tensor.is_cuda() && tensor.get_device() == view.device.ordinal
-      : tensor.device().is_cpu() && view.device.ordinal == 0;
-  if (!device_matches ||
-      tensor.scalar_type() != ToScalarType(view.dtype) ||
+bool SameShapeAndDType(const at::Tensor& tensor,
+                       const VLAForgeTensorView& view) {
+  if (tensor.scalar_type() != ToScalarType(view.dtype) ||
       tensor.dim() != static_cast<std::int64_t>(view.rank)) {
     return false;
   }
@@ -130,10 +133,23 @@ bool SameMetadata(const at::Tensor& tensor,
   return true;
 }
 
+bool ValidBoundTensor(const VLAForgeBoundTensor& value) {
+  if (value.struct_size < sizeof(VLAForgeBoundTensor) ||
+      value.layout != VLAFORGE_LAYOUT_CONTIGUOUS ||
+      value.alignment == 0u ||
+      (value.alignment & (value.alignment - 1u)) != 0u) {
+    return false;
+  }
+  const auto address =
+      reinterpret_cast<std::uintptr_t>(value.tensor.data);
+  return address % value.alignment == 0u;
+}
+
 }  // namespace
 
 struct VLAForgeRegionExecutable {
   std::uint32_t region_id = 0u;
+  std::uint32_t abi_version = 0u;
   VLAForgeDeviceKind device_kind = VLAFORGE_DEVICE_CPU;
   int device_ordinal = 0;
   std::unique_ptr<torch::inductor::AOTIModelPackageLoader> loader;
@@ -152,12 +168,44 @@ struct VLAForgeRegionExecutable {
 
 namespace {
 
+bool OnExecutableDevice(
+    const at::Tensor& tensor,
+    const VLAForgeRegionExecutable& executable) {
+  return executable.device_kind == VLAFORGE_DEVICE_CUDA
+      ? tensor.is_cuda() &&
+            tensor.get_device() == executable.device_ordinal
+      : tensor.device().is_cpu();
+}
+
+bool TargetMatches(const VLAForgeRegionExecutable& executable,
+                   const VLAForgeArtifactDescriptor& artifact) {
+  if (artifact.target == nullptr || artifact.target_size == 0u) {
+    return true;
+  }
+  const std::string_view target(artifact.target, artifact.target_size);
+  if (executable.device_kind == VLAFORGE_DEVICE_CPU) {
+    return target == "cpu";
+  }
+  if (target.size() != 5u || target.substr(0u, 3u) != "sm_" ||
+      target[3] < '0' || target[3] > '9' ||
+      target[4] < '0' || target[4] > '9') {
+    return false;
+  }
+  const auto* properties =
+      at::cuda::getDeviceProperties(executable.device_ordinal);
+  return properties != nullptr &&
+         properties->major == target[3] - '0' &&
+         properties->minor == target[4] - '0';
+}
+
 VLAForgeStatus AotiCreate(
     const VLAForgeRegionCreateOptions* options,
     VLAForgeRegionExecutable** output) {
   if (options == nullptr || output == nullptr ||
       options->struct_size < sizeof(*options) ||
-      options->abi_version != VLAFORGE_REGION_EXECUTABLE_ABI_VERSION ||
+      (options->abi_version != VLAFORGE_REGION_EXECUTABLE_ABI_VERSION &&
+       options->abi_version !=
+           VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION) ||
       (options->device.kind != VLAFORGE_DEVICE_CPU &&
        options->device.kind != VLAFORGE_DEVICE_CUDA) ||
       options->device.ordinal < 0 ||
@@ -172,6 +220,7 @@ VLAForgeStatus AotiCreate(
                                  "AOTI executable allocation failed");
   }
   executable->region_id = options->region_id;
+  executable->abi_version = options->abi_version;
   executable->device_kind = options->device.kind;
   executable->device_ordinal = options->device.ordinal;
   *output = executable;
@@ -183,11 +232,14 @@ VLAForgeStatus AotiLoad(
     const VLAForgeArtifactDescriptor* artifact) {
   if (executable == nullptr || artifact == nullptr ||
       artifact->struct_size < sizeof(*artifact) ||
-      artifact->callable_abi_version !=
-          VLAFORGE_REGION_EXECUTABLE_ABI_VERSION ||
+      artifact->callable_abi_version != executable->abi_version ||
       artifact->path == nullptr || artifact->path_size == 0u) {
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
                                  "invalid AOTI artifact descriptor");
+  }
+  if (!TargetMatches(*executable, *artifact)) {
+    return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
+                                 "AOTI artifact target mismatch");
   }
   try {
     std::optional<c10::cuda::CUDAGuard> guard;
@@ -231,10 +283,15 @@ VLAForgeStatus AotiQueryWorkspace(
 VLAForgeStatus Bind(
     VLAForgeRegionExecutable* executable, std::uint32_t index,
     const VLAForgeTensorView* tensor, bool input) {
-  if (executable == nullptr || tensor == nullptr ||
-      index >= kMaximumBindings ||
-      !ValidTensorView(*tensor, executable->device_kind,
-                       executable->device_ordinal)) {
+  if (executable == nullptr || tensor == nullptr) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "invalid AOTI tensor binding");
+  }
+  const bool valid_device =
+      ValidTensorView(*tensor, executable->device_kind,
+                      executable->device_ordinal) ||
+      (!input && ValidTensorView(*tensor, VLAFORGE_DEVICE_CPU, 0));
+  if (index >= kMaximumBindings || !valid_device) {
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
                                  "invalid AOTI tensor binding");
   }
@@ -255,6 +312,30 @@ VLAForgeStatus AotiBindOutput(
     VLAForgeRegionExecutable* executable, std::uint32_t index,
     const VLAForgeTensorView* tensor) {
   return Bind(executable, index, tensor, false);
+}
+
+VLAForgeStatus BindValue(
+    VLAForgeRegionExecutable* executable, std::uint32_t index,
+    const VLAForgeValueView* value, bool input) {
+  if (value == nullptr || value->struct_size < sizeof(*value) ||
+      value->kind != VLAFORGE_VALUE_TENSOR ||
+      !ValidBoundTensor(value->value.tensor)) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "invalid AOTI value binding");
+  }
+  return Bind(executable, index, &value->value.tensor.tensor, input);
+}
+
+VLAForgeStatus AotiBindInputValue(
+    VLAForgeRegionExecutable* executable, std::uint32_t index,
+    const VLAForgeValueView* value) {
+  return BindValue(executable, index, value, true);
+}
+
+VLAForgeStatus AotiBindOutputValue(
+    VLAForgeRegionExecutable* executable, std::uint32_t index,
+    const VLAForgeValueView* value) {
+  return BindValue(executable, index, value, false);
 }
 
 VLAForgeStatus AotiBindWorkspace(
@@ -306,7 +387,8 @@ VLAForgeStatus AotiRun(VLAForgeRegionExecutable* executable) {
     }
     for (std::size_t index = 0; index < outputs.size(); ++index) {
       const auto& view = executable->outputs[index].view;
-      if (!SameMetadata(outputs[index], view)) {
+      if (!OnExecutableDevice(outputs[index], *executable) ||
+          !SameShapeAndDType(outputs[index], view)) {
         return executable->RecordError("AOTI output metadata mismatch");
       }
       TensorFromView(view).copy_(outputs[index]);
@@ -353,9 +435,28 @@ const VLAForgeRegionExecutableApi kAotiApi = {
     &AotiDestroy,
 };
 
+const VLAForgeRegionExecutableValueApi kAotiValueApi = {
+    sizeof(VLAForgeRegionExecutableValueApi),
+    VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION,
+    &AotiCreate,
+    &AotiLoad,
+    &AotiQueryWorkspace,
+    &AotiBindInputValue,
+    &AotiBindOutputValue,
+    &AotiBindWorkspace,
+    &AotiRun,
+    &AotiSynchronize,
+    &AotiDestroy,
+};
+
 }  // namespace
 
 extern "C" const VLAForgeRegionExecutableApi*
 vlaforge_aoti_region_executable_api(void) {
   return &kAotiApi;
+}
+
+extern "C" const VLAForgeRegionExecutableValueApi*
+vlaforge_aoti_region_executable_value_api(void) {
+  return &kAotiValueApi;
 }

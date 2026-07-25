@@ -125,6 +125,12 @@ typedef struct VLAForgeArtifactDescriptor {
   size_t path_size;
   const uint8_t* sha256;
   uint64_t size_bytes;
+  const char* io_schema_digest;
+  size_t io_schema_digest_size;
+  const char* target;
+  size_t target_size;
+  const char* backend_variant;
+  size_t backend_variant_size;
 } VLAForgeArtifactDescriptor;
 
 typedef struct VLAForgeRegionExecutable VLAForgeRegionExecutable;

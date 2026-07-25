@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -27,6 +28,24 @@ def test_cuda_aoti_region_backend(tmp_path: Path) -> None:
         ],
         check=True,
     )
-    text = report.read_text(encoding="utf-8")
-    assert '"status": "passed"' in text
-    assert '"python_linked": false' in text
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["status"] == "passed"
+    assert payload["python_linked"] is False
+    assert set(payload["backend_negative_cases"]) == {
+        "load-failure",
+        "missing-input-binding",
+        "wrong-output-shape",
+        "wrong-target",
+    }
+    generated = payload["generated_session"]
+    assert generated["status"] == "passed"
+    assert generated["bundle_verified"] is True
+    assert generated["python_linked"] is False
+    assert set(generated["negative_cases"]) == {
+        "corrupt-artifact",
+        "missing-artifact",
+        "wrong-device",
+        "wrong-dtype",
+        "wrong-layout",
+        "wrong-shape",
+    }

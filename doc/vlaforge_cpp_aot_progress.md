@@ -77,11 +77,11 @@ runner 在无效 `PYTHONHOME/PYTHONPATH` 下执行，并检查 `ldd` 无 Python�
 |---|---|
 | Semantic IR | `0.2` |
 | I/O schema | `vlaforge.io_schema/2` |
-| Region artifact | `vlaforge.region_artifact/2` |
+| Region artifact | `vlaforge.region_artifact/3` |
 | Region value ABI | `vlaforge.region_executable/2` |
 | Session C ABI | `2` |
 | Compilation certificate | `vlaforge.compilation_certificate/2` |
-| Compile bundle | `vlaforge.compile_bundle/3` |
+| Compile bundle | `vlaforge.compile_bundle/4` |
 
 ## JetPack arm64 portability
 
@@ -117,21 +117,38 @@ artifact + generated Session L3/L4 需要按新 ABI 重建。
 - DiffusionDrive checkpoint 已运行 generated C++；
 - Orin 真机性能或闭环已验证。
 
+## Host CUDA production artifact audit
+
+RTX 3060 12GB、CUDA 12.8、PyTorch 2.10.0+cu128、`sm_86` 已验证：
+
+- `torch.export` → AOTInductor `.pt2`；
+- artifact identity、I/O/signature digest、size、SHA-256、ABI、variant、target；
+- Compile Bundle v4；
+- bundle-relative `create/load/bind/run/synchronize/destroy`；
+- generated C++ Session 在无效 `PYTHONHOME/PYTHONPATH` 下执行；
+- `ldd` 无 `libpython`；
+- eager 与 generated Session 最大绝对误差约 `4.34e-9`；
+- missing/corrupt artifact、wrong target、load failure、missing binding、
+  output metadata mismatch，以及外部 shape/dtype/device/layout 负例。
+
+该 audit 使用确定性小型 TensorRegion，只证明真实 production backend 通路，
+不升级任何 VLA checkpoint 的 L3/L4 等级。
+
 ## 下一步
 
-1. 以新 Session generator 接回 real AOTI/TensorRT Region artifact；
-2. 先完成 DiffusionDrive、SmolVLA、OpenVLA 的真实 L3/L4；
+1. 以已通过审计的 AOTI Bundle/Session 通路完成 SmolVLA 真实 L3/L4；
+2. 再完成 DiffusionDrive L3/L4 与 OpenVLA 分 Region L3/L4；
 3. Host CUDA latency/memory/profile 与长稳；
 4. Orin 台架就绪后运行模型专属 SM87 artifact、性能和长稳测试。
 
 ## 2026-07-25 Release audit
 
-- offline Python suite：178 passed，3 个 opt-in gate skipped；
+- offline Python suite：182 passed，3 个 opt-in gate skipped；
 - real SmolVLA checkpoint gate：1 passed；
 - real OpenVLA-7B 4-bit gate：1 passed；
 - clean C++ Release build：passed；
-- CTest：6/6 passed；
-- CMake install/export：passed；
+- CTest：7/7 passed；
+- CPU 与 AOTI CMake install/export consumer：passed；
 - wheel：`vlaforge-0.2.0.dev0-py3-none-any.whl` built；
 - arm64 JetPack image probe：`aarch64`；
 - arm64 standalone runtime：18/18 build、6/6 CTest、install/export passed；
