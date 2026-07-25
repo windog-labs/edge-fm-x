@@ -8,6 +8,9 @@ from vlaforge.adapters.driving import (
     build_driving_trajectory_fixture,
     build_hybrid_external_feature_fixture,
 )
+from vlaforge.adapters.diffusiondrive_real import (
+    build_real_diffusiondrive_program,
+)
 from vlaforge.adapters.openvla import build_openvla_fixture
 from vlaforge.adapters.model_contracts import (
     MODEL_CONTRACTS,
@@ -44,6 +47,7 @@ __all__ = [
     "build_driving_ar_fixture",
     "build_driving_diffusion_fixture",
     "build_driving_trajectory_fixture",
+    "build_real_diffusiondrive_program",
     "build_groot_n1_like_fixture",
     "build_hybrid_external_feature_fixture",
     "build_octo_like_fixture",
