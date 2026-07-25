@@ -6,7 +6,7 @@
 | License / checkpoint | MIT；`openvla/openvla-7b@47a0ec7fc4ec123775a391911046cf33cf9ed83f`；三个 shard SHA256 已固定在 L3 报告 |
 | Source entry | `modeling_prismatic.py`、`experiments/robot/openvla_utils.py` |
 | 当前证据 | L0 + L1 + real L2 + real L3 + deterministic fixture-L4 |
-| Adapter | fixture 222 LOC；real semantic adapter 599 LOC；frontend 607 LOC；L3 physical partition adapter 980 LOC |
+| Adapter | fixture 222 LOC；real semantic adapter 599 LOC；frontend 607 LOC；L3 partition adapter 980 LOC；L4 physical schedule 580 LOC |
 | Core op 增量 | 0 |
 
 静态 image + instruction 输入；prefill/context Region 使用 exact cache，action
@@ -37,6 +37,15 @@ clean revision `7ea773e`，新增 core op 为 0。capture/audit 峰值 CUDA
 allocated 分别为 2.686/1.778 GiB，单 Region 编译峰值 host RSS 为
 6.246 GiB；这些是正确性审计元数据，不是 paper-grade latency benchmark。
 
-`fixture-L4` 仍不是 7B checkpoint 的 L4。真实 generated no-Python C++
-Session 需要支持受验证的 weight-paged Region residency，当前保持
-`unsupported`，不得把 real L3 写成 real L4。
+`fixture-L4` 仍不是 7B checkpoint 的 L4。2026-07-25 的真实 L4 尝试已经
+生成包含 38 个 Region 的 clean-source verified bundle 和无 Python C++
+runner，但执行阶段受到 PyTorch AOTI package loader 生命周期限制：重复
+decode load 会留下 deleted wrapper mapping，24.48GiB RSS 时累计约 82GB
+package writes，并在系统盘剩余 29GiB 的安全阈值主动终止。runner CUDA
+residency 仅 644MiB，因此不是显存 OOM，也不是 IR/Plan/codegen 构建失败。
+
+完整 blocker 见
+[`openvla_artifact_l4_blocker.json`](../reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json)。
+当前仍只声明 real L3；后续应在 backend/artifact provider 层提供稳定已验证
+shared-library/cubin 映射与 per-invocation CUDA weight residency 分离，不得为此
+增加 core opcode。

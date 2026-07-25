@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 import os
@@ -351,7 +352,16 @@ def _write_input_fixtures(
             "shape": list(tensor.shape),
             "dtype": str(tensor.dtype),
         }
-    del exported, arguments
+    del (
+        exported,
+        arguments,
+        keyword_arguments,
+        tensor,
+        contiguous,
+        payload,
+    )
+    gc.collect()
+    torch.cuda.empty_cache()
     return records
 
 

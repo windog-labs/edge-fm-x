@@ -416,11 +416,16 @@ Generality：
 - OpenVLA-7B 真实 36 Region `sm_86` AOTInductor L3：two-layer
   prefill/decode physical partition、fixed loop-carried KV、两次完整
   autoregressive pipeline token/action parity，新增 core op 为 0；
+- OpenVLA-7B 的 clean-source 38 Region verified bundle 与 no-Python C++
+  runner 已生成，但真实 L4 execution 因 AOTI package loader 重复解包后保留
+  deleted shared-object mappings而未完成；该结果只作为 backend resource
+  limitation，不计入 L4 coverage；
 - pinned upstream source audit 与 Model Adaptation Cards。
 
 尚未完成、且决定投稿强度：
 
-- OpenVLA 的真实 generated no-Python C++ L4（L3 已完成）；
+- OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
+  已记录，不能把成功 build 写成 L4 execution；
 - real-model optimization speedup 与 memory 消融；
 - frozen-core held-out model 数据；
 - Host CUDA 长稳与 profile；

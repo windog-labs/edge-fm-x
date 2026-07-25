@@ -305,7 +305,7 @@ opcode 或任意未验证 opcode。
 | P7 | robot/driving executable fixtures、fixture C++ parity | 完成 |
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
-| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 待资源受控尝试 |
+| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 的 clean bundle/C++ build 通过但执行受 AOTI package loader 资源行为阻塞 |
 | P11 | Host CUDA 性能、消融、长稳 | 待完成 |
 | P12 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
 
@@ -329,7 +329,7 @@ Host release gate：
 14. invalid `PYTHONHOME/PYTHONPATH` 仍运行，`ldd` 无 Python；
 15. 完整 Python tests 与 CTest 通过。
 
-2026-07-25 当前结果：offline Python 194 passed/8 opt-in skipped；real
+2026-07-25 当前结果：offline Python 199 passed/9 opt-in skipped；real
 SmolVLA L4、DiffusionDrive L2/L3/L4 opt-in 均各 1 passed；clean C++ Release、CPU 7/7 CTest、CUDA/AOTI
 8/8 CTest 与 install-export 均通过。RTX 3060
 `sm_86` 上真实 AOTI
@@ -354,7 +354,11 @@ backend-owned two-layer physical Regions，并完成真实 `sm_86` L3：
 integer/token 输出 exact；两次完整 pipeline 的 7 个 token bit-exact，
 最终 action 相对 L2 reference 最大绝对误差 `1.13e-17`。固定 KV derived
 cache 为 140.5 MiB，capture/audit 峰值 CUDA allocated 为
-2.686/1.778 GiB，core op delta 仍为 0。
+2.686/1.778 GiB，core op delta 仍为 0。OpenVLA L4 已成功生成 38 Region
+clean-source verified bundle 和 no-Python runner；真实执行中，重复 AOTI
+package load 留下 deleted wrapper mappings，runner 在 24.48GiB RSS、约
+82GB package writes、系统盘余 29GiB 时按安全阈值终止。该 blocker 位于
+backend package lifecycle，OpenVLA 不升级为 L4。
 
 论文 release gate 另要求：
 
@@ -368,11 +372,12 @@ cache 为 140.5 MiB，capture/audit 峰值 CUDA allocated 为
 
 ## 10. 剩余开发顺序
 
-1. OpenVLA：在已通过真实 L3 基础上尝试 generic weight-paged generated
-   Session L4；若 12GB/32GB 环境代价不合理，保留可复现 blocker 并进入性能实验；
-2. 为已完成的 SmolVLA、DiffusionDrive L4 补齐 Host CUDA benchmark、消融、nsys/ncu 与
+1. 为已完成的 SmolVLA、DiffusionDrive L4 补齐 Host CUDA benchmark、消融、nsys/ncu 与
    10k+ Run soak；
-3. 选择 Octo/GR00T 与 AutoVLA/ReCogDrive 做 frozen-core held-out；
+2. 选择 Octo/GR00T 与 AutoVLA/ReCogDrive 做 frozen-core held-out；
+3. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
+   shared-library/cubin mapping 与 per-invocation CUDA weight residency 分离，
+   不得扩 core IR，也不得阻塞前两项；
 4. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
    runtime/generated Session 的 JetPack arm64 portability 已通过。
 

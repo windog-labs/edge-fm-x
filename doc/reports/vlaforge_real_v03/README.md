@@ -164,3 +164,26 @@ The report `openvla_artifact_l3.json` was produced from clean revision
 `7ea773e53c8b24fc96708cd87aa5a4f7d5985b1c`. This is real-checkpoint L3 with
 zero new core ops. It does not claim generated no-Python C++ L4; weight-paged
 Session artifact residency is a separate gate.
+
+## OpenVLA-7B L4 resource audit
+
+Revision `6c4dc927accc97f74f4cb43607ca06bebf531532` successfully assembled all
+38 Regions into a clean-source Compile Bundle. The 36 model packages were
+invocation-resident, the two glue packages were session-resident, the generated
+runner linked no `libpython`, and the verified static arena was 350,748,288
+bytes instead of the 1,215,201,344-byte baseline.
+
+The real C++ execution did not complete and is not L4 evidence. PyTorch
+`AOTIModelPackageLoader` extracted a new temporary wrapper shared object on
+each repeated decode-package load. Region destruction released CUDA model
+residency, but deleted wrapper mappings and their disk backing accumulated in
+the process. At the safety stop, the runner had 119 wrapper mappings, 24.48
+GiB RSS, 91.93 GiB virtual memory and roughly 82GB of package writes; free
+system disk had fallen from 105GiB to 29GiB. Runner CUDA residency remained
+only 644MiB, so this was not a device-memory OOM.
+
+The reproducible command, bundle identity, resource samples and claim boundary
+are recorded in `openvla_artifact_l4_blocker.json`. OpenVLA therefore remains
+real L3. A future L4 retry should use a backend artifact variant that separates
+stable verified code/cubin mapping from per-invocation CUDA weight residency;
+it must not add a core IR opcode.

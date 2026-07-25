@@ -1,0 +1,102 @@
+{
+  "schema": "vlaforge.openvla_real_l4_blocker/1",
+  "status": "resource_blocked",
+  "passed": false,
+  "evidence_level": "L3",
+  "model": "OpenVLA-7B",
+  "checkpoint": {
+    "repository": "openvla/openvla-7b",
+    "revision": "47a0ec7fc4ec123775a391911046cf33cf9ed83f"
+  },
+  "repository": {
+    "revision": "6c4dc927accc97f74f4cb43607ca06bebf531532",
+    "source_dirty": false
+  },
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "gpu_memory_bytes": 12884901888,
+    "host_memory_bytes": 33285996544,
+    "target": "sm_86",
+    "driver": "595.58.03",
+    "cuda": "12.8",
+    "torch": "2.10.0+cu128"
+  },
+  "completed_before_execution": {
+    "semantic_ir_regions": 38,
+    "model_artifacts": 36,
+    "support_artifacts": 2,
+    "invocation_resident_artifacts": 36,
+    "session_resident_artifacts": 2,
+    "artifact_bytes": 28258371476,
+    "static_arena_baseline_bytes": 1215201344,
+    "static_arena_compiled_bytes": 350748288,
+    "exact_cache_tasks": 17,
+    "bundle_schema": "vlaforge.compile_bundle/4",
+    "bundle_digest": "f05ed90dab6bcc948c130973196d13867ed5e7dd957cbfadce3bef0c71d1b68f",
+    "bundle_manifest_sha256": "7ebbcf2fd298afb35afb24edcffce8dd90dad8d691a366ddf08aa8e764a031af",
+    "io_schema_digest": "b05f19a6c14b3414e2c6ae8684c357862c6f002292746221c5c9745997ac70f4",
+    "runner_sha256": "adbcc4bd4c38905d10e972a7e3f8a3ae342bc77eebf3888c9d2543d623f7f6fd",
+    "runner_links_libpython": false,
+    "generated_cpp_build": "passed"
+  },
+  "execution_probe": {
+    "elapsed_seconds": 928.12,
+    "termination": "SIGINT at disk safety threshold",
+    "maximum_resident_set_kib": 25763548,
+    "observed_runner_resident_set_kib_before_stop": 24484120,
+    "observed_runner_virtual_memory_kib_before_stop": 91934924,
+    "observed_runner_gpu_memory_mib": 644,
+    "observed_assembler_gpu_memory_mib": 1938,
+    "wrapper_so_mappings_before_stop": 119,
+    "runner_read_bytes_before_stop": 80573296640,
+    "runner_write_bytes_before_stop": 81954320384,
+    "disk_free_gib_before_runner": 105,
+    "disk_free_gib_at_stop": 29,
+    "disk_free_gib_after_process_exit": 105,
+    "action_output_produced": false
+  },
+  "blocker": {
+    "component": "PyTorch AOTIModelPackageLoader package lifecycle",
+    "classification": "host loader and temporary-file resource behavior",
+    "not_classified_as": [
+      "Semantic IR expressiveness failure",
+      "Plan lowering failure",
+      "generated C++ build failure",
+      "CUDA device-memory exhaustion",
+      "model numerical parity failure"
+    ],
+    "observation": "Each repeated invocation-resident AOTI package load extracted a new temporary wrapper shared object. Destroying the Region released CUDA model residency, but deleted wrapper mappings remained visible in the runner and retained their backing storage until process exit.",
+    "consequence": "The bounded autoregressive decode repeatedly loads the same 16 decode packages. Deleted mappings and package extraction I/O accumulated faster than the 32 GiB host and system-disk safety envelope allowed a complete generated Session pipeline.",
+    "future_backend_option": "Use a verified stable extracted AOTI shared-library plus cubin artifact variant, or another backend loader that separates reusable code mapping from per-invocation CUDA weight residency. This is a backend/artifact-provider concern and must not add a core IR opcode."
+  },
+  "reproduction": {
+    "command": [
+      "/usr/bin/time",
+      "-v",
+      "/tmp/vlaforge-smolvla-env/bin/python",
+      "vlaforge/tools/assemble_real_openvla_l4.py",
+      "--capture-root",
+      "/tmp/vlaforge-openvla-l3-capture",
+      "--l3-root",
+      "/tmp/vlaforge-openvla-l3-artifacts",
+      "--l3-report",
+      "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json",
+      "--support-root",
+      "/tmp/vlaforge-openvla-l4-support",
+      "--bundle-root",
+      "/tmp/vlaforge-openvla-l4-evidence/bundle",
+      "--input-root",
+      "/tmp/vlaforge-openvla-l4-evidence/inputs",
+      "--report",
+      "/tmp/vlaforge-openvla-l4-evidence/report.json",
+      "--python",
+      "/tmp/vlaforge-smolvla-env/bin/python",
+      "--target",
+      "sm_86",
+      "--runs",
+      "1"
+    ],
+    "l3_report_sha256": "6579008f77d7dc760d3d21259cab754388f719c4234f2d78744c126796ec12c3"
+  },
+  "claim_boundary": "OpenVLA remains real Host-CUDA L3. The verified bundle and generated no-Python runner build passed, but incomplete execution is not L4 evidence."
+}
