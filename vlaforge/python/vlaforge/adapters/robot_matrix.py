@@ -475,6 +475,7 @@ def build_octo_like_fixture() -> AdapterFixture:
                 "adapter_template": "DiffusionPolicy",
                 "evidence_level": "L1",
                 "source_contract": "Octo-like",
+                "core_op_delta": 0,
             },
         )
     )
@@ -669,6 +670,7 @@ def build_groot_n1_like_fixture() -> AdapterFixture:
                 "adapter_template": "MultiEmbodimentDiT",
                 "evidence_level": "L1",
                 "source_contract": "GR00T-N1-like",
+                "core_op_delta": 0,
             },
         )
     )

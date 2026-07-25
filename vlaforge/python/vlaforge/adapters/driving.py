@@ -415,7 +415,18 @@ def build_driving_ar_fixture() -> AdapterFixture:
             ),
         )
     )
-    builder.add_invocation(Invocation("act", body))
+    builder.add_invocation(
+        Invocation(
+            "act",
+            body,
+            metadata={
+                "adapter_template": "AutoregressiveTrajectory",
+                "evidence_level": "L1",
+                "source_contract": "AutoVLA-like",
+                "core_op_delta": 0,
+            },
+        )
+    )
 
     def prefill(scene):
         return float(scene[0]), float(scene[1]), float(sum(scene))
