@@ -5,9 +5,12 @@ import pytest
 import torch
 
 from vlaforge.adapters.smolvla_artifact import (
+    build_compiled_smolvla_action_program,
     _metrics,
     _verify_artifact_chain,
 )
+from vlaforge.analysis import verify
+from vlaforge.compiler import compile_module
 
 
 def test_smolvla_artifact_metrics_distinguish_exact_and_tolerant_parity():
@@ -21,6 +24,26 @@ def test_smolvla_artifact_metrics_distinguish_exact_and_tolerant_parity():
     assert not approximate.exact
     assert approximate.maximum_absolute_error == pytest.approx(0.01)
     assert approximate.normalized_root_mean_square_error > 0.0
+
+
+def test_compiled_smolvla_program_has_flat_kv_and_adapter_owned_queue():
+    module = build_compiled_smolvla_action_program()
+    assert verify(module, raise_on_error=False) == ()
+    assert len(module.region("prepare_prefix").outputs) == 33
+    assert len(module.region("solver_step").inputs) == 35
+    assert [state.name for state in module.states] == [
+        "action_queue",
+        "queue_cursor",
+    ]
+    compilation = compile_module(
+        module, default_device="cuda:0", state_device="cuda:0"
+    )
+    cache = compilation.certificate.caches[0]
+    assert cache.input_ids == (0, 1, 2, 3)
+    assert cache.state_ids == ()
+    assert compilation.plan.arena is not None
+    assert compilation.plan.arena.device == "cuda:0"
+    assert {state.device for state in compilation.plan.states} == {"cuda:0"}
 
 
 def test_smolvla_artifact_chain_authenticates_exports_and_packages(tmp_path):

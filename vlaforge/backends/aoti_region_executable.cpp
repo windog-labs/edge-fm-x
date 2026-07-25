@@ -290,7 +290,8 @@ VLAForgeStatus Bind(
   const bool valid_device =
       ValidTensorView(*tensor, executable->device_kind,
                       executable->device_ordinal) ||
-      (!input && ValidTensorView(*tensor, VLAFORGE_DEVICE_CPU, 0));
+      (executable->device_kind == VLAFORGE_DEVICE_CUDA &&
+       ValidTensorView(*tensor, VLAFORGE_DEVICE_CPU, 0));
   if (index >= kMaximumBindings || !valid_device) {
     return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
                                  "invalid AOTI tensor binding");

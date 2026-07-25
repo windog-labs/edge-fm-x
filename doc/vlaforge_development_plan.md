@@ -305,7 +305,7 @@ opcode 或任意未验证 opcode。
 | P7 | robot/driving executable fixtures、fixture C++ parity | 完成 |
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
-| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | production AOTI bundle/generated Session 通路已在 Host CUDA 通过；SmolVLA 真实 L3、OpenVLA 真实 L2 完成，SmolVLA L4 与其余模型 L3/L4 待完成 |
+| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA 真实 Host-CUDA L4 已完成；OpenVLA 真实 L2 完成；DiffusionDrive L3/L4 与 OpenVLA L3/L4 待完成 |
 | P11 | Host CUDA 性能、消融、长稳 | 待完成 |
 | P12 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
 
@@ -329,13 +329,16 @@ Host release gate：
 14. invalid `PYTHONHOME/PYTHONPATH` 仍运行，`ldd` 无 Python；
 15. 完整 Python tests 与 CTest 通过。
 
-2026-07-25 当前结果：offline Python 184 passed/3 opt-in skipped；真实
-SmolVLA 与 OpenVLA 各 1 个 checkpoint gate passed；clean C++ Release build、
-7/7 CTest、CPU/AOTI install-export 均通过。RTX 3060 `sm_86` 上真实 AOTI
+2026-07-25 当前结果：offline Python 187 passed/4 opt-in skipped；real
+SmolVLA L4 opt-in 1 passed；clean C++ Release、CPU 7/7 CTest、CUDA/AOTI
+8/8 CTest 与 install-export 均通过。RTX 3060
+`sm_86` 上真实 AOTI
 package 已通过 Compile Bundle、generated C++ Session、无效 Python 环境和
 no-libpython 审计；该通用对象是 production-path audit Region，不是 real
 VLA。另有真实 SmolVLA prefix/solver/trim 三个 package 通过 10 步数值 parity，
-证据升级到 real L3。
+并已进入八 Region verified bundle：完整 action chunk direct AOTI/C++
+bit-exact，152 次成功 Run、cache revision、CUDA state version、reset、typed/C
+ABI 和 validation abort 均通过，证据升级到 real L4。
 
 论文 release gate 另要求：
 
@@ -349,14 +352,13 @@ VLA。另有真实 SmolVLA prefix/solver/trim 三个 package 通过 10 步数值
 
 ## 10. 剩余开发顺序
 
-1. SmolVLA：在已完成真实 prefix/flow-step/trim L3 的基础上，补齐
-   device-resident exact cache、CUDA state 和 generated no-Python Session L4；
-2. DiffusionDrive 真实 checkpoint：真实 I/O capture、two-step planner artifact、
+1. DiffusionDrive 真实 checkpoint：真实 I/O capture、two-step planner artifact、
    checkpoint candidates/scores C++ parity（fixture parity 已完成）；
-3. OpenVLA：在已通过真实 L2 基础上完成分 Region L3，12GB 允许时推进 L4；
+2. OpenVLA：在已通过真实 L2 基础上完成分 Region L3，12GB 允许时推进 L4；
+3. 为已完成的 SmolVLA L4 补齐 Host CUDA benchmark、消融、nsys/ncu 与
+   10k+ Run soak；
 4. 选择 Octo/GR00T 与 AutoVLA/ReCogDrive 做 frozen-core held-out；
-5. Host CUDA benchmark、memory/profile 与 10k+ Run soak；
-6. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
+5. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
    runtime/generated Session 的 JetPack arm64 portability 已通过。
 
 ## 11. 风险控制

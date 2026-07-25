@@ -39,7 +39,31 @@ pipeline audit metadata, not paper-grade benchmark results. Artifact hashes,
 sizes, compile times, per-step errors, versions, and tolerances are in
 `smolvla_artifact_l3.json`.
 
-Real SmolVLA L4 remains pending until the split artifacts execute through the
-generated no-Python C++ Session with device-resident exact prefix cache,
-bounded solver SSA, CUDA authoritative state, transactional queue updates, and
-failure rollback.
+## SmolVLA real L4
+
+The same real prefix/solver/trim packages were combined with five captured
+Adapter support Regions (`make_timestep` and four queue operations) in one
+verified eight-Region Compile Bundle. The generated no-Python C++ Session ran
+on the same RTX 3060 with:
+
+- bit-exact direct-AOTI versus generated-C++ parity for the complete
+  `[1, 50, 6]` action chunk;
+- one same-revision exact-cache hit and explicit new-revision,
+  missing-revision, and episode-reset misses;
+- 152 successful primary Session invocations, 304 authoritative state commits,
+  and monotonically allocated per-state versions;
+- typed C++ and generic C ABI output equality;
+- a NaN output-validation failure that aborted the transaction, exposed no
+  uncommitted output, and did not increment state versions;
+- execution under invalid `PYTHONHOME/PYTHONPATH`, with no `libpython` in
+  `ldd`.
+
+The verified static plan assigns 2,314,353 bytes to recomputable derived prefix
+cache and 2,440 bytes to authoritative queue/cursor state. These categories
+remain semantically separate. Hashes, input fixture identities, bundle digest,
+trace counts, and the exact reproduction command are recorded in
+`smolvla_artifact_l4.json`.
+
+This upgrades the fixed `SmolVLA-Base` checkpoint to real Host-CUDA L4. It is
+not an Orin claim and the recorded audit runtime is not yet a paper-grade
+latency benchmark.

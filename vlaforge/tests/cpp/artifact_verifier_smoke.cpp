@@ -4,10 +4,29 @@
 #include <fstream>
 #include <string>
 
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
+namespace {
+
+int ProcessId() {
+#if defined(_WIN32)
+  return _getpid();
+#else
+  return getpid();
+#endif
+}
+
+}  // namespace
+
 int main() {
   const auto root =
       std::filesystem::temp_directory_path() /
-      "vlaforge_artifact_verifier_smoke";
+      ("vlaforge_artifact_verifier_smoke_" +
+       std::to_string(ProcessId()));
   std::error_code error;
   std::filesystem::remove_all(root, error);
   std::filesystem::create_directories(root / "artifacts");

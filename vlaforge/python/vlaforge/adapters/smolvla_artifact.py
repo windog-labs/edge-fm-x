@@ -17,10 +17,495 @@ from pathlib import Path
 from typing import Any
 
 from vlaforge.adapters.smolvla_real import RealSmolVLAConfig
+from vlaforge.frontend.builder import ModuleBuilder
+from vlaforge.ir import ops
+from vlaforge.ir.program import (
+    Block,
+    InputPort,
+    Invocation,
+    OutputPort,
+    StateSlot,
+    TensorRegion,
+    Value,
+)
+from vlaforge.ir.types import PendingOutputType, ScalarType, TensorType
 
 
 SMOLVLA_ARTIFACT_EVIDENCE_SCHEMA = "vlaforge.smolvla_artifact_evidence/1"
 _REGIONS = ("prepare_prefix", "solver_step", "trim_action_chunk")
+
+
+def build_compiled_smolvla_action_program(
+    *,
+    chunk_size: int = 50,
+    max_action_dim: int = 32,
+    action_dim: int = 6,
+    token_length: int = 48,
+    prefix_length: int = 113,
+    cache_layers: int = 16,
+    cache_heads: int = 5,
+    cache_head_dim: int = 64,
+    num_steps: int = 10,
+    device: str = "cuda:0",
+) -> Any:
+    """Build the flat-Tensor real SmolVLA L4 deployment program."""
+
+    dimensions = (
+        chunk_size,
+        max_action_dim,
+        action_dim,
+        token_length,
+        prefix_length,
+        cache_layers,
+        cache_heads,
+        cache_head_dim,
+        num_steps,
+    )
+    if min(dimensions) < 1:
+        raise ValueError("compiled SmolVLA dimensions must be positive")
+    image = TensorType((1, 3, 256, 256), "f32")
+    robot_state = TensorType((1, action_dim), "f32")
+    language = TensorType((1, token_length), "i64")
+    language_mask = TensorType((1, token_length), "bool")
+    sample = TensorType((1, chunk_size, max_action_dim), "f32")
+    action_chunk = TensorType((1, chunk_size, action_dim), "f32")
+    action = TensorType((1, action_dim), "f32")
+    pad_mask = TensorType((1, prefix_length), "bool")
+    cache = TensorType(
+        (1, prefix_length, cache_heads, cache_head_dim), "bf16"
+    )
+    timestep = TensorType((1,), "f32")
+    cursor = ScalarType("i32")
+    index = ScalarType("index")
+    boolean = ScalarType("bool")
+
+    builder = ModuleBuilder("smolvla_real_cuda_l4")
+    for name, payload in (
+        ("image", image),
+        ("state", robot_state),
+        ("instruction_tokens", language),
+        ("instruction_mask", language_mask),
+        ("noise", sample),
+    ):
+        builder.add_input(
+            InputPort(name, payload, device=device, alignment=64)
+        )
+    builder.add_output(
+        OutputPort(
+            "action",
+            action,
+            group="manipulation",
+            device=device,
+            alignment=64,
+        )
+    )
+    builder.add_state(StateSlot("action_queue", action_chunk, retention=2))
+    builder.add_state(StateSlot("queue_cursor", cursor, retention=2))
+
+    prefix_outputs = (pad_mask,) + (cache,) * (cache_layers * 2)
+    builder.add_region(
+        TensorRegion(
+            "prepare_prefix",
+            (
+                Value("image_arg", image),
+                Value("state_arg", robot_state),
+                Value("tokens_arg", language),
+                Value("mask_arg", language_mask),
+            ),
+            prefix_outputs,
+            metadata={
+                "memoize": True,
+                "cache_input_ports": [
+                    "image",
+                    "state",
+                    "instruction_tokens",
+                    "instruction_mask",
+                ],
+                "cache_state_slots": [],
+                "loop_invariant": True,
+            },
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "make_timestep",
+            (Value("step_arg", index),),
+            (timestep,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "solver_step",
+            (
+                Value("pad_mask_arg", pad_mask),
+                Value("sample_arg", sample),
+                Value("timestep_arg", timestep),
+                *tuple(
+                    Value(f"cache_arg_{item}", cache)
+                    for item in range(cache_layers * 2)
+                ),
+            ),
+            (sample,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "trim_action_chunk",
+            (Value("sample_arg", sample),),
+            (action_chunk,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "queue_is_empty",
+            (Value("cursor_arg", cursor),),
+            (boolean,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "queue_select",
+            (
+                Value("queue_arg", action_chunk),
+                Value("cursor_arg", cursor),
+            ),
+            (action,),
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "queue_advance",
+            (Value("cursor_arg", cursor),),
+            (cursor,),
+        )
+    )
+    builder.add_region(TensorRegion("queue_zero", (), (cursor,)))
+
+    prefix_names = ("prefix_pad_mask",) + tuple(
+        f"prefix_cache_{item}" for item in range(cache_layers * 2)
+    )
+    loop = Block.of(
+        (
+            ops.invoke(
+                ("timestep_value",),
+                (timestep,),
+                "make_timestep",
+                ("solver_index",),
+            ),
+            ops.invoke(
+                ("sample_next",),
+                (sample,),
+                "solver_step",
+                (
+                    prefix_names[0],
+                    "sample_iter",
+                    "timestep_value",
+                    *prefix_names[1:],
+                ),
+            ),
+            ops.yield_values("sample_next"),
+        )
+    )
+    refill = Block.of(
+        (
+            ops.invoke(
+                prefix_names,
+                prefix_outputs,
+                "prepare_prefix",
+                (
+                    "image_value",
+                    "state_value",
+                    "instruction_value",
+                    "instruction_mask_value",
+                ),
+            ),
+            ops.for_loop(
+                Value("sample_final", sample),
+                "noise_value",
+                Value("solver_index", index),
+                Value("sample_iter", sample),
+                loop,
+                lower=0,
+                upper=num_steps,
+            ),
+            ops.invoke(
+                ("refilled_queue",),
+                (action_chunk,),
+                "trim_action_chunk",
+                ("sample_final",),
+            ),
+            ops.invoke(
+                ("refilled_action",),
+                (action,),
+                "queue_select",
+                ("refilled_queue", "zero_cursor"),
+            ),
+            ops.invoke(
+                ("cursor_after_refill",),
+                (cursor,),
+                "queue_advance",
+                ("zero_cursor",),
+            ),
+            ops.yield_values(
+                "refilled_action",
+                "refilled_queue",
+                "cursor_after_refill",
+            ),
+        )
+    )
+    reuse = Block.of(
+        (
+            ops.invoke(
+                ("queued_action",),
+                (action,),
+                "queue_select",
+                ("queue_value", "cursor_value"),
+            ),
+            ops.invoke(
+                ("cursor_after_reuse",),
+                (cursor,),
+                "queue_advance",
+                ("cursor_value",),
+            ),
+            ops.yield_values(
+                "queued_action", "queue_value", "cursor_after_reuse"
+            ),
+        )
+    )
+    body = Block.of(
+        (
+            ops.input_read("image_value", "image_revision", image, "image"),
+            ops.input_read(
+                "state_value", "state_revision", robot_state, "state"
+            ),
+            ops.input_read(
+                "instruction_value",
+                "instruction_revision",
+                language,
+                "instruction_tokens",
+            ),
+            ops.input_read(
+                "instruction_mask_value",
+                "instruction_mask_revision",
+                language_mask,
+                "instruction_mask",
+            ),
+            ops.input_read(
+                "noise_value", "noise_revision", sample, "noise"
+            ),
+            ops.transaction_begin("txn"),
+            ops.state_read_latest(
+                "queue_snapshot",
+                action_chunk,
+                "action_queue",
+                "txn",
+            ),
+            ops.snapshot_value(
+                "queue_value", action_chunk, "queue_snapshot"
+            ),
+            ops.state_read_latest(
+                "cursor_snapshot", cursor, "queue_cursor", "txn"
+            ),
+            ops.snapshot_value(
+                "cursor_value", cursor, "cursor_snapshot"
+            ),
+            ops.invoke(
+                ("queue_empty",),
+                (boolean,),
+                "queue_is_empty",
+                ("cursor_value",),
+            ),
+            ops.invoke(("zero_cursor",), (cursor,), "queue_zero", ()),
+            ops.if_op(
+                (
+                    Value("selected_action", action),
+                    Value("queue_next", action_chunk),
+                    Value("cursor_next", cursor),
+                ),
+                "queue_empty",
+                refill,
+                reuse,
+            ),
+            ops.stage_write(
+                "queue_pending",
+                action_chunk,
+                "action_queue",
+                "txn",
+                "queue_next",
+            ),
+            ops.stage_write(
+                "cursor_pending",
+                cursor,
+                "queue_cursor",
+                "txn",
+                "cursor_next",
+            ),
+            ops.validate(
+                "action_valid", "selected_action", "finite_action"
+            ),
+            ops.output_create(
+                "pending_action",
+                "selected_action",
+                action,
+                "action",
+            ),
+            ops.output_group(
+                "pending_outputs",
+                "manipulation",
+                (
+                    (
+                        "pending_action",
+                        PendingOutputType("action", action),
+                    ),
+                ),
+            ),
+            ops.transaction_commit(
+                "committed_outputs",
+                (PendingOutputType("action", action),),
+                "manipulation",
+                "txn",
+                "pending_outputs",
+                "action_valid",
+            ),
+            ops.return_values("committed_outputs"),
+        )
+    )
+    builder.add_invocation(
+        Invocation(
+            "act",
+            body,
+            metadata={
+                "template": "ChunkedAction",
+                "persistent_state": "action_queue,queue_cursor",
+                "derived_cache": "flattened_prefix_kv",
+                "solver": "bounded_flow_matching",
+            },
+        )
+    )
+    return builder.build()
+
+
+def capture_smolvla_support_regions(
+    export_dir: str | Path,
+    *,
+    device: str = "cuda:0",
+    chunk_size: int = 50,
+    action_dim: int = 6,
+    num_steps: int = 10,
+) -> tuple[Any, ...]:
+    """Capture the small Adapter/control TensorRegions required by L4."""
+
+    import torch
+    from vlaforge.frontend import capture_region, save_exported_region
+
+    if min(chunk_size, action_dim, num_steps) < 1:
+        raise ValueError("support Region dimensions must be positive")
+    output = Path(export_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    cursor_type = ScalarType("i32")
+    index_type = ScalarType("index")
+    queue_type = TensorType((1, chunk_size, action_dim), "f32")
+    action_type = TensorType((1, action_dim), "f32")
+    timestep_type = TensorType((1,), "f32")
+
+    class MakeTimestep(torch.nn.Module):
+        def forward(self, step: Any) -> Any:
+            return (
+                1.0 - step.to(dtype=torch.float32) / num_steps
+            ).reshape(1).to(device=device)
+
+    class QueueIsEmpty(torch.nn.Module):
+        def forward(self, cursor: Any) -> Any:
+            return cursor >= chunk_size
+
+    class QueueSelect(torch.nn.Module):
+        def forward(self, queue: Any, cursor: Any) -> Any:
+            indices = (
+                cursor.to(torch.int64)
+                .reshape(1, 1, 1)
+                .expand(queue.shape[0], 1, queue.shape[2])
+            )
+            return torch.gather(queue, 1, indices).squeeze(1)
+
+    class QueueAdvance(torch.nn.Module):
+        def forward(self, cursor: Any) -> Any:
+            return cursor + 1
+
+    class QueueZero(torch.nn.Module):
+        def forward(self) -> Any:
+            return torch.zeros((), device=device, dtype=torch.int32)
+
+    step = torch.tensor(2, dtype=torch.int64)
+    cursor = torch.tensor(3, device=device, dtype=torch.int32)
+    queue = torch.arange(
+        chunk_size * action_dim,
+        device=device,
+        dtype=torch.float32,
+    ).reshape(1, chunk_size, action_dim)
+    declarations = (
+        (
+            TensorRegion(
+                "make_timestep",
+                (Value("step", index_type),),
+                (timestep_type,),
+            ),
+            MakeTimestep(),
+            (step,),
+        ),
+        (
+            TensorRegion(
+                "queue_is_empty",
+                (Value("cursor", cursor_type),),
+                (ScalarType("bool"),),
+            ),
+            QueueIsEmpty(),
+            (cursor,),
+        ),
+        (
+            TensorRegion(
+                "queue_select",
+                (
+                    Value("queue", queue_type),
+                    Value("cursor", cursor_type),
+                ),
+                (action_type,),
+            ),
+            QueueSelect(),
+            (queue, cursor),
+        ),
+        (
+            TensorRegion(
+                "queue_advance",
+                (Value("cursor", cursor_type),),
+                (cursor_type,),
+            ),
+            QueueAdvance(),
+            (cursor,),
+        ),
+        (
+            TensorRegion("queue_zero", (), (cursor_type,)),
+            QueueZero(),
+            (),
+        ),
+    )
+    captures = []
+    for region, implementation, arguments in declarations:
+        capture = capture_region(
+            region,
+            implementation,
+            arguments,
+            strict=True,
+            absolute_tolerance=0.0,
+            relative_tolerance=0.0,
+        )
+        capture.require_supported()
+        save_exported_region(
+            capture,
+            program_path=output / f"{region.name}.pt2e",
+            evidence_path=output / f"{region.name}.capture.json",
+        )
+        captures.append(capture)
+    return tuple(captures)
 
 
 @dataclass(frozen=True, slots=True)

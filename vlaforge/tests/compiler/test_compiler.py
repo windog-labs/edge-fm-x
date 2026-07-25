@@ -69,6 +69,14 @@ def test_verified_certificate_binds_io_plan_and_exact_cache_key() -> None:
     assert decoded.digest() == certificate.digest()
 
 
+def test_exact_cache_certificate_uses_declared_dependency_subset() -> None:
+    result = compile_module(build_smolvla_fixture().module)
+    cache = result.certificate.caches[0]
+    assert cache.enabled
+    assert cache.input_ids == (0,)
+    assert cache.state_ids == ()
+
+
 def test_off_profile_has_no_cross_run_derived_cache() -> None:
     result = compile_module(build_openvla_fixture().module, profile="off")
     assert not any(item.enabled for item in result.certificate.caches)

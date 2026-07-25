@@ -175,7 +175,17 @@ def _build_real_smolvla_action_program_v02(
                 Value("mask_arg", language_mask),
             ),
             (OPAQUE,),
-            metadata={"memoize": True, "loop_invariant": True},
+            metadata={
+                "memoize": True,
+                "cache_input_ports": [
+                    "image",
+                    "state",
+                    "instruction_tokens",
+                    "instruction_mask",
+                ],
+                "cache_state_slots": [],
+                "loop_invariant": True,
+            },
         )
     )
     builder.add_region(

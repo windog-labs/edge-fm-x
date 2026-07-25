@@ -22,7 +22,12 @@ from vlaforge.ir.types import (
     SnapshotType,
     TensorType,
 )
-from vlaforge.plan import PlanModule, emit_memory_constants, verify_plan
+from vlaforge.plan import (
+    BufferClass,
+    PlanModule,
+    emit_memory_constants,
+    verify_plan,
+)
 from vlaforge.plan.memory import state_arena_sizes, storage_size_bytes
 
 
@@ -152,6 +157,8 @@ def generate_compiled_cpp_session(
 class _Cache:
     task_id: int
     outputs: tuple[int, ...]
+    input_ids: tuple[int, ...]
+    state_ids: tuple[int, ...]
 
 
 class _Emitter:
@@ -201,16 +208,46 @@ class _Emitter:
             for physical in plan.arena.physical_buffers
             for logical_id in physical.logical_buffers
         }
-        self.caches = tuple(
-            _Cache(task.id, task.outputs)
-            for task in plan.tasks
-            if task.opcode == "vla.invoke"
-            and bool(
-                module.region(str(task.attributes["region"])).metadata.get(
-                    "memoize", False
+        caches = []
+        for task in plan.tasks:
+            if task.opcode != "vla.invoke":
+                continue
+            region = module.region(str(task.attributes["region"]))
+            if not bool(region.metadata.get("memoize", False)):
+                continue
+            caches.append(
+                _Cache(
+                    task.id,
+                    task.outputs,
+                    tuple(
+                        self.input_ids[str(name)]
+                        for name in region.metadata.get(
+                            "cache_input_ports",
+                            tuple(port.name for port in module.inputs),
+                        )
+                    ),
+                    tuple(
+                        self.state_ids[str(name)]
+                        for name in region.metadata.get(
+                            "cache_state_slots",
+                            tuple(state.name for state in module.states),
+                        )
+                    ),
                 )
             )
-        )
+        self.caches = tuple(caches)
+        for cache in self.caches:
+            for output in cache.outputs:
+                physical = self.physical.get(output)
+                if (
+                    physical is None
+                    or physical.buffer_class is not BufferClass.DERIVED_CACHE
+                    or len(physical.logical_buffers) != 1
+                ):
+                    raise CodegenUnsupportedError(
+                        "exact cache output requires dedicated persistent "
+                        "derived-cache storage"
+                    )
         self.max_region_inputs = max(
             (len(region.inputs) for region in module.regions),
             default=1,
@@ -410,6 +447,7 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
             (
                 '#include "session_generated.h"',
                 '#include "memory_constants.h"',
+                '#include "vlaforge/runtime/device_copy.h"',
                 "",
                 "#include <algorithm>",
                 "#include <array>",
@@ -493,6 +531,7 @@ constexpr char kArtifactVariant{index}[] = "{variant}";"""
         state_sizes = state_arena_sizes(self.plan)
         if len(state_sizes) > 1:
             raise CodegenUnsupportedError("generated session supports one state arena")
+        state_device = next(iter(state_sizes), "cpu")
         state_size = next(iter(state_sizes.values()), 0)
         state_alignment = max(
             (state.alignment or 1 for state in self.plan.states),
@@ -534,6 +573,8 @@ constexpr LogicalDesc kLogical[] = {{
 
 constexpr std::size_t kStateArenaSize = {state_size}u;
 constexpr std::size_t kStateArenaAlignment = {state_alignment}u;
+constexpr VLAForgeDevice kStateArenaDevice{{
+    {_device(state_device)}, {_device_ordinal(state_device)}}};
 {state_table}
 """
 
@@ -662,15 +703,33 @@ std::size_t ScalarBytes(VLAForgeDType dtype) {
                             {VLAFORGE_DEVICE_CPU, 0}};
 }
 
-bool ReadBool(const VLAForgeTensorView& view) {
-  return view.data != nullptr &&
-         *static_cast<const std::uint8_t*>(view.data) != 0u;
+vlaforge::runtime::Status ReadBool(
+    const VLAForgeTensorView& view, bool* result) {
+  if (result == nullptr || view.data == nullptr || view.size_bytes < 1u) {
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
+        "invalid boolean control value");
+  }
+  std::uint8_t value = 0u;
+  auto status = vlaforge::runtime::CopyBytes(
+      &value, {VLAFORGE_DEVICE_CPU, 0}, view.data, view.device, 1u);
+  if (status.ok()) {
+    *result = value != 0u;
+  }
+  return status;
 }
 
-[[maybe_unused]] void CopyValue(const VLAForgeTensorView& source,
-                                const VLAForgeTensorView& target) {
-  std::memcpy(target.data, source.data,
-              std::min(source.size_bytes, target.size_bytes));
+[[maybe_unused]] vlaforge::runtime::Status CopyValue(
+    const VLAForgeTensorView& source,
+    const VLAForgeTensorView& target) {
+  if (source.size_bytes != target.size_bytes) {
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
+        "value copy size mismatch");
+  }
+  return vlaforge::runtime::CopyBytes(
+      target.data, target.device, source.data, source.device,
+      source.size_bytes);
 }
 """
 
@@ -862,7 +921,7 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
              {{{_device(self.plan.arena.device)},
                {_device_ordinal(self.plan.arena.device)}}}),
       state_arena_(kStateArenaSize, kStateArenaAlignment,
-                   {{VLAFORGE_DEVICE_CPU, 0}}),
+                   kStateArenaDevice),
       state_store_(state_arena_, {state_pointer},
                    {len(self.plan.states)}u),
       transaction_({len(self.plan.states)}u) {{
@@ -1078,11 +1137,12 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                     )
                 lines.extend(
                     (
-                        f"*static_cast<std::uint64_t*>("
-                        f"values_[{task.outputs[1]}u].data) = "
-                        f"inputs_[{input_id}u].revision;",
                         f"input_revisions_[{input_id}u] = "
                         f"inputs_[{input_id}u].revision;",
+                        f"values_[{task.outputs[1]}u] = VLAForgeTensorView{{"
+                        f"&input_revisions_[{input_id}u], "
+                        "sizeof(std::uint64_t), nullptr, 0u, "
+                        "VLAFORGE_DTYPE_U64, {VLAFORGE_DEVICE_CPU, 0}};",
                         "vlaforge::runtime::EmitTrace("
                         "trace_, vlaforge::runtime::TraceEvent{"
                         "vlaforge::runtime::TraceKind::kInput, "
@@ -1118,6 +1178,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                         f"const_cast<void*>(snapshots_[{snapshot_id}u].data);",
                         f"values_[{output_id}u].size_bytes = "
                         f"snapshots_[{snapshot_id}u].size_bytes;",
+                        f"values_[{output_id}u].device = "
+                        f"snapshots_[{snapshot_id}u].device;",
                     )
                 )
             elif opcode == "vla.invoke":
@@ -1135,7 +1197,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                     (
                         f"status = state_store_.Stage(&transaction_, {state_id}u, "
                         f"values_[{value}u].data, values_[{value}u].size_bytes, "
-                        f"{task.id}u);",
+                        f"{task.id}u, values_[{value}u].device);",
                         "if (!status.ok()) { return Fail(status); }",
                     )
                 )
@@ -1146,10 +1208,24 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 output = task.outputs[0]
                 lines.extend(
                     (
-                        f"*static_cast<std::uint8_t*>("
-                        f"values_[{output}u].data) = "
-                        f"Validate{validator_id}(values_[{value}u].data, "
+                        f"std::array<std::byte, "
+                        f"{max(_bytes(self.plan.buffer(value).type), 1)}u> "
+                        f"validation_input_{task.id}{{}};",
+                        "status = vlaforge::runtime::CopyBytes("
+                        f"validation_input_{task.id}.data(), "
+                        "{VLAFORGE_DEVICE_CPU, 0}, "
+                        f"values_[{value}u].data, "
+                        f"values_[{value}u].device, "
+                        f"values_[{value}u].size_bytes, {task.id}u);",
+                        "if (!status.ok()) { return Fail(status); }",
+                        f"std::uint8_t validation_result_{task.id} = "
+                        f"Validate{validator_id}("
+                        f"validation_input_{task.id}.data(), "
                         f"values_[{value}u].size_bytes) ? 1u : 0u;",
+                        f"values_[{output}u] = VLAForgeTensorView{{"
+                        f"&validation_result_{task.id}, 1u, nullptr, 0u, "
+                        "VLAFORGE_DTYPE_BOOL, "
+                        "{VLAFORGE_DEVICE_CPU, 0}};",
                         "vlaforge::runtime::EmitTrace("
                         "trace_, vlaforge::runtime::TraceEvent{"
                         "vlaforge::runtime::TraceKind::kValidation, "
@@ -1233,19 +1309,13 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
         equal_inputs = " && ".join(
             f"cache_{task.id}_revisions_[{index}u] == "
             f"input_revisions_[{index}u]"
-            for index in range(len(self.module.inputs))
+            for index in cache.input_ids
         ) or "true"
         equal_states = " && ".join(
             f"cache_{task.id}_state_versions_[{index}u] == "
             f"state_versions_[{index}u]"
-            for index in range(len(self.module.states))
+            for index in cache.state_ids
         ) or "true"
-        hit_copy = [
-            f"std::memcpy(values_[{output}u].data, "
-            f"cache_{task.id}_output_{output}_.data(), "
-            f"values_[{output}u].size_bytes);"
-            for output in task.outputs
-        ]
         miss_copy = [
             "vlaforge::runtime::EmitTrace("
             "trace_, vlaforge::runtime::TraceEvent{"
@@ -1253,11 +1323,6 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
             "state_store_.episode(), run_index_, 0u});",
             *run,
-            *(
-                f"std::memcpy(cache_{task.id}_output_{output}_.data(), "
-                f"values_[{output}u].data, values_[{output}u].size_bytes);"
-                for output in task.outputs
-            ),
             f"cache_{task.id}_revisions_ = input_revisions_;",
             f"cache_{task.id}_state_versions_ = state_versions_;",
             f"cache_{task.id}_episode_ = state_store_.episode();",
@@ -1267,7 +1332,6 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             f"if (cache_{task.id}_valid_ && "
             f"cache_{task.id}_episode_ == state_store_.episode() && "
             f"({equal_inputs}) && ({equal_states})) {{",
-            *_indent_lines(hit_copy, 2),
             "  vlaforge::runtime::EmitTrace("
             "trace_, vlaforge::runtime::TraceEvent{"
             "vlaforge::runtime::TraceKind::kCacheHit, "
@@ -1344,12 +1408,40 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             (item for item in self.caches if item.task_id == task.id),
             None,
         )
-        if cache is not None:
-            raise CodegenUnsupportedError(
-                "artifact C++ exact cache requires device-resident cache "
-                "storage and is not yet available"
-            )
-        return run
+        if cache is None:
+            return run
+        equal_inputs = " && ".join(
+            f"cache_{task.id}_revisions_[{index}u] == "
+            f"input_revisions_[{index}u]"
+            for index in cache.input_ids
+        ) or "true"
+        equal_states = " && ".join(
+            f"cache_{task.id}_state_versions_[{index}u] == "
+            f"state_versions_[{index}u]"
+            for index in cache.state_ids
+        ) or "true"
+        return [
+            f"if (cache_{task.id}_valid_ && "
+            f"cache_{task.id}_episode_ == state_store_.episode() && "
+            f"({equal_inputs}) && ({equal_states})) {{",
+            "  vlaforge::runtime::EmitTrace("
+            "trace_, vlaforge::runtime::TraceEvent{"
+            "vlaforge::runtime::TraceKind::kCacheHit, "
+            f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
+            "state_store_.episode(), run_index_, 0u});",
+            "} else {",
+            "  vlaforge::runtime::EmitTrace("
+            "trace_, vlaforge::runtime::TraceEvent{"
+            "vlaforge::runtime::TraceKind::kCacheMiss, "
+            f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
+            "state_store_.episode(), run_index_, 0u});",
+            *_indent_lines(run, 2),
+            f"  cache_{task.id}_revisions_ = input_revisions_;",
+            f"  cache_{task.id}_state_versions_ = state_versions_;",
+            f"  cache_{task.id}_episode_ = state_store_.episode();",
+            f"  cache_{task.id}_valid_ = true;",
+            "}",
+        ]
 
     def _emit_for(self, task: Any) -> list[str]:
         body = self.plan.block(task.blocks[0])
@@ -1360,7 +1452,9 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             raise CodegenUnsupportedError("bounded for body must yield one value")
         result = task.outputs[0]
         lines = [
-            f"CopyValue(values_[{task.inputs[0]}u], values_[{result}u]);",
+            f"status = CopyValue(values_[{task.inputs[0]}u], "
+            f"values_[{result}u]);",
+            "if (!status.ok()) { return Fail(status); }",
             f"for (std::int64_t loop_{task.id} = "
             f"{int(task.attributes['lower'])}; "
             f"loop_{task.id} < {int(task.attributes['upper'])}; "
@@ -1372,14 +1466,21 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             f"ScalarView(&induction_{task.id});",
             f"  values_[{body.arguments[1]}u] = values_[{result}u];",
             self._emit_block_without_terminal(body.id, indent=2),
-            f"  CopyValue(values_[{terminal.inputs[0]}u], "
+            f"  status = CopyValue(values_[{terminal.inputs[0]}u], "
             f"values_[{result}u]);",
+            "  if (!status.ok()) { return Fail(status); }",
             "}",
         ]
         return lines
 
     def _emit_if(self, task: Any) -> list[str]:
-        lines = [f"if (ReadBool(values_[{task.inputs[0]}u])) {{"]
+        lines = [
+            f"bool branch_condition_{task.id} = false;",
+            f"status = ReadBool(values_[{task.inputs[0]}u], "
+            f"&branch_condition_{task.id});",
+            "if (!status.ok()) { return Fail(status); }",
+            f"if (branch_condition_{task.id}) {{",
+        ]
         for branch_index, block_id in enumerate(task.blocks):
             block = self.plan.block(block_id)
             terminal = self.plan.task(block.tasks[-1])
@@ -1392,7 +1493,11 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 terminal.inputs, task.outputs, strict=True
             ):
                 lines.append(
-                    f"  CopyValue(values_[{source}u], values_[{target}u]);"
+                    f"  status = CopyValue(values_[{source}u], "
+                    f"values_[{target}u]);"
+                )
+                lines.append(
+                    "  if (!status.ok()) { return Fail(status); }"
                 )
         lines.append("}")
         return lines
@@ -1443,15 +1548,23 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                         f"scalar_outputs_[{output_id}u] = "
                         f"VLAForgeScalarValue{{sizeof(VLAForgeScalarValue), "
                         f"{_dtype(port.payload.name)}, {{}}}};",
-                        f"std::memcpy(ScalarData(&scalar_outputs_[{output_id}u]), "
+                        "status = vlaforge::runtime::CopyBytes("
+                        f"ScalarData(&scalar_outputs_[{output_id}u]), "
+                        "{VLAFORGE_DEVICE_CPU, 0}, "
                         f"values_[{value_id}u].data, "
-                        f"values_[{value_id}u].size_bytes);",
+                        f"values_[{value_id}u].device, "
+                        f"values_[{value_id}u].size_bytes, {task.id}u);",
+                        "if (!status.ok()) { return Fail(status); }",
                         f"tensor_outputs_[{output_id}u] = VLAForgeBoundTensor{{}};",
                     )
                 )
             assignments.append(f"output_valid_[{output_id}u] = true;")
         return [
-            f"if (!ReadBool(values_[{condition}u])) {{",
+            f"bool commit_condition_{task.id} = false;",
+            f"status = ReadBool(values_[{condition}u], "
+            f"&commit_condition_{task.id});",
+            "if (!status.ok()) { return Fail(status); }",
+            f"if (!commit_condition_{task.id}) {{",
             f"  status = state_store_.Abort(&transaction_, {task.id}u);",
             "  if (!status.ok()) { return status; }",
             "  return vlaforge::runtime::Status::Error(",
@@ -1647,18 +1760,12 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
   if (!status.ok()) {{ return status; }}"""
 
     def _cache_field(self, cache: _Cache) -> str:
-        output_fields = "\n".join(
-            f"  std::array<std::byte, {_bytes(self.plan.buffer(output).type)}> "
-            f"cache_{cache.task_id}_output_{output}_{{}};"
-            for output in cache.outputs
-        )
         return f"""  bool cache_{cache.task_id}_valid_ = false;
   std::uint64_t cache_{cache.task_id}_episode_ = 0;
   std::array<std::uint64_t, {max(len(self.module.inputs), 1)}>
       cache_{cache.task_id}_revisions_{{}};
   std::array<std::uint64_t, {max(len(self.module.states), 1)}>
-      cache_{cache.task_id}_state_versions_{{}};
-{output_fields}"""
+      cache_{cache.task_id}_state_versions_{{}};"""
 
     def _state_init_cases(self, *, tensor: bool) -> str:
         cases = []
@@ -1674,12 +1781,14 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 )
                 data = "value.tensor.data"
                 size = "value.tensor.size_bytes"
+                source_device = "value.tensor.device"
             else:
                 payload = state.payload
                 assert isinstance(payload, ScalarType)
                 checks = f"value.dtype != {_dtype(payload.name)}"
                 data = "ScalarData(const_cast<VLAForgeScalarValue*>(&value))"
                 size = f"{_bytes(payload)}u"
+                source_device = "{VLAFORGE_DEVICE_CPU, 0}"
             cases.append(
                 f"""    case {state_id}u:
       if ({checks}) {{
@@ -1687,7 +1796,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             vlaforge::runtime::StatusCode::kInvalidArgument, state_id,
             "state initializer contract mismatch");
       }}
-      return state_store_.Initialize(state_id, {data}, {size});"""
+      return state_store_.Initialize(
+          state_id, {data}, {size}, {source_device});"""
             )
         return "\n".join(cases)
 

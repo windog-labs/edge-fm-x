@@ -85,6 +85,29 @@ def test_exact_cache_rejects_guarded_approximate_contract() -> None:
         )
 
 
+def test_exact_cache_rejects_unknown_or_duplicate_dependencies() -> None:
+    fixture = build_smolvla_fixture()
+    regions = tuple(
+        replace(
+            region,
+            metadata={
+                **region.metadata,
+                "cache_input_ports": ("image", "image", "missing"),
+            },
+        )
+        if region.name == "encode_observation"
+        else region
+        for region in fixture.module.regions
+    )
+    with pytest.raises(
+        ExactCacheContractError, match="invalid exact-cache dependencies"
+    ):
+        configure_exact_cache(
+            replace(fixture.module, regions=regions),
+            enabled=True,
+        )
+
+
 def test_loop_analysis_distinguishes_preheader_and_loop_carried() -> None:
     fixture = build_openvla_fixture()
     analysis = analyze_structured_loop_invariance(fixture.module)

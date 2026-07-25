@@ -31,6 +31,13 @@ add_test(NAME vlaforge_artifact_verifier_smoke
     COMMAND vlaforge_artifact_verifier_smoke)
 
 if(TARGET vlaforge_aoti_backend)
+    add_executable(vlaforge_cuda_state_store_smoke
+        cuda_state_store_smoke.cpp)
+    target_link_libraries(vlaforge_cuda_state_store_smoke PRIVATE
+        vlaforge_runtime)
+    add_test(NAME vlaforge_cuda_state_store_smoke
+        COMMAND vlaforge_cuda_state_store_smoke)
+
     add_executable(vlaforge_aoti_region_smoke aoti_region_smoke.cpp)
     target_link_libraries(vlaforge_aoti_region_smoke PRIVATE
         vlaforge_aoti_backend)

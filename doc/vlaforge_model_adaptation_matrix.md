@@ -77,7 +77,7 @@ memory/performance results
 | Octo | L0 + L1 | 是 | 否 | JAX capture 与 L2–L4 |
 | OpenVLA | L0 + L1 + L2 + fixture-L4 | 是 | fixture | real artifact/Session |
 | π0 | L0 + L1 | 是 | 否 | real capture/artifact |
-| SmolVLA | L0 + L1 + L2 + fixture-L4 | 是 | fixture | real artifact/Session |
+| SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + fixture-L4 | 是 | candidates/scores/trajectory fixture | real checkpoint L2–L4 |
 | AutoVLA | L0 + L1 | 是 | 否 | real fast/slow parity |
@@ -94,6 +94,7 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
 1. 稳定 generic InputPort、bounded profile、transactional output group 和 plugin ABI；
 2. 完成四类 driving fixture 与 OpenVLA/SmolVLA/π0 fixture 迁移；
 3. 完成通用 C ABI、typed wrapper 和 clean C++ parity；
-4. DiffusionDrive 真实适配优先，其次重建 SmolVLA/OpenVLA v0.2 L4；
+4. SmolVLA real L4 已完成；下一优先级是 DiffusionDrive 真实 L3/L4，
+   然后推进 OpenVLA 分 Region L3/L4；
 5. 评估 Octo/GR00T 与 AutoVLA/ReCogDrive 中各一个真实对象；
 6. 冻结 core 后统计 held-out model 的 core-op 增量和 Adapter 成本。

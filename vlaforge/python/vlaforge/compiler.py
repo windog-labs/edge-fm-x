@@ -350,6 +350,7 @@ def compile_module(
         cache_enabled = bool(
             compiled_module.region(region).metadata.get("memoize", False)
         )
+        region_metadata = compiled_module.region(region).metadata
         caches.append(
             ExactCacheCertificate(
                 task_id=task.id,
@@ -363,12 +364,36 @@ def compile_module(
                     else "compiler profile disables exact cache reuse"
                 ),
                 input_ids=(
-                    tuple(port.input_id for port in compiled_module.inputs)
+                    tuple(
+                        compiled_module.input(name).input_id
+                        for name in region_metadata.get(
+                            "cache_input_ports",
+                            tuple(
+                                port.name
+                                for port in compiled_module.inputs
+                            ),
+                        )
+                    )
                     if cache_enabled
                     else ()
                 ),
                 state_ids=(
-                    tuple(range(len(compiled_module.states)))
+                    tuple(
+                        next(
+                            index
+                            for index, state in enumerate(
+                                compiled_module.states
+                            )
+                            if state.name == name
+                        )
+                        for name in region_metadata.get(
+                            "cache_state_slots",
+                            tuple(
+                                state.name
+                                for state in compiled_module.states
+                            ),
+                        )
+                    )
                     if cache_enabled
                     else ()
                 ),

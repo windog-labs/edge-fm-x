@@ -29,6 +29,7 @@ struct StateSnapshot final {
   std::uint64_t episode = 0;
   const void* data = nullptr;
   std::size_t size_bytes = 0;
+  VLAForgeDevice device{VLAFORGE_DEVICE_CPU, 0};
 };
 
 class StateStore final {
@@ -48,14 +49,18 @@ class StateStore final {
   void SetRunIndex(std::uint64_t run) noexcept { run_ = run; }
 
   Status Initialize(std::uint32_t state_id, const void* data,
-                    std::size_t size_bytes) noexcept;
+                    std::size_t size_bytes,
+                    VLAForgeDevice source_device = {
+                        VLAFORGE_DEVICE_CPU, 0}) noexcept;
   Status Begin(Transaction* transaction,
                std::uint32_t task_id = 0) noexcept;
   Status ReadLatest(std::uint32_t state_id, std::uint32_t task_id,
                     StateSnapshot* output) noexcept;
   Status Stage(Transaction* transaction, std::uint32_t state_id,
                const void* data, std::size_t size_bytes,
-               std::uint32_t task_id) noexcept;
+               std::uint32_t task_id,
+               VLAForgeDevice source_device = {
+                   VLAFORGE_DEVICE_CPU, 0}) noexcept;
   Status Commit(Transaction* transaction,
                 std::uint32_t task_id) noexcept;
   Status Abort(Transaction* transaction,
@@ -78,6 +83,8 @@ class StateStore final {
       std::uint32_t state_id) noexcept;
   [[nodiscard]] std::byte* InitialData(
       std::uint32_t state_id) noexcept;
+  [[nodiscard]] std::byte* BackupData(
+      std::uint32_t state_id) noexcept;
   [[nodiscard]] void* SlotData(const StateSlotDescriptor& descriptor,
                                std::uint32_t slot) noexcept;
   [[nodiscard]] bool IsActive(
@@ -90,6 +97,7 @@ class StateStore final {
   std::vector<SlotMetadata> metadata_;
   std::vector<std::byte> staging_;
   std::vector<std::byte> initial_;
+  std::vector<std::byte> commit_backup_;
   std::vector<bool> initialized_;
   std::vector<std::uint64_t> next_versions_;
   TraceSink trace_{};

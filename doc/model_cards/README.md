@@ -10,7 +10,7 @@ fixture 已经生成并运行无 Python C++ Session，不表示真实 checkpoint
 | Octo | L0 + L1 | 0 | [octo.md](octo.md) |
 | OpenVLA | L0 + L1 + L2 + fixture-L4 | 0 | [openvla.md](openvla.md) |
 | π0 | L0 + L1 | 0 | [pi0.md](pi0.md) |
-| SmolVLA | L0 + L1 + L2 + fixture-L4 | 0 | [smolvla.md](smolvla.md) |
+| SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 0 | [smolvla.md](smolvla.md) |
 | GR00T N1.7 | L0 + L1 | 0 | [groot_n1.md](groot_n1.md) |
 | DiffusionDrive | L0 + L1 + fixture-L4 | 0 | [diffusiondrive.md](diffusiondrive.md) |
 | AutoVLA | L0 + L1 | 0 | [autovla.md](autovla.md) |

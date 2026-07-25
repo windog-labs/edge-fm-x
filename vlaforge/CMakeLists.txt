@@ -20,6 +20,7 @@ option(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND
 
 add_library(vlaforge_runtime STATIC
     runtime/artifact_verifier.cpp
+    runtime/device_copy.cpp
     runtime/region_executable.c
     runtime/session_c.c
     runtime/static_arena.cpp

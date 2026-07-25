@@ -101,19 +101,20 @@ backend；VLAForge portability gate 不再全量编译旧 EdgeFM CUDA operators�
 ## 当前证据边界
 
 OpenVLA 与 SmolVLA 已在 2026-07-25 重新通过 v0.2 真实 checkpoint
-eager/IR L2；报告位于 `doc/reports/vlaforge_real_v02/`。本轮 v0.2
-generated C++ 证据仍是 deterministic `fixture-L4`，真实 checkpoint 的
-artifact + generated Session L3/L4 需要按新 ABI 重建。
+eager/IR L2；报告位于 `doc/reports/vlaforge_real_v02/`。SmolVLA 又完成真实
+artifact L3 与 generated no-Python C++ Session L4；OpenVLA 当前仍停留在
+真实 L2。
 
 因此当前可以声称：
 
 - Invocation IR/Plan/C++ substrate 已贯通；
 - 模型范式 fixture 已证明 core expressiveness；
-- clean no-Python C/C++ ABI 已验证。
+- clean no-Python C/C++ ABI 已验证；
+- 固定 `SmolVLA-Base` checkpoint 已达到 real Host-CUDA L4。
 
 当前不能声称：
 
-- OpenVLA 7B 或 SmolVLA checkpoint 已完成 v0.2 real L4；
+- OpenVLA 7B 已完成 v0.2 real L3/L4；
 - DiffusionDrive checkpoint 已运行 generated C++；
 - Orin 真机性能或闭环已验证。
 
@@ -134,7 +135,7 @@ RTX 3060 12GB、CUDA 12.8、PyTorch 2.10.0+cu128、`sm_86` 已验证：
 该 audit 使用确定性小型 TensorRegion，只证明真实 production backend 通路，
 不升级任何 VLA checkpoint 的 L3/L4 等级。
 
-## SmolVLA real Host-CUDA L3
+## SmolVLA real Host-CUDA L3/L4
 
 真实 `SmolVLA-Base` 的 prefix、solver-step 与 trim Region 已使用同一
 `torch 2.10.0+cu128` 环境编译为 `sm_86` AOTInductor package。10 步
@@ -143,24 +144,29 @@ pipeline 在显式 BF16 数值容差内通过，且重复 artifact 执行 bit-ex
 hash、size、compile time 和逐步误差见
 `doc/reports/vlaforge_real_v03/`。
 
-这将 SmolVLA 真实证据从 L2 提升到 L3，但尚未提升到 L4。下一步必须完成
-generated no-Python C++ Session、device-resident exact prefix cache、CUDA
-authoritative state、事务化 action queue 以及失败回滚。
+同一批真实模型 artifacts 已进入八 Region verified Compile Bundle，并由
+generated no-Python C++ Session 执行。完整 `[1,50,6]` action chunk 与 direct
+AOTI bit-exact；same/new/missing InputRevision、device-resident exact prefix
+cache、CUDA authoritative queue/cursor、152 次事务提交、episode reset、
+typed/generic C ABI 与 NaN validation abort 均通过。`ldd` 无 `libpython`。
+详细证据见 `doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json`。
 
 ## 下一步
 
-1. 以已通过审计的 AOTI Bundle/Session 通路完成 SmolVLA 真实 L4；
-2. 再完成 DiffusionDrive L3/L4 与 OpenVLA 分 Region L3/L4；
-3. Host CUDA latency/memory/profile 与长稳；
+1. 完成 DiffusionDrive L3/L4 与 OpenVLA 分 Region L3/L4；
+2. 为 SmolVLA real L4 补齐 Host CUDA latency/memory/profile、消融与 10k+
+   Run 长稳；
+3. 冻结 core 后完成 robot/driving held-out；
 4. Orin 台架就绪后运行模型专属 SM87 artifact、性能和长稳测试。
 
 ## 2026-07-25 Release audit
 
-- offline Python suite：182 passed，3 个 opt-in gate skipped；
+- offline Python suite：187 passed，4 个 opt-in gate skipped；
 - real SmolVLA checkpoint gate：1 passed；
+- real SmolVLA L4 opt-in gate：1 passed；
 - real OpenVLA-7B 4-bit gate：1 passed；
 - clean C++ Release build：passed；
-- CTest：7/7 passed；
+- CPU CTest：7/7 passed；CUDA/AOTI CTest：8/8 passed；
 - CPU 与 AOTI CMake install/export consumer：passed；
 - wheel：`vlaforge-0.2.0.dev0-py3-none-any.whl` built；
 - arm64 JetPack image probe：`aarch64`；

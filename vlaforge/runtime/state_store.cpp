@@ -1,8 +1,9 @@
 #include "vlaforge/runtime/state_store.h"
 
 #include <algorithm>
-#include <cstring>
 #include <limits>
+
+#include "vlaforge/runtime/device_copy.h"
 
 namespace vlaforge::runtime {
 namespace {
@@ -64,11 +65,13 @@ StateStore::StateStore(StaticArena& arena,
   metadata_.resize(metadata_count);
   staging_.resize(staging_size);
   initial_.resize(staging_size);
+  commit_backup_.resize(staging_size);
   initialization_status_ = Status::Ok();
 }
 
 Status StateStore::Initialize(std::uint32_t state_id, const void* data,
-                              std::size_t size_bytes) noexcept {
+                              std::size_t size_bytes,
+                              VLAForgeDevice source_device) noexcept {
   const auto* descriptor = Descriptor(state_id);
   if (descriptor == nullptr || data == nullptr ||
       size_bytes != descriptor->value_size) {
@@ -79,8 +82,19 @@ Status StateStore::Initialize(std::uint32_t state_id, const void* data,
     return Status::Error(StatusCode::kAlreadyExists, state_id,
                          "state is already initialized");
   }
-  std::memcpy(InitialData(state_id), data, size_bytes);
-  std::memcpy(SlotData(*descriptor, 0), data, size_bytes);
+  auto status = CopyBytes(
+      InitialData(state_id), {VLAFORGE_DEVICE_CPU, 0},
+      data, source_device, size_bytes, state_id);
+  if (!status.ok()) {
+    return status;
+  }
+  status = CopyBytes(
+      SlotData(*descriptor, 0), arena_.device(),
+      InitialData(state_id), {VLAFORGE_DEVICE_CPU, 0},
+      size_bytes, state_id);
+  if (!status.ok()) {
+    return status;
+  }
   auto& metadata = metadata_[MetadataIndex(state_id, 0)];
   metadata = SlotMetadata{true, 0, episode_};
   initialized_[state_id] = true;
@@ -137,7 +151,8 @@ Status StateStore::ReadLatest(std::uint32_t state_id,
                           selected->logical_version,
                           selected->episode,
                           SlotData(*descriptor, selected_slot),
-                          descriptor->value_size};
+                          descriptor->value_size,
+                          arena_.device()};
   EmitTrace(trace_, TraceEvent{TraceKind::kStateRead, task_id, state_id,
                                selected->logical_version,
                                active_transaction_id_ == kNoTransaction
@@ -149,7 +164,8 @@ Status StateStore::ReadLatest(std::uint32_t state_id,
 
 Status StateStore::Stage(Transaction* transaction, std::uint32_t state_id,
                          const void* data, std::size_t size_bytes,
-                         std::uint32_t task_id) noexcept {
+                         std::uint32_t task_id,
+                         VLAForgeDevice source_device) noexcept {
   const auto* descriptor = Descriptor(state_id);
   if (transaction == nullptr || !IsActive(*transaction) ||
       descriptor == nullptr || data == nullptr ||
@@ -158,8 +174,13 @@ Status StateStore::Stage(Transaction* transaction, std::uint32_t state_id,
                          "invalid staged state write");
   }
   std::byte* staging = StagingData(state_id);
-  std::memcpy(staging, data, size_bytes);
-  const Status status =
+  auto status = CopyBytes(
+      staging, {VLAFORGE_DEVICE_CPU, 0},
+      data, source_device, size_bytes, state_id);
+  if (!status.ok()) {
+    return status;
+  }
+  status =
       transaction->Add(PendingWrite{state_id, staging, size_bytes});
   if (status.ok()) {
     EmitTrace(trace_, TraceEvent{TraceKind::kStateStage, task_id, state_id, 0,
@@ -174,6 +195,75 @@ Status StateStore::Commit(Transaction* transaction,
     return Status::Error(StatusCode::kFailedPrecondition, task_id,
                          "transaction is not active");
   }
+  // Preserve every destination slot before performing any write. Metadata and
+  // logical versions remain untouched until all device copies succeed.
+  for (std::size_t index = 0; index < transaction->pending_count(); ++index) {
+    const auto& pending = transaction->pending(index);
+    const auto* descriptor = Descriptor(pending.state_id);
+    if (descriptor == nullptr) {
+      return Status::Error(StatusCode::kInternal, pending.state_id,
+                           "staged state descriptor disappeared");
+    }
+    const std::uint64_t version = next_versions_[pending.state_id];
+    const auto slot =
+        static_cast<std::uint32_t>(version % descriptor->capacity);
+    const auto& previous =
+        metadata_[MetadataIndex(pending.state_id, slot)];
+    if (previous.valid) {
+      const auto backup_status = CopyBytes(
+          BackupData(pending.state_id), {VLAFORGE_DEVICE_CPU, 0},
+          SlotData(*descriptor, slot), arena_.device(),
+          pending.size_bytes, pending.state_id);
+      if (!backup_status.ok()) {
+        return backup_status;
+      }
+    }
+  }
+  for (std::size_t index = 0; index < transaction->pending_count(); ++index) {
+    const auto& pending = transaction->pending(index);
+    const auto* descriptor = Descriptor(pending.state_id);
+    if (descriptor == nullptr) {
+      return Status::Error(StatusCode::kInternal, pending.state_id,
+                           "staged state descriptor disappeared");
+    }
+    const std::uint64_t version = next_versions_[pending.state_id];
+    const auto slot =
+        static_cast<std::uint32_t>(version % descriptor->capacity);
+    const auto copy_status = CopyBytes(
+        SlotData(*descriptor, slot), arena_.device(),
+        pending.data, {VLAFORGE_DEVICE_CPU, 0},
+        pending.size_bytes, pending.state_id);
+    if (!copy_status.ok()) {
+      bool rollback_ok = true;
+      for (std::size_t rollback = 0; rollback <= index; ++rollback) {
+        const auto& prior = transaction->pending(rollback);
+        const auto* prior_descriptor = Descriptor(prior.state_id);
+        if (prior_descriptor == nullptr) {
+          rollback_ok = false;
+          continue;
+        }
+        const auto prior_version = next_versions_[prior.state_id];
+        const auto prior_slot = static_cast<std::uint32_t>(
+            prior_version % prior_descriptor->capacity);
+        const auto& previous =
+            metadata_[MetadataIndex(prior.state_id, prior_slot)];
+        if (!previous.valid) {
+          continue;
+        }
+        rollback_ok =
+            CopyBytes(
+                SlotData(*prior_descriptor, prior_slot), arena_.device(),
+                BackupData(prior.state_id), {VLAFORGE_DEVICE_CPU, 0},
+                prior.size_bytes, prior.state_id)
+                .ok() &&
+            rollback_ok;
+      }
+      return rollback_ok
+                 ? copy_status
+                 : Status::Error(StatusCode::kInternal, pending.state_id,
+                                 "state commit rollback failed");
+    }
+  }
   for (std::size_t index = 0; index < transaction->pending_count(); ++index) {
     const auto& pending = transaction->pending(index);
     const auto* descriptor = Descriptor(pending.state_id);
@@ -184,8 +274,6 @@ Status StateStore::Commit(Transaction* transaction,
     const std::uint64_t version = next_versions_[pending.state_id]++;
     const auto slot =
         static_cast<std::uint32_t>(version % descriptor->capacity);
-    std::memcpy(SlotData(*descriptor, slot), pending.data,
-                pending.size_bytes);
     metadata_[MetadataIndex(pending.state_id, slot)] =
         SlotMetadata{true, version, episode_};
     EmitTrace(trace_, TraceEvent{TraceKind::kStateCommit, task_id,
@@ -222,31 +310,80 @@ Status StateStore::ResetEpisode(std::uint64_t new_episode,
                          "invalid episode reset");
   }
   for (const auto& descriptor : descriptors_) {
-    StateSnapshot latest{};
-    const Status latest_status =
-        ReadLatest(descriptor.state_id, task_id, &latest);
-    std::vector<std::byte> carried;
-    std::uint64_t carried_version = 0;
-    if (!descriptor.reset_on_episode && latest_status.ok()) {
-      const auto* begin = static_cast<const std::byte*>(latest.data);
-      carried.assign(begin, begin + latest.size_bytes);
-      carried_version = latest.logical_version;
+    if (!descriptor.reset_on_episode ||
+        !initialized_[descriptor.state_id]) {
+      continue;
     }
+    const auto backup_status = CopyBytes(
+        BackupData(descriptor.state_id), {VLAFORGE_DEVICE_CPU, 0},
+        SlotData(descriptor, 0), arena_.device(),
+        descriptor.value_size, descriptor.state_id);
+    if (!backup_status.ok()) {
+      return backup_status;
+    }
+  }
+  std::size_t reset_count = 0;
+  for (const auto& descriptor : descriptors_) {
+    if (!descriptor.reset_on_episode ||
+        !initialized_[descriptor.state_id]) {
+      continue;
+    }
+    const auto copy_status = CopyBytes(
+        SlotData(descriptor, 0), arena_.device(),
+        InitialData(descriptor.state_id), {VLAFORGE_DEVICE_CPU, 0},
+        descriptor.value_size, descriptor.state_id);
+    if (!copy_status.ok()) {
+      bool rollback_ok = true;
+      std::size_t rollback_count = 0;
+      for (const auto& prior : descriptors_) {
+        if (!prior.reset_on_episode ||
+            !initialized_[prior.state_id]) {
+          continue;
+        }
+        if (rollback_count++ > reset_count) {
+          break;
+        }
+        rollback_ok =
+            CopyBytes(
+                SlotData(prior, 0), arena_.device(),
+                BackupData(prior.state_id), {VLAFORGE_DEVICE_CPU, 0},
+                prior.value_size, prior.state_id)
+                .ok() &&
+            rollback_ok;
+      }
+      return rollback_ok
+                 ? copy_status
+                 : Status::Error(StatusCode::kInternal,
+                                 descriptor.state_id,
+                                 "episode reset rollback failed");
+    }
+    ++reset_count;
+  }
+  for (const auto& descriptor : descriptors_) {
+    const SlotMetadata* latest = nullptr;
+    std::uint32_t latest_slot = 0;
+    for (std::uint32_t slot = 0; slot < descriptor.capacity; ++slot) {
+      const auto& candidate =
+          metadata_[MetadataIndex(descriptor.state_id, slot)];
+      if (candidate.valid && candidate.episode == episode_ &&
+          (latest == nullptr ||
+           candidate.logical_version > latest->logical_version)) {
+        latest = &candidate;
+        latest_slot = slot;
+      }
+    }
+    const bool carry = !descriptor.reset_on_episode && latest != nullptr;
+    const auto carried_version =
+        carry ? latest->logical_version : std::uint64_t{0};
     for (std::uint32_t slot = 0; slot < descriptor.capacity; ++slot) {
       metadata_[MetadataIndex(descriptor.state_id, slot)].valid = false;
     }
     if (descriptor.reset_on_episode && initialized_[descriptor.state_id]) {
-      std::memcpy(SlotData(descriptor, 0),
-                  InitialData(descriptor.state_id), descriptor.value_size);
       metadata_[MetadataIndex(descriptor.state_id, 0)] =
           SlotMetadata{true, 0, new_episode};
       next_versions_[descriptor.state_id] = 1;
-    } else if (!carried.empty()) {
-      const auto slot = static_cast<std::uint32_t>(
-          carried_version % descriptor.capacity);
-      std::memcpy(SlotData(descriptor, slot), carried.data(),
-                  descriptor.value_size);
-      metadata_[MetadataIndex(descriptor.state_id, slot)] =
+    } else if (carry) {
+      metadata_[MetadataIndex(descriptor.state_id, latest_slot)] =
           SlotMetadata{true, carried_version, new_episode};
       next_versions_[descriptor.state_id] = carried_version + 1;
     }
@@ -276,6 +413,10 @@ std::byte* StateStore::StagingData(std::uint32_t state_id) noexcept {
 
 std::byte* StateStore::InitialData(std::uint32_t state_id) noexcept {
   return initial_.data() + staging_offsets_[state_id];
+}
+
+std::byte* StateStore::BackupData(std::uint32_t state_id) noexcept {
+  return commit_backup_.data() + staging_offsets_[state_id];
 }
 
 void* StateStore::SlotData(const StateSlotDescriptor& descriptor,

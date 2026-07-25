@@ -42,7 +42,12 @@ def build_smolvla_fixture() -> AdapterFixture:
             "encode_observation",
             (Value("image_arg", VECTOR),),
             (VECTOR,),
-            metadata={"memoize": True, "template": "ChunkedAction"},
+            metadata={
+                "memoize": True,
+                "cache_input_ports": ["image"],
+                "cache_state_slots": [],
+                "template": "ChunkedAction",
+            },
         )
     )
     builder.add_region(
