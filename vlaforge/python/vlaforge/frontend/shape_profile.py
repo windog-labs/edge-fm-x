@@ -35,11 +35,17 @@ class ShapeProfile:
 
     def __post_init__(self) -> None:
         keys = [(item.value, item.index) for item in self.dimensions]
-        symbols = [item.symbol for item in self.dimensions]
         if len(keys) != len(set(keys)):
             raise ValueError("shape profile contains duplicate value dimensions")
-        if len(symbols) != len(set(symbols)):
-            raise ValueError("shape profile symbols must be globally unique")
+        symbol_bounds: dict[str, tuple[int, int, int]] = {}
+        for item in self.dimensions:
+            bounds = (item.minimum, item.optimum, item.maximum)
+            previous = symbol_bounds.setdefault(item.symbol, bounds)
+            if previous != bounds:
+                raise ValueError(
+                    f"shape profile symbol {item.symbol!r} has "
+                    f"conflicting bounds: {previous} != {bounds}"
+                )
 
     def bounds_for(self, value: str) -> dict[int, tuple[str, int, int, int]]:
         return {
@@ -131,16 +137,22 @@ class ShapeProfile:
             return None
         import torch
 
+        dynamic_symbols = {
+            item.symbol: torch.export.Dim(
+                item.symbol,
+                min=item.minimum,
+                max=item.maximum,
+            )
+            for item in self.dimensions
+        }
         result: list[dict[int, Any] | None] = []
         any_dynamic = False
         for value in values:
             dimensions: dict[int, Any] = {}
-            for index, (symbol, minimum, _, maximum) in self.bounds_for(
-                value.name
-            ).items():
-                dimensions[index] = torch.export.Dim(
-                    symbol, min=minimum, max=maximum
-                )
+            for index, (symbol, _minimum, _optimum, _maximum) in (
+                self.bounds_for(value.name).items()
+            ):
+                dimensions[index] = dynamic_symbols[symbol]
             any_dynamic |= bool(dimensions)
             result.append(dimensions or None)
         return tuple(result) if any_dynamic else None

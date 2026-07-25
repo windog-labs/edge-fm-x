@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -45,6 +46,15 @@ class PureRegion(torch.nn.Module):
 class DynamicRegion(torch.nn.Module):
     def forward(self, value: torch.Tensor) -> torch.Tensor:
         return value.cos() + 1.0
+
+
+class CorrelatedDynamicRegion(torch.nn.Module):
+    def forward(
+        self,
+        left: torch.Tensor,
+        right: torch.Tensor,
+    ) -> torch.Tensor:
+        return left + right
 
 
 class HiddenRandomRegion(torch.nn.Module):
@@ -104,6 +114,62 @@ def test_capture_pure_region_and_save_round_trip(tmp_path: Path) -> None:
     assert evidence.read_text().endswith("\n")
 
 
+def test_load_legacy_export_uses_content_addressed_mmap_cache(
+    tmp_path: Path,
+) -> None:
+    from torch._export.serde.schema import SCHEMA_VERSION
+    from torch._export.serde.serialize import serialize
+
+    example = torch.linspace(-1, 1, 6, dtype=torch.float32).reshape(2, 3)
+    exported = torch.export.export(PureRegion(), (example,))
+    artifact = serialize(exported)
+    legacy = tmp_path / "pure.pt2e"
+    with zipfile.ZipFile(
+        legacy,
+        "w",
+        compression=zipfile.ZIP_STORED,
+    ) as archive:
+        archive.writestr(
+            "serialized_exported_program.json",
+            artifact.exported_program,
+        )
+        archive.writestr(
+            "serialized_state_dict.pt",
+            artifact.state_dict,
+        )
+        archive.writestr(
+            "serialized_constants.pt",
+            artifact.constants,
+        )
+        archive.writestr(
+            "serialized_example_inputs.pt",
+            artifact.example_inputs,
+        )
+        archive.writestr(
+            "version",
+            ".".join(str(item) for item in SCHEMA_VERSION),
+        )
+
+    cache = tmp_path / "mmap-cache"
+    first = load_exported_region(legacy, mmap_cache=cache)
+    second = load_exported_region(legacy, mmap_cache=cache)
+    torch.testing.assert_close(
+        first.module()(example),
+        PureRegion()(example),
+        atol=0,
+        rtol=0,
+    )
+    torch.testing.assert_close(
+        second.module()(example),
+        PureRegion()(example),
+        atol=0,
+        rtol=0,
+    )
+    cached = tuple(cache.iterdir())
+    assert len(cached) == 3
+    assert all(path.is_file() for path in cached)
+
+
 def test_capture_dynamic_shape_uses_bounded_profile() -> None:
     tensor = TensorType((None, 3), "f32")
     region = TensorRegion(
@@ -130,6 +196,51 @@ def test_capture_dynamic_shape_uses_bounded_profile() -> None:
     assert tuple(result.shape) == (4, 3)
     assert capture.evidence is not None
     assert capture.evidence.inputs[0].dimensions[0].symbol == "batch"
+
+
+def test_capture_reuses_symbol_for_correlated_dynamic_dimensions() -> None:
+    tensor = TensorType((None, 3), "f32")
+    region = TensorRegion(
+        "correlated_dynamic",
+        (
+            Value("left", tensor),
+            Value("right", tensor),
+        ),
+        (tensor,),
+    )
+    profile = ShapeProfile(
+        (
+            DynamicDimension("left", 0, "batch", 1, 2, 4),
+            DynamicDimension("right", 0, "batch", 1, 2, 4),
+        )
+    )
+    capture = capture_region(
+        region,
+        CorrelatedDynamicRegion(),
+        (torch.ones(2, 3), torch.ones(2, 3)),
+        shape_profile=profile,
+        output_dynamic_dimensions=(
+            ("output_0", 0, "batch", 1, 2, 4),
+        ),
+    )
+
+    assert capture.supported
+    assert capture.exported_program is not None
+    result = capture.exported_program.module()(
+        torch.ones(4, 3),
+        torch.ones(4, 3),
+    )
+    assert tuple(result.shape) == (4, 3)
+
+
+def test_shape_profile_rejects_conflicting_shared_symbol_bounds() -> None:
+    with pytest.raises(ValueError, match="conflicting bounds"):
+        ShapeProfile(
+            (
+                DynamicDimension("left", 0, "batch", 1, 2, 4),
+                DynamicDimension("right", 0, "batch", 1, 2, 8),
+            )
+        )
 
 
 def test_capture_rejects_hidden_rng_without_fallback() -> None:
