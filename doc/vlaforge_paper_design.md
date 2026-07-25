@@ -432,13 +432,20 @@ Generality：
   runner 已生成，但真实 L4 execution 因 AOTI package loader 重复解包后保留
   deleted shared-object mappings而未完成；该结果只作为 backend resource
   limitation，不计入 L4 coverage；
-- pinned upstream source audit 与 Model Adaptation Cards。
+- pinned upstream source audit 与 Model Adaptation Cards；
+- 以 `766e27b` 冻结 core 后，Octo、GR00T N1.7、AutoVLA 三个 held-out
+  Adapter 在不改变 IR/compiler/Plan/codegen/deployment/runtime/C++ headers
+  的前提下完成 pinned-source L0 与 executable L1；三个 fixture 的
+  Semantic/verified-Plan output、state、完整 trace exact，core op delta=0。
+  冻结路径 combined fingerprint 为
+  `cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`。
 
 尚未完成、且决定投稿强度：
 
 - OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
   已记录，不能把成功 build 写成 L4 execution；
-- frozen-core held-out model 数据；
+- 最终 legacy-negative、clean build/install/export 与 bundle release gate
+  复核；
 - Orin 真机 latency/power/closed-loop 后置，不进入当前 Host-CUDA claim。
 
 小型 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
@@ -446,6 +453,9 @@ Generality：
 checkpoint、真实前端 capture、三 Region artifact 和逐步数值报告；同目录
 的 L4 报告再将这些 artifacts 连接到 generated no-Python C++ Session。
 证据见 `doc/reports/vlaforge_real_v03/`。
+Held-out 证据见
+`doc/reports/vlaforge_heldout_v01/heldout_audit.{json,md}`；这部分只证明
+source-contract 覆盖和冻结核心的可表达性，不升级任何模型的 L2/L3/L4。
 
 ## 13. 投稿 go/no-go
 

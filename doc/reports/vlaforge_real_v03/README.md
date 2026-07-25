@@ -165,6 +165,22 @@ kernel is compiled or claimed. Curated results, raw CSV samples, model-path
 reports, profile summaries, hashes, and claim boundaries are in
 `real_cuda_evidence.json`, `real_cuda_evidence.md`, and `real_cuda_raw/`.
 
+## Frozen-core held-out generalization
+
+After the real-model and performance work, revision `766e27b` was used as the
+core freeze. Octo, GR00T N1.7, and AutoVLA were then audited as two robot and
+one driving held-out architecture. The IR, compiler, Plan, codegen,
+deployment, runtime, and C++ header Git objects remained unchanged, with
+combined fingerprint
+`cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`.
+
+All pinned upstream source contracts passed. Their deterministic fixtures also
+passed verified compilation and exact Semantic/Plan output, state, and trace
+parity with zero new core opcodes. This is explicitly L0 source plus L1
+executable-fixture evidence, not real checkpoint, artifact, or generated-C++
+support. The machine-readable report and reproduction details are in
+`../vlaforge_heldout_v01/heldout_audit.json` and `heldout_audit.md`.
+
 ## OpenVLA-7B real L3
 
 The pinned `openvla/openvla-7b` checkpoint at Hugging Face revision

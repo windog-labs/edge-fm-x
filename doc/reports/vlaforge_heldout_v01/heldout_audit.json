@@ -1,0 +1,1326 @@
+{
+  "frozen_core": {
+    "current": {
+      "combined_sha256": "cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d",
+      "objects": {
+        "vlaforge/include/vlaforge": "8d80b691b65f0ca2e69dbc0bb18e2c6488dd5fdb",
+        "vlaforge/python/vlaforge/codegen": "02209eee4f45764e960d7f2baf72e51bbea774a3",
+        "vlaforge/python/vlaforge/compiler.py": "e855685c33127c2bf2eae5172f00d219c66b4e57",
+        "vlaforge/python/vlaforge/deployment": "c4ad85cac72a36eb3b30641beba075e309dbb74c",
+        "vlaforge/python/vlaforge/ir": "a13a590039029841e774430812307feae16446c0",
+        "vlaforge/python/vlaforge/plan": "dc920942363f8be820cb3c4f1228e39fa1d4c9de",
+        "vlaforge/runtime": "9108e39229500d41b9260c28b6af79a68c89f6c0"
+      },
+      "revision": "ec9a56c3a5e00c75a803757b96a78bdc33eb5aee"
+    },
+    "frozen": {
+      "combined_sha256": "cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d",
+      "objects": {
+        "vlaforge/include/vlaforge": "8d80b691b65f0ca2e69dbc0bb18e2c6488dd5fdb",
+        "vlaforge/python/vlaforge/codegen": "02209eee4f45764e960d7f2baf72e51bbea774a3",
+        "vlaforge/python/vlaforge/compiler.py": "e855685c33127c2bf2eae5172f00d219c66b4e57",
+        "vlaforge/python/vlaforge/deployment": "c4ad85cac72a36eb3b30641beba075e309dbb74c",
+        "vlaforge/python/vlaforge/ir": "a13a590039029841e774430812307feae16446c0",
+        "vlaforge/python/vlaforge/plan": "dc920942363f8be820cb3c4f1228e39fa1d4c9de",
+        "vlaforge/runtime": "9108e39229500d41b9260c28b6af79a68c89f6c0"
+      },
+      "revision": "766e27bdfb34c3311dda7d444862b7f95d05c7b8"
+    },
+    "matches": true,
+    "paths": [
+      "vlaforge/python/vlaforge/ir",
+      "vlaforge/python/vlaforge/compiler.py",
+      "vlaforge/python/vlaforge/plan",
+      "vlaforge/python/vlaforge/codegen",
+      "vlaforge/python/vlaforge/deployment",
+      "vlaforge/runtime",
+      "vlaforge/include/vlaforge"
+    ],
+    "worktree_status": []
+  },
+  "models": [
+    {
+      "evidence_boundary": "pinned real source L0 + deterministic executable L1; no checkpoint/artifact/generated-C++ claim",
+      "fixture": {
+        "adapter_factory": "build_octo_like_fixture",
+        "adapter_loc": 181,
+        "adapter_source": "vlaforge/python/vlaforge/adapters/robot_matrix.py",
+        "adapter_start_line": 360,
+        "adapter_template": "DiffusionPolicy",
+        "bounded_for_count": 1,
+        "cache_events": {
+          "hits": 1,
+          "misses": 2,
+          "total": 3
+        },
+        "compilation_certificate": {
+          "arena": {
+            "baseline_allocations": 12,
+            "baseline_bytes": 576,
+            "compiled_allocations": 12,
+            "compiled_bytes": 256,
+            "enabled": true,
+            "saved_bytes": 320
+          },
+          "caches": [
+            {
+              "enabled": true,
+              "identity_fields": [
+                "episode",
+                "model",
+                "artifact"
+              ],
+              "input_ids": [
+                0,
+                1,
+                2
+              ],
+              "reason": "exact key uses input revisions, committed state versions, and episode/model/artifact identity",
+              "region": "octo_condition",
+              "requested": true,
+              "state_ids": [],
+              "task_id": 4
+            }
+          ],
+          "compiled_semantic_digest": "def93912c124faabd0c7070a932dd44c411883d756b3078d9ac112a8c5390bf8",
+          "input_semantic_digest": "68c64e5a1311824e17039a2ba7804db8edc2ae797b1976bb89c12a348a5cc3d0",
+          "io_schema_digest": "302f76359d7354e61f58090e95d09d72c5248005533065d95a6c4a17cfe0679a",
+          "loops": [
+            {
+              "disposition": "loop_carried",
+              "loop": "invocation:act/6:vla.for",
+              "reason": "region consumes induction or loop-carried SSA",
+              "region": "octo_denoise"
+            }
+          ],
+          "passes": [
+            {
+              "applied": true,
+              "enabled": true,
+              "name": "exact_cache_contract",
+              "reason": "only explicit exact memoize regions are enabled"
+            },
+            {
+              "applied": false,
+              "enabled": true,
+              "name": "structured_loop_invariance",
+              "reason": "bounded-for preheader and loop-carried decisions recorded"
+            },
+            {
+              "applied": true,
+              "enabled": true,
+              "name": "static_arena_reuse",
+              "reason": "liveness-based temporary packing"
+            }
+          ],
+          "plan_digest": "9b581596f844cd091b39088a8d90ce0a980f7c203e09d853f27b2686c3bcaa11",
+          "profile": "verified",
+          "schema": "vlaforge.compilation_certificate/2",
+          "test_only": false
+        },
+        "core_op_delta": 0,
+        "evidence_kind": "deterministic_fixture",
+        "evidence_level": "L1-deterministic-executable-fixture",
+        "inputs": [
+          {
+            "alignment": 1,
+            "default": null,
+            "device": "cpu",
+            "extension": false,
+            "id": 0,
+            "name": "observation_history",
+            "required": true,
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "valid_for": null,
+            "value_range": null
+          },
+          {
+            "alignment": 1,
+            "default": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "device": "cpu",
+            "extension": false,
+            "id": 1,
+            "name": "language_tokens",
+            "required": false,
+            "type": {
+              "dtype": "i64",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                4
+              ]
+            },
+            "valid_for": null,
+            "value_range": null
+          },
+          {
+            "alignment": 1,
+            "default": [
+              0.0,
+              0.0
+            ],
+            "device": "cpu",
+            "extension": false,
+            "id": 2,
+            "name": "goal_image",
+            "required": false,
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                2
+              ]
+            },
+            "valid_for": null,
+            "value_range": null
+          }
+        ],
+        "module": "octo_like_diffusion_chunk_fixture",
+        "opcodes": [
+          "vla.for",
+          "vla.input.read",
+          "vla.invoke",
+          "vla.output.create",
+          "vla.output.group",
+          "vla.return",
+          "vla.txn.begin",
+          "vla.txn.commit",
+          "vla.validate",
+          "vla.yield"
+        ],
+        "output_sha256": "dd0d9e73115fdbd31cff398778dc78ed26c38caece70b881f2c20a5e833d9468",
+        "outputs": [
+          {
+            "alignment": 1,
+            "device": "cpu",
+            "group": "robot_action",
+            "id": 0,
+            "name": "action_chunk",
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                4,
+                2
+              ]
+            }
+          }
+        ],
+        "passed": true,
+        "regions": [
+          {
+            "inputs": [
+              {
+                "name": "history",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    2,
+                    3
+                  ]
+                }
+              },
+              {
+                "name": "language",
+                "type": {
+                  "dtype": "i64",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              },
+              {
+                "name": "goal",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    2
+                  ]
+                }
+              }
+            ],
+            "memoize": true,
+            "metadata": {
+              "memoize": true,
+              "optional_modalities": "language_tokens,goal_image",
+              "template": "DiffusionPolicy"
+            },
+            "name": "octo_condition",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  4
+                ]
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "condition",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "octo_initialize",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  4,
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "condition",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              },
+              {
+                "name": "sample",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4,
+                    2
+                  ]
+                }
+              },
+              {
+                "name": "step",
+                "type": {
+                  "kind": "scalar",
+                  "name": "index"
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "octo_denoise",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  4,
+                  2
+                ]
+              }
+            ]
+          }
+        ],
+        "run_count": 3,
+        "semantic_plan_output_state_parity": true,
+        "semantic_plan_trace_parity": true,
+        "source_contract": "Octo-like",
+        "states": [],
+        "structured_if_count": 0,
+        "unknown_opcodes": [],
+        "unsupported_evidence": [
+          "real checkpoint frontend parity",
+          "real compiled artifact parity",
+          "real generated no-Python C++ Session parity"
+        ]
+      },
+      "name": "Octo",
+      "source": {
+        "checkpoint": "rail-berkeley/octo-base-1.5 (hash not downloaded)",
+        "evidence_level": "L0-pinned-source-audit",
+        "files": [
+          {
+            "git_blob": "23cc497f072473b3a80f86ad6b9a9dc8af46ea1c",
+            "matched_patterns": [
+              {
+                "line": 174,
+                "literal": "def sample_actions("
+              }
+            ],
+            "relative_path": "octo/model/octo_model.py",
+            "sha256": "93d96015bc43ee92910127421e17697d372f0bbc1a4d3589a0addb22efb819e0"
+          },
+          {
+            "git_blob": "b56db26ecc3ddb37050b080616b20ffd407077c9",
+            "matched_patterns": [
+              {
+                "line": 386,
+                "literal": "class DiffusionActionHead"
+              },
+              {
+                "line": 411,
+                "literal": "diffusion_steps: int = 20"
+              },
+              {
+                "line": 597,
+                "literal": "jax.lax.scan("
+              }
+            ],
+            "relative_path": "octo/model/components/action_heads.py",
+            "sha256": "480f374788571db11f1e3ca2922beaec52f752001ae5ac6d284e0f1dfec40d11"
+          }
+        ],
+        "license": "MIT",
+        "passed": true,
+        "repository": "https://github.com/octo-models/octo",
+        "revision": "241fb3514b7c40957a86d869fecb7c7fc353f540",
+        "source_entries": [
+          "octo/model/octo_model.py:OctoModel.sample_actions",
+          "octo/model/components/action_heads.py:DiffusionActionHead"
+        ]
+      }
+    },
+    {
+      "evidence_boundary": "pinned real source L0 + deterministic executable L1; no checkpoint/artifact/generated-C++ claim",
+      "fixture": {
+        "adapter_factory": "build_groot_n1_like_fixture",
+        "adapter_loc": 186,
+        "adapter_source": "vlaforge/python/vlaforge/adapters/robot_matrix.py",
+        "adapter_start_line": 543,
+        "adapter_template": "MultiEmbodimentDiT",
+        "bounded_for_count": 1,
+        "cache_events": {
+          "hits": 1,
+          "misses": 1,
+          "total": 2
+        },
+        "compilation_certificate": {
+          "arena": {
+            "baseline_allocations": 15,
+            "baseline_bytes": 640,
+            "compiled_allocations": 15,
+            "compiled_bytes": 320,
+            "enabled": true,
+            "saved_bytes": 320
+          },
+          "caches": [
+            {
+              "enabled": true,
+              "identity_fields": [
+                "episode",
+                "model",
+                "artifact"
+              ],
+              "input_ids": [
+                0,
+                1,
+                2,
+                3
+              ],
+              "reason": "exact key uses input revisions, committed state versions, and episode/model/artifact identity",
+              "region": "groot_vlm_prefix",
+              "requested": true,
+              "state_ids": [],
+              "task_id": 5
+            }
+          ],
+          "compiled_semantic_digest": "1e683ce170b710a1a481e077adcd63a67b574d47232009670d0e11a82bba7e54",
+          "input_semantic_digest": "d5aa4da612b8eef86b00cdb7c0713430ffa17f3a3ca7c224336f37734e71de9f",
+          "io_schema_digest": "f9bd1aa7b3e37389da7fffea31385f9b2f81d22d4110b0a4e8e2cd0546b77059",
+          "loops": [
+            {
+              "disposition": "loop_carried",
+              "loop": "invocation:act/7:vla.for",
+              "reason": "region consumes induction or loop-carried SSA",
+              "region": "groot_dit_step"
+            }
+          ],
+          "passes": [
+            {
+              "applied": true,
+              "enabled": true,
+              "name": "exact_cache_contract",
+              "reason": "only explicit exact memoize regions are enabled"
+            },
+            {
+              "applied": false,
+              "enabled": true,
+              "name": "structured_loop_invariance",
+              "reason": "bounded-for preheader and loop-carried decisions recorded"
+            },
+            {
+              "applied": true,
+              "enabled": true,
+              "name": "static_arena_reuse",
+              "reason": "liveness-based temporary packing"
+            }
+          ],
+          "plan_digest": "c51fd7a37180adc2589c3c1e171fc873a849b14c4c26053ddc89aeb9ad74d8d5",
+          "profile": "verified",
+          "schema": "vlaforge.compilation_certificate/2",
+          "test_only": false
+        },
+        "core_op_delta": 0,
+        "evidence_kind": "deterministic_fixture",
+        "evidence_level": "L1-deterministic-executable-fixture",
+        "inputs": [
+          {
+            "alignment": 1,
+            "default": null,
+            "device": "cpu",
+            "extension": false,
+            "id": 0,
+            "name": "multi_camera",
+            "required": true,
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                2,
+                3
+              ]
+            },
+            "valid_for": null,
+            "value_range": null
+          },
+          {
+            "alignment": 1,
+            "default": null,
+            "device": "cpu",
+            "extension": false,
+            "id": 1,
+            "name": "robot_state",
+            "required": true,
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                4
+              ]
+            },
+            "valid_for": null,
+            "value_range": null
+          },
+          {
+            "alignment": 1,
+            "default": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "device": "cpu",
+            "extension": false,
+            "id": 2,
+            "name": "language_tokens",
+            "required": false,
+            "type": {
+              "dtype": "i64",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                4
+              ]
+            },
+            "valid_for": null,
+            "value_range": null
+          },
+          {
+            "alignment": 1,
+            "default": null,
+            "device": "cpu",
+            "extension": false,
+            "id": 3,
+            "name": "embodiment_id",
+            "required": true,
+            "type": {
+              "kind": "scalar",
+              "name": "i32"
+            },
+            "valid_for": null,
+            "value_range": [
+              0,
+              3
+            ]
+          }
+        ],
+        "module": "groot_n1_like_multimodal_dit_fixture",
+        "opcodes": [
+          "vla.for",
+          "vla.input.read",
+          "vla.invoke",
+          "vla.output.create",
+          "vla.output.group",
+          "vla.return",
+          "vla.txn.begin",
+          "vla.txn.commit",
+          "vla.validate",
+          "vla.yield"
+        ],
+        "output_sha256": "238f4d917b8b903d223f0c604fc144b74b1baa2b61bb4b3d445da800dadc868d",
+        "outputs": [
+          {
+            "alignment": 1,
+            "device": "cpu",
+            "group": "robot_action",
+            "id": 0,
+            "name": "action_chunk",
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                4,
+                2
+              ]
+            }
+          },
+          {
+            "alignment": 1,
+            "device": "cpu",
+            "group": "robot_action",
+            "id": 1,
+            "name": "embodiment_logits",
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                4
+              ]
+            }
+          }
+        ],
+        "passed": true,
+        "regions": [
+          {
+            "inputs": [
+              {
+                "name": "cameras",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    2,
+                    3
+                  ]
+                }
+              },
+              {
+                "name": "language",
+                "type": {
+                  "dtype": "i64",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              },
+              {
+                "name": "embodiment",
+                "type": {
+                  "kind": "scalar",
+                  "name": "i32"
+                }
+              }
+            ],
+            "memoize": true,
+            "metadata": {
+              "artifact": "vlm_backbone",
+              "backend_extension": "TensorRT/custom",
+              "memoize": true
+            },
+            "name": "groot_vlm_prefix",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  4
+                ]
+              },
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  4
+                ]
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "state",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "groot_initialize_action",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  4,
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "prefix",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              },
+              {
+                "name": "state",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              },
+              {
+                "name": "sample",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4,
+                    2
+                  ]
+                }
+              },
+              {
+                "name": "step",
+                "type": {
+                  "kind": "scalar",
+                  "name": "index"
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {
+              "artifact": "action_expert",
+              "backend_extension": "TensorRT/custom"
+            },
+            "name": "groot_dit_step",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  4,
+                  2
+                ]
+              }
+            ]
+          }
+        ],
+        "run_count": 2,
+        "semantic_plan_output_state_parity": true,
+        "semantic_plan_trace_parity": true,
+        "source_contract": "GR00T-N1-like",
+        "states": [],
+        "structured_if_count": 0,
+        "unknown_opcodes": [],
+        "unsupported_evidence": [
+          "real checkpoint frontend parity",
+          "real compiled artifact parity",
+          "real generated no-Python C++ Session parity"
+        ]
+      },
+      "name": "GR00T N1.7",
+      "source": {
+        "checkpoint": "NVIDIA/GR00T-N1.7-3B (hash not downloaded)",
+        "evidence_level": "L0-pinned-source-audit",
+        "files": [
+          {
+            "git_blob": "346b597a4b9a115a9a5b1053621f47f07833da09",
+            "matched_patterns": [
+              {
+                "line": 544,
+                "literal": "self.action_head = Gr00tN1d7ActionHead(config)"
+              },
+              {
+                "line": 397,
+                "literal": "for t in range(self.num_inference_timesteps):"
+              },
+              {
+                "line": 210,
+                "literal": "embodiment_id = action_input.embodiment_id"
+              },
+              {
+                "line": 405,
+                "literal": "self.action_encoder(actions, timesteps_tensor, embodiment_id)"
+              }
+            ],
+            "relative_path": "gr00t/model/gr00t_n1d7/gr00t_n1d7.py",
+            "sha256": "6bd66ef768f1484ac5a7889c40358a599f1862b1d554d47d357e113f2f96501c"
+          },
+          {
+            "git_blob": "4bb9994d3c89a738a830c5af927b1cd24d2854a5",
+            "matched_patterns": [
+              {
+                "line": 254,
+                "literal": "self.timestep_encoder = TimestepEncoder("
+              },
+              {
+                "line": 301,
+                "literal": "temb = self.timestep_encoder(timestep)"
+              }
+            ],
+            "relative_path": "gr00t/model/modules/dit.py",
+            "sha256": "d4da27be51d9ebe1c923dedd3ae80fe2754c97f96500e82c26fe19fec0062c13"
+          },
+          {
+            "git_blob": "6f5a46b10eed67a1fc613dc548dac56e12b592e2",
+            "matched_patterns": [
+              {
+                "line": 70,
+                "literal": "class Gr00tPolicy("
+              }
+            ],
+            "relative_path": "gr00t/policy/gr00t_policy.py",
+            "sha256": "ad1183a3ce1ebed6cace4a9cb8c5a123e823a0760ebf46f3694639a5ad1521ec"
+          }
+        ],
+        "license": "Apache-2.0 code; NVIDIA Open Model License weights",
+        "passed": true,
+        "repository": "https://github.com/NVIDIA/Isaac-GR00T",
+        "revision": "9c7e746b2cd37a810070a98ef41d290a07e806c2",
+        "source_entries": [
+          "gr00t/model/gr00t_n1d7/gr00t_n1d7.py",
+          "gr00t/model/modules/dit.py",
+          "gr00t/policy/gr00t_policy.py"
+        ]
+      }
+    },
+    {
+      "evidence_boundary": "pinned real source L0 + deterministic executable L1; no checkpoint/artifact/generated-C++ claim",
+      "fixture": {
+        "adapter_factory": "build_driving_ar_fixture",
+        "adapter_loc": 240,
+        "adapter_source": "vlaforge/python/vlaforge/adapters/driving.py",
+        "adapter_start_line": 248,
+        "adapter_template": "AutoregressiveTrajectory",
+        "bounded_for_count": 1,
+        "cache_events": {
+          "hits": 1,
+          "misses": 2,
+          "total": 3
+        },
+        "compilation_certificate": {
+          "arena": {
+            "baseline_allocations": 19,
+            "baseline_bytes": 640,
+            "compiled_allocations": 19,
+            "compiled_bytes": 256,
+            "enabled": true,
+            "saved_bytes": 384
+          },
+          "caches": [
+            {
+              "enabled": true,
+              "identity_fields": [
+                "episode",
+                "model",
+                "artifact"
+              ],
+              "input_ids": [
+                0,
+                1
+              ],
+              "reason": "exact key uses input revisions, committed state versions, and episode/model/artifact identity",
+              "region": "ar_prefill",
+              "requested": true,
+              "state_ids": [],
+              "task_id": 3
+            }
+          ],
+          "compiled_semantic_digest": "29e804f048f08c6a36ad75d128b13f64d91060b3d45327f32abce24f9c696b00",
+          "input_semantic_digest": "c078fbed21e8b0c82bb7010a2cfeeb5971274b7241bf817ff17d9d664867cbfa",
+          "io_schema_digest": "7455af80e8e30ce1d08ae23d2da903bbd0249f5e7f49917611bacf9ab6997ce8",
+          "loops": [
+            {
+              "disposition": "loop_carried",
+              "loop": "invocation:act/5:vla.if/region:1/1:vla.for",
+              "reason": "region consumes induction or loop-carried SSA",
+              "region": "next_trajectory_token"
+            }
+          ],
+          "passes": [
+            {
+              "applied": true,
+              "enabled": true,
+              "name": "exact_cache_contract",
+              "reason": "only explicit exact memoize regions are enabled"
+            },
+            {
+              "applied": false,
+              "enabled": true,
+              "name": "structured_loop_invariance",
+              "reason": "bounded-for preheader and loop-carried decisions recorded"
+            },
+            {
+              "applied": true,
+              "enabled": true,
+              "name": "static_arena_reuse",
+              "reason": "liveness-based temporary packing"
+            }
+          ],
+          "plan_digest": "1ff50326bd2115f24b8a49bea0861fe24c3f73c9eabecc8833593d097e7b3469",
+          "profile": "verified",
+          "schema": "vlaforge.compilation_certificate/2",
+          "test_only": false
+        },
+        "core_op_delta": 0,
+        "evidence_kind": "deterministic_fixture",
+        "evidence_level": "L1-deterministic-executable-fixture",
+        "inputs": [
+          {
+            "alignment": 1,
+            "default": null,
+            "device": "cpu",
+            "extension": false,
+            "id": 0,
+            "name": "scene_context",
+            "required": true,
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                4
+              ]
+            },
+            "valid_for": null,
+            "value_range": null
+          },
+          {
+            "alignment": 1,
+            "default": null,
+            "device": "cpu",
+            "extension": false,
+            "id": 1,
+            "name": "force_slow",
+            "required": true,
+            "type": {
+              "kind": "scalar",
+              "name": "bool"
+            },
+            "valid_for": null,
+            "value_range": null
+          }
+        ],
+        "module": "driving_ar_fixture",
+        "opcodes": [
+          "vla.for",
+          "vla.if",
+          "vla.input.read",
+          "vla.invoke",
+          "vla.output.create",
+          "vla.output.group",
+          "vla.return",
+          "vla.txn.begin",
+          "vla.txn.commit",
+          "vla.validate",
+          "vla.yield"
+        ],
+        "output_sha256": "d035e3ef59acac2488bb09d40b40a12b683dc79749f86de3fe5db0d04d12da71",
+        "outputs": [
+          {
+            "alignment": 1,
+            "device": "cpu",
+            "group": "planning",
+            "id": 0,
+            "name": "trajectory",
+            "type": {
+              "dtype": "f32",
+              "kind": "tensor",
+              "layout": "contiguous",
+              "shape": [
+                5,
+                2
+              ]
+            }
+          },
+          {
+            "alignment": 1,
+            "device": "cpu",
+            "group": "planning",
+            "id": 1,
+            "name": "planner_mode",
+            "type": {
+              "kind": "scalar",
+              "name": "i32"
+            }
+          }
+        ],
+        "passed": true,
+        "regions": [
+          {
+            "inputs": [
+              {
+                "name": "scene",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    4
+                  ]
+                }
+              }
+            ],
+            "memoize": true,
+            "metadata": {
+              "memoize": true,
+              "template": "AutoregressiveTrajectory"
+            },
+            "name": "ar_prefill",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  3
+                ]
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "condition",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    3
+                  ]
+                }
+              },
+              {
+                "name": "force_slow_value",
+                "type": {
+                  "kind": "scalar",
+                  "name": "bool"
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "choose_fast_path",
+            "outputs": [
+              {
+                "kind": "scalar",
+                "name": "bool"
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "condition",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    3
+                  ]
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "fast_trajectory",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  5,
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "inputs": [],
+            "memoize": false,
+            "metadata": {},
+            "name": "fast_mode",
+            "outputs": [
+              {
+                "kind": "scalar",
+                "name": "i32"
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "condition",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    3
+                  ]
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "initial_trajectory_token",
+            "outputs": [
+              {
+                "kind": "scalar",
+                "name": "i64"
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "condition",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    3
+                  ]
+                }
+              },
+              {
+                "name": "token",
+                "type": {
+                  "kind": "scalar",
+                  "name": "i64"
+                }
+              },
+              {
+                "name": "step",
+                "type": {
+                  "kind": "scalar",
+                  "name": "index"
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "next_trajectory_token",
+            "outputs": [
+              {
+                "kind": "scalar",
+                "name": "i64"
+              }
+            ]
+          },
+          {
+            "inputs": [
+              {
+                "name": "condition",
+                "type": {
+                  "dtype": "f32",
+                  "kind": "tensor",
+                  "layout": "contiguous",
+                  "shape": [
+                    3
+                  ]
+                }
+              },
+              {
+                "name": "token",
+                "type": {
+                  "kind": "scalar",
+                  "name": "i64"
+                }
+              }
+            ],
+            "memoize": false,
+            "metadata": {},
+            "name": "trajectory_detokenize",
+            "outputs": [
+              {
+                "dtype": "f32",
+                "kind": "tensor",
+                "layout": "contiguous",
+                "shape": [
+                  5,
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "inputs": [],
+            "memoize": false,
+            "metadata": {},
+            "name": "slow_mode",
+            "outputs": [
+              {
+                "kind": "scalar",
+                "name": "i32"
+              }
+            ]
+          }
+        ],
+        "run_count": 3,
+        "semantic_plan_output_state_parity": true,
+        "semantic_plan_trace_parity": true,
+        "source_contract": "AutoVLA-like",
+        "states": [],
+        "structured_if_count": 1,
+        "unknown_opcodes": [],
+        "unsupported_evidence": [
+          "real checkpoint frontend parity",
+          "real compiled artifact parity",
+          "real generated no-Python C++ Session parity"
+        ]
+      },
+      "name": "AutoVLA",
+      "source": {
+        "checkpoint": "release checkpoint not downloaded",
+        "evidence_level": "L0-pinned-source-audit",
+        "files": [
+          {
+            "git_blob": "9815970375a0c86c54bb125dc74a46e1508ba4e9",
+            "matched_patterns": [
+              {
+                "line": 496,
+                "literal": "def predict(self, input_features):"
+              },
+              {
+                "line": 500,
+                "literal": "outputs = self.vlm.generate("
+              },
+              {
+                "line": 238,
+                "literal": "actions_tokens = actions_tokens[:self.trajectory_sampling.num_poses]"
+              },
+              {
+                "line": 523,
+                "literal": "decode_token_ids_to_trajectory(actions_tokens)"
+              }
+            ],
+            "relative_path": "models/autovla.py",
+            "sha256": "e34becaf49a06fd89c17579a58753a547efa13f5f9d5711738a4e904eeaa4424"
+          },
+          {
+            "git_blob": "e9e8cb9fa607a6b9e4c6ba18151fa0290ec79e6e",
+            "matched_patterns": [
+              {
+                "line": 62,
+                "literal": "def decode_token_ids_to_trajectory("
+              },
+              {
+                "line": 119,
+                "literal": "trajectory = torch.cat("
+              }
+            ],
+            "relative_path": "models/action_tokenizer.py",
+            "sha256": "eb668739af6a9b245a3f32bbf7701f69f8c6662d35c652874e85dc63b836dcf2"
+          }
+        ],
+        "license": "UCLA Academic Software License",
+        "passed": true,
+        "repository": "https://github.com/ucla-mobility/AutoVLA",
+        "revision": "ba34eed74ce6729e7986592d0e66cbaca397b4fa",
+        "source_entries": [
+          "models/autovla.py:AutoVLA.predict",
+          "models/action_tokenizer.py:ActionTokenizer.decode_token_ids_to_trajectory"
+        ]
+      }
+    }
+  ],
+  "passed": true,
+  "repository": {
+    "revision": "ec9a56c3a5e00c75a803757b96a78bdc33eb5aee",
+    "source_dirty": false,
+    "tracked_status": []
+  },
+  "schema": "vlaforge.frozen_core_heldouts/1",
+  "status": "passed",
+  "summary": {
+    "all_fixtures_passed": true,
+    "all_semantic_plan_parity": true,
+    "all_source_contracts_passed": true,
+    "core_op_delta": 0,
+    "driving_models": 1,
+    "frozen_core_unchanged": true,
+    "heldout_models": 3,
+    "robot_models": 2
+  }
+}

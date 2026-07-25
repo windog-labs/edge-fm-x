@@ -307,7 +307,8 @@ opcode 或任意未验证 opcode。
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
 | P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 的 clean bundle/C++ build 通过但执行受 AOTI package loader 资源行为阻塞 |
 | P11 | Host CUDA 性能、消融、长稳 | 完成：两真实 L4 模型的 eager/direct/generated 对照、revision/cache 消融、10k Run soak、NSYS/NCU |
-| P12 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
+| P12 | frozen-core held-out robot/driving 泛化 | 完成：Octo、GR00T N1.7、AutoVLA pinned-source L0 + executable L1，core op delta=0 |
+| P13 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
 
 ## 9. 测试与验收
 
@@ -372,6 +373,16 @@ NCU 还定位并消除了 loop-carried scalar 的隐式 aligned copy；该修复
 IR storage alignment，不修改任何模型 CUDA kernel。完整证据见
 `doc/reports/vlaforge_real_v03/real_cuda_evidence.md`。
 
+P12 将 `766e27b` 定义为 held-out 前 core freeze。Octo、GR00T N1.7 和
+AutoVLA 的 Adapter、审计工具和测试落在 `e6f9608`，且 IR、compiler、
+Plan、codegen、deployment、runtime 和 C++ headers 的 Git objects 与 freeze
+逐路径一致，combined fingerprint 为
+`cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`。
+三个对象都通过 pinned upstream Git-object source audit，以及 verified
+compile 后 Semantic/Plan 的 output、state、完整 trace 等价；新增 core op
+均为 0。该结果严格标为 L0+L1，不是 checkpoint/artifact/C++ real-model
+证据。报告见 `doc/reports/vlaforge_heldout_v01/heldout_audit.md`。
+
 论文 release gate 另要求：
 
 - 至少一个 manipulation、一个 AR VLA、一个 diffusion/flow VLA 和一个
@@ -384,11 +395,14 @@ IR storage alignment，不修改任何模型 CUDA kernel。完整证据见
 
 ## 10. 剩余开发顺序
 
-1. 选择 Octo/GR00T 与 AutoVLA/ReCogDrive 做 frozen-core held-out；
-2. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
+1. 完成旧 tick/clock/publish/core-action-queue 残留和 VLAForge
+   build graph 对旧 EdgeFM CUDA kernel 依赖的最终 negative audit；
+2. 运行 Python/C++ clean build、install/export、bundle 和 no-Python
+   release gate；
+3. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
    shared-library/cubin mapping 与 per-invocation CUDA weight residency 分离，
    不得扩 core IR，也不得阻塞 held-out；
-3. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
+4. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
    runtime/generated Session 的 JetPack arm64 portability 已通过。
 
 ## 11. 风险控制
