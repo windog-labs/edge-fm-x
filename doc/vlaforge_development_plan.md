@@ -383,6 +383,16 @@ compile 后 Semantic/Plan 的 output、state、完整 trace 等价；新增 core
 均为 0。该结果严格标为 L0+L1，不是 checkpoint/artifact/C++ real-model
 证据。报告见 `doc/reports/vlaforge_heldout_v01/heldout_audit.md`。
 
+最终 architecture/build-surface negative audit 也已固化为自动测试：
+47 个 production source files 中不存在 tick/clock/deadline/period/jitter、
+middleware、publish、internal sleep、core action queue 或 Python runtime
+依赖。15 个 Semantic IR op 与冻结 v0.2 集合一致。VLAForge 的 3 个 CMake
+文件声明 20 个 C/C++ sources，没有 `.cu/.cuh/.ptx`、越界 source/subdirectory
+edge 或根 EdgeFM `src/operators` 依赖；可选 CUDA target 只通过
+`CUDA::cudart` 执行外部 AOTI artifact。负例测试和论文分析工具中的旧符号
+引用被单独列出，不属于 production surface。报告见
+`doc/reports/vlaforge_architecture_v01/architecture_surface.md`。
+
 论文 release gate 另要求：
 
 - 至少一个 manipulation、一个 AR VLA、一个 diffusion/flow VLA 和一个
@@ -395,14 +405,12 @@ compile 后 Semantic/Plan 的 output、state、完整 trace 等价；新增 core
 
 ## 10. 剩余开发顺序
 
-1. 完成旧 tick/clock/publish/core-action-queue 残留和 VLAForge
-   build graph 对旧 EdgeFM CUDA kernel 依赖的最终 negative audit；
-2. 运行 Python/C++ clean build、install/export、bundle 和 no-Python
+1. 运行 Python/C++ clean build、install/export、bundle 和 no-Python
    release gate；
-3. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
+2. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
    shared-library/cubin mapping 与 per-invocation CUDA weight residency 分离，
    不得扩 core IR，也不得阻塞 held-out；
-4. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
+3. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
    runtime/generated Session 的 JetPack arm64 portability 已通过。
 
 ## 11. 风险控制

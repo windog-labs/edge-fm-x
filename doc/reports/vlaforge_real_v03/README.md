@@ -181,6 +181,14 @@ executable-fixture evidence, not real checkpoint, artifact, or generated-C++
 support. The machine-readable report and reproduction details are in
 `../vlaforge_heldout_v01/heldout_audit.json` and `heldout_audit.md`.
 
+The separate
+`../vlaforge_architecture_v01/architecture_surface.{json,md}` audit proves
+that the production source and CMake graph contain no physical scheduler,
+sensor middleware, publish operation, core action queue, Python runtime
+dependency, CUDA kernel source, or edge to old EdgeFM operator code. CUDA is
+used only by the optional AOTI backend/runtime memory path for externally
+compiled artifacts.
+
 ## OpenVLA-7B real L3
 
 The pinned `openvla/openvla-7b` checkpoint at Hugging Face revision

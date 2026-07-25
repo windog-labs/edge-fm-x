@@ -444,8 +444,7 @@ Generality：
 
 - OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
   已记录，不能把成功 build 写成 L4 execution；
-- 最终 legacy-negative、clean build/install/export 与 bundle release gate
-  复核；
+- 最终 clean build/install/export 与 bundle release gate 复核；
 - Orin 真机 latency/power/closed-loop 后置，不进入当前 Host-CUDA claim。
 
 小型 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
@@ -456,6 +455,10 @@ checkpoint、真实前端 capture、三 Region artifact 和逐步数值报告；
 Held-out 证据见
 `doc/reports/vlaforge_heldout_v01/heldout_audit.{json,md}`；这部分只证明
 source-contract 覆盖和冻结核心的可表达性，不升级任何模型的 L2/L3/L4。
+Architecture negative evidence 见
+`doc/reports/vlaforge_architecture_v01/architecture_surface.{json,md}`：
+production surface 与 CMake build graph 均不包含物理调度、middleware、
+publish、core action queue、Python runtime 或旧 EdgeFM CUDA kernel。
 
 ## 13. 投稿 go/no-go
 

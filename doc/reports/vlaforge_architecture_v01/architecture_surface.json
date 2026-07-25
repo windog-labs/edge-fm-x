@@ -1,0 +1,521 @@
+{
+  "build_graph": {
+    "cmake_files": [
+      "vlaforge/CMakeLists.txt",
+      "vlaforge/tests/cpp/CMakeLists.txt",
+      "vlaforge/tests/install_consumer/CMakeLists.txt"
+    ],
+    "declared_sources": [
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/artifact_verifier.cpp",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/device_copy.cpp",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/region_executable.c",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/session_c.c",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/static_arena.cpp",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/state_store.cpp",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/transaction.cpp",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/backends/aoti_region_executable.cpp",
+        "target": "vlaforge_aoti_backend"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/backends/torchscript_region_executable.cpp",
+        "target": "vlaforge_torchscript_backend"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/region_c_abi_smoke.c",
+        "target": "vlaforge_region_c_abi_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/region_value_c_abi_smoke.c",
+        "target": "vlaforge_region_value_c_abi_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/region_cpp_abi_smoke.cpp",
+        "target": "vlaforge_region_cpp_abi_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/static_arena_smoke.cpp",
+        "target": "vlaforge_static_arena_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/runtime_state_smoke.cpp",
+        "target": "vlaforge_runtime_state_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/session_c_abi_smoke.c",
+        "target": "vlaforge_session_c_abi_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/artifact_verifier_smoke.cpp",
+        "target": "vlaforge_artifact_verifier_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/cuda_state_store_smoke.cpp",
+        "target": "vlaforge_cuda_state_store_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/aoti_region_smoke.cpp",
+        "target": "vlaforge_aoti_region_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/torchscript_region_smoke.cpp",
+        "target": "vlaforge_torchscript_region_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/install_consumer/CMakeLists.txt",
+        "source": "vlaforge/tests/install_consumer/main.cpp",
+        "target": "vlaforge_install_consumer"
+      }
+    ],
+    "forbidden_build_references": [],
+    "invalid_edges": [],
+    "optional_cuda_contract": "C++ AOTI backend links CUDA::cudart and executes external compiled artifacts; VLAForge declares no CUDA kernel source",
+    "passed": true,
+    "root_edgefm_build_drives_vlaforge": false,
+    "subdirectories": [
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp"
+      }
+    ],
+    "tracked_cuda_sources": []
+  },
+  "migration_map": [
+    {
+      "new": "caller-owned scheduling + passive Session::Run",
+      "old": "ClockDomain + period/deadline/jitter + RunTick",
+      "production_status": "removed"
+    },
+    {
+      "new": "StateStore allocated commit version",
+      "old": "EpochExpr.current/next",
+      "production_status": "removed"
+    },
+    {
+      "new": "transactional named outputs + ReadOutput",
+      "old": "action.publish / host I/O",
+      "production_status": "removed"
+    },
+    {
+      "new": "ChunkedAction Adapter authoritative state",
+      "old": "core ActionQueue",
+      "production_status": "adapter-only"
+    },
+    {
+      "new": "caller-prepared TensorView/ScalarValue inputs",
+      "old": "sensor synchronization / middleware",
+      "production_status": "outside-framework"
+    },
+    {
+      "new": "verified external AOTI/RegionExecutable artifacts",
+      "old": "EdgeFM custom CUDA operators",
+      "production_status": "not-a-VLAForge-build-dependency"
+    }
+  ],
+  "non_production_negative_mentions": [
+    {
+      "category": "run_tick",
+      "line": 76,
+      "match": "RunTick",
+      "path": "vlaforge/tests/codegen/test_codegen.py"
+    },
+    {
+      "category": "clock_domain",
+      "line": 77,
+      "match": "ClockDomain",
+      "path": "vlaforge/tests/codegen/test_codegen.py"
+    },
+    {
+      "category": "run_tick",
+      "line": 53,
+      "match": "vla.tick",
+      "path": "vlaforge/tests/models/test_openvla_artifact.py"
+    },
+    {
+      "category": "publish_operation",
+      "line": 53,
+      "match": "vla.publish",
+      "path": "vlaforge/tests/models/test_openvla_artifact.py"
+    },
+    {
+      "category": "physical_deadline",
+      "line": 30,
+      "match": "deadline",
+      "path": "vlaforge/tests/plan/test_plan.py"
+    },
+    {
+      "category": "physical_period",
+      "line": 31,
+      "match": "period",
+      "path": "vlaforge/tests/plan/test_plan.py"
+    },
+    {
+      "category": "run_tick",
+      "line": 64,
+      "match": "RunTick",
+      "path": "vlaforge/tests/unit/test_architecture_surface_audit.py"
+    },
+    {
+      "category": "clock_domain",
+      "line": 73,
+      "match": "clock_domain",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "run_tick",
+      "line": 74,
+      "match": "run_tick",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "clock_domain",
+      "line": 98,
+      "match": "ClockDomain",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "run_tick",
+      "line": 98,
+      "match": "RunTick",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "physical_deadline",
+      "line": 98,
+      "match": "deadline",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "physical_period",
+      "line": 98,
+      "match": "period",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "publish_operation",
+      "line": 108,
+      "match": "action.publish",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "clock_domain",
+      "line": 326,
+      "match": "clock_domain",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "run_tick",
+      "line": 327,
+      "match": "run_tick",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "physical_deadline",
+      "line": 411,
+      "match": "deadline",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "physical_period",
+      "line": 411,
+      "match": "period",
+      "path": "vlaforge/tools/audit_architecture_surface.py"
+    },
+    {
+      "category": "publish_operation",
+      "line": 35,
+      "match": "vla.action.publish",
+      "path": "vlaforge/tools/evaluate_ir_necessity.py"
+    },
+    {
+      "category": "publish_operation",
+      "line": 158,
+      "match": "action.publish",
+      "path": "vlaforge/tools/evaluate_ir_necessity.py"
+    }
+  ],
+  "passed": true,
+  "production_surface": {
+    "file_count": 47,
+    "files": [
+      {
+        "path": "vlaforge/CMakeLists.txt",
+        "sha256": "42797ea4c24d6a36919eca9d67da61486b0869c575396d1589914629d11a7337"
+      },
+      {
+        "path": "vlaforge/backends/aoti_region_executable.cpp",
+        "sha256": "083cdbfd567b1df917f0d05265389065c28d0d075f736739442f0d08ab0f3c01"
+      },
+      {
+        "path": "vlaforge/backends/torchscript_region_executable.cpp",
+        "sha256": "d53e87cd31c273f0dcadd11b610391fe2e4af93ab173d7103997e145385f7784"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/backends/aoti_region_executable.h",
+        "sha256": "112ded7f8e90f39517cb4c7bb6f1277e5daa42afa55dc9ca4bd86c09d8a29030"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/backends/torchscript_region_executable.h",
+        "sha256": "21459d1b6c76351fc95eefa1b13b820935f1a51f6b7c48f390924f3a492acab4"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/artifact_verifier.h",
+        "sha256": "8e0f98bdd83863f14178e484eeb4ab8df878db714a460eb0633cc9aecf133b1d"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/device_copy.h",
+        "sha256": "e52f7b3dfeab5382007d7ebc089cf06dea8fd885eb06fc2be163c84bf9d29f07"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/region_executable.h",
+        "sha256": "4dabd1ce98e4482ea6e548ba3dd4ef0d2261ae1e44419291e507c24fe1a3e7bf"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/session.h",
+        "sha256": "5f890f6fa54f5567d398e7a715b5350e61946f1b190bbbcff60af63ec4e6e439"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/session_c.h",
+        "sha256": "4c8fd3b422d66cc9f9ec50fba99c1630b8d00341016004fa4a4e80fa955b1e7a"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/state_store.h",
+        "sha256": "36bb4ba0ec831d6c29a923d65e103c6323571277921189e9fcaaddc21af51aca"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/static_arena.h",
+        "sha256": "560cf499687ed62cb0fb6382c13cd561801151608044c3341c7d23aed37ecc31"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/status.h",
+        "sha256": "75ee046a0026c918e8c434633cff4adb8a87a180d902299c91b6c92a03c5ef8a"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/tensor_view.h",
+        "sha256": "3f4b938033d264f36987f20bbb69feccc80ec63bfead7495c476411335df3b60"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/trace.h",
+        "sha256": "c31ec2f3425fd5be398f0c244ac0e2c7aa161997414cef1b85795f521e82a509"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/runtime/transaction.h",
+        "sha256": "ba9ee5a0c9c3021c1c2c3f6e3f44a949c8b0a03710433c02488f6435f5c4180e"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/codegen/__init__.py",
+        "sha256": "bb2250f925b1ab63d71ceb3295d4b4aabf487ef0046ec981be4ae311d4a939e5"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/codegen/cpp.py",
+        "sha256": "f20c86d40f4cc5565b0df406b74053281556210242d31a2d246bd8eb1165b01d"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/codegen/fixtures.py",
+        "sha256": "541a142b573b8285e8bb2f2868da8788dc3d0e203ac4730bd9dae0f8df65dd91"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/codegen/model.py",
+        "sha256": "e48991332303151482fc655bd605022c91adabb8d439810a2619821bf41f8174"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/compiler.py",
+        "sha256": "4e0cab1b067e5bd2d95c755fdd9a2a6f832e93a32d45d5e3be4371ff3ac37273"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/deployment/__init__.py",
+        "sha256": "b939ec7b6e1da4ddddd884334e5295fed9e03fd124899811e55aa7ccc5e3b6a4"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/deployment/build.py",
+        "sha256": "e54c5a6086c1049b8346bca85663a9c7eccc41de6ad93b8532d7582d09189b4c"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/deployment/bundle.py",
+        "sha256": "877ef7906a9290e260a6f79b3a47c22c78ac6db03f709cea883d13d183826511"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/deployment/contract.py",
+        "sha256": "6ee8a4ea61e6e616ce3a0b0ec6bfbdaf83d34f6f92bb6b51090275f522cbc75f"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/__init__.py",
+        "sha256": "c8d7f02bbcf5325f70f600a7947eed2f96952f349946708ac9501af503a3461b"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/attrs.py",
+        "sha256": "92bee2d76cc7e9c0eae88b46e457eb19c8c38a4b27db1e0d2ac354a8f456a978"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/ops.py",
+        "sha256": "f87d60e2c6041319339f01ef90f23a69ece347fc3422cefd53de8bcef09ed18c"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/parser.py",
+        "sha256": "cb4d2ed2586225a2f294774bf0b70227fff904bb2e15936d4618da07d3dfb4d8"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/printer.py",
+        "sha256": "8c9408fbba2651681b1c36cc62e22983a8e52a024492ecf32520eab428afdf0a"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/program.py",
+        "sha256": "18796a3ed35728e66f80001e50c8fad3576ea103561bec7ba0bd6d9aca691b0d"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/serializer.py",
+        "sha256": "f70c3c2b593bb918e13308efa55331e8806d43a16595a7f410232449a8087b56"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/types.py",
+        "sha256": "004b90538c9a37ac08497afeb4cc5764ffe3cbfa185b7481da0ad0aad942705a"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/ir/versioning.py",
+        "sha256": "b474c8e47b78d17b56df3c2441a1af0ab166c3165fb4fd22b9cdadf4f35c5652"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/plan/__init__.py",
+        "sha256": "c27d3421231b8121e85c2b3f34e9a8c07e7128fc78fc582407cca78ed01eeae3"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/plan/executor.py",
+        "sha256": "ca742674cd04c7a0d96e9741351a0fcc01078b9f98844e8866d1abb717c3a6e8"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/plan/lowering.py",
+        "sha256": "c010b86e5a8d9d88309b197e056d3aed20966aa3bac0a17b62bd81ea360b9817"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/plan/memory.py",
+        "sha256": "89bc0e68cb4f9a0c80754b41c6272d1d366e971c19010c837982207e17ff24e4"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/plan/model.py",
+        "sha256": "0d4faaee939a4c88b99ee86f78140315f9b6ea3c2d3f0cb8521ff6d172c20912"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/plan/verifier.py",
+        "sha256": "a69292a110f481a1be8ed522d0b4eac8b2f1708c751d211792818a172c721125"
+      },
+      {
+        "path": "vlaforge/runtime/artifact_verifier.cpp",
+        "sha256": "dab6435e7749a04c13df33a31f9cca14c907590fdce962cfc2c2216bd2e1caf1"
+      },
+      {
+        "path": "vlaforge/runtime/device_copy.cpp",
+        "sha256": "4dab1ee81ad47a73770bcf7632093ef43ea839bd96aaddc4a7f401f506629a9d"
+      },
+      {
+        "path": "vlaforge/runtime/region_executable.c",
+        "sha256": "d672587d19b9b43bbc09a6c9d1730b8c8eb76130f9a931f86c600836c0546b78"
+      },
+      {
+        "path": "vlaforge/runtime/session_c.c",
+        "sha256": "5ed7cbfb44db6f5554d80773d4ec88818cc8762c1ea532c43022c8f9f12b4600"
+      },
+      {
+        "path": "vlaforge/runtime/state_store.cpp",
+        "sha256": "39bf3b3bdd2c2b4c0fbe22b7f12cf836f97769e8ba5a166ee6ae5d561c2d849f"
+      },
+      {
+        "path": "vlaforge/runtime/static_arena.cpp",
+        "sha256": "488ade90cd43d021420827389d3292826d48191696443cf16fc393f0943b625d"
+      },
+      {
+        "path": "vlaforge/runtime/transaction.cpp",
+        "sha256": "68aa4dc5fb0fde25d1674e91a5baede120c208ab051c77833baf3835b9525352"
+      }
+    ],
+    "forbidden_findings": [],
+    "roots": [
+      "vlaforge/python/vlaforge/ir",
+      "vlaforge/python/vlaforge/compiler.py",
+      "vlaforge/python/vlaforge/plan",
+      "vlaforge/python/vlaforge/codegen",
+      "vlaforge/python/vlaforge/deployment",
+      "vlaforge/runtime",
+      "vlaforge/include/vlaforge",
+      "vlaforge/backends",
+      "vlaforge/CMakeLists.txt",
+      "vlaforge/cmake"
+    ]
+  },
+  "repository": {
+    "revision": "f45f51cf7c286e08433b94e1ea4622f34fe2cdf1",
+    "source_dirty": false,
+    "tracked_status": []
+  },
+  "schema": "vlaforge.architecture_surface_audit/1",
+  "semantic_ir": {
+    "allowed_opcodes": [
+      "vla.for",
+      "vla.if",
+      "vla.input.read",
+      "vla.invoke",
+      "vla.output.create",
+      "vla.output.group",
+      "vla.return",
+      "vla.snapshot.value",
+      "vla.state.read_latest",
+      "vla.state.stage_write",
+      "vla.txn.abort",
+      "vla.txn.begin",
+      "vla.txn.commit",
+      "vla.validate",
+      "vla.yield"
+    ],
+    "core_action_queue": false,
+    "old_control_or_publish_opcodes": [],
+    "schema": "0.2"
+  },
+  "status": "passed",
+  "summary": {
+    "core_action_queue_absent": true,
+    "middleware_and_publish_absent": true,
+    "old_edgefm_cuda_build_dependency_absent": true,
+    "passive_invocation_only": true,
+    "physical_scheduling_absent": true,
+    "python_runtime_dependency_absent": true
+  }
+}
