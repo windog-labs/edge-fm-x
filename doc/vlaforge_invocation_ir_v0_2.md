@@ -2,9 +2,7 @@
 
 ## 1. 决策状态
 
-本文档是 VLAForge 当前的权威架构决策。它覆盖 v0.1 中把
-`ClockDomain`、`Policy.clock`、`RunTick`、物理时间 freshness 和 action
-publish 放进核心语义的设计。
+本文档是 VLAForge 当前唯一的 production 架构与语义定义。
 
 VLAForge/EdgeFM 的调用者是底软。VLAForge 只负责把一次 VLA 模型调用及其
 跨调用状态编译成高性能部署代码，不负责：
@@ -322,34 +320,7 @@ CPU/CUDA 内存；device/layout/alignment 匹配时允许 zero-copy，不匹配�
 编译器和论文必须明确区分 authoritative state 与 derived cache。cache miss 或
 reset 可以重算 derived cache；authoritative state 丢失会改变模型语义。
 
-## 7. 旧 → 新 API/IR migration map
-
-| v0.1 | v0.2 | 迁移规则 |
-|---|---|---|
-| `ClockDomain(period/deadline/jitter)` | 删除 | 底软负责调用周期与 deadline |
-| `Policy(clock, tick)` | `Invocation(name, body)` | invocation 无物理时钟 |
-| `Session::RunTick(Epoch)` | `Session::Run()` | 外部连续调用 |
-| `Epoch(clock, sequence, timestamp, episode)` | `InputStamp(revision?, timestamp?)` + `episode` | revision 只标识输入；episode 由 Session 管理 |
-| `vla.sample_input -> value, EpochType` | `vla.input.read -> value, InputRevisionType` | 无 revision 时 runtime 自动生成唯一值 |
-| 隐式输入顺序 | `InputPort.id + input_schema_digest` | bundle 和 runtime 校验稳定 ID/schema |
-| 仅 `TensorView` 输入 | `bind_tensor + bind_scalar` | 仍只允许静态 Tensor/Scalar/POD ABI |
-| 手写 C++ bind 代码 | generic C ABI + typed wrapper | wrapper 与通用 ABI 必须等价 |
-| `FreshnessConstraint(max_age)` | 核心删除/metadata | 底软或 adapter 做 freshness policy |
-| `EpochExpr.current/next` | 删除 | state version 由 commit 内部分配 |
-| `vla.state.read(epoch)` | `vla.state.read_latest` | 返回 `Snapshot<T, version>` |
-| `vla.state.stage_write(epoch)` | `vla.state.stage_write` | 不携带 next epoch |
-| `ActionType` | `PendingOutputType` | 输出不等于外部发布 |
-| `CommittedActionType` | `CommittedOutputType` | 事务提交后的模型输出 |
-| `vla.action.publish` | 删除 | `vla.return` + `ReadOutput` |
-| `ActionQueue` runtime | `OutputStore` | 只保存 latest committed output |
-| epoch cache dependency | input revision/state version dependency | exact key 加 episode/model/artifact identity |
-| `vla.async/await` | v0.2 非核心 | backend overlap/CUDA Graph 后置 |
-| 多种 `StateScope` | episode-reset authoritative state | 复杂 scope 后置 |
-
-旧 textual/JSON schema 不保证兼容；转换脚本只有在实现成本很低时提供。代码和
-测试以 v0.2 为唯一 release gate。
-
-## 8. 编译流水线
+## 7. 编译流水线
 
 ```text
 Restricted Python/model adapter
@@ -381,7 +352,7 @@ compiler profile 的准确表述是
 “legality-checked stateful invocation whole-program transformations”，不是
 通用实时调度或任意 plan synthesis。
 
-## 9. 验收矩阵
+## 8. 验收矩阵
 
 必须自动化验证：
 
@@ -402,7 +373,7 @@ compiler profile 的准确表述是
 15. 外部 C++ preprocessing Region 通过稳定 RegionExecutable ABI 接入；
 16. typed wrapper 与 generic C ABI 返回同一 committed output。
 
-## 10. 论文主张
+## 9. 论文主张
 
 论文不再主张“VLA 时序调度器”。推荐主线：
 

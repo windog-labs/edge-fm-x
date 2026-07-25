@@ -77,9 +77,9 @@ tools/audit_cuda_aoti_region.py
 ```
 
 These tools require an explicitly supplied local checkpoint/revision and never
-download weights as part of the default test suite. The old v0.1
-epoch/tick-based generated runners and benchmarks were removed; their reports
-are historical evidence only and must not be used as v0.2 real-model claims.
+download weights as part of the default test suite. Only evidence produced
+through the current Invocation IR, Plan, and passive Session ABI belongs in a
+release or paper claim.
 
 ## Extension rules
 

@@ -1,3 +1,4 @@
+import importlib.util
 from dataclasses import replace
 
 import pytest
@@ -16,6 +17,24 @@ from vlaforge.interpreter import (
     TensorView,
 )
 from vlaforge.ir.serializer import io_schema_digest
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "vlaforge.codegen.certificate",
+        "vlaforge.codegen.real_aoti",
+        "vlaforge.codegen.real_torchscript",
+        "vlaforge.interpreter.clocks",
+        "vlaforge.transforms.epoch_memoize",
+        "vlaforge.transforms.physicalize_state",
+        "vlaforge.transforms.temporal_licm",
+        "vlaforge.transforms.whole_program",
+        "vlaforge.validation.mutation",
+    ],
+)
+def test_removed_v01_modules_are_not_shipped(module_name):
+    assert importlib.util.find_spec(module_name) is None
 
 
 def test_same_revision_hits_and_new_revision_misses_exact_cache():

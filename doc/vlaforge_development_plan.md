@@ -28,11 +28,6 @@ VLAForge 不负责：
 - 车辆功能安全层、轨迹仲裁或机器人闭环安全；
 - 自研完整 Tensor compiler。
 
-因此 v0.1 的 `ClockDomain`、`Policy.clock`、`RunTick`、`EpochExpr`、
-`action.publish` 和内部 scheduler 均已移除，不是兼容层，也不是论文贡献。
-完整迁移表见
-[vlaforge_invocation_ir_v0_2.md](./vlaforge_invocation_ir_v0_2.md)。
-
 ## 2. 总体架构
 
 ```mermaid
@@ -309,10 +304,10 @@ opcode 或任意未验证 opcode。
 | P6 | Region plugin ABI v2、clean no-Python build/run | 完成 |
 | P7 | robot/driving executable fixtures、fixture C++ parity | 完成 |
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
-| P9 | 清除/归档 v0.1 生产路径，完整回归和报告冻结 | 完成 |
+| P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
 | P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | OpenVLA/SmolVLA L2 完成；L3/L4 待完成 |
 | P11 | Host CUDA 性能、消融、长稳 | 待完成 |
-| P12 | Orin arm64 build、真机 latency/power/closed-loop | 环境就绪后执行 |
+| P12 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
 
 ## 9. 测试与验收
 
@@ -334,7 +329,7 @@ Host release gate：
 14. invalid `PYTHONHOME/PYTHONPATH` 仍运行，`ldd` 无 Python；
 15. 完整 Python tests 与 CTest 通过。
 
-2026-07-25 当前结果：offline Python 169 passed/3 opt-in skipped；真实
+2026-07-25 当前结果：offline Python 178 passed/3 opt-in skipped；真实
 SmolVLA 与 OpenVLA 各 1 个 checkpoint gate passed；clean C++ Release build、
 6/6 CTest、install/export 和 v0.2 wheel 均通过。
 
@@ -356,7 +351,8 @@ SmolVLA 与 OpenVLA 各 1 个 checkpoint gate passed；clean C++ Release build�
 3. 选择 Octo 或 GR00T 完成至少 L2，评估 JAX/多 artifact 成本；
 4. 选择 AutoVLA 或 ReCogDrive 完成真实驾驶混合架构 L2/L3；
 5. Host CUDA benchmark、memory/profile 与 10k+ Run soak；
-6. Orin 环境就绪后执行 arm64 clean build 和真机验证。
+6. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
+   runtime/generated Session 的 JetPack arm64 portability 已通过。
 
 ## 11. 风险控制
 

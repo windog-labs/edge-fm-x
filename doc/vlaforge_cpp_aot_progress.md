@@ -1,7 +1,7 @@
 # VLAForge v0.2 C++ AOT 进度
 
 > 更新时间：2026-07-25
-> 当前语义：passive `Session::Run()`；本文不再记录 v0.1 tick/epoch runner
+> 当前语义：独立的 passive `Session::Run()` invocation runtime
 
 ## 已完成
 
@@ -65,7 +65,7 @@
 generated tests 比较：
 
 - Python Semantic Interpreter；
-- Python Scheduled Plan executor；
+- Python Plan executor；
 - generated C++ output；
 - normalized input/cache/region/state/transaction/output trace。
 
@@ -83,19 +83,20 @@ runner 在无效 `PYTHONHOME/PYTHONPATH` 下执行，并检查 `ldd` 无 Python�
 | Compilation certificate | `vlaforge.compilation_certificate/2` |
 | Compile bundle | `vlaforge.compile_bundle/3` |
 
-## 已清理的 v0.1 路径
+## JetPack arm64 portability
 
-以下内容不再属于 production：
+- `nvcr.io/nvidia/l4t-jetpack:r36.4.0` 在 binfmt 下实际运行
+  `aarch64/arm64`；
+- 独立 VLAForge Release runtime clean build：18/18；
+- arm64 CTest：6/6；
+- install/export：runtime library、public headers、CMake targets 完整；
+- OpenVLA-like generated Session：arm64 10/10 build + runner passed；
+- SmolVLA-like generated Session：arm64 10/10 build + runner passed；
+- 两个 runner 均无 Python 动态库依赖。
 
-- `Epoch`/`EpochCache`；
-- `ActionQueue::Publish`；
-- `RunTick`；
-- epoch-keyed memoization；
-- tick-based real AOTI/TorchScript runner；
-- v0.1 whole-program benchmark。
-
-Git 历史和 `doc/reports/` 中的旧报告只作为历史证据，不可作为 v0.2 release
-结果。
+顶层 EdgeFM engine/operator 并非 VLAForge core 的依赖。只有 bundle 明确
+选择 EdgeFM 作为某个 TensorRegion artifact provider 时，才按需构建对应
+backend；VLAForge portability gate 不再全量编译旧 EdgeFM CUDA operators。
 
 ## 当前证据边界
 
@@ -121,11 +122,11 @@ artifact + generated Session L3/L4 需要按新 ABI 重建。
 1. 以新 Session generator 接回 real AOTI/TensorRT Region artifact；
 2. 先完成 DiffusionDrive、SmolVLA、OpenVLA 的真实 L3/L4；
 3. Host CUDA latency/memory/profile 与长稳；
-4. Orin 环境就绪后 arm64 clean build 与真机测量。
+4. Orin 台架就绪后运行模型专属 SM87 artifact、性能和长稳测试。
 
 ## 2026-07-25 Release audit
 
-- offline Python suite：169 passed，3 个 opt-in gate skipped；
+- offline Python suite：178 passed，3 个 opt-in gate skipped；
 - real SmolVLA checkpoint gate：1 passed；
 - real OpenVLA-7B 4-bit gate：1 passed；
 - clean C++ Release build：passed；
@@ -133,4 +134,6 @@ artifact + generated Session L3/L4 需要按新 ABI 重建。
 - CMake install/export：passed；
 - wheel：`vlaforge-0.2.0.dev0-py3-none-any.whl` built；
 - arm64 JetPack image probe：`aarch64`；
+- arm64 standalone runtime：18/18 build、6/6 CTest、install/export passed；
+- arm64 OpenVLA-like/SmolVLA-like generated Session：build/run passed；
 - `git diff --check`：passed。
