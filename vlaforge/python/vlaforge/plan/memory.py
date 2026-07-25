@@ -537,7 +537,12 @@ def _natural_alignment(type: IRType, tensor_alignment: int) -> int:
     alignment = 1
     while alignment < min(size, 8):
         alignment *= 2
-    return alignment
+    # Scalar IR values cross the Region ABI as zero-rank tensor storage.
+    # PyTorch AOTI assumes at least 16-byte storage alignment even for i32
+    # values; weaker natural alignment triggers an implicit aligned copy in
+    # every Region invocation.  Keep this guarantee in the physical plan so
+    # state slots and loop-carried scalar temporaries share the same ABI rule.
+    return max(alignment, 16)
 
 
 def _align_up(value: int, alignment: int) -> int:

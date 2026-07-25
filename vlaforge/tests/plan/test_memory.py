@@ -11,7 +11,7 @@ from vlaforge.adapters import (
     build_openvla_fixture,
     build_smolvla_fixture,
 )
-from vlaforge.ir.types import TensorType
+from vlaforge.ir.types import ScalarType, TensorType
 from vlaforge.plan import (
     ArtifactVariant,
     BufferClass,
@@ -109,6 +109,29 @@ def test_region_workspace_is_explicit_and_aligned() -> None:
     assert allocation.size_bytes == 1024
     assert allocation.alignment == 256
     assert allocation.offset % 256 == 0
+
+
+def test_scalar_storage_is_region_abi_aligned() -> None:
+    plan = physicalize_plan(lower_to_plan(build_smolvla_fixture().module))
+    assert plan.arena is not None
+    scalar_states = [
+        state for state in plan.states
+        if isinstance(state.payload, ScalarType)
+    ]
+    scalar_buffers = [
+        allocation
+        for allocation in plan.arena.physical_buffers
+        if any(
+            isinstance(plan.buffers[logical_id].type, ScalarType)
+            for logical_id in allocation.logical_buffers
+        )
+    ]
+
+    assert scalar_states
+    assert scalar_buffers
+    assert all(state.alignment is not None for state in scalar_states)
+    assert all(state.alignment >= 16 for state in scalar_states)
+    assert all(allocation.alignment >= 16 for allocation in scalar_buffers)
 
 
 def test_dynamic_internal_storage_requires_override() -> None:
