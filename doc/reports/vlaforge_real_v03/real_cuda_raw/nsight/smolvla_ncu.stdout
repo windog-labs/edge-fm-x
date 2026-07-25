@@ -1,0 +1,25 @@
+==PROF== Connected to process 2352028 (/tmp/vlaforge-bench-smolvla-aligned/bin/vlaforge_generated_benchmark)
+==PROF== Profiling "ampere_s16816gemm_bf16_128x64..." - 0 (1/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "splitKreduce_kernel" - 1 (2/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_per_fused__to_copy__un..." - 2 (3/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_per_fused_add_cumsum_m..." - 3 (4/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "Kernel2" - 4 (5/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_poi_fused__to_copy__un..." - 5 (6/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_poi_fused__to_copy_18" - 6 (7/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "ampere_sgemm_128x32_tn" - 7 (8/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "splitKreduce_kernel" - 8 (9/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_poi_fused__unsafe_view..." - 9 (10/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "ampere_sgemm_128x128_tn" - 10 (11/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_per_fused__softmax_bit..." - 11 (12/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_poi_fused__to_copy_18" - 12 (13/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "ampere_sgemm_128x32_tn" - 13 (14/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "splitKreduce_kernel" - 14 (15/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_poi_fused__unsafe_view..." - 15 (16/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "ampere_sgemm_128x128_nn" - 16 (17/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_poi_fused__to_copy__un..." - 17 (18/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "ampere_bf16_s16816gemm_bf16_6..." - 18 (19/20): 0%....50%....100% - 8 passes
+==PROF== Profiling "triton_per_fused__to_copy__un..." - 19 (20/20): 0%....50%....100% - 8 passes
+SAMPLE,0,101730177,1001,1,-0.24028226733207703
+SUMMARY,886923936,2007124,3246812,3246812,3243648,1422655488,1644953600,1644953600,1644953600,-0.24028226733207703,26,0,1,2,1,0,1,1,1,1
+==PROF== Disconnected from process 2352028
+==PROF== Report: /tmp/vlaforge-nsight-v2/smolvla_basic.ncu-rep

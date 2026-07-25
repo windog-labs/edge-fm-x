@@ -1,0 +1,46 @@
+[
+  {
+    "Time (%)": 95.8,
+    "Total Time (ns)": 70446366,
+    "Count": 816,
+    "Avg (ns)": 86331.3,
+    "Med (ns)": 416.0,
+    "Min (ns)": 320,
+    "Max (ns)": 10598080,
+    "StdDev (ns)": 403879.3,
+    "Operation": "[CUDA memcpy Host-to-Device]"
+  },
+  {
+    "Time (%)": 2.7,
+    "Total Time (ns)": 2000004,
+    "Count": 1584,
+    "Avg (ns)": 1262.6,
+    "Med (ns)": 1120.0,
+    "Min (ns)": 928,
+    "Max (ns)": 1888,
+    "StdDev (ns)": 275.7,
+    "Operation": "[CUDA memcpy Device-to-Device]"
+  },
+  {
+    "Time (%)": 1.3,
+    "Total Time (ns)": 976758,
+    "Count": 683,
+    "Avg (ns)": 1430.1,
+    "Med (ns)": 704.0,
+    "Min (ns)": 352,
+    "Max (ns)": 13535,
+    "StdDev (ns)": 2755.5,
+    "Operation": "[CUDA memset]"
+  },
+  {
+    "Time (%)": 0.2,
+    "Total Time (ns)": 147132,
+    "Count": 154,
+    "Avg (ns)": 955.4,
+    "Med (ns)": 960.0,
+    "Min (ns)": 768,
+    "Max (ns)": 1728,
+    "StdDev (ns)": 135.7,
+    "Operation": "[CUDA memcpy Device-to-Host]"
+  }
+]

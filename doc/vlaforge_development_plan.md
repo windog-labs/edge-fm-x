@@ -306,7 +306,7 @@ opcode 或任意未验证 opcode。
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
 | P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 的 clean bundle/C++ build 通过但执行受 AOTI package loader 资源行为阻塞 |
-| P11 | Host CUDA 性能、消融、长稳 | 待完成 |
+| P11 | Host CUDA 性能、消融、长稳 | 完成：两真实 L4 模型的 eager/direct/generated 对照、revision/cache 消融、10k Run soak、NSYS/NCU |
 | P12 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
 
 ## 9. 测试与验收
@@ -360,6 +360,18 @@ package load 留下 deleted wrapper mappings，runner 在 24.48GiB RSS、约
 82GB package writes、系统盘余 29GiB 时按安全阈值终止。该 blocker 位于
 backend package lifecycle，OpenVLA 不升级为 L4。
 
+P11 已在 RTX 3060 `sm_86` 上完成。DiffusionDrive
+eager/direct/generated-C++ mean 为 `19.361/16.168/16.304 ms`，
+generated 对 direct 的额外开销为 `+0.84%`；SmolVLA 为
+`112.912/45.131/45.194 ms`，额外开销为 `+0.14%`。这组对照明确把
+AOTI 模型编译收益和 VLAForge whole-program orchestration 分开。
+DiffusionDrive same-revision condition cache 获得 `5.533x`，new/missing
+revision 均正确 miss。两模型 generated Session 均完成 10,000 连续 Run，
+transaction abort 和 CUDA drift 均为 0，RSS drift 分别为 4/52 KiB。
+NCU 还定位并消除了 loop-carried scalar 的隐式 aligned copy；该修复只改变
+IR storage alignment，不修改任何模型 CUDA kernel。完整证据见
+`doc/reports/vlaforge_real_v03/real_cuda_evidence.md`。
+
 论文 release gate 另要求：
 
 - 至少一个 manipulation、一个 AR VLA、一个 diffusion/flow VLA 和一个
@@ -372,13 +384,11 @@ backend package lifecycle，OpenVLA 不升级为 L4。
 
 ## 10. 剩余开发顺序
 
-1. 为已完成的 SmolVLA、DiffusionDrive L4 补齐 Host CUDA benchmark、消融、nsys/ncu 与
-   10k+ Run soak；
-2. 选择 Octo/GR00T 与 AutoVLA/ReCogDrive 做 frozen-core held-out；
-3. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
+1. 选择 Octo/GR00T 与 AutoVLA/ReCogDrive 做 frozen-core held-out；
+2. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
    shared-library/cubin mapping 与 per-invocation CUDA weight residency 分离，
-   不得扩 core IR，也不得阻塞前两项；
-4. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
+   不得扩 core IR，也不得阻塞 held-out；
+3. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
    runtime/generated Session 的 JetPack arm64 portability 已通过。
 
 ## 11. 风险控制

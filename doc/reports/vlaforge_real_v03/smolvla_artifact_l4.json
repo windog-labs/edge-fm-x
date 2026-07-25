@@ -107,17 +107,17 @@
     }
   ],
   "bundle": {
-    "build_seconds": 10.018271769862622,
+    "build_seconds": 9.744710191851482,
     "bundle_verified": true,
-    "digest": "e527fe804f35bcaa1409b527a3dff86fb898d0812bde50e4157b16f06efed622",
+    "digest": "9801d7292ea418ffc567aa84faf8c09f1e5c5bcf7da9f815db714cf43bfdbfa5",
     "invalid_python_environment": true,
     "linked_dependencies": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4_runner.ldd",
     "links_libpython": false,
-    "manifest": "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d/bundle.json",
-    "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d",
+    "manifest": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle/bundle.json",
+    "path": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
     "reused_existing_verified_bundle": false,
-    "runner": "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d/bin/vlaforge_generated_runner",
-    "runner_sha256": "faf23a756a2f9cd61a84c07f46d2c9436cf21152c3730943bff48e15f31176c6"
+    "runner": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle/bin/vlaforge_generated_runner",
+    "runner_sha256": "2c56979f2344791059e6f026ee3f7a01a49d94950525ec63de39ce5462e9723e"
   },
   "cache": {
     "episode_reset_invalidates": true,
@@ -285,7 +285,7 @@
   "evidence_level": "L4",
   "execution": {
     "failure_injection_runs": 2,
-    "runner_seconds": 4.160586112877354,
+    "runner_seconds": 3.945613799151033,
     "stdout": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4_runner.stdout",
     "successful_runs": 152
   },
@@ -300,17 +300,17 @@
     "vlm_checkpoint": "Apache-2.0"
   },
   "memory": {
-    "arena_baseline_bytes": 2331584,
+    "arena_baseline_bytes": 2331712,
     "arena_compiled_bytes": 2329792,
-    "arena_saved_bytes": 1792,
-    "authoritative_state_bytes": 2440,
+    "arena_saved_bytes": 1920,
+    "authoritative_state_bytes": 2464,
     "derived_cache_bytes": 2314353,
     "note": "Derived-cache and state bytes are taken from the verified static memory plan; artifact package bytes are reported separately."
   },
   "model": "SmolVLA-Base",
   "passed": true,
   "repository": {
-    "revision": "53dad4d41a85d76a38d44fbf183f61d06c87b803",
+    "revision": "0cf3d12e8bbbef08e96ce423872505876f9391f5",
     "source_dirty": false
   },
   "reproduction": {
@@ -322,7 +322,7 @@
       "--support-root",
       "/tmp/vlaforge-smolvla-l4.oYi5dQ",
       "--bundle-root",
-      "/tmp/vlaforge-smolvla-l4.oYi5dQ/bundle-v5-53dad4d",
+      "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
       "--checkpoint",
       "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base/model.safetensors",
       "--vlm-path",

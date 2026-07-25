@@ -59,14 +59,16 @@ on the same RTX 3060 with:
   `ldd`.
 
 The verified static plan assigns 2,314,353 bytes to recomputable derived prefix
-cache and 2,440 bytes to authoritative queue/cursor state. These categories
+cache and 2,464 bytes to authoritative queue/cursor state. Scalar state and
+loop-carried Region values use at least 16-byte alignment, which removes the
+AOTI implicit aligned-copy fallback found by NCU. These categories
 remain semantically separate. Hashes, input fixture identities, bundle digest,
 trace counts, and the exact reproduction command are recorded in
 `smolvla_artifact_l4.json`.
 
 This upgrades the fixed `SmolVLA-Base` checkpoint to real Host-CUDA L4. It is
-not an Orin claim and the recorded audit runtime is not yet a paper-grade
-latency benchmark.
+not an Orin claim. Paper-facing latency, memory, soak, and profile evidence is
+reported separately in `real_cuda_evidence.md`.
 
 ## DiffusionDrive real L2
 
@@ -124,8 +126,44 @@ there is no action queue and no new core op.
 The report `diffusiondrive_artifact_l4.json` records artifact/checkpoint hashes,
 the schema digest, bundle and runner hashes, C++ trace summaries, memory-plan
 classes, and reproduction command. This is real Host-CUDA L4 on RTX 3060
-`sm_86`; it is not an Orin claim and its audit runtime is not yet a
-paper-grade latency benchmark.
+`sm_86`; it is not an Orin claim. Paper-facing benchmark evidence is reported
+separately below.
+
+## Host-CUDA benchmark, soak, and profile
+
+The two real L4 models were measured on the RTX 3060 after ten warmups. Timed
+intervals contain one complete model invocation or generated
+`ModelSession::Run` through backend synchronization; setup, input upload,
+output probing, and reporting are outside the interval.
+
+| Model | eager mean | direct AOTI mean | generated C++ mean | C++ vs eager | C++ overhead vs direct |
+|---|---:|---:|---:|---:|---:|
+| DiffusionDrive | 19.361 ms | 16.168 ms | 16.304 ms | 1.187x | +0.84% |
+| SmolVLA | 112.912 ms | 45.131 ms | 45.194 ms | 2.498x | +0.14% |
+
+Generated C++ and direct AOTI use identical compiled model artifacts. Their
+near-equal full-compute times bound VLAForge orchestration overhead; eager
+speedups are attributed to upstream AOTI compilation, not to VLAForge-owned
+CUDA kernels.
+
+DiffusionDrive exact condition reuse reduced mean latency from 16.304 ms to
+2.947 ms (5.533x), with 500/500 cache hits. New and missing revisions produced
+500/500 misses and restored full compute. SmolVLA caller-driven action-chunk
+consumption averaged 0.689 ms across 500 Runs; its 10 refill points all hit the
+same-revision prefix cache, while new/missing revisions missed on every refill.
+The queue/cursor remains an Adapter template, not a core-IR assumption.
+
+Both models passed 10,000 consecutive generated C++ Runs with zero transaction
+aborts and zero CUDA-memory drift. DiffusionDrive recorded 10,000 exact-cache
+hits and 4 KiB RSS drift. SmolVLA recorded 10,000 output commits, 20,000 state
+commits, 200 prefix-cache hits, identical pre/post alignment-fix checksum, and
+52 KiB RSS drift.
+
+NSYS and NCU profile the no-Python C++ binaries. Their kernel summaries remain
+upstream AOTI/cuDNN/CUTLASS/Triton work; no old EdgeFM kernel or custom model
+kernel is compiled or claimed. Curated results, raw CSV samples, model-path
+reports, profile summaries, hashes, and claim boundaries are in
+`real_cuda_evidence.json`, `real_cuda_evidence.md`, and `real_cuda_raw/`.
 
 ## OpenVLA-7B real L3
 

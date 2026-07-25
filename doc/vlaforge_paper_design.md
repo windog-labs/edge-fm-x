@@ -277,8 +277,8 @@ classification、transactional named outputs、legality 和 edge C++ ABI。
 - RQ2 Correctness：Semantic/Plan/C++ 是否保持 output/state trace？
 - RQ3 Optimization：revision/version-guided transforms 收益多大？
 - RQ4 Integration：新模型和客户 C++ 输入需要多少 Adapter/core 修改？
-- RQ5 Deployment：无 Python Session 在 Host CUDA/Orin 的 latency、memory、
-  energy 和稳定性如何？
+- RQ5 Deployment：无 Python Session 在 Host CUDA 上的 latency、memory 和
+  稳定性如何；Orin 环境可用后再单列 power/energy？
 
 ### 9.2 证据等级
 
@@ -413,6 +413,18 @@ Generality：
   L4：20 条 candidates、scores、selected trajectory 和三个 aux outputs
   对 direct artifact byte-exact，并覆盖 stateless revision cache、事务失败、
   reset 与 typed/generic ABI，新增 core op 为 0；
+- SmolVLA 与 DiffusionDrive 的 Host-CUDA eager/direct-artifact/generated-C++
+  正式对照：generated 相对 direct 的 overhead 分别为 `+0.14%/+0.84%`，
+  相对 eager 为 `2.498x/1.187x`；该对照不把 AOTI kernel 收益写成
+  VLAForge 贡献；
+- DiffusionDrive same-revision exact condition cache 为 `5.533x`；
+  new/missing revision 均完整失效。SmolVLA action-chunk 业务 Run 平均
+  `0.689 ms`，queue/cursor 仍只属于 Adapter；
+- 两真实 L4 generated Session 均通过 10,000 Run：transaction abort 和
+  CUDA drift 均为 0，RSS drift 为 4/52 KiB；NSYS/NCU 直接 profile
+  no-Python C++ binary；
+- NCU 驱动的 scalar Region storage 16-byte alignment 修复移除了 AOTI
+  implicit copies，未修改模型 CUDA kernel；
 - OpenVLA-7B 真实 36 Region `sm_86` AOTInductor L3：two-layer
   prefill/decode physical partition、fixed loop-carried KV、两次完整
   autoregressive pipeline token/action parity，新增 core op 为 0；
@@ -426,9 +438,7 @@ Generality：
 
 - OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
   已记录，不能把成功 build 写成 L4 execution；
-- real-model optimization speedup 与 memory 消融；
 - frozen-core held-out model 数据；
-- Host CUDA 长稳与 profile；
 - Orin 真机 latency/power/closed-loop 后置，不进入当前 Host-CUDA claim。
 
 小型 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
