@@ -1,0 +1,690 @@
+{
+  "artifacts": [
+    {
+      "compile_seconds": 22.585871784947813,
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/condition_encoder.pt2",
+      "region": "condition_encoder",
+      "sha256": "cb6ce47324f331b3bfb50c9045e40bd3496730b3f3df8c8cee170c926c304ce0",
+      "size_bytes": 227103162,
+      "target": "sm_86"
+    },
+    {
+      "compile_seconds": 5.383075990946963,
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/initialize_planner_state.pt2",
+      "region": "initialize_planner_state",
+      "sha256": "8c0a6e3497c98afede7a534f73bd9a796f406566ca5405dc56975f5e16879ecf",
+      "size_bytes": 441565,
+      "target": "sm_86"
+    },
+    {
+      "compile_seconds": 4.929484492866322,
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/make_denoise_timestep.pt2",
+      "region": "make_denoise_timestep",
+      "sha256": "383bb129f5ff6d6626d941960df8bcbd397ed4b3ac445d2755d2b5a437ae8e36",
+      "size_bytes": 421156,
+      "target": "sm_86"
+    },
+    {
+      "compile_seconds": 10.75681466399692,
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/denoise_planner_step.pt2",
+      "region": "denoise_planner_step",
+      "sha256": "0e4b4251b2616a30cb4f479feedd9414fbbd3142c9d5714be5ea3b9c51535c16",
+      "size_bytes": 20469925,
+      "target": "sm_86"
+    },
+    {
+      "compile_seconds": 5.046226636972278,
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/decode_planner_outputs.pt2",
+      "region": "decode_planner_outputs",
+      "sha256": "4692fbc4247d4ff47b23ad64a5c42912e7e14dc6556fcf2ccf069ce0dcd05ab0",
+      "size_bytes": 443589,
+      "target": "sm_86"
+    }
+  ],
+  "checkpoint": {
+    "expected_sha256": "008ffc39cc6c57ff9007025217e601f408818afa036c0bae4e543907993a005b",
+    "path": "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+    "revision": "8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71",
+    "sha256": "008ffc39cc6c57ff9007025217e601f408818afa036c0bae4e543907993a005b"
+  },
+  "correctness": {
+    "artifact_repeatability": {
+      "all_exact": true,
+      "outputs": {
+        "agent_labels": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            30
+          ]
+        },
+        "agent_states": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            30,
+            5
+          ]
+        },
+        "bev_semantic_map": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            7,
+            128,
+            256
+          ]
+        },
+        "candidate_scores": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            20
+          ]
+        },
+        "candidate_trajectories": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            20,
+            8,
+            3
+          ]
+        },
+        "trajectory": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            8,
+            3
+          ]
+        }
+      }
+    },
+    "artifact_vs_eager": {
+      "all_regions_within_nrmse": true,
+      "condition": {
+        "agent_labels": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.009485244750976562,
+          "mean_absolute_error": 0.0036868234475453694,
+          "normalized_root_mean_square_error": 0.0007664533963216201,
+          "shape": [
+            1,
+            30
+          ]
+        },
+        "agent_states": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.019471168518066406,
+          "mean_absolute_error": 0.0013936432202657065,
+          "normalized_root_mean_square_error": 0.00034554777283578433,
+          "shape": [
+            1,
+            30,
+            5
+          ]
+        },
+        "agents_query": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0020345747470855713,
+          "mean_absolute_error": 0.0002558305492745679,
+          "normalized_root_mean_square_error": 0.00036735957983476976,
+          "shape": [
+            1,
+            30,
+            256
+          ]
+        },
+        "bev_semantic_map": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0890960693359375,
+          "mean_absolute_error": 0.008309541788868557,
+          "normalized_root_mean_square_error": 0.0003812834836452101,
+          "shape": [
+            1,
+            7,
+            128,
+            256
+          ]
+        },
+        "cross_bev": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.005156457424163818,
+          "mean_absolute_error": 0.00016493878412719232,
+          "normalized_root_mean_square_error": 0.00035957951192691173,
+          "shape": [
+            1,
+            256,
+            64,
+            64
+          ]
+        },
+        "ego_query": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0012491345405578613,
+          "mean_absolute_error": 0.000259658215327363,
+          "normalized_root_mean_square_error": 0.00036804989087123124,
+          "shape": [
+            1,
+            1,
+            256
+          ]
+        },
+        "status_encoding": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            1,
+            256
+          ]
+        }
+      },
+      "outputs": {
+        "agent_labels": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.009485244750976562,
+          "mean_absolute_error": 0.0036868234475453694,
+          "normalized_root_mean_square_error": 0.0007664533963216201,
+          "shape": [
+            1,
+            30
+          ]
+        },
+        "agent_states": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.019471168518066406,
+          "mean_absolute_error": 0.0013936432202657065,
+          "normalized_root_mean_square_error": 0.00034554777283578433,
+          "shape": [
+            1,
+            30,
+            5
+          ]
+        },
+        "bev_semantic_map": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0890960693359375,
+          "mean_absolute_error": 0.008309541788868557,
+          "normalized_root_mean_square_error": 0.0003812834836452101,
+          "shape": [
+            1,
+            7,
+            128,
+            256
+          ]
+        },
+        "candidate_scores": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0009140968322753906,
+          "mean_absolute_error": 0.0003988385200500488,
+          "normalized_root_mean_square_error": 5.72298463029249e-05,
+          "shape": [
+            1,
+            20
+          ]
+        },
+        "candidate_trajectories": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0009307861328125,
+          "mean_absolute_error": 0.00014220239852041534,
+          "normalized_root_mean_square_error": 3.238170223281631e-05,
+          "shape": [
+            1,
+            20,
+            8,
+            3
+          ]
+        },
+        "trajectory": {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0007841587066650391,
+          "mean_absolute_error": 0.00011506478767842054,
+          "normalized_root_mean_square_error": 0.00019729661253645883,
+          "shape": [
+            1,
+            8,
+            3
+          ]
+        }
+      },
+      "planner_initial": {
+        "dtype": "float32",
+        "exact": false,
+        "maximum_absolute_error": 5.960464477539063e-08,
+        "mean_absolute_error": 3.995033117329202e-10,
+        "normalized_root_mean_square_error": 1.0632527805613701e-08,
+        "shape": [
+          1,
+          820
+        ]
+      },
+      "planner_steps": [
+        {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0009174346923828125,
+          "mean_absolute_error": 9.268065564910791e-05,
+          "normalized_root_mean_square_error": 3.3576148877917134e-05,
+          "shape": [
+            1,
+            820
+          ]
+        },
+        {
+          "dtype": "float32",
+          "exact": false,
+          "maximum_absolute_error": 0.0009307861328125,
+          "mean_absolute_error": 9.597038137721162e-05,
+          "normalized_root_mean_square_error": 3.4084980692536335e-05,
+          "shape": [
+            1,
+            820
+          ]
+        }
+      ],
+      "timesteps": [
+        {
+          "dtype": "int64",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1
+          ]
+        },
+        {
+          "dtype": "int64",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1
+          ]
+        }
+      ],
+      "trajectory_within_absolute_tolerance": true
+    },
+    "exported_vs_eager": {
+      "all_exact": true,
+      "condition": {
+        "agent_labels": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            30
+          ]
+        },
+        "agent_states": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            30,
+            5
+          ]
+        },
+        "agents_query": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            30,
+            256
+          ]
+        },
+        "bev_semantic_map": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            7,
+            128,
+            256
+          ]
+        },
+        "cross_bev": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            256,
+            64,
+            64
+          ]
+        },
+        "ego_query": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            1,
+            256
+          ]
+        },
+        "status_encoding": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            1,
+            256
+          ]
+        }
+      },
+      "outputs": {
+        "agent_labels": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            30
+          ]
+        },
+        "agent_states": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            30,
+            5
+          ]
+        },
+        "bev_semantic_map": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            7,
+            128,
+            256
+          ]
+        },
+        "candidate_scores": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            20
+          ]
+        },
+        "candidate_trajectories": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            20,
+            8,
+            3
+          ]
+        },
+        "trajectory": {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            8,
+            3
+          ]
+        }
+      },
+      "planner_initial": {
+        "dtype": "float32",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          820
+        ]
+      },
+      "planner_steps": [
+        {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            820
+          ]
+        },
+        {
+          "dtype": "float32",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1,
+            820
+          ]
+        }
+      ],
+      "timesteps": [
+        {
+          "dtype": "int64",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1
+          ]
+        },
+        {
+          "dtype": "int64",
+          "exact": true,
+          "maximum_absolute_error": 0.0,
+          "mean_absolute_error": 0.0,
+          "normalized_root_mean_square_error": 0.0,
+          "shape": [
+            1
+          ]
+        }
+      ]
+    }
+  },
+  "environment": {
+    "cuda": "12.8",
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "packages": {
+      "diffusers": "0.35.2",
+      "numpy": "2.4.3",
+      "timm": "1.0.28",
+      "torchvision": "0.25.0"
+    },
+    "torch": "2.10.0+cu128"
+  },
+  "evidence_kind": "real_checkpoint_compiled_artifact",
+  "evidence_level": "L3",
+  "exported_programs": [
+    {
+      "graph_nodes": 1437,
+      "graph_sha256": "477e0ab4f2c10d8c1d24935d427a0f5ad1b7da1cc948c10239ebca2e9d4dbcc3",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/condition_encoder.pt2e",
+      "region": "condition_encoder",
+      "sha256": "ae7f154bc8cc582c46ad4c812b0d41a91d2d8208a061fb0b37318e045b6f355e",
+      "size_bytes": 229071541
+    },
+    {
+      "graph_nodes": 35,
+      "graph_sha256": "4a8018aaa922be711e590b889214bfb32a061d41dca435d42901d5ff0da35ebc",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/initialize_planner_state.pt2e",
+      "region": "initialize_planner_state",
+      "sha256": "1483513e78553e7763b65823371eb4e18bd7b75ebff2c472e63e82b010240577",
+      "size_bytes": 48406
+    },
+    {
+      "graph_nodes": 9,
+      "graph_sha256": "38f21034b826abb73535e97bed2dc8b009fc1f18312a92627c64e68a86921b2a",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/make_denoise_timestep.pt2e",
+      "region": "make_denoise_timestep",
+      "sha256": "68cc73ced472de6275ac22977d6d164f2968f25e4d0d05d936b34c2f2257a725",
+      "size_bytes": 12739
+    },
+    {
+      "graph_nodes": 492,
+      "graph_sha256": "a96d810f97d857ccf99857faff0bf18f84dec95f4cb52f0a82e5668150c5a7de",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/denoise_planner_step.pt2e",
+      "region": "denoise_planner_step",
+      "sha256": "187b10a4b8cae5c7a8c7fc40f060aa5261b65a2f6d2041931c49b5d12827414c",
+      "size_bytes": 24855478
+    },
+    {
+      "graph_nodes": 12,
+      "graph_sha256": "0c50af4e71a61fd03b8ebb13305edc4b2176142082d4aaa15f19521c118a1433",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/decode_planner_outputs.pt2e",
+      "region": "decode_planner_outputs",
+      "sha256": "327bc9ac5abbb975b9bdb5de7c94c3f3e232e08376514c81d23865a98d79c21b",
+      "size_bytes": 20364
+    }
+  ],
+  "frontend_report": {
+    "path": "/tmp/vlaforge-diffusiondrive-l3-clean/frontend.json",
+    "repository": {
+      "revision": "ebe724d14a0b3a8a510951c0e131f109e594fbcd",
+      "source_dirty": false
+    },
+    "sha256": "140c8c255bf01c9d0aab621e0e2d54db9bd45ef1c1714bcdf13c91f43ebae8cf"
+  },
+  "model": "DiffusionDrive NAVSIM 88.1 PDMS",
+  "passed": true,
+  "regions": [
+    "condition_encoder",
+    "initialize_planner_state",
+    "make_denoise_timestep",
+    "denoise_planner_step",
+    "decode_planner_outputs"
+  ],
+  "repository": {
+    "revision": "bc80fddbad45b2bd2bf0a4e82abb2250c888c8ac",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command": [
+      "/tmp/vlaforge-smolvla-env/bin/python",
+      "vlaforge/tools/audit_real_diffusiondrive_artifacts.py",
+      "--source-root",
+      "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725",
+      "--checkpoint",
+      "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+      "--export-dir",
+      "/tmp/vlaforge-diffusiondrive-l3-clean/exports",
+      "--artifact-dir",
+      "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts",
+      "--frontend-report",
+      "/tmp/vlaforge-diffusiondrive-l3-clean/frontend.json",
+      "--report",
+      "<report.json>",
+      "--device",
+      "cuda:0"
+    ],
+    "environment": {
+      "CUDA_VISIBLE_DEVICES": "<unset>",
+      "PYTHONPATH": "vlaforge/python"
+    }
+  },
+  "schema": "vlaforge.diffusiondrive_artifact_evidence/1",
+  "status": "passed",
+  "target": "sm_86",
+  "timing": {
+    "artifact_repeat_seconds": 0.017315777018666267,
+    "artifact_seconds": 0.051945620216429234,
+    "eager_seconds": 0.23106244206428528,
+    "exported_seconds": 0.02082704403437674,
+    "note": "single-run audit metadata, not paper benchmark",
+    "peak_cuda_allocated_bytes": 553211392
+  },
+  "tolerances": {
+    "region_nrmse": 0.001,
+    "trajectory_max_abs": 0.002,
+    "trajectory_mean_abs": 0.0005
+  },
+  "upstream_revision": "9b52ed0ec06b073d82d6f392ab084c7b301c8681"
+}

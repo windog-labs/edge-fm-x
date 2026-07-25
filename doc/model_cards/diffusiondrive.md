@@ -6,7 +6,7 @@
 | License / checkpoint | code MIT；checkpoint 按 Hugging Face model card 为 non-commercial |
 | Checkpoint | `hustvl/DiffusionDrive@8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71`，SHA256 `008ffc39cc6c57ff9007025217e601f408818afa036c0bae4e543907993a005b` |
 | Source entry | `transfuser_agent.py`、`V2TransfuserModel`、`TrajectoryHead.forward_test` |
-| 当前证据 | L0 + L1 + real L2 + deterministic fixture-L4 |
+| 当前证据 | L0 + L1 + real L2 + real Host-CUDA L3 + deterministic fixture-L4 |
 | Real Adapter | `diffusiondrive_real.py`，1,241 LOC，复用 `DiffusionPlanner` template |
 | Core op 增量 | 0 |
 
@@ -32,6 +32,14 @@ agent labels 全部 bit-exact；五个 strict `torch.export` graph 的 replay
 allocated 为 307,197,952 bytes。证据见
 [`diffusiondrive_frontend_l2.json`](../reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json)。
 
+五个 Region 随后编译为 `sm_86` AOTInductor packages，总大小
+248,879,397 bytes、总编译时间 48.70 s。saved exported programs 对 eager
+保持 exact；artifact 的全部 Region/output NRMSE 不超过 `1e-3`，最终
+trajectory 最大绝对误差 `7.84e-4`、均值 `1.15e-4`、NRMSE
+`1.97e-4`，重复 artifact pipeline bit-exact。该结果是数值 L3，不声称
+artifact 与 eager bit-exact。完整证据见
+[`diffusiondrive_artifact_l3.json`](../reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json)。
+
 VLAForge fixture 仍使用缩小的 K=3、两步 denoise 来验证 generated C++
 transaction/cache 行为：
 生成的无 Python C++ Session 已逐元素对齐全部 3×6×2 candidates、3 个 scores
@@ -39,5 +47,5 @@ transaction/cache 行为：
 DiffusionDrive-like fixture，不是 checkpoint 证据。
 
 传感器 stitching/点云 histogram 属于底软或外部 preprocessing Region，不进入
-core IR。真实 AOTI artifact、generated C++ Session、paper-grade latency 和
-长稳仍待 L3/L4；fixture-L4 不得标为 real deployment。
+core IR。真实 generated C++ Session、paper-grade latency 和长稳仍待 L4；
+fixture-L4 不得标为 real deployment。

@@ -89,3 +89,18 @@ This proves real-checkpoint frontend/Invocation parity at L2 with zero new core
 ops. It does not yet claim compiled-artifact or generated-C++ parity; those are
 the L3/L4 steps. The full hashes, shapes, environment, timing, and reproduction
 command are in `diffusiondrive_frontend_l2.json`.
+
+## DiffusionDrive real L3
+
+The same five saved exports were compiled for `sm_86` into 248,879,397 bytes
+of AOTInductor packages in 48.70 seconds. Saved exported programs remained
+bit-exact to eager. The compiled artifact pipeline was deterministic but not
+bit-exact to eager: the final selected trajectory had maximum absolute error
+`0.00078416`, mean absolute error `0.00011506`, and NRMSE `0.00019730`.
+Every Region and named output stayed below the fixed `0.001` NRMSE contract,
+and a repeated artifact pipeline was bit-exact.
+
+These timings are single-run audit metadata rather than a paper benchmark.
+Hashes, sizes, compile manifests, per-Region metrics, tolerances, and the clean
+source revision are recorded in `diffusiondrive_artifact_l3.json`. Generated
+no-Python C++ Session parity remains the L4 gate.
