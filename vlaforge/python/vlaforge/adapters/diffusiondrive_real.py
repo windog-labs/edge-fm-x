@@ -894,7 +894,7 @@ def _build_region_implementations(
             )
             self.register_buffer(
                 "alpha_at_truncation",
-                scheduler_alphas[8].clone(),
+                scheduler_alphas[8].clone().reshape(1, 1, 1, 1),
                 persistent=True,
             )
 
@@ -905,7 +905,7 @@ def _build_region_implementations(
             normalized = _norm_odometry(anchor)
             alpha = self.alpha_at_truncation.to(
                 dtype=normalized.dtype
-            ).reshape(1, 1, 1, 1)
+            )
             image = (
                 alpha.sqrt() * normalized
                 + (1 - alpha).sqrt() * noise
