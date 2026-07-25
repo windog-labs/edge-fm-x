@@ -1,41 +1,32 @@
-"""Deterministic static C++ generation from a verified physical Plan."""
+"""Deterministic C++ Session generation for Invocation IR v0.2."""
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Any, Mapping
 
-from vlaforge.codegen.certificate import render_optimization_certificate_header
 from vlaforge.codegen.model import (
     CppRegionDefinition,
     CppValidatorDefinition,
     GeneratedSources,
 )
-from vlaforge.compiler import CompilationCertificate, CompilationResult
-from vlaforge.ir.program import Module
-from vlaforge.ir.serializer import module_digest
+from vlaforge.ir.program import InputPort, Module
+from vlaforge.ir.serializer import io_schema_digest, module_digest
 from vlaforge.ir.types import (
-    ActionType,
-    CommittedActionType,
-    EpochType,
+    InputRevisionType,
     IRType,
     ScalarType,
+    SnapshotType,
     TensorType,
-    TransactionType,
 )
-from vlaforge.plan import PlanModule, Task, emit_memory_constants, verify_plan
+from vlaforge.plan import PlanModule, emit_memory_constants, verify_plan
 from vlaforge.plan.memory import state_arena_sizes, storage_size_bytes
-from vlaforge.plan.model import BufferClass
 
 
 class CodegenUnsupportedError(ValueError):
     pass
-
-
-@dataclass(frozen=True, slots=True)
-class _EmitContext:
-    aliases: Mapping[int, str]
 
 
 def generate_cpp_session(
@@ -46,38 +37,37 @@ def generate_cpp_session(
     validators: Mapping[str, CppValidatorDefinition],
     runner_source: str | None = None,
     namespace: str = "vlaforge_generated",
-    compilation_certificate: CompilationCertificate | None = None,
+    compilation_certificate: object | None = None,
+    initial_state: Mapping[str, object] | None = None,
 ) -> GeneratedSources:
     verify_plan(plan)
     if plan.arena is None:
         raise ValueError("C++ codegen requires a physicalized plan")
     if plan.semantic_digest != module_digest(semantic_module):
         raise ValueError("C++ codegen source module digest mismatch")
-    if len(plan.policies) != 1:
+    if plan.io_schema_digest != io_schema_digest(semantic_module):
+        raise ValueError("C++ codegen I/O schema digest mismatch")
+    if len(plan.invocations) != 1:
         raise CodegenUnsupportedError(
-            "static C++ MVP currently requires exactly one policy"
+            "static C++ v0.2 currently requires one invocation"
         )
     if not _IDENTIFIER.fullmatch(namespace):
         raise ValueError("C++ namespace must be an identifier")
     if compilation_certificate is not None:
-        if compilation_certificate.plan_digest != plan.digest():
+        certificate_plan = getattr(
+            compilation_certificate, "plan_digest", plan.digest()
+        )
+        if certificate_plan != plan.digest():
             raise ValueError("compilation certificate plan digest mismatch")
-        if (
-            compilation_certificate.compiled_semantic_digest
-            != module_digest(semantic_module)
-        ):
-            raise ValueError(
-                "compilation certificate semantic digest mismatch"
-            )
 
-    required_regions = {artifact.region_name for artifact in plan.artifacts}
-    missing_regions = sorted(required_regions - set(regions))
-    extra_regions = sorted(set(regions) - required_regions)
+    required_regions = {item.region_name for item in plan.artifacts}
     required_validators = {
         str(task.attributes["contract"])
         for task in plan.tasks
         if task.opcode == "vla.validate"
     }
+    missing_regions = sorted(required_regions - set(regions))
+    extra_regions = sorted(set(regions) - required_regions)
     missing_validators = sorted(required_validators - set(validators))
     if missing_regions or extra_regions or missing_validators:
         raise CodegenUnsupportedError(
@@ -87,13 +77,13 @@ def generate_cpp_session(
             f"missing_validators={missing_validators}"
         )
 
-    emitter = _CppEmitter(
+    emitter = _Emitter(
         plan,
         semantic_module,
         regions,
         validators,
-        namespace=namespace,
-        compilation_certificate=compilation_certificate,
+        namespace,
+        dict(initial_state or {}),
     )
     files = {
         "CMakeLists.txt": _cmake_source(runner_source is not None),
@@ -103,28 +93,20 @@ def generate_cpp_session(
         "session_generated.cpp": emitter.source(),
         "session_generated.h": emitter.header(),
     }
-    if compilation_certificate is not None:
-        files["optimization_certificate.h"] = (
-            render_optimization_certificate_header(
-                compilation_certificate,
-                namespace=namespace,
-            )
-        )
     if runner_source is not None:
         files["runner.cpp"] = runner_source
     return GeneratedSources(tuple(sorted(files.items())))
 
 
 def generate_compiled_cpp_session(
-    compilation: CompilationResult,
+    compilation: object,
     *,
     regions: Mapping[str, CppRegionDefinition],
     validators: Mapping[str, CppValidatorDefinition],
     runner_source: str | None = None,
     namespace: str = "vlaforge_generated",
+    initial_state: Mapping[str, object] | None = None,
 ) -> GeneratedSources:
-    """Generate the normal Session from one certified compiler result."""
-
     return generate_cpp_session(
         compilation.plan,
         compilation.module,
@@ -132,76 +114,97 @@ def generate_compiled_cpp_session(
         validators=validators,
         runner_source=runner_source,
         namespace=namespace,
-        compilation_certificate=compilation.certificate,
+        compilation_certificate=getattr(compilation, "certificate", None),
+        initial_state=initial_state,
     )
 
 
-class _CppEmitter:
+@dataclass(frozen=True, slots=True)
+class _Cache:
+    task_id: int
+    outputs: tuple[int, ...]
+
+
+class _Emitter:
     def __init__(
         self,
         plan: PlanModule,
         module: Module,
         regions: Mapping[str, CppRegionDefinition],
         validators: Mapping[str, CppValidatorDefinition],
-        *,
         namespace: str,
-        compilation_certificate: CompilationCertificate | None,
+        initial_state: Mapping[str, object],
     ):
         self.plan = plan
         self.module = module
         self.regions = dict(regions)
         self.validators = dict(validators)
         self.namespace = namespace
-        self.compilation_certificate = compilation_certificate
-        self.cache_certificates = {
-            item.task_id: item
-            for item in (
-                ()
-                if compilation_certificate is None
-                else compilation_certificate.caches
+        self.initial_state = dict(initial_state)
+        unknown_initial = sorted(
+            set(self.initial_state) - {state.name for state in module.states}
+        )
+        if unknown_initial:
+            raise KeyError(
+                f"initial state references unknown slots: {unknown_initial}"
             )
-            if item.enabled
-        }
-        self.cache_indices = {
-            task_id: index
-            for index, task_id in enumerate(sorted(self.cache_certificates))
-        }
-        for task_id, certificate in self.cache_certificates.items():
-            task = plan.task(task_id)
-            if task.opcode != "vla.invoke":
-                raise CodegenUnsupportedError(
-                    f"cache certificate task {task_id} is not a region invoke"
-                )
-            if str(task.attributes.get("region")) != certificate.region:
-                raise CodegenUnsupportedError(
-                    f"cache certificate region mismatch for task {task_id}"
-                )
         self.input_ids = {
-            stream.name: index for index, stream in enumerate(module.inputs)
+            port.name: int(port.input_id) for port in module.inputs
         }
-        self.artifact_ids = {
-            artifact.region_name: artifact.artifact_id
-            for artifact in plan.artifacts
+        self.output_ids = {
+            port.name: int(port.output_id) for port in module.outputs
         }
+        self.output_group_ids = {
+            name: index
+            for index, name in enumerate(
+                sorted({port.group for port in module.outputs})
+            )
+        }
+        self.state_ids = {
+            state.name: index for index, state in enumerate(module.states)
+        }
+        assert plan.arena is not None
         self.physical = {
             logical_id: physical
             for physical in plan.arena.physical_buffers
             for logical_id in physical.logical_buffers
         }
+        self.caches = tuple(
+            _Cache(task.id, task.outputs)
+            for task in plan.tasks
+            if task.opcode == "vla.invoke"
+            and bool(
+                module.region(str(task.attributes["region"])).metadata.get(
+                    "memoize", False
+                )
+            )
+        )
+        self.max_region_inputs = max(
+            (len(region.inputs) for region in module.regions),
+            default=1,
+        )
+        self.max_region_outputs = max(
+            (len(region.outputs) for region in module.regions),
+            default=1,
+        )
 
     def header(self) -> str:
-        artifact_count = len(self.plan.artifacts)
-        input_count = len(self.module.inputs)
-        cache_include = (
-            '#include "vlaforge/runtime/epoch_cache.h"\n'
-            if self.compilation_certificate is not None
-            else ""
+        input_enum = "\n".join(
+            f"  k{_camel(port.name)} = {port.input_id}u,"
+            for port in self.module.inputs
         )
-        cache_member = (
-            "  std::array<vlaforge::runtime::EpochVersionCacheGuard,\n"
-            f"             {len(self.cache_certificates)}> cache_guards_{{}};\n"
-            if self.compilation_certificate is not None
-            else ""
+        output_enum = "\n".join(
+            f"  k{_camel(port.name)} = {port.output_id}u,"
+            for port in self.module.outputs
+        )
+        input_fields = "\n".join(
+            self._typed_input_field(port) for port in self.module.inputs
+        )
+        output_fields = "\n".join(
+            self._typed_output_field(port) for port in self.module.outputs
+        )
+        cache_fields = "\n".join(
+            self._cache_field(cache) for cache in self.caches
         )
         return f"""#ifndef VLAFORGE_GENERATED_SESSION_H_
 #define VLAFORGE_GENERATED_SESSION_H_
@@ -210,8 +213,6 @@ class _CppEmitter:
 #include <cstddef>
 #include <cstdint>
 
-#include "vlaforge/runtime/action_queue.h"
-{cache_include}#include "vlaforge/runtime/region_executable.h"
 #include "vlaforge/runtime/session.h"
 #include "vlaforge/runtime/state_store.h"
 #include "vlaforge/runtime/static_arena.h"
@@ -219,1114 +220,1396 @@ class _CppEmitter:
 
 namespace {self.namespace} {{
 
-class GeneratedSession final : public vlaforge::runtime::Session {{
+inline constexpr char kSchemaDigest[] =
+    "{io_schema_digest(self.module)}";
+
+enum class InputId : std::uint32_t {{
+{input_enum}
+}};
+
+enum class OutputId : std::uint32_t {{
+{output_enum}
+}};
+
+struct ModelInputs final {{
+{input_fields}
+}};
+
+struct ModelOutputs final {{
+{output_fields}
+}};
+
+class ModelSession final : public vlaforge::runtime::Session {{
  public:
-  GeneratedSession();
-  ~GeneratedSession() override;
+  ModelSession();
+  ~ModelSession() override = default;
 
-  GeneratedSession(const GeneratedSession&) = delete;
-  GeneratedSession& operator=(const GeneratedSession&) = delete;
+  ModelSession(const ModelSession&) = delete;
+  ModelSession& operator=(const ModelSession&) = delete;
 
+  vlaforge::runtime::Status BindTensor(
+      std::uint32_t input_id, const VLAForgeBoundTensor& input,
+      const VLAForgeInputStamp* stamp) noexcept override;
+  vlaforge::runtime::Status BindScalar(
+      std::uint32_t input_id, const VLAForgeScalarValue& input,
+      const VLAForgeInputStamp* stamp) noexcept override;
+  vlaforge::runtime::Status Run() noexcept override;
+  vlaforge::runtime::Status Run(
+      const ModelInputs& inputs, ModelOutputs* outputs) noexcept;
+  vlaforge::runtime::Status ReadOutputTensor(
+      std::uint32_t output_id,
+      VLAForgeBoundTensor* output) const noexcept override;
+  vlaforge::runtime::Status ReadOutputScalar(
+      std::uint32_t output_id,
+      VLAForgeScalarValue* output) const noexcept override;
   vlaforge::runtime::Status ResetEpisode(
       std::uint64_t new_episode) noexcept override;
-  vlaforge::runtime::Status BindInput(
-      std::uint32_t input_id, const vlaforge::runtime::TensorView& input,
-      const vlaforge::runtime::Epoch& epoch) noexcept override;
-  vlaforge::runtime::Status RunTick(
-      const vlaforge::runtime::Epoch& tick) noexcept override;
-  vlaforge::runtime::Status ReadCommittedAction(
-      vlaforge::runtime::CommittedAction* action) const noexcept override;
-  void SetTraceSink(vlaforge::runtime::TraceSink trace) noexcept override;
+  const char* SchemaDigest() const noexcept override {{
+    return kSchemaDigest;
+  }}
+  void SetTraceSink(
+      vlaforge::runtime::TraceSink trace) noexcept override;
+  vlaforge::runtime::Status InitializeStateTensor(
+      std::uint32_t state_id,
+      const VLAForgeBoundTensor& value) noexcept;
+  vlaforge::runtime::Status InitializeStateScalar(
+      std::uint32_t state_id,
+      const VLAForgeScalarValue& value) noexcept;
 
  private:
-  struct BoundInput {{
-    vlaforge::runtime::TensorView view{{}};
-    vlaforge::runtime::Epoch epoch{{}};
+  struct BoundInput final {{
     bool bound = false;
+    bool tensor = false;
+    VLAForgeBoundTensor tensor_value{{}};
+    VLAForgeScalarValue scalar_value{{}};
+    std::uint64_t revision = 0;
+    std::uint64_t timestamp_ns = 0;
   }};
 
-  void InitializeBufferObjects() noexcept;
-  vlaforge::runtime::Status InitializeArtifacts() noexcept;
-  vlaforge::runtime::Status AbortTick(
-      vlaforge::runtime::Status cause) noexcept;
+  void InitializeValues() noexcept;
+  void ClearBindings() noexcept;
+  vlaforge::runtime::Status PrepareInputs() noexcept;
+  vlaforge::runtime::Status Fail(
+      vlaforge::runtime::Status status) noexcept;
   void* BufferData(std::uint32_t logical_id) noexcept;
-  VLAForgeTensorView MakeRegionView(
-      std::uint32_t logical_id, void* data) const noexcept;
 
   vlaforge::runtime::StaticArena arena_;
   vlaforge::runtime::StaticArena state_arena_;
   vlaforge::runtime::StateStore state_store_;
   vlaforge::runtime::Transaction transaction_;
-  vlaforge::runtime::ActionQueue actions_;
   vlaforge::runtime::TraceSink trace_{{}};
   vlaforge::runtime::Status initialization_status_{{}};
-  std::array<BoundInput, {input_count}> inputs_{{}};
-  std::array<VLAForgeRegionExecutable*, {artifact_count}> executables_{{}};
-{cache_member}}};
+  std::array<BoundInput, {len(self.module.inputs)}> inputs_{{}};
+  std::array<VLAForgeTensorView, {len(self.plan.buffers)}> values_{{}};
+  std::array<vlaforge::runtime::StateSnapshot,
+             {max(len(self.plan.buffers), 1)}> snapshots_{{}};
+  std::array<std::uint64_t, {max(len(self.module.inputs), 1)}>
+      input_revisions_{{}};
+  std::array<std::uint64_t, {max(len(self.module.states), 1)}>
+      state_versions_{{}};
+  std::array<VLAForgeBoundTensor, {max(len(self.module.outputs), 1)}>
+      tensor_outputs_{{}};
+  std::array<VLAForgeScalarValue, {max(len(self.module.outputs), 1)}>
+      scalar_outputs_{{}};
+  std::array<bool, {max(len(self.module.outputs), 1)}>
+      output_valid_{{}};
+  std::uint64_t next_auto_revision_ = 1;
+  std::uint64_t run_index_ = 0;
+{cache_fields}
+}};
+
+using GeneratedSession = ModelSession;
 
 }}  // namespace {self.namespace}
+
+extern "C" VLAForgeStatus vlaforge_model_session_create(
+    VLAForgeSession** session);
+extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
 
 #endif  // VLAFORGE_GENERATED_SESSION_H_
 """
 
     def source(self) -> str:
-        sections = [
-            '#include "session_generated.h"',
-            '#include "memory_constants.h"',
-        ]
-        if self.compilation_certificate is not None:
-            sections.append('#include "optimization_certificate.h"')
-        sections.extend([
-            "",
-            "#include <array>",
-            "#include <cmath>",
-            "#include <cstddef>",
-            "#include <cstdint>",
-            "#include <cstring>",
-            "#include <new>",
-            "#include <utility>",
-            "",
-            self._fixture_executable_declaration(),
-            "",
-            "namespace {",
-            "",
-            self._logical_buffer_tables(),
-            "",
-            self._state_tables(),
-            "",
-            self._fixture_backend(),
-            "",
-            "}  // namespace",
-            "",
-            f"namespace {self.namespace} {{",
-            "",
-            self._session_implementation(),
-            "",
-            f"}}  // namespace {self.namespace}",
-            "",
-        ])
-        return "\n".join(sections)
+        return "\n".join(
+            (
+                '#include "session_generated.h"',
+                '#include "memory_constants.h"',
+                "",
+                "#include <algorithm>",
+                "#include <array>",
+                "#include <cmath>",
+                "#include <cstddef>",
+                "#include <cstdint>",
+                "#include <cstring>",
+                "#include <new>",
+                "",
+                self._local_executable(),
+                "",
+                "namespace {",
+                self._support_tables(),
+                self._support_functions(),
+                self._region_functions(),
+                self._validator_functions(),
+                "}  // namespace",
+                "",
+                f"namespace {self.namespace} {{",
+                self._session_source(),
+                f"}}  // namespace {self.namespace}",
+                "",
+                self._c_abi_source(),
+                "",
+            )
+        )
 
-    def _fixture_executable_declaration(self) -> str:
-        maximum_inputs = max(
-            (len(region.inputs) for region in self.module.regions), default=1
-        )
-        maximum_outputs = max(
-            (len(region.outputs) for region in self.module.regions), default=1
-        )
+    def _local_executable(self) -> str:
         return f"""struct VLAForgeRegionExecutable {{
-  std::uint32_t region_id = 0;
-  bool loaded = false;
-  std::array<VLAForgeTensorView, {maximum_inputs}> inputs{{}};
-  std::array<VLAForgeTensorView, {maximum_outputs}> outputs{{}};
-  void* workspace = nullptr;
-  std::uint64_t workspace_size = 0;
+  std::array<VLAForgeTensorView, {self.max_region_inputs}> inputs{{}};
+  std::array<VLAForgeTensorView, {self.max_region_outputs}> outputs{{}};
 }};"""
 
-    def _logical_buffer_tables(self) -> str:
+    def _support_tables(self) -> str:
+        assert self.plan.arena is not None
         logical = []
+        shapes = []
         for buffer in self.plan.buffers:
             physical = self.physical.get(buffer.id)
             if physical is None:
-                logical.append(
-                    "  {static_cast<std::size_t>(-1), 0u, 1u},"
-                )
+                logical.append("  {static_cast<std::size_t>(-1), 0u, 1u},")
             else:
                 logical.append(
                     f"  {{{physical.offset}u, {physical.size_bytes}u, "
                     f"{physical.alignment}u}},"
                 )
-        shapes = []
-        for buffer in self.plan.buffers:
-            if isinstance(buffer.type, TensorType) and buffer.type.shape:
-                if any(item is None for item in buffer.type.shape):
-                    raise CodegenUnsupportedError(
-                        f"buffer {buffer.id} has dynamic region ABI shape"
-                    )
-                dimensions = ", ".join(
-                    str(int(item)) for item in buffer.type.shape
-                )
+            type_ = buffer.type
+            if isinstance(type_, TensorType) and type_.shape:
+                dimensions = ", ".join(str(int(item)) for item in type_.shape)
                 shapes.append(
                     f"constexpr std::int64_t kShape{buffer.id}[] = "
                     f"{{{dimensions}}};"
                 )
-        return """struct LogicalBufferDesc {
-  std::size_t offset;
-  std::size_t size;
-  std::size_t alignment;
-};
-
-constexpr LogicalBufferDesc kLogicalBuffers[] = {
-%s
-};
-
-%s""" % ("\n".join(logical), "\n".join(shapes))
-
-    def _state_tables(self) -> str:
         state_sizes = state_arena_sizes(self.plan)
         if len(state_sizes) > 1:
-            raise CodegenUnsupportedError(
-                "static C++ MVP supports one state arena device"
-            )
-        state_arena_size = next(iter(state_sizes.values()), 0)
+            raise CodegenUnsupportedError("generated session supports one state arena")
+        state_size = next(iter(state_sizes.values()), 0)
         state_alignment = max(
-            (state.alignment or 1 for state in self.plan.states), default=1
+            (state.alignment or 1 for state in self.plan.states),
+            default=1,
         )
-        if not self.plan.states:
-            slots = (
+        states = "\n".join(
+            "  {"
+            f"{state.state_id}u, {state.slot_capacity}u, "
+            f"{_bytes(state.payload)}u, {state.slot_size_bytes}u, "
+            f"{state.alignment}u, "
+            f"{state.offset}u, "
+            f"{str(self.module.states[state.state_id].reset_on_episode).lower()}"
+            "},"
+            for state in self.plan.states
+        )
+        state_table = (
+            "constexpr vlaforge::runtime::StateSlotDescriptor "
+            "kStateSlots[] = {\n"
+            f"{states}\n"
+            "};"
+            if self.plan.states
+            else (
                 "constexpr const vlaforge::runtime::StateSlotDescriptor* "
                 "kStateSlots = nullptr;"
             )
-        else:
-            entries = []
-            for state in self.plan.states:
-                assert state.slot_capacity is not None
-                assert state.slot_size_bytes is not None
-                assert state.alignment is not None
-                assert state.offset is not None
-                reset = (
-                    "true"
-                    if self.module.state(state.name).reset.value
-                    in {"episode_start", "explicit", "error"}
-                    else "false"
-                )
-                entries.append(
-                    "  {"
-                    f"{state.state_id}u, {state.slot_capacity}u, "
-                    f"{state.slot_size_bytes}u, {state.alignment}u, "
-                    f"{state.offset}u, {reset}"
-                    "},"
-                )
-            slots = (
-                "constexpr vlaforge::runtime::StateSlotDescriptor "
-                "kStateSlots[] = {\n"
-                + "\n".join(entries)
-                + "\n};"
-            )
-        return f"""constexpr std::size_t kStateArenaSize = {state_arena_size}u;
+        )
+        return f"""
+struct LogicalDesc {{
+  std::size_t offset;
+  std::size_t size;
+  std::size_t alignment;
+}};
+
+constexpr LogicalDesc kLogical[] = {{
+{chr(10).join(logical)}
+}};
+
+{chr(10).join(shapes)}
+
+constexpr std::size_t kStateArenaSize = {state_size}u;
 constexpr std::size_t kStateArenaAlignment = {state_alignment}u;
-{slots}"""
+{state_table}
+"""
 
-    def _fixture_backend(self) -> str:
-        region_functions = []
-        for artifact in self.plan.artifacts:
-            definition = self.regions[artifact.region_name]
-            region_functions.append(
-                f"""VLAForgeStatus RunRegion{artifact.artifact_id}(
-    VLAForgeRegionExecutable* executable) {{
-{_indent(definition.body, 2)}
-}}"""
-            )
-        validator_functions = []
-        for index, name in enumerate(sorted(self.validators)):
-            definition = self.validators[name]
-            validator_functions.append(
-                f"""bool Validate{index}(const void* data,
-               std::size_t size_bytes) noexcept {{
-{_indent(definition.body, 2)}
-}}"""
-            )
-        run_cases = "\n".join(
-            f"    case {artifact.artifact_id}u:\n"
-            f"      return RunRegion{artifact.artifact_id}(executable);"
-            for artifact in self.plan.artifacts
-        )
-        workspace_cases = "\n".join(
-            f"    case {artifact.artifact_id}u:\n"
-            f"      requirement->size_bytes = "
-            f"{artifact.workspace_size_bytes}u;\n"
-            f"      requirement->alignment = "
-            f"{artifact.workspace_alignment}u;\n"
-            "      break;"
-            for artifact in self.plan.artifacts
-        )
+    def _support_functions(self) -> str:
         return """
-bool CheckTensor(const VLAForgeTensorView& tensor, VLAForgeDType dtype,
-                 std::size_t elements) noexcept {
-  const std::size_t element_bytes =
-      dtype == VLAFORGE_DTYPE_BOOL ? 1u :
-      dtype == VLAFORGE_DTYPE_I32 || dtype == VLAFORGE_DTYPE_F32 ? 4u :
-      dtype == VLAFORGE_DTYPE_F16 || dtype == VLAFORGE_DTYPE_BF16 ? 2u :
-      dtype == VLAFORGE_DTYPE_I64 || dtype == VLAFORGE_DTYPE_F64 ? 8u : 0u;
-  return tensor.data != nullptr && tensor.dtype == dtype &&
-         element_bytes != 0u &&
-         tensor.size_bytes == elements * element_bytes;
-}
-
 template <typename T>
 const T* Input(const VLAForgeRegionExecutable* executable,
-               std::uint32_t index) noexcept {
+               std::size_t index) {
   return static_cast<const T*>(executable->inputs[index].data);
 }
 
 template <typename T>
-T* Output(VLAForgeRegionExecutable* executable,
-          std::uint32_t index) noexcept {
+T* Output(VLAForgeRegionExecutable* executable, std::size_t index) {
   return static_cast<T*>(executable->outputs[index].data);
 }
 
-%s
-
-%s
-
-VLAForgeStatus FixtureCreate(
-    const VLAForgeRegionCreateOptions* options,
-    VLAForgeRegionExecutable** output) {
-  if (options == nullptr || output == nullptr ||
-      options->struct_size < sizeof(*options) ||
-      options->abi_version != VLAFORGE_REGION_EXECUTABLE_ABI_VERSION) {
-    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid fixture create options");
+bool CheckTensor(const VLAForgeTensorView& view, VLAForgeDType dtype,
+                 std::size_t elements) {
+  std::size_t element_size = 0;
+  switch (dtype) {
+    case VLAFORGE_DTYPE_BOOL: element_size = 1; break;
+    case VLAFORGE_DTYPE_I32: element_size = 4; break;
+    case VLAFORGE_DTYPE_I64:
+    case VLAFORGE_DTYPE_U64:
+    case VLAFORGE_DTYPE_F64: element_size = 8; break;
+    case VLAFORGE_DTYPE_F16:
+    case VLAFORGE_DTYPE_BF16: element_size = 2; break;
+    case VLAFORGE_DTYPE_F32: element_size = 4; break;
+    case VLAFORGE_DTYPE_U8: element_size = 1; break;
+    default: return false;
   }
-  auto* executable = new (std::nothrow) VLAForgeRegionExecutable();
-  if (executable == nullptr) {
-    return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
-                                 "fixture executable allocation failed");
-  }
-  executable->region_id = options->region_id;
-  *output = executable;
-  return vlaforge_status_ok();
+  return view.data != nullptr && view.dtype == dtype &&
+         view.size_bytes == elements * element_size;
 }
 
-VLAForgeStatus FixtureLoad(
-    VLAForgeRegionExecutable* executable,
-    const VLAForgeArtifactDescriptor* artifact) {
-  if (executable == nullptr || artifact == nullptr ||
-      artifact->struct_size < sizeof(*artifact) ||
-      artifact->callable_abi_version !=
-          VLAFORGE_REGION_EXECUTABLE_ABI_VERSION) {
-    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid embedded fixture artifact");
+vlaforge::runtime::Status FromCStatus(VLAForgeStatus status,
+                                     std::uint32_t subject) {
+  using vlaforge::runtime::Status;
+  using vlaforge::runtime::StatusCode;
+  switch (status.code) {
+    case VLAFORGE_STATUS_OK:
+      return Status::Ok();
+    case VLAFORGE_STATUS_INVALID_ARGUMENT:
+      return Status::Error(StatusCode::kInvalidArgument, subject,
+                           status.message);
+    case VLAFORGE_STATUS_NOT_FOUND:
+      return Status::Error(StatusCode::kNotFound, subject, status.message);
+    case VLAFORGE_STATUS_OUT_OF_MEMORY:
+      return Status::Error(StatusCode::kResourceExhausted, subject,
+                           status.message);
+    case VLAFORGE_STATUS_FAILED_PRECONDITION:
+      return Status::Error(StatusCode::kFailedPrecondition, subject,
+                           status.message);
+    case VLAFORGE_STATUS_UNSUPPORTED_ABI:
+    case VLAFORGE_STATUS_IO_ERROR:
+    case VLAFORGE_STATUS_BACKEND_ERROR:
+    case VLAFORGE_STATUS_INTERNAL:
+      return Status::Error(StatusCode::kInternal, subject, status.message);
   }
-  executable->loaded = true;
-  return vlaforge_status_ok();
+  return Status::Error(StatusCode::kInternal, subject,
+                       "unknown C Region status code");
 }
 
-VLAForgeStatus FixtureQueryWorkspace(
-    const VLAForgeRegionExecutable* executable,
-    VLAForgeWorkspaceRequirement* requirement) {
-  if (executable == nullptr || requirement == nullptr) {
-    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid workspace query");
-  }
-  requirement->size_bytes = 0u;
-  requirement->alignment = 1u;
-  requirement->device = {VLAFORGE_DEVICE_CPU, 0};
-  switch (executable->region_id) {
-%s
-    default:
+VLAForgeStatus ToCStatus(vlaforge::runtime::Status status) {
+  using vlaforge::runtime::StatusCode;
+  switch (status.code) {
+    case StatusCode::kOk:
+      return vlaforge_status_ok();
+    case StatusCode::kInvalidArgument:
+    case StatusCode::kOutOfRange:
+      return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                   status.message);
+    case StatusCode::kNotFound:
       return vlaforge_status_error(VLAFORGE_STATUS_NOT_FOUND,
-                                   "unknown fixture region");
+                                   status.message);
+    case StatusCode::kAlreadyExists:
+    case StatusCode::kFailedPrecondition:
+    case StatusCode::kValidationFailed:
+      return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
+                                   status.message);
+    case StatusCode::kResourceExhausted:
+      return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
+                                   status.message);
+    case StatusCode::kInternal:
+      return vlaforge_status_error(VLAFORGE_STATUS_INTERNAL,
+                                   status.message);
   }
-  return vlaforge_status_ok();
+  return vlaforge_status_error(VLAFORGE_STATUS_INTERNAL,
+                               "unknown C++ Session status code");
 }
 
-VLAForgeStatus FixtureBindInput(
-    VLAForgeRegionExecutable* executable, std::uint32_t index,
-    const VLAForgeTensorView* tensor) {
-  if (executable == nullptr || tensor == nullptr ||
-      index >= executable->inputs.size()) {
-    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid fixture input binding");
-  }
-  executable->inputs[index] = *tensor;
-  return vlaforge_status_ok();
-}
-
-VLAForgeStatus FixtureBindOutput(
-    VLAForgeRegionExecutable* executable, std::uint32_t index,
-    const VLAForgeTensorView* tensor) {
-  if (executable == nullptr || tensor == nullptr ||
-      index >= executable->outputs.size()) {
-    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid fixture output binding");
-  }
-  executable->outputs[index] = *tensor;
-  return vlaforge_status_ok();
-}
-
-VLAForgeStatus FixtureBindWorkspace(
-    VLAForgeRegionExecutable* executable, void* workspace,
-    std::uint64_t workspace_size) {
-  if (executable == nullptr ||
-      (workspace_size != 0u && workspace == nullptr)) {
-    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                                 "invalid fixture workspace binding");
-  }
-  executable->workspace = workspace;
-  executable->workspace_size = workspace_size;
-  return vlaforge_status_ok();
-}
-
-VLAForgeStatus FixtureRun(VLAForgeRegionExecutable* executable) {
-  if (executable == nullptr || !executable->loaded) {
-    return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
-                                 "fixture executable is not loaded");
-  }
-  switch (executable->region_id) {
-%s
-    default:
-      return vlaforge_status_error(VLAFORGE_STATUS_NOT_FOUND,
-                                   "unknown fixture region");
+void* ScalarData(VLAForgeScalarValue* value) {
+  switch (value->dtype) {
+    case VLAFORGE_DTYPE_BOOL: return &value->value.boolean;
+    case VLAFORGE_DTYPE_I32: return &value->value.i32;
+    case VLAFORGE_DTYPE_I64: return &value->value.i64;
+    case VLAFORGE_DTYPE_U64: return &value->value.u64;
+    case VLAFORGE_DTYPE_F32: return &value->value.f32;
+    case VLAFORGE_DTYPE_F64: return &value->value.f64;
+    default: return nullptr;
   }
 }
 
-VLAForgeStatus FixtureSynchronize(
-    VLAForgeRegionExecutable* executable) {
-  return executable == nullptr
-      ? vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
-                              "fixture executable is null")
-      : vlaforge_status_ok();
+std::size_t ScalarBytes(VLAForgeDType dtype) {
+  switch (dtype) {
+    case VLAFORGE_DTYPE_BOOL: return 1u;
+    case VLAFORGE_DTYPE_I32: return 4u;
+    case VLAFORGE_DTYPE_I64:
+    case VLAFORGE_DTYPE_U64:
+    case VLAFORGE_DTYPE_F64: return 8u;
+    case VLAFORGE_DTYPE_F32: return 4u;
+    default: return 0u;
+  }
 }
 
-void FixtureDestroy(VLAForgeRegionExecutable* executable) {
-  delete executable;
+VLAForgeTensorView ScalarView(VLAForgeScalarValue* scalar) {
+  return VLAForgeTensorView{ScalarData(scalar), ScalarBytes(scalar->dtype),
+                            nullptr, 0u, scalar->dtype,
+                            {VLAFORGE_DEVICE_CPU, 0}};
 }
 
-constexpr VLAForgeRegionExecutableApi kFixtureApi = {
-    sizeof(VLAForgeRegionExecutableApi),
-    VLAFORGE_REGION_EXECUTABLE_ABI_VERSION,
-    &FixtureCreate,
-    &FixtureLoad,
-    &FixtureQueryWorkspace,
-    &FixtureBindInput,
-    &FixtureBindOutput,
-    &FixtureBindWorkspace,
-    &FixtureRun,
-    &FixtureSynchronize,
-    &FixtureDestroy,
-};
-""" % (
-            "\n\n".join(region_functions),
-            "\n\n".join(validator_functions),
-            _indent(workspace_cases, 2),
-            _indent(run_cases, 2),
+bool ReadBool(const VLAForgeTensorView& view) {
+  return view.data != nullptr &&
+         *static_cast<const std::uint8_t*>(view.data) != 0u;
+}
+
+[[maybe_unused]] void CopyValue(const VLAForgeTensorView& source,
+                                const VLAForgeTensorView& target) {
+  std::memcpy(target.data, source.data,
+              std::min(source.size_bytes, target.size_bytes));
+}
+"""
+
+    def _region_functions(self) -> str:
+        functions = []
+        for index, region in enumerate(self.module.regions):
+            body = self.regions[region.name].body
+            functions.append(
+                f"""VLAForgeStatus RunRegion{index}(
+    VLAForgeRegionExecutable* executable) {{
+{_indent(body, 2)}
+}}"""
+            )
+        return "\n\n".join(functions)
+
+    def _validator_functions(self) -> str:
+        functions = []
+        for index, name in enumerate(sorted(self.validators)):
+            body = self.validators[name].body
+            functions.append(
+                f"""bool Validate{index}(const void* data,
+               std::size_t size_bytes) {{
+{_indent(body, 2)}
+}}"""
+            )
+        return "\n\n".join(functions)
+
+    def _session_source(self) -> str:
+        state_pointer = "kStateSlots"
+        input_cases_tensor = "\n".join(
+            self._bind_tensor_case(port)
+            for port in self.module.inputs
+            if isinstance(port.payload, TensorType)
         )
-
-    def _session_implementation(self) -> str:
-        state_pointer = "kStateSlots" if self.plan.states else "nullptr"
-        policy = self.plan.policies[0]
-        policy_clock_id = next(
-            index
-            for index, clock in enumerate(self.module.clocks)
-            if clock.name == policy.clock
+        input_cases_scalar = "\n".join(
+            self._bind_scalar_case(port)
+            for port in self.module.inputs
+            if isinstance(port.payload, ScalarType)
+        )
+        prepare = "\n".join(
+            self._prepare_input(port) for port in self.module.inputs
+        )
+        init_values = "\n".join(
+            self._initialize_value(buffer.id, buffer.type)
+            for buffer in self.plan.buffers
+            if buffer.id in self.physical
+        )
+        cache_reset = "\n".join(
+            f"  cache_{cache.task_id}_valid_ = false;"
+            for cache in self.caches
         )
         run_body = self._emit_block(
-            policy.body_block,
-            _EmitContext(
-                {
-                    policy.inputs[0]: "const_cast<vlaforge::runtime::Epoch*>(&tick)"
-                }
-            ),
+            self.plan.invocations[0].body_block,
             indent=2,
         )
-        run_body = run_body.replace(
-            "return status;",
-            "return AbortTick(status);",
+        typed_bind = "\n".join(
+            self._typed_bind(port) for port in self.module.inputs
         )
-        init_objects = []
-        for buffer in self.plan.buffers:
-            if buffer.id not in self.physical:
-                continue
-            type_name = _cpp_type(buffer.type)
-            init_objects.append(
-                f"  new (BufferData({buffer.id}u)) {type_name}{{}};"
-            )
-        input_cases = []
-        for input_id, stream in enumerate(self.module.inputs):
-            input_cases.append(
-                self._input_binding_case(input_id, stream.payload)
-            )
-        make_view_cases = []
-        for buffer in self.plan.buffers:
-            make_view_cases.append(self._make_view_case(buffer.id, buffer.type))
-        cache_reset = (
-            "    for (auto& cache : cache_guards_) {\n"
-            "      cache.Invalidate();\n"
-            "    }\n"
-            if self.compilation_certificate is not None
-            else ""
+        typed_read = "\n".join(
+            self._typed_read(port) for port in self.module.outputs
         )
-        return f"""GeneratedSession::GeneratedSession()
+        state_init_tensor = self._state_init_cases(tensor=True)
+        state_init_scalar = self._state_init_cases(tensor=False)
+        initial_state = self._initial_state_source()
+        return f"""
+ModelSession::ModelSession()
     : arena_(kArenaSize, kArenaAlignment),
       state_arena_(kStateArenaSize, kStateArenaAlignment),
-      state_store_(state_arena_, {state_pointer}, {len(self.plan.states)}u),
-      transaction_({len(self.plan.states)}u),
-      actions_() {{
-  InitializeBufferObjects();
-  initialization_status_ = InitializeArtifacts();
+      state_store_(state_arena_, {state_pointer},
+                   {len(self.plan.states)}u),
+      transaction_({len(self.plan.states)}u) {{
+  InitializeValues();
+  initialization_status_ = state_store_.initialization_status();
+{initial_state}
 }}
 
-GeneratedSession::~GeneratedSession() {{
-  for (auto* executable : executables_) {{
-    if (executable != nullptr) {{
-      kFixtureApi.destroy(executable);
-    }}
+void ModelSession::InitializeValues() noexcept {{
+{init_values}
+}}
+
+void ModelSession::ClearBindings() noexcept {{
+  for (auto& input : inputs_) {{
+    input.bound = false;
+    input.tensor_value.tensor.data = nullptr;
   }}
 }}
 
-void GeneratedSession::InitializeBufferObjects() noexcept {{
-{chr(10).join(init_objects)}
+void* ModelSession::BufferData(std::uint32_t logical_id) noexcept {{
+  if (logical_id >= sizeof(kLogical) / sizeof(kLogical[0])) {{
+    return nullptr;
+  }}
+  const auto& item = kLogical[logical_id];
+  if (item.offset == static_cast<std::size_t>(-1)) {{
+    return nullptr;
+  }}
+  return arena_.Resolve(item.offset, item.size, item.alignment);
 }}
 
-vlaforge::runtime::Status GeneratedSession::InitializeArtifacts() noexcept {{
-  const VLAForgeStatus api_status =
-      vlaforge_region_executable_api_validate(&kFixtureApi);
-  if (api_status.code != VLAFORGE_STATUS_OK) {{
-    return vlaforge::runtime::Status::Error(
-        vlaforge::runtime::StatusCode::kInternal, 0u, api_status.message);
-  }}
-  constexpr std::uint8_t kDigest[32] = {{0u}};
-  for (std::uint32_t region_id = 0; region_id < executables_.size();
-       ++region_id) {{
-    const VLAForgeRegionCreateOptions options{{
-        sizeof(VLAForgeRegionCreateOptions),
-        VLAFORGE_REGION_EXECUTABLE_ABI_VERSION,
-        region_id,
-        {{VLAFORGE_DEVICE_CPU, 0}}}};
-    VLAForgeStatus status =
-        kFixtureApi.create(&options, &executables_[region_id]);
-    if (status.code != VLAFORGE_STATUS_OK) {{
+vlaforge::runtime::Status ModelSession::BindTensor(
+    std::uint32_t input_id, const VLAForgeBoundTensor& input,
+    const VLAForgeInputStamp* stamp) noexcept {{
+  (void)input;
+  (void)stamp;
+  switch (input_id) {{
+{input_cases_tensor}
+    default:
       return vlaforge::runtime::Status::Error(
-          vlaforge::runtime::StatusCode::kInternal, region_id,
-          status.message);
-    }}
-    constexpr char kEmbeddedPath[] = "embedded://cpu-fixture";
-    const VLAForgeArtifactDescriptor artifact{{
-        sizeof(VLAForgeArtifactDescriptor),
-        VLAFORGE_REGION_EXECUTABLE_ABI_VERSION,
-        kEmbeddedPath,
-        sizeof(kEmbeddedPath) - 1u,
-        kDigest,
-        0u}};
-    status = kFixtureApi.load(executables_[region_id], &artifact);
-    if (status.code != VLAFORGE_STATUS_OK) {{
-      return vlaforge::runtime::Status::Error(
-          vlaforge::runtime::StatusCode::kInternal, region_id,
-          status.message);
-    }}
+          vlaforge::runtime::StatusCode::kInvalidArgument, input_id,
+          "unknown tensor input id or scalar input bound as tensor");
   }}
+}}
+
+vlaforge::runtime::Status ModelSession::BindScalar(
+    std::uint32_t input_id, const VLAForgeScalarValue& input,
+    const VLAForgeInputStamp* stamp) noexcept {{
+  (void)input;
+  (void)stamp;
+  switch (input_id) {{
+{input_cases_scalar}
+    default:
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kInvalidArgument, input_id,
+          "unknown scalar input id or tensor input bound as scalar");
+  }}
+}}
+
+vlaforge::runtime::Status ModelSession::PrepareInputs() noexcept {{
+{prepare}
   return vlaforge::runtime::Status::Ok();
 }}
 
-vlaforge::runtime::Status GeneratedSession::AbortTick(
-    vlaforge::runtime::Status cause) noexcept {{
+vlaforge::runtime::Status ModelSession::Fail(
+    vlaforge::runtime::Status status) noexcept {{
   if (transaction_.active()) {{
     (void)state_store_.Abort(&transaction_, 0u);
   }}
-  return cause;
-}}
-
-void* GeneratedSession::BufferData(std::uint32_t logical_id) noexcept {{
-  if (logical_id >=
-      sizeof(kLogicalBuffers) / sizeof(kLogicalBuffers[0])) {{
-    return nullptr;
-  }}
-  const auto& descriptor = kLogicalBuffers[logical_id];
-  if (descriptor.offset == static_cast<std::size_t>(-1)) {{
-    return nullptr;
-  }}
-  return arena_.Resolve(descriptor.offset, descriptor.size,
-                        descriptor.alignment);
-}}
-
-VLAForgeTensorView GeneratedSession::MakeRegionView(
-    std::uint32_t logical_id, void* data) const noexcept {{
-  switch (logical_id) {{
-{chr(10).join(make_view_cases)}
-    default:
-      return VLAForgeTensorView{{}};
-  }}
-}}
-
-vlaforge::runtime::Status GeneratedSession::ResetEpisode(
-    std::uint64_t new_episode) noexcept {{
-  if (!initialization_status_.ok()) {{
-    return initialization_status_;
-  }}
-  const auto status = state_store_.ResetEpisode(new_episode, 0u);
-  if (status.ok()) {{
-    actions_.Reset();
-{cache_reset}  }}
   return status;
 }}
 
-vlaforge::runtime::Status GeneratedSession::BindInput(
-    std::uint32_t input_id, const vlaforge::runtime::TensorView& input,
-    const vlaforge::runtime::Epoch& epoch) noexcept {{
+vlaforge::runtime::Status ModelSession::Run() noexcept {{
+  struct BindingReset final {{
+    ModelSession* session;
+    ~BindingReset() {{ session->ClearBindings(); }}
+  }} reset{{this}};
   if (!initialization_status_.ok()) {{
     return initialization_status_;
   }}
-  switch (input_id) {{
-{chr(10).join(input_cases)}
-    default:
-      return vlaforge::runtime::Status::Error(
-          vlaforge::runtime::StatusCode::kOutOfRange, input_id,
-          "input id is out of range");
+  state_store_.SetRunIndex(run_index_);
+  auto status = PrepareInputs();
+  if (!status.ok()) {{
+    return status;
   }}
-}}
-
-vlaforge::runtime::Status GeneratedSession::RunTick(
-    const vlaforge::runtime::Epoch& tick) noexcept {{
-  if (!initialization_status_.ok()) {{
-    return initialization_status_;
-  }}
-  if (tick.clock_id != {policy_clock_id}u ||
-      tick.episode != state_store_.episode()) {{
-    return vlaforge::runtime::Status::Error(
-        vlaforge::runtime::StatusCode::kFailedPrecondition, 0u,
-        "tick clock or episode mismatch");
-  }}
-  vlaforge::runtime::Status status = vlaforge::runtime::Status::Ok();
 {run_body}
+  ++run_index_;
   return vlaforge::runtime::Status::Ok();
 }}
 
-vlaforge::runtime::Status GeneratedSession::ReadCommittedAction(
-    vlaforge::runtime::CommittedAction* action) const noexcept {{
-  if (action == nullptr || !actions_.latest().valid) {{
+vlaforge::runtime::Status ModelSession::Run(
+    const ModelInputs& inputs, ModelOutputs* outputs) noexcept {{
+  if (outputs == nullptr) {{
     return vlaforge::runtime::Status::Error(
-        vlaforge::runtime::StatusCode::kNotFound, 0u,
-        "no committed action is available");
+        vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
+        "typed outputs pointer is null");
   }}
-  *action = actions_.latest();
+{typed_bind}
+  auto status = Run();
+  if (!status.ok()) {{
+    return status;
+  }}
+{typed_read}
   return vlaforge::runtime::Status::Ok();
 }}
 
-void GeneratedSession::SetTraceSink(
+vlaforge::runtime::Status ModelSession::ReadOutputTensor(
+    std::uint32_t output_id,
+    VLAForgeBoundTensor* output) const noexcept {{
+  if (output == nullptr || output_id >= output_valid_.size() ||
+      !output_valid_[output_id]) {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kNotFound, output_id,
+        "committed tensor output is unavailable");
+  }}
+  if (tensor_outputs_[output_id].struct_size == 0u) {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kInvalidArgument, output_id,
+        "output is scalar, not tensor");
+  }}
+  *output = tensor_outputs_[output_id];
+  return vlaforge::runtime::Status::Ok();
+}}
+
+vlaforge::runtime::Status ModelSession::ReadOutputScalar(
+    std::uint32_t output_id,
+    VLAForgeScalarValue* output) const noexcept {{
+  if (output == nullptr || output_id >= output_valid_.size() ||
+      !output_valid_[output_id]) {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kNotFound, output_id,
+        "committed scalar output is unavailable");
+  }}
+  if (scalar_outputs_[output_id].struct_size == 0u) {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kInvalidArgument, output_id,
+        "output is tensor, not scalar");
+  }}
+  *output = scalar_outputs_[output_id];
+  return vlaforge::runtime::Status::Ok();
+}}
+
+vlaforge::runtime::Status ModelSession::ResetEpisode(
+    std::uint64_t new_episode) noexcept {{
+  auto status = state_store_.ResetEpisode(new_episode, 0u);
+  if (status.ok()) {{
+    output_valid_.fill(false);
+{cache_reset}
+  }}
+  return status;
+}}
+
+void ModelSession::SetTraceSink(
     vlaforge::runtime::TraceSink trace) noexcept {{
   trace_ = trace;
   state_store_.SetTraceSink(trace);
-  actions_.SetTraceSink(trace);
-}}"""
+}}
+
+vlaforge::runtime::Status ModelSession::InitializeStateTensor(
+    std::uint32_t state_id,
+    const VLAForgeBoundTensor& value) noexcept {{
+  (void)value;
+  switch (state_id) {{
+{state_init_tensor}
+    default:
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kInvalidArgument, state_id,
+          "unknown tensor state");
+  }}
+}}
+
+vlaforge::runtime::Status ModelSession::InitializeStateScalar(
+    std::uint32_t state_id,
+    const VLAForgeScalarValue& value) noexcept {{
+  (void)value;
+  switch (state_id) {{
+{state_init_scalar}
+    default:
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kInvalidArgument, state_id,
+          "unknown scalar state");
+  }}
+}}
+"""
 
     def _emit_block(
-        self, block_id: int, context: _EmitContext, *, indent: int
+        self,
+        block_id: int,
+        *,
+        indent: int,
+        task_ids: tuple[int, ...] | None = None,
     ) -> str:
         lines: list[str] = []
-        aliases = dict(context.aliases)
         block = self.plan.block(block_id)
-        for task_id in block.tasks:
+        for task_id in block.tasks if task_ids is None else task_ids:
             task = self.plan.task(task_id)
-            if task.opcode == "vla.sample_input":
-                stream = str(task.attributes["stream"])
-                input_id = self.input_ids[stream]
-                maximum = int(task.attributes.get("max_age_ns", 0))
+            opcode = task.opcode
+            if opcode == "vla.input.read":
+                port_name = str(task.attributes["input"])
+                input_id = self.input_ids[port_name]
+                port = self.module.inputs[input_id]
+                if isinstance(port.payload, TensorType):
+                    lines.append(
+                        f"values_[{task.outputs[0]}u] = "
+                        f"inputs_[{input_id}u].tensor_value.tensor;"
+                    )
+                else:
+                    lines.append(
+                        f"values_[{task.outputs[0]}u] = "
+                        f"ScalarView(&inputs_[{input_id}u].scalar_value);"
+                    )
                 lines.extend(
-                    [
-                        f"if (!inputs_[{input_id}u].bound) {{",
-                        "  return vlaforge::runtime::Status::Error(",
-                        "      vlaforge::runtime::StatusCode::kFailedPrecondition,",
-                        f"      {input_id}u, \"required input is not bound\");",
-                        "}",
-                        (
-                            f"if (inputs_[{input_id}u].epoch.episode != "
-                            "tick.episode ||"
-                        ),
-                        (
-                            f"    inputs_[{input_id}u].epoch.timestamp_ns > "
-                            "tick.timestamp_ns ||"
-                        ),
-                        (
-                            f"    tick.timestamp_ns - inputs_[{input_id}u]."
-                            f"epoch.timestamp_ns > {maximum}u) {{"
-                        ),
-                        "  return vlaforge::runtime::Status::Error(",
-                        "      vlaforge::runtime::StatusCode::kFailedPrecondition,",
-                        f"      {task.id}u, \"input freshness guard failed\");",
-                        "}",
-                        (
-                            "vlaforge::runtime::EmitTrace(trace_, "
-                            "vlaforge::runtime::TraceEvent{"
-                            "vlaforge::runtime::TraceKind::kInput, "
-                            f"{task.id}u, 0u, 0u, 0u, tick}});"
-                        ),
-                    ]
+                    (
+                        f"*static_cast<std::uint64_t*>("
+                        f"values_[{task.outputs[1]}u].data) = "
+                        f"inputs_[{input_id}u].revision;",
+                        f"input_revisions_[{input_id}u] = "
+                        f"inputs_[{input_id}u].revision;",
+                        "vlaforge::runtime::EmitTrace("
+                        "trace_, vlaforge::runtime::TraceEvent{"
+                        "vlaforge::runtime::TraceKind::kInput, "
+                        f"{task.id}u, {input_id}u, 0u, 0u, "
+                        "state_store_.episode(), run_index_, "
+                        f"inputs_[{input_id}u].revision}});",
+                    )
                 )
-                aliases[task.outputs[0]] = f"inputs_[{input_id}u].view.data"
-                aliases[task.outputs[1]] = f"&inputs_[{input_id}u].epoch"
-            elif task.opcode == "vla.txn.begin":
+            elif opcode == "vla.txn.begin":
                 lines.extend(
-                    [
-                        (
-                            "status = state_store_.Begin(&transaction_, tick, "
-                            f"{task.id}u);"
-                        ),
-                        "if (!status.ok()) { return status; }",
-                    ]
+                    (
+                        f"status = state_store_.Begin(&transaction_, {task.id}u);",
+                        "if (!status.ok()) { return Fail(status); }",
+                    )
                 )
-                aliases[task.outputs[0]] = "&transaction_"
-            elif task.opcode == "vla.invoke":
-                lines.extend(self._emit_region(task, aliases))
-            elif task.opcode == "vla.for":
-                lines.extend(self._emit_for(task, aliases))
-            elif task.opcode == "vla.validate":
+            elif opcode == "vla.state.read_latest":
+                state_id = self.state_ids[str(task.attributes["state"])]
+                lines.extend(
+                    (
+                        f"status = state_store_.ReadLatest({state_id}u, "
+                        f"{task.id}u, &snapshots_[{task.outputs[0]}u]);",
+                        "if (!status.ok()) { return Fail(status); }",
+                        f"state_versions_[{state_id}u] = "
+                        f"snapshots_[{task.outputs[0]}u].logical_version;",
+                    )
+                )
+            elif opcode == "vla.snapshot.value":
+                snapshot_id = task.inputs[0]
+                output_id = task.outputs[0]
+                lines.extend(
+                    (
+                        f"values_[{output_id}u].data = "
+                        f"const_cast<void*>(snapshots_[{snapshot_id}u].data);",
+                        f"values_[{output_id}u].size_bytes = "
+                        f"snapshots_[{snapshot_id}u].size_bytes;",
+                    )
+                )
+            elif opcode == "vla.invoke":
+                lines.extend(self._emit_region(task))
+            elif opcode == "vla.for":
+                lines.extend(self._emit_for(task))
+            elif opcode == "vla.if":
+                lines.extend(self._emit_if(task))
+            elif opcode == "vla.yield":
+                continue
+            elif opcode == "vla.state.stage_write":
+                state_id = self.state_ids[str(task.attributes["state"])]
+                value = task.inputs[1]
+                lines.extend(
+                    (
+                        f"status = state_store_.Stage(&transaction_, {state_id}u, "
+                        f"values_[{value}u].data, values_[{value}u].size_bytes, "
+                        f"{task.id}u);",
+                        "if (!status.ok()) { return Fail(status); }",
+                    )
+                )
+            elif opcode == "vla.validate":
                 contract = str(task.attributes["contract"])
                 validator_id = sorted(self.validators).index(contract)
-                value = self._raw(task.inputs[0], aliases)
-                size = _value_bytes(self.plan.buffer(task.inputs[0]).type)
-                output = self._lvalue(task.outputs[0], aliases)
+                value = task.inputs[0]
+                output = task.outputs[0]
                 lines.extend(
-                    [
-                        (
-                            f"{output} = Validate{validator_id}({value}, "
-                            f"{size}u);"
-                        ),
-                        (
-                            "vlaforge::runtime::EmitTrace(trace_, "
-                            "vlaforge::runtime::TraceEvent{"
-                            "vlaforge::runtime::TraceKind::kValidation, "
-                            f"{task.id}u, 0u, 0u, transaction_.id(), tick}});"
-                        ),
-                    ]
+                    (
+                        f"*static_cast<std::uint8_t*>("
+                        f"values_[{output}u].data) = "
+                        f"Validate{validator_id}(values_[{value}u].data, "
+                        f"values_[{value}u].size_bytes) ? 1u : 0u;",
+                        "vlaforge::runtime::EmitTrace("
+                        "trace_, vlaforge::runtime::TraceEvent{"
+                        "vlaforge::runtime::TraceKind::kValidation, "
+                        f"{task.id}u, {validator_id}u, 0u, transaction_.id(), "
+                        "state_store_.episode(), run_index_, 0u});",
+                    )
                 )
-            elif task.opcode == "vla.action.create":
-                value_id = task.inputs[0]
-                output = self._lvalue(task.outputs[0], aliases)
-                value = self._raw(value_id, aliases)
-                size = _value_bytes(self.plan.buffer(value_id).type)
-                lines.extend(
-                    [
+            elif opcode == "vla.output.create":
+                lines.append(
+                    f"values_[{task.outputs[0]}u] = values_[{task.inputs[0]}u];"
+                )
+            elif opcode == "vla.output.group":
+                group_id = self.output_group_ids[
+                    str(task.attributes["group"])
+                ]
+                lines.append(
+                    "vlaforge::runtime::EmitTrace("
+                    "trace_, vlaforge::runtime::TraceEvent{"
+                    "vlaforge::runtime::TraceKind::kOutputGroupPending, "
+                    f"{task.id}u, {group_id}u, 0u, transaction_.id(), "
+                    "state_store_.episode(), run_index_, 0u});"
+                )
+            elif opcode == "vla.txn.commit":
+                lines.extend(self._emit_commit(task))
+            elif opcode in {"vla.return", "vla.txn.abort"}:
+                if opcode == "vla.txn.abort":
+                    lines.extend(
                         (
-                            f"{output} = vlaforge::runtime::PendingAction"
-                            f"{{tick, {value}, {size}u}};"
-                        ),
-                        (
-                            "vlaforge::runtime::EmitTrace(trace_, "
-                            "vlaforge::runtime::TraceEvent{"
-                            "vlaforge::runtime::TraceKind::kActionPending, "
-                            f"{task.id}u, 0u, 0u, transaction_.id(), tick}});"
-                        ),
-                    ]
-                )
-            elif task.opcode == "vla.txn.commit":
-                pending = self._lvalue(task.inputs[1], aliases)
-                condition = self._lvalue(task.inputs[2], aliases)
-                committed = self._raw(task.outputs[0], aliases)
-                lines.extend(
-                    [
-                        (
-                            "status = state_store_.Commit(&transaction_, "
-                            f"{pending}, {condition}, {task.id}u, "
-                            "static_cast<vlaforge::runtime::"
-                            f"CommittedAction*>({committed}));"
-                        ),
-                        "if (!status.ok()) { return status; }",
-                    ]
-                )
-            elif task.opcode == "vla.action.publish":
-                committed = self._lvalue(task.inputs[0], aliases)
-                lines.extend(
-                    [
-                        f"status = actions_.Publish({committed}, {task.id}u);",
-                        "if (!status.ok()) { return status; }",
-                    ]
-                )
-            elif task.opcode == "vla.return":
-                continue
-            elif task.opcode == "vla.yield":
-                raise CodegenUnsupportedError(
-                    "yield may only appear in a structured loop body"
-                )
+                            f"status = state_store_.Abort(&transaction_, "
+                            f"{task.id}u);",
+                            "if (!status.ok()) { return status; }",
+                        )
+                    )
             else:
                 raise CodegenUnsupportedError(
-                    f"C++ MVP does not yet lower {task.opcode}"
+                    f"unsupported C++ task operation: {opcode}"
                 )
         return _indent("\n".join(lines), indent)
 
-    def _emit_region(
-        self, task: Task, aliases: Mapping[int, str]
-    ) -> list[str]:
-        artifact_id = task.artifact_id
-        assert artifact_id is not None
-        lines = ["{"]
-        for index, buffer_id in enumerate(task.inputs):
-            lines.extend(
-                [
-                    (
-                        f"  auto input_{task.id}_{index} = "
-                        f"MakeRegionView({buffer_id}u, "
-                        f"{self._raw(buffer_id, aliases)});"
-                    ),
-                    (
-                        "  VLAForgeStatus region_status = "
-                        f"kFixtureApi.bind_input(executables_[{artifact_id}u], "
-                        f"{index}u, &input_{task.id}_{index});"
-                    )
-                    if index == 0
-                    else (
-                        f"  region_status = kFixtureApi.bind_input("
-                        f"executables_[{artifact_id}u], {index}u, "
-                        f"&input_{task.id}_{index});"
-                    ),
-                    *self._region_status_check(task.id, indent=2),
-                ]
-            )
-        if not task.inputs:
-            lines.append(
-                "  VLAForgeStatus region_status = vlaforge_status_ok();"
-            )
-        for index, buffer_id in enumerate(task.outputs):
-            lines.extend(
-                [
-                    (
-                        f"  auto output_{task.id}_{index} = "
-                        f"MakeRegionView({buffer_id}u, "
-                        f"{self._raw(buffer_id, aliases)});"
-                    ),
-                    (
-                        f"  region_status = kFixtureApi.bind_output("
-                        f"executables_[{artifact_id}u], {index}u, "
-                        f"&output_{task.id}_{index});"
-                    ),
-                    *self._region_status_check(task.id, indent=2),
-                ]
-            )
-        workspace = (
-            "nullptr"
-            if task.workspace_buffer is None
-            else self._raw(task.workspace_buffer, aliases)
+    def _emit_region(self, task: Any) -> list[str]:
+        region_name = str(task.attributes["region"])
+        region_id = next(
+            index
+            for index, item in enumerate(self.module.regions)
+            if item.name == region_name
         )
-        workspace_size = (
-            0
-            if task.workspace_buffer is None
-            else self.physical[task.workspace_buffer].size_bytes
-        )
-        lines.extend(
-            [
-                (
-                    f"  region_status = kFixtureApi.bind_workspace("
-                    f"executables_[{artifact_id}u], {workspace}, "
-                    f"{workspace_size}u);"
-                ),
-                *self._region_status_check(task.id, indent=2),
-                (
-                    f"  region_status = kFixtureApi.run("
-                    f"executables_[{artifact_id}u]);"
-                ),
-                *self._region_status_check(task.id, indent=2),
-                (
-                    f"  region_status = kFixtureApi.synchronize("
-                    f"executables_[{artifact_id}u]);"
-                ),
-                *self._region_status_check(task.id, indent=2),
-                (
-                    "  vlaforge::runtime::EmitTrace(trace_, "
-                    "vlaforge::runtime::TraceEvent{"
-                    "vlaforge::runtime::TraceKind::kRegion, "
-                    f"{task.id}u, 0u, 0u, transaction_.id(), tick}});"
-                ),
-                "}",
-            ]
-        )
-        certificate = self.cache_certificates.get(task.id)
-        if certificate is not None:
-            dependencies = []
-            for item in certificate.dependencies:
-                if item.kind != "epoch":
-                    raise CodegenUnsupportedError(
-                        "generated fixture Session needs an explicit "
-                        "StateVersion binding before state-version caching"
-                    )
-                dependency = (
-                    "vlaforge::runtime::TemporalDependency{"
-                    "vlaforge::runtime::TemporalDependencyKind::kInputEpoch, "
-                    f"{item.subject_id}u, "
-                    f"inputs_[{item.subject_id}u].epoch.sequence, "
-                    f"inputs_[{item.subject_id}u].epoch, "
-                    f"kCacheTask{task.id}Dependencies"
-                    f"[{len(dependencies)}u].max_age_ns, "
-                    f"kCacheTask{task.id}Dependencies"
-                    f"[{len(dependencies)}u].max_versions"
-                    "}"
-                )
-                dependencies.append(f"    {dependency},")
-            cache_index = self.cache_indices[task.id]
-            trace_line = lines[-2]
-            region_body = lines[1:-2]
-            return [
-                "{",
-                (
-                    "  const vlaforge::runtime::TemporalDependency "
-                    f"cache_dependencies_{task.id}[] = {{"
-                ),
-                *dependencies,
-                "  };",
-                (
-                    f"  const bool cache_hit_{task.id} = "
-                    f"cache_guards_[{cache_index}u].Lookup("
-                    f"cache_dependencies_{task.id}, "
-                    f"kCacheTask{task.id}DependencyCount, tick);"
-                ),
-                f"  if (!cache_hit_{task.id}) {{",
-                *_indent_lines(region_body, 2),
-                (
-                    f"    status = cache_guards_[{cache_index}u].Update("
-                    f"cache_dependencies_{task.id}, "
-                    f"kCacheTask{task.id}DependencyCount);"
-                ),
-                "    if (!status.ok()) { return status; }",
-                "  }",
-                trace_line,
-                "}",
-            ]
-        return lines
-
-    def _region_status_check(
-        self, task_id: int, *, indent: int
-    ) -> list[str]:
-        prefix = " " * indent
-        return [
-            f"{prefix}if (region_status.code != VLAFORGE_STATUS_OK) {{",
-            (
-                f"{prefix}  return AbortTick("
-                "vlaforge::runtime::Status::Error("
-                "vlaforge::runtime::StatusCode::kInternal, "
-                f"{task_id}u, region_status.message));"
-            ),
-            f"{prefix}}}",
-        ]
-
-    def _emit_for(
-        self, task: Task, aliases: Mapping[int, str]
-    ) -> list[str]:
-        body = self.plan.block(task.blocks[0])
-        if len(body.arguments) != 2 or len(task.outputs) != 1:
-            raise CodegenUnsupportedError(
-                "C++ fixed loop requires one carry and two block arguments"
-            )
-        carry_type = _cpp_type(self.plan.buffer(task.outputs[0]).type)
-        carry_name = f"loop_{task.id}_carry"
-        index_name = f"loop_{task.id}_index"
-        nested_aliases = dict(aliases)
-        nested_aliases[body.arguments[0]] = f"&{index_name}"
-        nested_aliases[body.arguments[1]] = f"&{carry_name}"
-        lines = [
+        run = [
             "{",
-            (
-                f"  {carry_type} {carry_name} = "
-                f"{self._lvalue(task.inputs[0], aliases)};"
-            ),
-            (
-                f"  for (std::int64_t {index_name} = "
-                f"{int(task.attributes['lower'])}; "
-                f"{index_name} < {int(task.attributes['upper'])}; "
-                f"{index_name} += {int(task.attributes['step'])}) {{"
-            ),
+            "  VLAForgeRegionExecutable executable{};",
         ]
-        yielded: int | None = None
-        for nested_task_id in body.tasks:
-            nested_task = self.plan.task(nested_task_id)
-            if nested_task.opcode == "vla.yield":
-                if len(nested_task.inputs) != 1:
-                    raise CodegenUnsupportedError(
-                        "C++ fixed loop requires one yielded carry"
-                    )
-                yielded = nested_task.inputs[0]
-                continue
-            if nested_task.opcode != "vla.invoke":
-                raise CodegenUnsupportedError(
-                    "C++ fixed loop body currently supports region tasks only"
-                )
-            lines.extend(
-                _indent_lines(
-                    self._emit_region(nested_task, nested_aliases), 2
-                )
-            )
-        if yielded is None:
-            raise CodegenUnsupportedError("fixed loop body has no yield")
-        lines.extend(
-            [
-                f"    {carry_name} = {self._lvalue(yielded, nested_aliases)};",
-                "  }",
-                f"  {self._lvalue(task.outputs[0], aliases)} = {carry_name};",
-                "}",
-            ]
+        run.extend(
+            f"  executable.inputs[{index}u] = values_[{buffer_id}u];"
+            for index, buffer_id in enumerate(task.inputs)
         )
+        run.extend(
+            f"  executable.outputs[{index}u] = values_[{buffer_id}u];"
+            for index, buffer_id in enumerate(task.outputs)
+        )
+        run.extend(
+            (
+                f"  const auto region_status = RunRegion{region_id}(&executable);",
+                "  status = FromCStatus(region_status, "
+                f"{task.id}u);",
+                "  if (!status.ok()) { return Fail(status); }",
+                "  vlaforge::runtime::EmitTrace("
+                "trace_, vlaforge::runtime::TraceEvent{"
+                "vlaforge::runtime::TraceKind::kRegion, "
+                f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
+                "state_store_.episode(), run_index_, 0u});",
+                "}",
+            )
+        )
+        cache = next(
+            (item for item in self.caches if item.task_id == task.id),
+            None,
+        )
+        if cache is None:
+            return run
+        equal_inputs = " && ".join(
+            f"cache_{task.id}_revisions_[{index}u] == "
+            f"input_revisions_[{index}u]"
+            for index in range(len(self.module.inputs))
+        ) or "true"
+        equal_states = " && ".join(
+            f"cache_{task.id}_state_versions_[{index}u] == "
+            f"state_versions_[{index}u]"
+            for index in range(len(self.module.states))
+        ) or "true"
+        hit_copy = [
+            f"std::memcpy(values_[{output}u].data, "
+            f"cache_{task.id}_output_{output}_.data(), "
+            f"values_[{output}u].size_bytes);"
+            for output in task.outputs
+        ]
+        miss_copy = [
+            "vlaforge::runtime::EmitTrace("
+            "trace_, vlaforge::runtime::TraceEvent{"
+            "vlaforge::runtime::TraceKind::kCacheMiss, "
+            f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
+            "state_store_.episode(), run_index_, 0u});",
+            *run,
+            *(
+                f"std::memcpy(cache_{task.id}_output_{output}_.data(), "
+                f"values_[{output}u].data, values_[{output}u].size_bytes);"
+                for output in task.outputs
+            ),
+            f"cache_{task.id}_revisions_ = input_revisions_;",
+            f"cache_{task.id}_state_versions_ = state_versions_;",
+            f"cache_{task.id}_episode_ = state_store_.episode();",
+            f"cache_{task.id}_valid_ = true;",
+        ]
+        return [
+            f"if (cache_{task.id}_valid_ && "
+            f"cache_{task.id}_episode_ == state_store_.episode() && "
+            f"({equal_inputs}) && ({equal_states})) {{",
+            *_indent_lines(hit_copy, 2),
+            "  vlaforge::runtime::EmitTrace("
+            "trace_, vlaforge::runtime::TraceEvent{"
+            "vlaforge::runtime::TraceKind::kCacheHit, "
+            f"{task.id}u, {region_id}u, 0u, transaction_.id(), "
+            "state_store_.episode(), run_index_, 0u});",
+            "} else {",
+            *_indent_lines(miss_copy, 2),
+            "}",
+        ]
+
+    def _emit_for(self, task: Any) -> list[str]:
+        body = self.plan.block(task.blocks[0])
+        if len(body.arguments) != 2 or not body.tasks:
+            raise CodegenUnsupportedError("bounded for has invalid body")
+        terminal = self.plan.task(body.tasks[-1])
+        if terminal.opcode != "vla.yield" or len(terminal.inputs) != 1:
+            raise CodegenUnsupportedError("bounded for body must yield one value")
+        result = task.outputs[0]
+        lines = [
+            f"CopyValue(values_[{task.inputs[0]}u], values_[{result}u]);",
+            f"for (std::int64_t loop_{task.id} = "
+            f"{int(task.attributes['lower'])}; "
+            f"loop_{task.id} < {int(task.attributes['upper'])}; "
+            f"loop_{task.id} += {int(task.attributes['step'])}) {{",
+            f"  VLAForgeScalarValue induction_{task.id}{{"
+            "sizeof(VLAForgeScalarValue), VLAFORGE_DTYPE_I64, {}};",
+            f"  induction_{task.id}.value.i64 = loop_{task.id};",
+            f"  values_[{body.arguments[0]}u] = "
+            f"ScalarView(&induction_{task.id});",
+            f"  values_[{body.arguments[1]}u] = values_[{result}u];",
+            self._emit_block_without_terminal(body.id, indent=2),
+            f"  CopyValue(values_[{terminal.inputs[0]}u], "
+            f"values_[{result}u]);",
+            "}",
+        ]
         return lines
 
-    def _raw(self, buffer_id: int, aliases: Mapping[int, str]) -> str:
-        return aliases.get(buffer_id, f"BufferData({buffer_id}u)")
+    def _emit_if(self, task: Any) -> list[str]:
+        lines = [f"if (ReadBool(values_[{task.inputs[0]}u])) {{"]
+        for branch_index, block_id in enumerate(task.blocks):
+            block = self.plan.block(block_id)
+            terminal = self.plan.task(block.tasks[-1])
+            if terminal.opcode != "vla.yield":
+                raise CodegenUnsupportedError("if branch must end in yield")
+            if branch_index == 1:
+                lines.append("} else {")
+            lines.append(self._emit_block_without_terminal(block_id, indent=2))
+            for source, target in zip(
+                terminal.inputs, task.outputs, strict=True
+            ):
+                lines.append(
+                    f"  CopyValue(values_[{source}u], values_[{target}u]);"
+                )
+        lines.append("}")
+        return lines
 
-    def _lvalue(self, buffer_id: int, aliases: Mapping[int, str]) -> str:
-        type_name = _cpp_type(self.plan.buffer(buffer_id).type)
-        return f"*static_cast<{type_name}*>({self._raw(buffer_id, aliases)})"
+    def _emit_block_without_terminal(
+        self,
+        block_id: int,
+        *,
+        indent: int,
+    ) -> str:
+        block = self.plan.block(block_id)
+        return self._emit_block(
+            block_id,
+            indent=indent,
+            task_ids=block.tasks[:-1],
+        )
 
-    def _input_binding_case(self, input_id: int, type: IRType) -> str:
-        if not isinstance(type, TensorType):
-            raise CodegenUnsupportedError("runtime inputs must be tensors")
-        if any(item is None for item in type.shape):
-            raise CodegenUnsupportedError(
-                "generated fixture input requires static shape"
-            )
-        checks = [
-            "input.data == nullptr",
-            f"input.scalar_type != {_runtime_scalar(type.dtype)}",
-            f"input.rank != {len(type.shape)}u",
-            f"input.bytes != {_value_bytes(type)}u",
+    def _emit_commit(self, task: Any) -> list[str]:
+        condition = task.inputs[2]
+        group_buffer = self.plan.buffer(task.inputs[1])
+        producer = self.plan.task(group_buffer.producer_task)
+        if producer.opcode != "vla.output.group":
+            raise CodegenUnsupportedError("commit input is not output.group")
+        group_id = self.output_group_ids[str(producer.attributes["group"])]
+        assignments = []
+        for pending_buffer in producer.inputs:
+            pending = self.plan.buffer(pending_buffer)
+            create = self.plan.task(pending.producer_task)
+            output_name = str(create.attributes["output"])
+            output_id = self.output_ids[output_name]
+            value_id = create.inputs[0]
+            port = self.module.outputs[output_id]
+            if isinstance(port.payload, TensorType):
+                assignments.extend(
+                    (
+                        f"tensor_outputs_[{output_id}u] = "
+                        "VLAForgeBoundTensor{"
+                        "sizeof(VLAForgeBoundTensor), "
+                        f"values_[{value_id}u], {_layout(port.payload.layout)}, "
+                        f"{port.alignment}u}};",
+                        f"scalar_outputs_[{output_id}u] = "
+                        "VLAForgeScalarValue{};",
+                    )
+                )
+            else:
+                assignments.extend(
+                    (
+                        f"scalar_outputs_[{output_id}u] = "
+                        f"VLAForgeScalarValue{{sizeof(VLAForgeScalarValue), "
+                        f"{_dtype(port.payload.name)}, {{}}}};",
+                        f"std::memcpy(ScalarData(&scalar_outputs_[{output_id}u]), "
+                        f"values_[{value_id}u].data, "
+                        f"values_[{value_id}u].size_bytes);",
+                        f"tensor_outputs_[{output_id}u] = VLAForgeBoundTensor{{}};",
+                    )
+                )
+            assignments.append(f"output_valid_[{output_id}u] = true;")
+        return [
+            f"if (!ReadBool(values_[{condition}u])) {{",
+            f"  status = state_store_.Abort(&transaction_, {task.id}u);",
+            "  if (!status.ok()) { return status; }",
+            "  return vlaforge::runtime::Status::Error(",
+            "      vlaforge::runtime::StatusCode::kValidationFailed, "
+            f"{task.id}u, \"output validation failed\");",
+            "}",
+            f"status = state_store_.Commit(&transaction_, {task.id}u);",
+            "if (!status.ok()) { return Fail(status); }",
+            *assignments,
+            "vlaforge::runtime::EmitTrace("
+            "trace_, vlaforge::runtime::TraceEvent{"
+            "vlaforge::runtime::TraceKind::kOutputGroupCommit, "
+            f"{task.id}u, {group_id}u, 0u, transaction_.id(), "
+            "state_store_.episode(), run_index_, 0u});",
         ]
-        for index, dimension in enumerate(type.shape):
+
+    def _initialize_value(self, buffer_id: int, type_: IRType) -> str:
+        if isinstance(type_, TensorType):
+            shape = f"kShape{buffer_id}" if type_.shape else "nullptr"
+            return (
+                f"  values_[{buffer_id}u] = VLAForgeTensorView{{"
+                f"BufferData({buffer_id}u), {_bytes(type_)}u, {shape}, "
+                f"{len(type_.shape)}u, {_dtype(type_.dtype)}, "
+                "{VLAFORGE_DEVICE_CPU, 0}};"
+            )
+        if isinstance(type_, ScalarType | InputRevisionType):
+            dtype = (
+                _dtype(type_.name)
+                if isinstance(type_, ScalarType)
+                else "VLAFORGE_DTYPE_U64"
+            )
+            return (
+                f"  values_[{buffer_id}u] = VLAForgeTensorView{{"
+                f"BufferData({buffer_id}u), {_bytes(type_)}u, nullptr, 0u, "
+                f"{dtype}, {{VLAFORGE_DEVICE_CPU, 0}}}};"
+            )
+        return ""
+
+    def _bind_tensor_case(self, port: InputPort) -> str:
+        assert isinstance(port.payload, TensorType)
+        checks = [
+            "input.struct_size < sizeof(VLAForgeBoundTensor)",
+            "input.tensor.data == nullptr",
+            f"input.tensor.dtype != {_dtype(port.payload.dtype)}",
+            f"input.tensor.rank != {len(port.payload.shape)}u",
+            f"input.tensor.size_bytes != {_bytes(port.payload)}u",
+            f"input.tensor.device.kind != {_device(port.device)}",
+            f"input.layout != {_layout(port.payload.layout)}",
+            f"input.alignment < {port.alignment}u",
+            f"reinterpret_cast<std::uintptr_t>(input.tensor.data) % "
+            f"{port.alignment}u != 0u",
+        ]
+        for index, dimension in enumerate(port.payload.shape):
             checks.append(
-                f"input.shape == nullptr || input.shape[{index}] != "
-                f"{int(dimension)}"
+                f"input.tensor.dimensions == nullptr || "
+                f"input.tensor.dimensions[{index}] != {int(dimension)}"
             )
         condition = " ||\n          ".join(checks)
-        return f"""    case {input_id}u:
+        return f"""    case {port.input_id}u:
       if ({condition}) {{
         return vlaforge::runtime::Status::Error(
             vlaforge::runtime::StatusCode::kInvalidArgument, input_id,
-            "input tensor contract mismatch");
+            "tensor input contract mismatch");
       }}
-      inputs_[{input_id}u] = BoundInput{{input, epoch, true}};
+      inputs_[{port.input_id}u].bound = true;
+      inputs_[{port.input_id}u].tensor = true;
+      inputs_[{port.input_id}u].tensor_value = input;
+      inputs_[{port.input_id}u].revision =
+          stamp != nullptr && stamp->has_revision
+              ? stamp->revision : next_auto_revision_++;
+      inputs_[{port.input_id}u].timestamp_ns =
+          stamp != nullptr && stamp->has_timestamp
+              ? stamp->timestamp_ns : 0u;
       return vlaforge::runtime::Status::Ok();"""
 
-    def _make_view_case(self, buffer_id: int, type: IRType) -> str:
-        if isinstance(type, TensorType):
-            shape = (
-                "nullptr" if not type.shape else f"kShape{buffer_id}"
+    def _bind_scalar_case(self, port: InputPort) -> str:
+        assert isinstance(port.payload, ScalarType)
+        range_check = ""
+        if port.value_range is not None:
+            member = _scalar_member(port.payload.name)
+            lower, upper = port.value_range
+            range_check = (
+                f" || input.value.{member} < {_literal(lower)} || "
+                f"input.value.{member} > {_literal(upper)}"
             )
-            rank = len(type.shape)
-            dtype = _region_dtype(type.dtype)
-            size = _value_bytes(type)
-        elif isinstance(type, ScalarType):
-            shape = "nullptr"
-            rank = 0
-            dtype = _region_dtype(type.name)
-            size = _value_bytes(type)
-        else:
-            return (
-                f"    case {buffer_id}u:\n"
-                "      return VLAForgeTensorView{};"
+        return f"""    case {port.input_id}u:
+      if (input.struct_size < sizeof(VLAForgeScalarValue) ||
+          input.dtype != {_dtype(port.payload.name)}{range_check}) {{
+        return vlaforge::runtime::Status::Error(
+            vlaforge::runtime::StatusCode::kInvalidArgument, input_id,
+            "scalar input contract mismatch");
+      }}
+      inputs_[{port.input_id}u].bound = true;
+      inputs_[{port.input_id}u].tensor = false;
+      inputs_[{port.input_id}u].scalar_value = input;
+      inputs_[{port.input_id}u].revision =
+          stamp != nullptr && stamp->has_revision
+              ? stamp->revision : next_auto_revision_++;
+      inputs_[{port.input_id}u].timestamp_ns =
+          stamp != nullptr && stamp->has_timestamp
+              ? stamp->timestamp_ns : 0u;
+      return vlaforge::runtime::Status::Ok();"""
+
+    def _prepare_input(self, port: InputPort) -> str:
+        if port.required:
+            return f"""  if (!inputs_[{port.input_id}u].bound) {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kFailedPrecondition,
+        {port.input_id}u, "required input is not bound");
+  }}"""
+        return self._default_input(port)
+
+    def _default_input(self, port: InputPort) -> str:
+        if isinstance(port.payload, ScalarType):
+            member = _scalar_member(port.payload.name)
+            value = _literal(port.default)
+            return f"""  if (!inputs_[{port.input_id}u].bound) {{
+    inputs_[{port.input_id}u].bound = true;
+    inputs_[{port.input_id}u].tensor = false;
+    inputs_[{port.input_id}u].scalar_value =
+        VLAForgeScalarValue{{sizeof(VLAForgeScalarValue),
+                            {_dtype(port.payload.name)}, {{}}}};
+    inputs_[{port.input_id}u].scalar_value.value.{member} = {value};
+    inputs_[{port.input_id}u].revision = 0u;
+  }}"""
+        assert isinstance(port.payload, TensorType)
+        values = ", ".join(
+            _literal(item) for item in _flatten(port.default)
+        )
+        ctype = _cpp_scalar(port.payload.dtype)
+        shape = ", ".join(str(int(item)) for item in port.payload.shape)
+        return f"""  if (!inputs_[{port.input_id}u].bound) {{
+    static {ctype} default_data_{port.input_id}[] = {{{values}}};
+    static const std::int64_t default_shape_{port.input_id}[] = {{{shape}}};
+    inputs_[{port.input_id}u].bound = true;
+    inputs_[{port.input_id}u].tensor = true;
+    inputs_[{port.input_id}u].tensor_value = VLAForgeBoundTensor{{
+        sizeof(VLAForgeBoundTensor),
+        {{default_data_{port.input_id}, {_bytes(port.payload)}u,
+          default_shape_{port.input_id}, {len(port.payload.shape)}u,
+          {_dtype(port.payload.dtype)}, {{{_device(port.device)}, 0}}}},
+        {_layout(port.payload.layout)}, {port.alignment}u}};
+    inputs_[{port.input_id}u].revision = 0u;
+  }}"""
+
+    def _typed_input_field(self, port: InputPort) -> str:
+        type_name = (
+            "VLAForgeBoundTensor"
+            if isinstance(port.payload, TensorType)
+            else "VLAForgeScalarValue"
+        )
+        optional = (
+            f"  bool has_{_identifier(port.name)} = false;\n"
+            if not port.required
+            else ""
+        )
+        name = _identifier(port.name)
+        return (
+            f"{optional}  {type_name} {name}{{}};\n"
+            f"  VLAForgeInputStamp {name}_stamp{{}};"
+        )
+
+    def _typed_output_field(self, port: Any) -> str:
+        type_name = (
+            "VLAForgeBoundTensor"
+            if isinstance(port.payload, TensorType)
+            else "VLAForgeScalarValue"
+        )
+        return f"  {type_name} {_identifier(port.name)}{{}};"
+
+    def _typed_bind(self, port: InputPort) -> str:
+        name = _identifier(port.name)
+        call = "BindTensor" if isinstance(port.payload, TensorType) else "BindScalar"
+        condition = f"if (inputs.has_{name}) " if not port.required else ""
+        opening = condition + "{"
+        return f"""  {opening}
+    const auto* stamp = inputs.{name}_stamp.struct_size == 0u
+        ? nullptr : &inputs.{name}_stamp;
+    auto status = {call}({port.input_id}u, inputs.{name}, stamp);
+    if (!status.ok()) {{ return status; }}
+  }}"""
+
+    def _typed_read(self, port: Any) -> str:
+        name = _identifier(port.name)
+        call = (
+            "ReadOutputTensor"
+            if isinstance(port.payload, TensorType)
+            else "ReadOutputScalar"
+        )
+        return f"""  status = {call}({port.output_id}u, &outputs->{name});
+  if (!status.ok()) {{ return status; }}"""
+
+    def _cache_field(self, cache: _Cache) -> str:
+        output_fields = "\n".join(
+            f"  std::array<std::byte, {_bytes(self.plan.buffer(output).type)}> "
+            f"cache_{cache.task_id}_output_{output}_{{}};"
+            for output in cache.outputs
+        )
+        return f"""  bool cache_{cache.task_id}_valid_ = false;
+  std::uint64_t cache_{cache.task_id}_episode_ = 0;
+  std::array<std::uint64_t, {max(len(self.module.inputs), 1)}>
+      cache_{cache.task_id}_revisions_{{}};
+  std::array<std::uint64_t, {max(len(self.module.states), 1)}>
+      cache_{cache.task_id}_state_versions_{{}};
+{output_fields}"""
+
+    def _state_init_cases(self, *, tensor: bool) -> str:
+        cases = []
+        for state_id, state in enumerate(self.module.states):
+            if tensor != isinstance(state.payload, TensorType):
+                continue
+            if tensor:
+                payload = state.payload
+                assert isinstance(payload, TensorType)
+                checks = (
+                    f"value.tensor.dtype != {_dtype(payload.dtype)} || "
+                    f"value.tensor.size_bytes != {_bytes(payload)}u"
+                )
+                data = "value.tensor.data"
+                size = "value.tensor.size_bytes"
+            else:
+                payload = state.payload
+                assert isinstance(payload, ScalarType)
+                checks = f"value.dtype != {_dtype(payload.name)}"
+                data = "ScalarData(const_cast<VLAForgeScalarValue*>(&value))"
+                size = f"{_bytes(payload)}u"
+            cases.append(
+                f"""    case {state_id}u:
+      if ({checks}) {{
+        return vlaforge::runtime::Status::Error(
+            vlaforge::runtime::StatusCode::kInvalidArgument, state_id,
+            "state initializer contract mismatch");
+      }}
+      return state_store_.Initialize(state_id, {data}, {size});"""
             )
-        return f"""    case {buffer_id}u:
-      return VLAForgeTensorView{{
-          data, {size}u, {shape}, {rank}u, {dtype},
-          {{VLAFORGE_DEVICE_CPU, 0}}}};"""
+        return "\n".join(cases)
+
+    def _initial_state_source(self) -> str:
+        lines = []
+        for state_id, state in enumerate(self.module.states):
+            if state.name not in self.initial_state:
+                continue
+            value = self.initial_state[state.name]
+            if isinstance(state.payload, TensorType):
+                ctype = _cpp_scalar(state.payload.dtype)
+                values = ", ".join(
+                    _literal(item) for item in _flatten(value)
+                )
+                lines.extend(
+                    (
+                        "  if (initialization_status_.ok()) {",
+                        f"    const {ctype} initial_state_{state_id}[] = "
+                        f"{{{values}}};",
+                        "    initialization_status_ = state_store_.Initialize(",
+                        f"        {state_id}u, initial_state_{state_id}, "
+                        f"sizeof(initial_state_{state_id}));",
+                        "  }",
+                    )
+                )
+            elif isinstance(state.payload, ScalarType):
+                ctype = _cpp_scalar(state.payload.name)
+                lines.extend(
+                    (
+                        "  if (initialization_status_.ok()) {",
+                        f"    const {ctype} initial_state_{state_id} = "
+                        f"{_literal(value)};",
+                        "    initialization_status_ = state_store_.Initialize(",
+                        f"        {state_id}u, &initial_state_{state_id}, "
+                        f"sizeof(initial_state_{state_id}));",
+                        "  }",
+                    )
+                )
+        return "\n".join(lines)
+
+    def _c_abi_source(self) -> str:
+        ns = self.namespace
+        return f"""
+struct VLAForgeSession {{
+  {ns}::ModelSession implementation;
+}};
+
+namespace {{
+
+VLAForgeStatus CBindTensor(VLAForgeSession* session, std::uint32_t input_id,
+                           const VLAForgeBoundTensor* tensor,
+                           const VLAForgeInputStamp* stamp) {{
+  if (session == nullptr || tensor == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "null tensor binding");
+  }}
+  return ToCStatus(
+      session->implementation.BindTensor(input_id, *tensor, stamp));
+}}
+
+VLAForgeStatus CBindScalar(VLAForgeSession* session, std::uint32_t input_id,
+                           const VLAForgeScalarValue* scalar,
+                           const VLAForgeInputStamp* stamp) {{
+  if (session == nullptr || scalar == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "null scalar binding");
+  }}
+  return ToCStatus(
+      session->implementation.BindScalar(input_id, *scalar, stamp));
+}}
+
+VLAForgeStatus CRun(VLAForgeSession* session) {{
+  if (session == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "null session");
+  }}
+  return ToCStatus(session->implementation.Run());
+}}
+
+VLAForgeStatus CReadTensor(const VLAForgeSession* session,
+                           std::uint32_t output_id,
+                           VLAForgeBoundTensor* output) {{
+  if (session == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "null session");
+  }}
+  return ToCStatus(
+      session->implementation.ReadOutputTensor(output_id, output));
+}}
+
+VLAForgeStatus CReadScalar(const VLAForgeSession* session,
+                           std::uint32_t output_id,
+                           VLAForgeScalarValue* output) {{
+  if (session == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "null session");
+  }}
+  return ToCStatus(
+      session->implementation.ReadOutputScalar(output_id, output));
+}}
+
+VLAForgeStatus CReset(VLAForgeSession* session, std::uint64_t episode) {{
+  if (session == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "null session");
+  }}
+  return ToCStatus(session->implementation.ResetEpisode(episode));
+}}
+
+void CDestroy(VLAForgeSession* session) {{ delete session; }}
+
+const VLAForgeSessionApi kApi = {{
+    sizeof(VLAForgeSessionApi),
+    VLAFORGE_SESSION_ABI_VERSION,
+    {ns}::kSchemaDigest,
+    VLAFORGE_SCHEMA_DIGEST_HEX_SIZE,
+    &CBindTensor,
+    &CBindScalar,
+    &CRun,
+    &CReadTensor,
+    &CReadScalar,
+    &CReset,
+    &CDestroy,
+}};
+
+}}  // namespace
+
+extern "C" VLAForgeStatus vlaforge_model_session_create(
+    VLAForgeSession** session) {{
+  if (session == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "session output is null");
+  }}
+  *session = new (std::nothrow) VLAForgeSession;
+  if (*session == nullptr) {{
+    return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
+                                 "session allocation failed");
+  }}
+  return vlaforge_status_ok();
+}}
+
+extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void) {{
+  return &kApi;
+}}
+"""
+
+def _bytes(type_: IRType) -> int:
+    return storage_size_bytes(type_)
 
 
-def _cpp_type(type: IRType) -> str:
-    if isinstance(type, TensorType):
-        if any(item is None for item in type.shape):
-            raise CodegenUnsupportedError(
-                "dynamic internal tensor needs a concrete codegen profile"
-            )
-        elements = 1
-        for dimension in type.shape:
-            elements *= int(dimension)
-        scalar = _cpp_scalar(type.dtype)
-        return scalar if not type.shape else f"std::array<{scalar}, {elements}>"
-    if isinstance(type, ScalarType):
-        return _cpp_scalar(type.name)
-    if isinstance(type, EpochType):
-        return "vlaforge::runtime::Epoch"
-    if isinstance(type, TransactionType):
-        return "vlaforge::runtime::Transaction*"
-    if isinstance(type, ActionType):
-        return "vlaforge::runtime::PendingAction"
-    if isinstance(type, CommittedActionType):
-        return "vlaforge::runtime::CommittedAction"
-    raise CodegenUnsupportedError(f"unsupported C++ buffer type: {type!r}")
-
-
-def _cpp_scalar(dtype: str) -> str:
-    result = {
-        "bool": "bool",
-        "i32": "std::int32_t",
-        "i64": "std::int64_t",
-        "index": "std::int64_t",
-        "f32": "float",
-        "f64": "double",
-        "opaque": "std::uintptr_t",
-    }.get(dtype)
-    if result is None:
-        raise CodegenUnsupportedError(f"unsupported C++ scalar: {dtype}")
-    return result
-
-
-def _region_dtype(dtype: str) -> str:
-    result = {
+def _dtype(name: str) -> str:
+    mapping = {
         "bool": "VLAFORGE_DTYPE_BOOL",
         "i32": "VLAFORGE_DTYPE_I32",
-        "i64": "VLAFORGE_DTYPE_I64",
         "index": "VLAFORGE_DTYPE_I64",
+        "i64": "VLAFORGE_DTYPE_I64",
+        "u64": "VLAFORGE_DTYPE_U64",
         "f16": "VLAFORGE_DTYPE_F16",
         "bf16": "VLAFORGE_DTYPE_BF16",
         "f32": "VLAFORGE_DTYPE_F32",
         "f64": "VLAFORGE_DTYPE_F64",
-    }.get(dtype)
-    if result is None:
-        raise CodegenUnsupportedError(
-            f"unsupported RegionExecutable dtype: {dtype}"
-        )
+        "u8": "VLAFORGE_DTYPE_U8",
+    }
+    try:
+        return mapping[name]
+    except KeyError as error:
+        raise CodegenUnsupportedError(f"unsupported C ABI dtype {name}") from error
+
+
+def _device(name: str) -> str:
+    if name == "cpu":
+        return "VLAFORGE_DEVICE_CPU"
+    if name.startswith("cuda"):
+        return "VLAFORGE_DEVICE_CUDA"
+    return "VLAFORGE_DEVICE_EXTERNAL"
+
+
+def _layout(name: str) -> str:
+    return {
+        "contiguous": "VLAFORGE_LAYOUT_CONTIGUOUS",
+        "nchw": "VLAFORGE_LAYOUT_NCHW",
+        "nhwc": "VLAFORGE_LAYOUT_NHWC",
+    }.get(name.lower(), "VLAFORGE_LAYOUT_CUSTOM")
+
+
+def _cpp_scalar(name: str) -> str:
+    return {
+        "bool": "std::uint8_t",
+        "i32": "std::int32_t",
+        "index": "std::int64_t",
+        "i64": "std::int64_t",
+        "u64": "std::uint64_t",
+        "f32": "float",
+        "f64": "double",
+    }.get(name, "std::byte")
+
+
+def _scalar_member(name: str) -> str:
+    return {
+        "bool": "boolean",
+        "i32": "i32",
+        "index": "i64",
+        "i64": "i64",
+        "u64": "u64",
+        "f32": "f32",
+        "f64": "f64",
+    }[name]
+
+
+def _literal(value: object) -> str:
+    if isinstance(value, bool):
+        return "1u" if value else "0u"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise CodegenUnsupportedError("non-finite defaults are unsupported")
+        return repr(value)
+    raise CodegenUnsupportedError(f"unsupported C++ default literal {value!r}")
+
+
+def _flatten(value: object) -> tuple[object, ...]:
+    if isinstance(value, tuple | list):
+        return tuple(item for nested in value for item in _flatten(nested))
+    return (value,)
+
+
+def _identifier(name: str) -> str:
+    result = re.sub(r"[^A-Za-z0-9_]", "_", name)
+    if not result or result[0].isdigit():
+        result = f"value_{result}"
     return result
 
 
-def _runtime_scalar(dtype: str) -> str:
-    result = {
-        "bool": "vlaforge::runtime::ScalarType::kBool",
-        "i32": "vlaforge::runtime::ScalarType::kI32",
-        "i64": "vlaforge::runtime::ScalarType::kI64",
-        "f16": "vlaforge::runtime::ScalarType::kF16",
-        "bf16": "vlaforge::runtime::ScalarType::kBF16",
-        "f32": "vlaforge::runtime::ScalarType::kF32",
-        "f64": "vlaforge::runtime::ScalarType::kF64",
-        "u8": "vlaforge::runtime::ScalarType::kU8",
-    }.get(dtype)
-    if result is None:
-        raise CodegenUnsupportedError(f"unsupported runtime scalar: {dtype}")
-    return result
-
-
-def _value_bytes(type: IRType) -> int:
-    if isinstance(type, TensorType | ScalarType):
-        return storage_size_bytes(type)
-    raise CodegenUnsupportedError(
-        f"value is not a RegionExecutable ABI tensor: {type!r}"
-    )
-
-
-def _cmake_source(has_runner: bool) -> str:
-    runner = """
-add_executable(vlaforge_generated_runner runner.cpp)
-target_link_libraries(vlaforge_generated_runner PRIVATE
-    vlaforge_generated_session)
-install(TARGETS vlaforge_generated_runner RUNTIME DESTINATION bin)
-""" if has_runner else ""
-    return f"""cmake_minimum_required(VERSION 3.18)
-project(vlaforge_generated_session LANGUAGES C CXX)
-
-include(GNUInstallDirs)
-
-if(NOT DEFINED VLAFORGE_RUNTIME_ROOT)
-  message(FATAL_ERROR "set VLAFORGE_RUNTIME_ROOT to the VLAForge source root")
-endif()
-
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-add_subdirectory("${{VLAFORGE_RUNTIME_ROOT}}"
-                 "${{CMAKE_CURRENT_BINARY_DIR}}/vlaforge_runtime")
-
-add_library(vlaforge_generated_session STATIC session_generated.cpp)
-target_include_directories(vlaforge_generated_session PUBLIC
-    $<BUILD_INTERFACE:${{CMAKE_CURRENT_SOURCE_DIR}}>
-    $<INSTALL_INTERFACE:${{CMAKE_INSTALL_INCLUDEDIR}}/vlaforge/generated>)
-target_link_libraries(vlaforge_generated_session PUBLIC vlaforge_runtime)
-target_compile_options(vlaforge_generated_session PRIVATE
-    -Wall -Wextra -Wpedantic -Werror)
-
-install(TARGETS vlaforge_generated_session
-    EXPORT VLAForgeRuntimeTargets
-    ARCHIVE DESTINATION ${{CMAKE_INSTALL_LIBDIR}})
-set(VLAFORGE_GENERATED_HEADERS session_generated.h memory_constants.h)
-if(EXISTS "${{CMAKE_CURRENT_SOURCE_DIR}}/optimization_certificate.h")
-  list(APPEND VLAFORGE_GENERATED_HEADERS optimization_certificate.h)
-endif()
-install(FILES ${{VLAFORGE_GENERATED_HEADERS}}
-    DESTINATION ${{CMAKE_INSTALL_INCLUDEDIR}}/vlaforge/generated)
-{runner}"""
+def _camel(name: str) -> str:
+    return "".join(part.capitalize() for part in _identifier(name).split("_"))
 
 
 def _indent(text: str, spaces: int) -> str:
@@ -1339,6 +1622,35 @@ def _indent(text: str, spaces: int) -> str:
 def _indent_lines(lines: list[str], spaces: int) -> list[str]:
     prefix = " " * spaces
     return [prefix + line if line else "" for line in lines]
+
+
+def _cmake_source(has_runner: bool) -> str:
+    runner = """
+add_executable(vlaforge_generated_runner runner.cpp)
+target_link_libraries(vlaforge_generated_runner PRIVATE
+    vlaforge_generated_session)
+""" if has_runner else ""
+    return f"""cmake_minimum_required(VERSION 3.18)
+project(vlaforge_generated_session LANGUAGES C CXX)
+
+if(NOT DEFINED VLAFORGE_RUNTIME_ROOT)
+  message(FATAL_ERROR "set VLAFORGE_RUNTIME_ROOT to the VLAForge source root")
+endif()
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_subdirectory("${{VLAFORGE_RUNTIME_ROOT}}"
+                 "${{CMAKE_CURRENT_BINARY_DIR}}/vlaforge_runtime")
+add_library(vlaforge_generated_session STATIC session_generated.cpp)
+target_include_directories(vlaforge_generated_session PUBLIC
+    "${{CMAKE_CURRENT_SOURCE_DIR}}")
+target_link_libraries(vlaforge_generated_session PUBLIC vlaforge_runtime)
+target_compile_options(vlaforge_generated_session PRIVATE
+    -Wall -Wextra -Wpedantic -Werror)
+{runner}"""
 
 
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")

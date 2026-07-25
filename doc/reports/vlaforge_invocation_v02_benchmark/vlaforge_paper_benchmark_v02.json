@@ -1,0 +1,849 @@
+{
+  "evidence_exact": true,
+  "evidence_scope": "deterministic v0.2 Python fixtures",
+  "gate_passed": true,
+  "measurements": [
+    {
+      "cache_hits": 32,
+      "cache_misses": 1,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            114.83992500000001,
+            117.76627500000002
+          ],
+          "estimate": 116.201
+        },
+        "p95": {
+          "ci95": [
+            119.44640000000001,
+            218.82
+          ],
+          "estimate": 124.90029999999999
+        },
+        "p99": {
+          "ci95": [
+            120.183,
+            218.82
+          ],
+          "estimate": 192.42188000000007
+        },
+        "samples": [
+          120.183,
+          118.672,
+          116.083,
+          119.068,
+          119.756,
+          116.319,
+          218.82,
+          127.792,
+          121.366,
+          114.034,
+          116.83,
+          114.534,
+          114.837,
+          112.839,
+          112.616,
+          114.655,
+          118.608,
+          118.842,
+          118.977,
+          113.777,
+          115.362,
+          110.251,
+          118.038,
+          114.96,
+          115.679,
+          116.896,
+          116.591,
+          112.855,
+          114.72,
+          115.104
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 40,
+        "compiler_arena_bytes": 320,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "semantic",
+      "model": "openvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "repeat"
+    },
+    {
+      "cache_hits": 32,
+      "cache_misses": 1,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            115.455175,
+            117.30522500000001
+          ],
+          "estimate": 116.2975
+        },
+        "p95": {
+          "ci95": [
+            119.6909525,
+            181.416
+          ],
+          "estimate": 125.92779999999999
+        },
+        "p99": {
+          "ci95": [
+            122.40089125,
+            181.416
+          ],
+          "estimate": 165.62927000000005
+        },
+        "samples": [
+          116.89,
+          118.08,
+          116.467,
+          113.931,
+          115.707,
+          116.872,
+          114.025,
+          114.871,
+          114.692,
+          115.207,
+          114.535,
+          116.028,
+          116.445,
+          117.738,
+          115.061,
+          115.864,
+          121.016,
+          124.112,
+          181.416,
+          124.643,
+          118.215,
+          120.394,
+          116.369,
+          116.226,
+          113.457,
+          116.665,
+          113.378,
+          116.092,
+          113.728,
+          126.979
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 40,
+        "compiler_arena_bytes": 320,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "plan",
+      "model": "openvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "repeat"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 33,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            123.754,
+            126.1888875
+          ],
+          "estimate": 125.011
+        },
+        "p95": {
+          "ci95": [
+            130.80033625,
+            198.86200000000002
+          ],
+          "estimate": 132.95345
+        },
+        "p99": {
+          "ci95": [
+            132.01613225,
+            198.86200000000002
+          ],
+          "estimate": 179.88411000000005
+        },
+        "samples": [
+          125.316,
+          122.074,
+          128.849,
+          124.316,
+          131.141,
+          125.302,
+          123.16,
+          125.03,
+          123.754,
+          124.992,
+          124.339,
+          122.02,
+          120.909,
+          120.601,
+          121.738,
+          123.623,
+          121.889,
+          128.684,
+          198.862,
+          133.421,
+          127.049,
+          125.761,
+          124.693,
+          123.68,
+          121.59,
+          132.382,
+          131.404,
+          125.827,
+          131.783,
+          129.604
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 40,
+        "compiler_arena_bytes": 320,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "semantic",
+      "model": "openvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "new-revision"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 33,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            128.2863625,
+            130.68789999999998
+          ],
+          "estimate": 129.7035
+        },
+        "p95": {
+          "ci95": [
+            132.27044375,
+            202.442
+          ],
+          "estimate": 135.73055
+        },
+        "p99": {
+          "ci95": [
+            134.50196725,
+            202.442
+          ],
+          "estimate": 183.17150000000007
+        },
+        "samples": [
+          129.588,
+          131.488,
+          130.265,
+          132.991,
+          132.114,
+          127.992,
+          130.457,
+          128.462,
+          127.591,
+          129.943,
+          124.768,
+          124.904,
+          131.549,
+          125.713,
+          131.106,
+          131.131,
+          130.012,
+          128.801,
+          202.442,
+          135.992,
+          125.35,
+          128.113,
+          127.777,
+          128.022,
+          126.844,
+          129.819,
+          132.41,
+          129.395,
+          128.629,
+          135.411
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 40,
+        "compiler_arena_bytes": 320,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "plan",
+      "model": "openvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "new-revision"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 9,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            151.839,
+            190.341
+          ],
+          "estimate": 155.9915
+        },
+        "p95": {
+          "ci95": [
+            323.3015,
+            335.247
+          ],
+          "estimate": 334.43575
+        },
+        "p99": {
+          "ci95": [
+            332.56791,
+            335.247
+          ],
+          "estimate": 335.19509
+        },
+        "samples": [
+          150.816,
+          326.447,
+          146.481,
+          144.565,
+          149.712,
+          319.158,
+          145.51,
+          146.361,
+          145.291,
+          319.457,
+          143.943,
+          233.252,
+          156.445,
+          329.774,
+          151.839,
+          149.025,
+          154.401,
+          335.247,
+          163.865,
+          155.538,
+          152.378,
+          335.068,
+          152.803,
+          157.83,
+          158.469,
+          333.663,
+          153.389,
+          156.689,
+          216.817,
+          332.802
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 16,
+        "compiler_arena_bytes": 1216,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "semantic",
+      "model": "smolvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "repeat"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 9,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            155.184,
+            218.353
+          ],
+          "estimate": 158.372
+        },
+        "p95": {
+          "ci95": [
+            329.9625,
+            356.229
+          ],
+          "estimate": 343.5818499999999
+        },
+        "p99": {
+          "ci95": [
+            332.19097250000004,
+            356.229
+          ],
+          "estimate": 354.31615999999997
+        },
+        "samples": [
+          158.474,
+          332.971,
+          154.215,
+          155.184,
+          150.48,
+          329.143,
+          148.061,
+          147.846,
+          150.353,
+          330.796,
+          147.077,
+          245.233,
+          156.151,
+          349.633,
+          162.748,
+          158.476,
+          156.027,
+          330.3,
+          158.27,
+          152.241,
+          158.747,
+          329.55,
+          154.353,
+          152.757,
+          154.135,
+          336.186,
+          162.152,
+          156.899,
+          218.353,
+          356.229
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 16,
+        "compiler_arena_bytes": 1216,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "plan",
+      "model": "smolvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "repeat"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 9,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            154.382,
+            192.9385
+          ],
+          "estimate": 158.367
+        },
+        "p95": {
+          "ci95": [
+            328.07685000000004,
+            654.855
+          ],
+          "estimate": 341.1398
+        },
+        "p99": {
+          "ci95": [
+            336.90865,
+            654.855
+          ],
+          "estimate": 564.0310600000003
+        },
+        "samples": [
+          154.394,
+          327.105,
+          153.432,
+          148.569,
+          148.027,
+          320.871,
+          147.145,
+          146.53,
+          149.253,
+          319.076,
+          145.442,
+          654.855,
+          172.609,
+          339.987,
+          163.365,
+          163.271,
+          158.778,
+          340.493,
+          154.37,
+          159.088,
+          157.956,
+          328.872,
+          150.87,
+          154.975,
+          151.305,
+          329.372,
+          155.345,
+          155.067,
+          213.268,
+          341.669
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 16,
+        "compiler_arena_bytes": 1216,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "semantic",
+      "model": "smolvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "new-revision"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 9,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            156.53912499999998,
+            194.5046750000001
+          ],
+          "estimate": 159.9735
+        },
+        "p95": {
+          "ci95": [
+            330.728,
+            345.515
+          ],
+          "estimate": 338.8696
+        },
+        "p99": {
+          "ci95": [
+            334.69567,
+            345.515
+          ],
+          "estimate": 343.62333
+        },
+        "samples": [
+          159.339,
+          329.515,
+          155.989,
+          153.24,
+          149.783,
+          336.456,
+          148.593,
+          151.534,
+          151.907,
+          330.728,
+          150.951,
+          257.6,
+          169.214,
+          345.515,
+          165.047,
+          159.867,
+          155.929,
+          330.736,
+          162.4,
+          153.583,
+          160.08,
+          329.21,
+          155.914,
+          153.756,
+          159.206,
+          338.72,
+          163.997,
+          157.194,
+          218.826,
+          338.992
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 16,
+        "compiler_arena_bytes": 1216,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "plan",
+      "model": "smolvla_fixture",
+      "post_warm_samples": 30,
+      "workload": "new-revision"
+    },
+    {
+      "cache_hits": 32,
+      "cache_misses": 1,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            487.749,
+            493.304
+          ],
+          "estimate": 489.7175
+        },
+        "p95": {
+          "ci95": [
+            495.70076624999996,
+            563.028
+          ],
+          "estimate": 552.03775
+        },
+        "p99": {
+          "ci95": [
+            537.60097025,
+            563.028
+          ],
+          "estimate": 560.66102
+        },
+        "samples": [
+          474.617,
+          473.592,
+          554.866,
+          484.784,
+          483.969,
+          487.668,
+          494.786,
+          493.836,
+          563.028,
+          496.149,
+          493.491,
+          493.117,
+          490.784,
+          548.581,
+          489.107,
+          494.165,
+          482.506,
+          488.819,
+          485.902,
+          540.72,
+          488.363,
+          485.508,
+          487.83,
+          495.705,
+          488.134,
+          487.049,
+          491.083,
+          490.328,
+          486.179,
+          491.145
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 360,
+        "compiler_arena_bytes": 1088,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "semantic",
+      "model": "driving_diffusion_fixture",
+      "post_warm_samples": 30,
+      "workload": "repeat"
+    },
+    {
+      "cache_hits": 32,
+      "cache_misses": 1,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            480.958125,
+            492.705
+          ],
+          "estimate": 486.2665
+        },
+        "p95": {
+          "ci95": [
+            516.6678174999998,
+            751.123
+          ],
+          "estimate": 552.09285
+        },
+        "p99": {
+          "ci95": [
+            533.22259,
+            751.123
+          ],
+          "estimate": 696.9808700000002
+        },
+        "samples": [
+          478.905,
+          482.819,
+          564.426,
+          488.028,
+          480.967,
+          481.472,
+          481.553,
+          485.918,
+          533.492,
+          489.4,
+          487.855,
+          474.473,
+          479.337,
+          532.563,
+          486.615,
+          479.221,
+          478.814,
+          480.171,
+          480.981,
+          751.123,
+          501.283,
+          492.705,
+          475.865,
+          480.243,
+          478.573,
+          537.019,
+          490.204,
+          498.266,
+          496.853,
+          498.117
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 360,
+        "compiler_arena_bytes": 1088,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "plan",
+      "model": "driving_diffusion_fixture",
+      "post_warm_samples": 30,
+      "workload": "repeat"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 33,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            516.261,
+            529.567
+          ],
+          "estimate": 522.5535
+        },
+        "p95": {
+          "ci95": [
+            538.942,
+            626.4070000000002
+          ],
+          "estimate": 583.9853499999999
+        },
+        "p99": {
+          "ci95": [
+            580.3618345,
+            626.4070000000002
+          ],
+          "estimate": 614.8481800000001
+        },
+        "samples": [
+          515.74,
+          511.235,
+          626.407,
+          538.942,
+          526.021,
+          531.236,
+          513.33,
+          516.519,
+          580.423,
+          525.991,
+          529.567,
+          513.5,
+          515.92,
+          580.852,
+          515.572,
+          515.721,
+          513.918,
+          517.441,
+          510.657,
+          586.549,
+          522.502,
+          522.446,
+          513.102,
+          516.261,
+          580.612,
+          522.605,
+          536.42,
+          527.712,
+          534.932,
+          532.47
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 360,
+        "compiler_arena_bytes": 1088,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "semantic",
+      "model": "driving_diffusion_fixture",
+      "post_warm_samples": 30,
+      "workload": "new-revision"
+    },
+    {
+      "cache_hits": 0,
+      "cache_misses": 33,
+      "exact_vs_off": true,
+      "latency_us": {
+        "p50": {
+          "ci95": [
+            516.8493375,
+            524.9415
+          ],
+          "estimate": 517.7760000000001
+        },
+        "p95": {
+          "ci95": [
+            532.0741287499999,
+            631.904
+          ],
+          "estimate": 576.08405
+        },
+        "p99": {
+          "ci95": [
+            564.21908475,
+            631.904
+          ],
+          "estimate": 616.1039300000001
+        },
+        "samples": [
+          516.888,
+          528.33,
+          631.904,
+          532.079,
+          526.688,
+          516.843,
+          526.885,
+          521.472,
+          572.023,
+          514.277,
+          516.828,
+          516.372,
+          515.2,
+          577.421,
+          523.195,
+          521.767,
+          517.552,
+          512.184,
+          516.623,
+          574.45,
+          516.833,
+          515.832,
+          516.866,
+          517.059,
+          567.177,
+          515.035,
+          514.684,
+          522.567,
+          531.646,
+          518.0
+        ]
+      },
+      "memory": {
+        "backend_declared_tensor_bytes": 360,
+        "compiler_arena_bytes": 1088,
+        "process_rss_peak_bytes": 0,
+        "process_vram_peak_bytes": 0
+      },
+      "mode": "plan",
+      "model": "driving_diffusion_fixture",
+      "post_warm_samples": 30,
+      "workload": "new-revision"
+    }
+  ],
+  "revision": "working-tree",
+  "schema": "vlaforge.paper_benchmark/2"
+}

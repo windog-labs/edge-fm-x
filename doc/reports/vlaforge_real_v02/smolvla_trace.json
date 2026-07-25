@@ -1,0 +1,2330 @@
+{
+  "events": [
+    {
+      "data": {
+        "input": "image",
+        "revision": 0,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+          "shape": [
+            1,
+            3,
+            256,
+            256
+          ],
+          "tensor": true
+        }
+      },
+      "index": 0,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 0
+    },
+    {
+      "data": {
+        "input": "state",
+        "revision": 0,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+          "shape": [
+            1,
+            6
+          ],
+          "tensor": true,
+          "values": [
+            [
+              -0.20000000298023224,
+              -0.10000000149011612,
+              0.0,
+              0.10000000894069672,
+              0.20000001788139343,
+              0.30000001192092896
+            ]
+          ]
+        }
+      },
+      "index": 1,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 0
+    },
+    {
+      "data": {
+        "input": "instruction_tokens",
+        "revision": 0,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.int64",
+          "sha256": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f",
+          "shape": [
+            1,
+            48
+          ],
+          "tensor": true,
+          "values": [
+            [
+              18188,
+              614,
+              260,
+              3608,
+              198,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          ]
+        }
+      },
+      "index": 2,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 0
+    },
+    {
+      "data": {
+        "input": "instruction_mask",
+        "revision": 0,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.bool",
+          "sha256": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+          "shape": [
+            1,
+            48
+          ],
+          "tensor": true,
+          "values": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        }
+      },
+      "index": 3,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 0
+    },
+    {
+      "data": {
+        "input": "noise",
+        "revision": 0,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+          "shape": [
+            1,
+            50,
+            32
+          ],
+          "tensor": true
+        }
+      },
+      "index": 4,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 0
+    },
+    {
+      "data": {
+        "transaction_id": 0
+      },
+      "index": 5,
+      "invocation": "act",
+      "kind": "transaction_begin",
+      "op": "vla.txn.begin",
+      "run": 0
+    },
+    {
+      "data": {
+        "episode": 0,
+        "state": "action_queue",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "655a3ef0465a9f30fddf25f4dde0c19a05c6f9069b83961800c1944165955273",
+          "shape": [
+            1,
+            50,
+            6
+          ],
+          "tensor": true
+        },
+        "version": 0
+      },
+      "index": 6,
+      "invocation": "act",
+      "kind": "state_read",
+      "op": "vla.state.read_latest",
+      "run": 0
+    },
+    {
+      "data": {
+        "episode": 0,
+        "state": "queue_cursor",
+        "value": 50,
+        "version": 0
+      },
+      "index": 7,
+      "invocation": "act",
+      "kind": "state_read",
+      "op": "vla.state.read_latest",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          50
+        ],
+        "outputs": [
+          true
+        ],
+        "region": "queue_is_empty"
+      },
+      "index": 8,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [],
+        "outputs": [
+          0
+        ],
+        "region": "queue_zero"
+      },
+      "index": 9,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "hit": false,
+        "input_revisions": [
+          [
+            "image",
+            0
+          ],
+          [
+            "instruction_mask",
+            0
+          ],
+          [
+            "instruction_tokens",
+            0
+          ],
+          [
+            "noise",
+            0
+          ],
+          [
+            "state",
+            0
+          ]
+        ],
+        "region": "prepare_prefix",
+        "state_snapshots": [
+          [
+            "action_queue",
+            [
+              0,
+              0
+            ]
+          ],
+          [
+            "queue_cursor",
+            [
+              0,
+              0
+            ]
+          ]
+        ]
+      },
+      "index": 10,
+      "invocation": "act",
+      "kind": "cache",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+            "shape": [
+              1,
+              3,
+              256,
+              256
+            ],
+            "tensor": true
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+            "shape": [
+              1,
+              6
+            ],
+            "tensor": true,
+            "values": [
+              [
+                -0.20000000298023224,
+                -0.10000000149011612,
+                0.0,
+                0.10000000894069672,
+                0.20000001788139343,
+                0.30000001192092896
+              ]
+            ]
+          },
+          {
+            "dtype": "torch.int64",
+            "sha256": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f",
+            "shape": [
+              1,
+              48
+            ],
+            "tensor": true,
+            "values": [
+              [
+                18188,
+                614,
+                260,
+                3608,
+                198,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2,
+                2
+              ]
+            ]
+          },
+          {
+            "dtype": "torch.bool",
+            "sha256": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+            "shape": [
+              1,
+              48
+            ],
+            "tensor": true,
+            "values": [
+              [
+                true,
+                true,
+                true,
+                true,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+              ]
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          }
+        ],
+        "region": "prepare_prefix"
+      },
+      "index": 11,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          0
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "377f57e8a3fb728e5e44db0a6663d674d0a4867373e454d1c7671e23e52cf0c2",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 12,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "377f57e8a3fb728e5e44db0a6663d674d0a4867373e454d1c7671e23e52cf0c2",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          1
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "398fed68d0b9c16afaa83038fb416d957ac1b77ef4cf9b59c2cc291d956ac7e0",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 13,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "398fed68d0b9c16afaa83038fb416d957ac1b77ef4cf9b59c2cc291d956ac7e0",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          2
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "73b11d5c794481ab5806b91f4b14eaf3ad25243c3bf3f1ae6fd239a9715308bb",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 14,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "73b11d5c794481ab5806b91f4b14eaf3ad25243c3bf3f1ae6fd239a9715308bb",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          3
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "e22a01c3a92337e2d24c1d2de82fd7ebbdc9fef1ac6333ac8f2e3bb8c1cd651e",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 15,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "e22a01c3a92337e2d24c1d2de82fd7ebbdc9fef1ac6333ac8f2e3bb8c1cd651e",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          4
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "fd54ab6240cc4169996669573d84a25e15f997df3cea5ec609847fbadd08dda8",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 16,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "fd54ab6240cc4169996669573d84a25e15f997df3cea5ec609847fbadd08dda8",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          5
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "69913f26a066f79bb944de8eebfbc9fa9b00a7297b9fd06e3cb480ef0b155dd2",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 17,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "69913f26a066f79bb944de8eebfbc9fa9b00a7297b9fd06e3cb480ef0b155dd2",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          6
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "7ca58a4664792a54eaa21eb0256adbef0bb2f93cc83b23510c4402f411a265dc",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 18,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "7ca58a4664792a54eaa21eb0256adbef0bb2f93cc83b23510c4402f411a265dc",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          7
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "93e68ea6a93fdfb3dca40935a49a16f569d4d8541e21812ef9ab75d8b989629f",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 19,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "93e68ea6a93fdfb3dca40935a49a16f569d4d8541e21812ef9ab75d8b989629f",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          8
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "239c9c5d4e18f14d80038f70dfc2c7e24cb160d783e46a744b2c078a37cc0574",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 20,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "cache_layers": 16,
+            "cache_sequence_length": null,
+            "kind": "smolvla_prefix_context",
+            "prefix_pad_masks": {
+              "dtype": "torch.bool",
+              "sha256": "68f621d81fdb40acdbdf755ed43181aa28ec25897ab36463f62313be8e22f3fe",
+              "shape": [
+                1,
+                113
+              ],
+              "tensor": true
+            }
+          },
+          {
+            "dtype": "torch.float32",
+            "sha256": "239c9c5d4e18f14d80038f70dfc2c7e24cb160d783e46a744b2c078a37cc0574",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          },
+          9
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "422324f5b9856112158c7627526a72a277d794ce17b1fc74982b608a448fd177",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "solver_step"
+      },
+      "index": 21,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "422324f5b9856112158c7627526a72a277d794ce17b1fc74982b608a448fd177",
+            "shape": [
+              1,
+              50,
+              32
+            ],
+            "tensor": true
+          }
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+            "shape": [
+              1,
+              50,
+              6
+            ],
+            "tensor": true
+          }
+        ],
+        "region": "trim_action_chunk"
+      },
+      "index": 22,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+            "shape": [
+              1,
+              50,
+              6
+            ],
+            "tensor": true
+          },
+          0
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "3ccd62994d93cb9dadef1b504bfd0f3c47f6baf08a7cc053d5bc8251230fb659",
+            "shape": [
+              1,
+              6
+            ],
+            "tensor": true,
+            "values": [
+              [
+                -0.23743198812007904,
+                -0.17110970616340637,
+                -0.19317054748535156,
+                0.05821991711854935,
+                0.23258018493652344,
+                0.27397072315216064
+              ]
+            ]
+          }
+        ],
+        "region": "queue_select"
+      },
+      "index": 23,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "inputs": [
+          0
+        ],
+        "outputs": [
+          1
+        ],
+        "region": "queue_advance"
+      },
+      "index": 24,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 0
+    },
+    {
+      "data": {
+        "state": "action_queue",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+          "shape": [
+            1,
+            50,
+            6
+          ],
+          "tensor": true
+        }
+      },
+      "index": 25,
+      "invocation": "act",
+      "kind": "state_stage",
+      "op": "vla.state.stage_write",
+      "run": 0
+    },
+    {
+      "data": {
+        "state": "queue_cursor",
+        "value": 1
+      },
+      "index": 26,
+      "invocation": "act",
+      "kind": "state_stage",
+      "op": "vla.state.stage_write",
+      "run": 0
+    },
+    {
+      "data": {
+        "contract": "finite_action",
+        "valid": true
+      },
+      "index": 27,
+      "invocation": "act",
+      "kind": "validation",
+      "op": "vla.validate",
+      "run": 0
+    },
+    {
+      "data": {
+        "output": "action",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "3ccd62994d93cb9dadef1b504bfd0f3c47f6baf08a7cc053d5bc8251230fb659",
+          "shape": [
+            1,
+            6
+          ],
+          "tensor": true,
+          "values": [
+            [
+              -0.23743198812007904,
+              -0.17110970616340637,
+              -0.19317054748535156,
+              0.05821991711854935,
+              0.23258018493652344,
+              0.27397072315216064
+            ]
+          ]
+        }
+      },
+      "index": 28,
+      "invocation": "act",
+      "kind": "output_pending",
+      "op": "vla.output.create",
+      "run": 0
+    },
+    {
+      "data": {
+        "group": "manipulation",
+        "outputs": [
+          {
+            "output": "action",
+            "value": {
+              "dtype": "torch.float32",
+              "sha256": "3ccd62994d93cb9dadef1b504bfd0f3c47f6baf08a7cc053d5bc8251230fb659",
+              "shape": [
+                1,
+                6
+              ],
+              "tensor": true,
+              "values": [
+                [
+                  -0.23743198812007904,
+                  -0.17110970616340637,
+                  -0.19317054748535156,
+                  0.05821991711854935,
+                  0.23258018493652344,
+                  0.27397072315216064
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "index": 29,
+      "invocation": "act",
+      "kind": "output_group_pending",
+      "op": "vla.output.group",
+      "run": 0
+    },
+    {
+      "data": {
+        "output": {
+          "episode": 0,
+          "group": "manipulation",
+          "outputs": [
+            {
+              "output": "action",
+              "value": {
+                "dtype": "torch.float32",
+                "sha256": "3ccd62994d93cb9dadef1b504bfd0f3c47f6baf08a7cc053d5bc8251230fb659",
+                "shape": [
+                  1,
+                  6
+                ],
+                "tensor": true,
+                "values": [
+                  [
+                    -0.23743198812007904,
+                    -0.17110970616340637,
+                    -0.19317054748535156,
+                    0.05821991711854935,
+                    0.23258018493652344,
+                    0.27397072315216064
+                  ]
+                ]
+              }
+            }
+          ],
+          "transaction_id": 0
+        },
+        "states": [
+          {
+            "episode": 0,
+            "state": "action_queue",
+            "value": {
+              "dtype": "torch.float32",
+              "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+              "shape": [
+                1,
+                50,
+                6
+              ],
+              "tensor": true
+            },
+            "version": 1
+          },
+          {
+            "episode": 0,
+            "state": "queue_cursor",
+            "value": 1,
+            "version": 1
+          }
+        ],
+        "transaction_id": 0
+      },
+      "index": 30,
+      "invocation": "act",
+      "kind": "transaction_commit",
+      "op": "vla.txn.commit",
+      "run": 0
+    },
+    {
+      "data": {
+        "input": "image",
+        "revision": 1,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+          "shape": [
+            1,
+            3,
+            256,
+            256
+          ],
+          "tensor": true
+        }
+      },
+      "index": 31,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 1
+    },
+    {
+      "data": {
+        "input": "state",
+        "revision": 1,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+          "shape": [
+            1,
+            6
+          ],
+          "tensor": true,
+          "values": [
+            [
+              -0.20000000298023224,
+              -0.10000000149011612,
+              0.0,
+              0.10000000894069672,
+              0.20000001788139343,
+              0.30000001192092896
+            ]
+          ]
+        }
+      },
+      "index": 32,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 1
+    },
+    {
+      "data": {
+        "input": "instruction_tokens",
+        "revision": 1,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.int64",
+          "sha256": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f",
+          "shape": [
+            1,
+            48
+          ],
+          "tensor": true,
+          "values": [
+            [
+              18188,
+              614,
+              260,
+              3608,
+              198,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          ]
+        }
+      },
+      "index": 33,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 1
+    },
+    {
+      "data": {
+        "input": "instruction_mask",
+        "revision": 1,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.bool",
+          "sha256": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+          "shape": [
+            1,
+            48
+          ],
+          "tensor": true,
+          "values": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        }
+      },
+      "index": 34,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 1
+    },
+    {
+      "data": {
+        "input": "noise",
+        "revision": 1,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+          "shape": [
+            1,
+            50,
+            32
+          ],
+          "tensor": true
+        }
+      },
+      "index": 35,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 1
+    },
+    {
+      "data": {
+        "transaction_id": 1
+      },
+      "index": 36,
+      "invocation": "act",
+      "kind": "transaction_begin",
+      "op": "vla.txn.begin",
+      "run": 1
+    },
+    {
+      "data": {
+        "episode": 0,
+        "state": "action_queue",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+          "shape": [
+            1,
+            50,
+            6
+          ],
+          "tensor": true
+        },
+        "version": 1
+      },
+      "index": 37,
+      "invocation": "act",
+      "kind": "state_read",
+      "op": "vla.state.read_latest",
+      "run": 1
+    },
+    {
+      "data": {
+        "episode": 0,
+        "state": "queue_cursor",
+        "value": 1,
+        "version": 1
+      },
+      "index": 38,
+      "invocation": "act",
+      "kind": "state_read",
+      "op": "vla.state.read_latest",
+      "run": 1
+    },
+    {
+      "data": {
+        "inputs": [
+          1
+        ],
+        "outputs": [
+          false
+        ],
+        "region": "queue_is_empty"
+      },
+      "index": 39,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 1
+    },
+    {
+      "data": {
+        "inputs": [],
+        "outputs": [
+          0
+        ],
+        "region": "queue_zero"
+      },
+      "index": 40,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 1
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+            "shape": [
+              1,
+              50,
+              6
+            ],
+            "tensor": true
+          },
+          1
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "1761728d7435997edd8c172eeeab92bc0251da5aa2e01959c9cf458c41d36d91",
+            "shape": [
+              1,
+              6
+            ],
+            "tensor": true,
+            "values": [
+              [
+                -0.30301421880722046,
+                -0.23600447177886963,
+                -0.2684631049633026,
+                0.018645528703927994,
+                0.18152347207069397,
+                0.2472090721130371
+              ]
+            ]
+          }
+        ],
+        "region": "queue_select"
+      },
+      "index": 41,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 1
+    },
+    {
+      "data": {
+        "inputs": [
+          1
+        ],
+        "outputs": [
+          2
+        ],
+        "region": "queue_advance"
+      },
+      "index": 42,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 1
+    },
+    {
+      "data": {
+        "state": "action_queue",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+          "shape": [
+            1,
+            50,
+            6
+          ],
+          "tensor": true
+        }
+      },
+      "index": 43,
+      "invocation": "act",
+      "kind": "state_stage",
+      "op": "vla.state.stage_write",
+      "run": 1
+    },
+    {
+      "data": {
+        "state": "queue_cursor",
+        "value": 2
+      },
+      "index": 44,
+      "invocation": "act",
+      "kind": "state_stage",
+      "op": "vla.state.stage_write",
+      "run": 1
+    },
+    {
+      "data": {
+        "contract": "finite_action",
+        "valid": true
+      },
+      "index": 45,
+      "invocation": "act",
+      "kind": "validation",
+      "op": "vla.validate",
+      "run": 1
+    },
+    {
+      "data": {
+        "output": "action",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "1761728d7435997edd8c172eeeab92bc0251da5aa2e01959c9cf458c41d36d91",
+          "shape": [
+            1,
+            6
+          ],
+          "tensor": true,
+          "values": [
+            [
+              -0.30301421880722046,
+              -0.23600447177886963,
+              -0.2684631049633026,
+              0.018645528703927994,
+              0.18152347207069397,
+              0.2472090721130371
+            ]
+          ]
+        }
+      },
+      "index": 46,
+      "invocation": "act",
+      "kind": "output_pending",
+      "op": "vla.output.create",
+      "run": 1
+    },
+    {
+      "data": {
+        "group": "manipulation",
+        "outputs": [
+          {
+            "output": "action",
+            "value": {
+              "dtype": "torch.float32",
+              "sha256": "1761728d7435997edd8c172eeeab92bc0251da5aa2e01959c9cf458c41d36d91",
+              "shape": [
+                1,
+                6
+              ],
+              "tensor": true,
+              "values": [
+                [
+                  -0.30301421880722046,
+                  -0.23600447177886963,
+                  -0.2684631049633026,
+                  0.018645528703927994,
+                  0.18152347207069397,
+                  0.2472090721130371
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "index": 47,
+      "invocation": "act",
+      "kind": "output_group_pending",
+      "op": "vla.output.group",
+      "run": 1
+    },
+    {
+      "data": {
+        "output": {
+          "episode": 0,
+          "group": "manipulation",
+          "outputs": [
+            {
+              "output": "action",
+              "value": {
+                "dtype": "torch.float32",
+                "sha256": "1761728d7435997edd8c172eeeab92bc0251da5aa2e01959c9cf458c41d36d91",
+                "shape": [
+                  1,
+                  6
+                ],
+                "tensor": true,
+                "values": [
+                  [
+                    -0.30301421880722046,
+                    -0.23600447177886963,
+                    -0.2684631049633026,
+                    0.018645528703927994,
+                    0.18152347207069397,
+                    0.2472090721130371
+                  ]
+                ]
+              }
+            }
+          ],
+          "transaction_id": 1
+        },
+        "states": [
+          {
+            "episode": 0,
+            "state": "action_queue",
+            "value": {
+              "dtype": "torch.float32",
+              "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+              "shape": [
+                1,
+                50,
+                6
+              ],
+              "tensor": true
+            },
+            "version": 2
+          },
+          {
+            "episode": 0,
+            "state": "queue_cursor",
+            "value": 2,
+            "version": 2
+          }
+        ],
+        "transaction_id": 1
+      },
+      "index": 48,
+      "invocation": "act",
+      "kind": "transaction_commit",
+      "op": "vla.txn.commit",
+      "run": 1
+    },
+    {
+      "data": {
+        "input": "image",
+        "revision": 2,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+          "shape": [
+            1,
+            3,
+            256,
+            256
+          ],
+          "tensor": true
+        }
+      },
+      "index": 49,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 2
+    },
+    {
+      "data": {
+        "input": "state",
+        "revision": 2,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+          "shape": [
+            1,
+            6
+          ],
+          "tensor": true,
+          "values": [
+            [
+              -0.20000000298023224,
+              -0.10000000149011612,
+              0.0,
+              0.10000000894069672,
+              0.20000001788139343,
+              0.30000001192092896
+            ]
+          ]
+        }
+      },
+      "index": 50,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 2
+    },
+    {
+      "data": {
+        "input": "instruction_tokens",
+        "revision": 2,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.int64",
+          "sha256": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f",
+          "shape": [
+            1,
+            48
+          ],
+          "tensor": true,
+          "values": [
+            [
+              18188,
+              614,
+              260,
+              3608,
+              198,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2,
+              2
+            ]
+          ]
+        }
+      },
+      "index": 51,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 2
+    },
+    {
+      "data": {
+        "input": "instruction_mask",
+        "revision": 2,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.bool",
+          "sha256": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+          "shape": [
+            1,
+            48
+          ],
+          "tensor": true,
+          "values": [
+            [
+              true,
+              true,
+              true,
+              true,
+              true,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false,
+              false
+            ]
+          ]
+        }
+      },
+      "index": 52,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 2
+    },
+    {
+      "data": {
+        "input": "noise",
+        "revision": 2,
+        "timestamp_ns": null,
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+          "shape": [
+            1,
+            50,
+            32
+          ],
+          "tensor": true
+        }
+      },
+      "index": 53,
+      "invocation": "act",
+      "kind": "input",
+      "op": "vla.input.read",
+      "run": 2
+    },
+    {
+      "data": {
+        "transaction_id": 2
+      },
+      "index": 54,
+      "invocation": "act",
+      "kind": "transaction_begin",
+      "op": "vla.txn.begin",
+      "run": 2
+    },
+    {
+      "data": {
+        "episode": 0,
+        "state": "action_queue",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+          "shape": [
+            1,
+            50,
+            6
+          ],
+          "tensor": true
+        },
+        "version": 2
+      },
+      "index": 55,
+      "invocation": "act",
+      "kind": "state_read",
+      "op": "vla.state.read_latest",
+      "run": 2
+    },
+    {
+      "data": {
+        "episode": 0,
+        "state": "queue_cursor",
+        "value": 2,
+        "version": 2
+      },
+      "index": 56,
+      "invocation": "act",
+      "kind": "state_read",
+      "op": "vla.state.read_latest",
+      "run": 2
+    },
+    {
+      "data": {
+        "inputs": [
+          2
+        ],
+        "outputs": [
+          false
+        ],
+        "region": "queue_is_empty"
+      },
+      "index": 57,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 2
+    },
+    {
+      "data": {
+        "inputs": [],
+        "outputs": [
+          0
+        ],
+        "region": "queue_zero"
+      },
+      "index": 58,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 2
+    },
+    {
+      "data": {
+        "inputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+            "shape": [
+              1,
+              50,
+              6
+            ],
+            "tensor": true
+          },
+          2
+        ],
+        "outputs": [
+          {
+            "dtype": "torch.float32",
+            "sha256": "d31f26871b6bef9fba29cdd5e72a9ced6361ec5660a560998252e0279ea4cc89",
+            "shape": [
+              1,
+              6
+            ],
+            "tensor": true,
+            "values": [
+              [
+                -0.38387709856033325,
+                -0.3029087483882904,
+                -0.3537296950817108,
+                -0.031802333891391754,
+                0.135531485080719,
+                0.22668443620204926
+              ]
+            ]
+          }
+        ],
+        "region": "queue_select"
+      },
+      "index": 59,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 2
+    },
+    {
+      "data": {
+        "inputs": [
+          2
+        ],
+        "outputs": [
+          3
+        ],
+        "region": "queue_advance"
+      },
+      "index": 60,
+      "invocation": "act",
+      "kind": "region",
+      "op": "vla.invoke",
+      "run": 2
+    },
+    {
+      "data": {
+        "state": "action_queue",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+          "shape": [
+            1,
+            50,
+            6
+          ],
+          "tensor": true
+        }
+      },
+      "index": 61,
+      "invocation": "act",
+      "kind": "state_stage",
+      "op": "vla.state.stage_write",
+      "run": 2
+    },
+    {
+      "data": {
+        "state": "queue_cursor",
+        "value": 3
+      },
+      "index": 62,
+      "invocation": "act",
+      "kind": "state_stage",
+      "op": "vla.state.stage_write",
+      "run": 2
+    },
+    {
+      "data": {
+        "contract": "finite_action",
+        "valid": true
+      },
+      "index": 63,
+      "invocation": "act",
+      "kind": "validation",
+      "op": "vla.validate",
+      "run": 2
+    },
+    {
+      "data": {
+        "output": "action",
+        "value": {
+          "dtype": "torch.float32",
+          "sha256": "d31f26871b6bef9fba29cdd5e72a9ced6361ec5660a560998252e0279ea4cc89",
+          "shape": [
+            1,
+            6
+          ],
+          "tensor": true,
+          "values": [
+            [
+              -0.38387709856033325,
+              -0.3029087483882904,
+              -0.3537296950817108,
+              -0.031802333891391754,
+              0.135531485080719,
+              0.22668443620204926
+            ]
+          ]
+        }
+      },
+      "index": 64,
+      "invocation": "act",
+      "kind": "output_pending",
+      "op": "vla.output.create",
+      "run": 2
+    },
+    {
+      "data": {
+        "group": "manipulation",
+        "outputs": [
+          {
+            "output": "action",
+            "value": {
+              "dtype": "torch.float32",
+              "sha256": "d31f26871b6bef9fba29cdd5e72a9ced6361ec5660a560998252e0279ea4cc89",
+              "shape": [
+                1,
+                6
+              ],
+              "tensor": true,
+              "values": [
+                [
+                  -0.38387709856033325,
+                  -0.3029087483882904,
+                  -0.3537296950817108,
+                  -0.031802333891391754,
+                  0.135531485080719,
+                  0.22668443620204926
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      "index": 65,
+      "invocation": "act",
+      "kind": "output_group_pending",
+      "op": "vla.output.group",
+      "run": 2
+    },
+    {
+      "data": {
+        "output": {
+          "episode": 0,
+          "group": "manipulation",
+          "outputs": [
+            {
+              "output": "action",
+              "value": {
+                "dtype": "torch.float32",
+                "sha256": "d31f26871b6bef9fba29cdd5e72a9ced6361ec5660a560998252e0279ea4cc89",
+                "shape": [
+                  1,
+                  6
+                ],
+                "tensor": true,
+                "values": [
+                  [
+                    -0.38387709856033325,
+                    -0.3029087483882904,
+                    -0.3537296950817108,
+                    -0.031802333891391754,
+                    0.135531485080719,
+                    0.22668443620204926
+                  ]
+                ]
+              }
+            }
+          ],
+          "transaction_id": 2
+        },
+        "states": [
+          {
+            "episode": 0,
+            "state": "action_queue",
+            "value": {
+              "dtype": "torch.float32",
+              "sha256": "eb66abcaa2889564752977bf939cd5b4ed411366ef3364793047f9d41f493768",
+              "shape": [
+                1,
+                50,
+                6
+              ],
+              "tensor": true
+            },
+            "version": 3
+          },
+          {
+            "episode": 0,
+            "state": "queue_cursor",
+            "value": 3,
+            "version": 3
+          }
+        ],
+        "transaction_id": 2
+      },
+      "index": 66,
+      "invocation": "act",
+      "kind": "transaction_commit",
+      "op": "vla.txn.commit",
+      "run": 2
+    }
+  ],
+  "schema": "vlaforge.trace/0.2"
+}

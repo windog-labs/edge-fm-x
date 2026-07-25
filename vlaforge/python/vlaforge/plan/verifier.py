@@ -1,10 +1,10 @@
-"""Verifier for the internal Scheduled Execution Plan."""
+"""Structural verifier for passive Scheduled Plan v2."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from vlaforge.plan.model import BufferClass, PlanModule, TaskKind
+from vlaforge.plan.model import BufferClass, PlanModule, Task, TaskKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,15 +15,14 @@ class PlanDiagnostic:
 
     def format(self, plan: PlanModule) -> str:
         task = "" if self.task_id is None else f" task={self.task_id}"
-        return (
-            f"plan={plan.name} rule={self.rule}{task} "
-            f"message={self.message}"
-        )
+        return f"plan={plan.name} rule={self.rule}{task} message={self.message}"
 
 
 class PlanVerificationError(ValueError):
     def __init__(
-        self, plan: PlanModule, diagnostics: tuple[PlanDiagnostic, ...]
+        self,
+        plan: PlanModule,
+        diagnostics: tuple[PlanDiagnostic, ...],
     ):
         self.plan = plan
         self.diagnostics = diagnostics
@@ -31,20 +30,41 @@ class PlanVerificationError(ValueError):
 
 
 def verify_plan(
-    plan: PlanModule, *, raise_on_error: bool = True
+    plan: PlanModule,
+    *,
+    raise_on_error: bool = True,
 ) -> tuple[PlanDiagnostic, ...]:
     diagnostics: list[PlanDiagnostic] = []
-    task_ids = [task.id for task in plan.tasks]
-    block_ids = [block.id for block in plan.blocks]
-    buffer_ids = [buffer.id for buffer in plan.buffers]
-    artifact_ids = [artifact.artifact_id for artifact in plan.artifacts]
-    state_ids = [state.state_id for state in plan.states]
-
-    _require_contiguous("task.id", task_ids, diagnostics)
-    _require_contiguous("block.id", block_ids, diagnostics)
-    _require_contiguous("buffer.id", buffer_ids, diagnostics)
-    _require_contiguous("artifact.id", artifact_ids, diagnostics)
-    _require_contiguous("state.id", state_ids, diagnostics)
+    _require_contiguous(
+        "task.id",
+        [item.id for item in plan.tasks],
+        diagnostics,
+    )
+    _require_contiguous(
+        "block.id",
+        [item.id for item in plan.blocks],
+        diagnostics,
+    )
+    _require_contiguous(
+        "buffer.id",
+        [item.id for item in plan.buffers],
+        diagnostics,
+    )
+    _require_contiguous(
+        "artifact.id",
+        [item.artifact_id for item in plan.artifacts],
+        diagnostics,
+    )
+    _require_contiguous(
+        "state.id",
+        [item.state_id for item in plan.states],
+        diagnostics,
+    )
+    _require_contiguous(
+        "invocation.id",
+        [item.id for item in plan.invocations],
+        diagnostics,
+    )
 
     task_map = {task.id: task for task in plan.tasks}
     block_map = {block.id: block for block in plan.blocks}
@@ -53,7 +73,26 @@ def verify_plan(
         artifact.artifact_id: artifact for artifact in plan.artifacts
     }
 
-    task_membership: dict[int, int] = {}
+    invocation_names: set[str] = set()
+    for invocation in plan.invocations:
+        if invocation.name in invocation_names:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "invocation.duplicate",
+                    f"duplicate invocation {invocation.name}",
+                )
+            )
+        invocation_names.add(invocation.name)
+        if invocation.body_block not in block_map:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "invocation.missing_body",
+                    f"invocation {invocation.name} references "
+                    f"block {invocation.body_block}",
+                )
+            )
+
+    membership: dict[int, int] = {}
     for block in plan.blocks:
         if len(block.arguments) != len(set(block.arguments)):
             diagnostics.append(
@@ -63,11 +102,20 @@ def verify_plan(
                 )
             )
         for buffer_id in block.arguments:
-            if buffer_id not in buffer_map:
+            buffer = buffer_map.get(buffer_id)
+            if buffer is None:
                 diagnostics.append(
                     PlanDiagnostic(
                         "block.unknown_argument",
                         f"block {block.id} references buffer {buffer_id}",
+                    )
+                )
+            elif not buffer.external:
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "block.internal_argument",
+                        f"block argument buffer {buffer_id} must be external "
+                        "to that block",
                     )
                 )
         for task_id in block.tasks:
@@ -79,227 +127,34 @@ def verify_plan(
                     )
                 )
                 continue
-            if task_id in task_membership:
+            if task_id in membership:
                 diagnostics.append(
                     PlanDiagnostic(
                         "block.task_reused",
                         f"task {task_id} appears in blocks "
-                        f"{task_membership[task_id]} and {block.id}",
+                        f"{membership[task_id]} and {block.id}",
                         task_id,
                     )
                 )
-            task_membership[task_id] = block.id
-    missing_membership = sorted(set(task_map) - set(task_membership))
-    if missing_membership:
+            membership[task_id] = block.id
+    missing = sorted(set(task_map) - set(membership))
+    if missing:
         diagnostics.append(
             PlanDiagnostic(
                 "block.unreachable_tasks",
-                f"tasks are not assigned to blocks: {missing_membership}",
+                f"tasks are not assigned to blocks: {missing}",
             )
         )
 
-    for policy in plan.policies:
-        if policy.body_block not in block_map:
-            diagnostics.append(
-                PlanDiagnostic(
-                    "policy.missing_body",
-                    f"policy {policy.name} references block {policy.body_block}",
-                )
-            )
-        for buffer_id in policy.inputs:
-            buffer = buffer_map.get(buffer_id)
-            if buffer is None or not buffer.external:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "policy.invalid_input",
-                        f"policy {policy.name} input {buffer_id} is not external",
-                    )
-                )
-
     for task in plan.tasks:
-        for dependency in task.dependencies:
-            if dependency not in task_map:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "dependency.missing",
-                        f"dependency {dependency} does not exist",
-                        task.id,
-                    )
-                )
-        if task.id in task.dependencies:
-            diagnostics.append(
-                PlanDiagnostic(
-                    "dependency.self_cycle",
-                    "task depends on itself",
-                    task.id,
-                )
-            )
-        for block_id in task.blocks:
-            if block_id not in block_map:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "task.missing_block",
-                        f"nested block {block_id} does not exist",
-                        task.id,
-                    )
-                )
-        for buffer_id in task.inputs + task.outputs:
-            if buffer_id not in buffer_map:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "buffer.missing",
-                        f"buffer {buffer_id} does not exist",
-                        task.id,
-                    )
-                )
-        if task.workspace_buffer is not None:
-            workspace = buffer_map.get(task.workspace_buffer)
-            if workspace is None:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "workspace.missing_buffer",
-                        f"workspace buffer {task.workspace_buffer} does not exist",
-                        task.id,
-                    )
-                )
-            elif (
-                workspace.buffer_class is not BufferClass.REGION_WORKSPACE
-                or workspace.producer_task != task.id
-            ):
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "workspace.invalid_buffer",
-                        f"buffer {task.workspace_buffer} is not this task's "
-                        "region workspace",
-                        task.id,
-                    )
-                )
-        for buffer_id in task.outputs:
-            buffer = buffer_map.get(buffer_id)
-            if buffer is not None and buffer.producer_task != task.id:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "buffer.producer_mismatch",
-                        f"buffer {buffer_id} names producer "
-                        f"{buffer.producer_task}",
-                        task.id,
-                    )
-                )
-
-        reachable = _transitive_dependencies(task.id, task_map)
-        for buffer_id in task.inputs:
-            buffer = buffer_map.get(buffer_id)
-            if buffer is None or buffer.producer_task is None:
-                continue
-            if buffer.producer_task not in reachable:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "buffer.read_before_produce",
-                        f"input buffer {buffer_id} is produced by task "
-                        f"{buffer.producer_task} without a dependency path",
-                        task.id,
-                    )
-                )
-
-        if task.kind is TaskKind.REGION:
-            artifact = (
-                None
-                if task.artifact_id is None
-                else artifact_map.get(task.artifact_id)
-            )
-            region_name = str(task.attributes.get("region", ""))
-            if artifact is None:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "artifact.missing",
-                        f"region {region_name!r} has no artifact binding",
-                        task.id,
-                    )
-                )
-            elif artifact.region_name != region_name:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "artifact.region_mismatch",
-                        f"artifact {artifact.artifact_id} is for "
-                        f"{artifact.region_name}, not {region_name}",
-                        task.id,
-                    )
-                )
-            elif artifact.workspace_size_bytes > 0 and task.workspace_buffer is None:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "workspace.binding_missing",
-                        f"artifact {artifact.artifact_id} requires "
-                        f"{artifact.workspace_size_bytes} bytes",
-                        task.id,
-                    )
-                )
-
-        if task.opcode == "vla.sample_input":
-            maximum = task.attributes.get("max_age_ns")
-            if maximum is not None and (
-                task.freshness_guard is None
-                or task.freshness_guard.max_age_ns != int(maximum)
-            ):
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "freshness.guard_missing",
-                        "bounded input sample lost its freshness guard",
-                        task.id,
-                    )
-                )
-
-        if task.kind is TaskKind.LOOP:
-            _verify_loop(task, diagnostics)
-
-        if task.kind is TaskKind.COMMIT:
-            if len(task.inputs) < 3:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "commit.missing_validation",
-                        "commit requires transaction, action, and condition",
-                        task.id,
-                    )
-                )
-            elif buffer_map.get(task.inputs[2]) is not None:
-                producer = buffer_map[task.inputs[2]].producer_task
-                if (
-                    producer is None
-                    or task_map.get(producer) is None
-                    or task_map[producer].kind is not TaskKind.VALIDATION
-                ):
-                    diagnostics.append(
-                        PlanDiagnostic(
-                            "commit.missing_validation",
-                            "commit condition is not produced by validation",
-                            task.id,
-                        )
-                    )
-
-        if task.kind is TaskKind.PUBLISH:
-            if len(task.inputs) != 1:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "publish.invalid_arity",
-                        "publish requires one committed action",
-                        task.id,
-                    )
-                )
-            else:
-                buffer = buffer_map.get(task.inputs[0])
-                producer = None if buffer is None else buffer.producer_task
-                if (
-                    producer is None
-                    or task_map.get(producer) is None
-                    or task_map[producer].kind is not TaskKind.COMMIT
-                ):
-                    diagnostics.append(
-                        PlanDiagnostic(
-                            "publish.before_commit",
-                            "published action is not produced by commit",
-                            task.id,
-                        )
-                    )
+        _verify_task(
+            task,
+            task_map,
+            block_map,
+            buffer_map,
+            artifact_map,
+            diagnostics,
+        )
 
     diagnostics.extend(_verify_dependency_cycles(task_map))
     diagnostics.extend(_verify_state_layout(plan))
@@ -309,6 +164,186 @@ def verify_plan(
     if result and raise_on_error:
         raise PlanVerificationError(plan, result)
     return result
+
+
+def _verify_task(
+    task: Task,
+    task_map: dict[int, Task],
+    block_map: dict[int, object],
+    buffer_map: dict[int, object],
+    artifact_map: dict[int, object],
+    diagnostics: list[PlanDiagnostic],
+) -> None:
+    for dependency in task.dependencies:
+        if dependency not in task_map:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "dependency.missing",
+                    f"dependency {dependency} does not exist",
+                    task.id,
+                )
+            )
+    if task.id in task.dependencies:
+        diagnostics.append(
+            PlanDiagnostic(
+                "dependency.self_cycle",
+                "task depends on itself",
+                task.id,
+            )
+        )
+    for block_id in task.blocks:
+        if block_id not in block_map:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "task.missing_block",
+                    f"nested block {block_id} does not exist",
+                    task.id,
+                )
+            )
+    for buffer_id in task.inputs + task.outputs:
+        if buffer_id not in buffer_map:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "buffer.missing",
+                    f"buffer {buffer_id} does not exist",
+                    task.id,
+                )
+            )
+    for buffer_id in task.outputs:
+        buffer = buffer_map.get(buffer_id)
+        if buffer is not None and buffer.producer_task != task.id:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "buffer.producer_mismatch",
+                    f"buffer {buffer_id} names producer "
+                    f"{buffer.producer_task}",
+                    task.id,
+                )
+            )
+    reachable = _transitive_dependencies(task.id, task_map)
+    for buffer_id in task.inputs:
+        buffer = buffer_map.get(buffer_id)
+        producer = None if buffer is None else buffer.producer_task
+        if producer is not None and producer not in reachable:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "buffer.read_before_produce",
+                    f"buffer {buffer_id} is produced by task {producer} "
+                    "without a dependency path",
+                    task.id,
+                )
+            )
+
+    if task.kind is TaskKind.REGION:
+        artifact = (
+            None
+            if task.artifact_id is None
+            else artifact_map.get(task.artifact_id)
+        )
+        region_name = str(task.attributes.get("region", ""))
+        if artifact is None:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "artifact.missing",
+                    f"region {region_name!r} has no artifact binding",
+                    task.id,
+                )
+            )
+        elif artifact.region_name != region_name:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "artifact.region_mismatch",
+                    f"artifact {artifact.artifact_id} is for "
+                    f"{artifact.region_name}, not {region_name}",
+                    task.id,
+                )
+            )
+        elif (
+            artifact.workspace_size_bytes > 0
+            and task.workspace_buffer is None
+        ):
+            diagnostics.append(
+                PlanDiagnostic(
+                    "workspace.binding_missing",
+                    f"artifact {artifact.artifact_id} requires workspace",
+                    task.id,
+                )
+            )
+    elif task.artifact_id is not None:
+        diagnostics.append(
+            PlanDiagnostic(
+                "artifact.non_region",
+                "only region tasks may bind an artifact",
+                task.id,
+            )
+        )
+
+    if task.workspace_buffer is not None:
+        workspace = buffer_map.get(task.workspace_buffer)
+        if (
+            workspace is None
+            or workspace.buffer_class is not BufferClass.REGION_WORKSPACE
+            or workspace.producer_task != task.id
+        ):
+            diagnostics.append(
+                PlanDiagnostic(
+                    "workspace.invalid_buffer",
+                    f"buffer {task.workspace_buffer} is not this task's workspace",
+                    task.id,
+                )
+            )
+
+    if task.kind is TaskKind.LOOP:
+        lower = int(task.attributes.get("lower", 0))
+        upper = int(task.attributes.get("upper", 0))
+        step = int(task.attributes.get("step", 0))
+        if step <= 0 or lower >= upper:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "loop.invalid_bound",
+                    f"for bounds [{lower}, {upper}) step={step} are invalid",
+                    task.id,
+                )
+            )
+        if len(task.blocks) != 1:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "loop.invalid_body",
+                    "bounded for requires one body block",
+                    task.id,
+                )
+            )
+    if task.kind is TaskKind.BRANCH and len(task.blocks) != 2:
+        diagnostics.append(
+            PlanDiagnostic(
+                "branch.invalid_body",
+                "structured if requires then and else blocks",
+                task.id,
+            )
+        )
+    if task.kind is TaskKind.COMMIT:
+        if len(task.inputs) != 3:
+            diagnostics.append(
+                PlanDiagnostic(
+                    "commit.invalid_arity",
+                    "commit requires transaction, output, and condition",
+                    task.id,
+                )
+            )
+        elif task.inputs[2] in buffer_map:
+            producer = buffer_map[task.inputs[2]].producer_task
+            if (
+                producer is None
+                or producer not in task_map
+                or task_map[producer].kind is not TaskKind.VALIDATION
+            ):
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "commit.missing_validation",
+                        "commit condition is not produced by validation",
+                        task.id,
+                    )
+                )
 
 
 def _require_contiguous(
@@ -326,7 +361,8 @@ def _require_contiguous(
 
 
 def _transitive_dependencies(
-    task_id: int, task_map: dict[int, object]
+    task_id: int,
+    task_map: dict[int, Task],
 ) -> set[int]:
     visited: set[int] = set()
     stack = list(task_map[task_id].dependencies)
@@ -340,9 +376,9 @@ def _transitive_dependencies(
 
 
 def _verify_dependency_cycles(
-    task_map: dict[int, object],
+    task_map: dict[int, Task],
 ) -> tuple[PlanDiagnostic, ...]:
-    diagnostics = []
+    diagnostics: list[PlanDiagnostic] = []
     visiting: set[int] = set()
     visited: set[int] = set()
 
@@ -370,63 +406,60 @@ def _verify_dependency_cycles(
     return tuple(diagnostics)
 
 
-def _verify_loop(
-    task: object, diagnostics: list[PlanDiagnostic]
-) -> None:
-    if task.opcode == "vla.for":
-        lower = int(task.attributes.get("lower", 0))
-        upper = int(task.attributes.get("upper", 0))
-        step = int(task.attributes.get("step", 0))
-        if step <= 0 or lower >= upper:
+def _verify_state_layout(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
+    diagnostics: list[PlanDiagnostic] = []
+    by_device: dict[str, list[object]] = {}
+    for state in plan.states:
+        if state.slot_capacity is None:
+            continue
+        if state.slot_capacity < state.required_capacity:
             diagnostics.append(
                 PlanDiagnostic(
-                    "loop.invalid_bound",
-                    f"for bounds [{lower}, {upper}) step={step} are invalid",
-                    task.id,
+                    "state.capacity",
+                    f"state {state.name} capacity {state.slot_capacity} "
+                    f"is below retention {state.required_capacity}",
                 )
             )
-        if len(task.blocks) != 1:
-            diagnostics.append(
-                PlanDiagnostic(
-                    "loop.invalid_body",
-                    "for loop requires one body block",
-                    task.id,
+        assert state.device is not None
+        by_device.setdefault(state.device, []).append(state)
+    for device, states in by_device.items():
+        ordered = sorted(states, key=lambda item: item.offset)
+        for left, right in zip(ordered, ordered[1:]):
+            assert left.offset is not None
+            assert left.total_size_bytes is not None
+            assert right.offset is not None
+            if left.offset + left.total_size_bytes > right.offset:
+                diagnostics.append(
+                    PlanDiagnostic(
+                        "state.overlap",
+                        f"state rings {left.name} and {right.name} overlap "
+                        f"on {device}",
+                    )
                 )
-            )
-    elif task.opcode == "vla.while":
-        maximum = int(task.attributes.get("max_iterations", 0))
-        if maximum <= 0:
-            diagnostics.append(
-                PlanDiagnostic(
-                    "loop.invalid_bound",
-                    f"while max_iterations={maximum} is invalid",
-                    task.id,
-                )
-            )
-        if len(task.blocks) != 2:
-            diagnostics.append(
-                PlanDiagnostic(
-                    "loop.invalid_body",
-                    "while loop requires condition and body blocks",
-                    task.id,
-                )
-            )
+    return tuple(diagnostics)
+
+
+def _arena_eligible(buffer: object) -> bool:
+    return (
+        not buffer.external
+        and buffer.buffer_class
+        not in {
+            BufferClass.EXTERNAL_INPUT,
+            BufferClass.EXTERNAL_OUTPUT,
+        }
+    )
 
 
 def _verify_arena(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
     assert plan.arena is not None
-    diagnostics = []
+    diagnostics: list[PlanDiagnostic] = []
     _require_contiguous(
         "arena.physical_buffer_id",
         [item.id for item in plan.arena.physical_buffers],
         diagnostics,
     )
     logical_ids = {buffer.id for buffer in plan.buffers}
-    eligible = {
-        buffer.id
-        for buffer in plan.buffers
-        if not buffer.external and buffer.buffer_class is not BufferClass.EXTERNAL
-    }
+    eligible = {buffer.id for buffer in plan.buffers if _arena_eligible(buffer)}
     mapped = [
         logical_id
         for physical in plan.arena.physical_buffers
@@ -434,7 +467,7 @@ def _verify_arena(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
     ]
     missing = sorted(eligible - set(mapped))
     duplicate = sorted(
-        logical_id for logical_id in set(mapped) if mapped.count(logical_id) > 1
+        item for item in set(mapped) if mapped.count(item) > 1
     )
     unexpected = sorted(set(mapped) - eligible)
     if missing:
@@ -455,7 +488,7 @@ def _verify_arena(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
         diagnostics.append(
             PlanDiagnostic(
                 "arena.external_mapping",
-                f"external logical buffers were allocated: {unexpected}",
+                f"external I/O buffers were allocated: {unexpected}",
             )
         )
     for physical in plan.arena.physical_buffers:
@@ -478,105 +511,25 @@ def _verify_arena(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
             diagnostics.append(
                 PlanDiagnostic(
                     "arena.device_mismatch",
-                    f"physical buffer {physical.id} device {physical.device} "
-                    f"does not match arena {plan.arena.device}",
+                    f"physical buffer {physical.id} device mismatch",
                 )
             )
-        for logical_id in physical.logical_buffers:
-            logical = next(
-                (
-                    buffer
-                    for buffer in plan.buffers
-                    if buffer.id == logical_id
-                ),
-                None,
-            )
-            if logical is None or logical.producer_task is None:
-                continue
-            consumers = [
-                task.id
-                for task in plan.tasks
-                if logical_id in task.inputs
-            ]
-            expected_last = max(consumers, default=logical.producer_task)
-            if (
-                physical.first_task > logical.producer_task
-                or physical.last_task < expected_last
-            ):
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "arena.lifetime_too_short",
-                        f"physical buffer {physical.id} lifetime "
-                        f"[{physical.first_task}, {physical.last_task}] "
-                        f"does not cover logical buffer {logical_id} "
-                        f"[{logical.producer_task}, {expected_last}]",
-                    )
-                )
-    physical = plan.arena.physical_buffers
-    for index, left in enumerate(physical):
-        for right in physical[index + 1 :]:
+    for index, left in enumerate(plan.arena.physical_buffers):
+        for right in plan.arena.physical_buffers[index + 1 :]:
             memory_overlap = (
                 left.offset < right.offset + right.size_bytes
                 and right.offset < left.offset + left.size_bytes
             )
-            lifetime_overlap = (
-                left.first_task <= right.last_task
-                and right.first_task <= left.last_task
+            lifetime_overlap = not (
+                left.last_task < right.first_task
+                or right.last_task < left.first_task
             )
             if memory_overlap and lifetime_overlap:
                 diagnostics.append(
                     PlanDiagnostic(
-                        "arena.overlapping_live_buffers",
-                        f"physical buffers {left.id} and {right.id} overlap "
-                        "in memory and lifetime",
-                    )
-                )
-    return tuple(diagnostics)
-
-
-def _verify_state_layout(plan: PlanModule) -> tuple[PlanDiagnostic, ...]:
-    diagnostics = []
-    for state in plan.states:
-        if (
-            state.slot_capacity is not None
-            and state.slot_capacity < state.required_capacity
-        ):
-            diagnostics.append(
-                PlanDiagnostic(
-                    "state.unsafe_slot_reuse",
-                    f"state {state.name} capacity={state.slot_capacity} "
-                    f"required={state.required_capacity}",
-                )
-            )
-        if plan.arena is not None and state.total_size_bytes is None:
-            diagnostics.append(
-                PlanDiagnostic(
-                    "state.unphysicalized",
-                    f"state {state.name} has no physical ring layout",
-                )
-            )
-    physical = [
-        state
-        for state in plan.states
-        if state.offset is not None and state.total_size_bytes is not None
-    ]
-    for index, left in enumerate(physical):
-        assert left.offset is not None
-        assert left.total_size_bytes is not None
-        for right in physical[index + 1 :]:
-            if left.device != right.device:
-                continue
-            assert right.offset is not None
-            assert right.total_size_bytes is not None
-            overlap = (
-                left.offset < right.offset + right.total_size_bytes
-                and right.offset < left.offset + left.total_size_bytes
-            )
-            if overlap:
-                diagnostics.append(
-                    PlanDiagnostic(
-                        "state.overlapping_rings",
-                        f"state rings {left.name} and {right.name} overlap",
+                        "arena.live_overlap",
+                        f"physical buffers {left.id} and {right.id} "
+                        "overlap while both are live",
                     )
                 )
     return tuple(diagnostics)

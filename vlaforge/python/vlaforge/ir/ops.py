@@ -1,22 +1,16 @@
-"""Typed builders for core VLA operations.
-
-Operation names are deliberately model-independent. Model-specific behavior is
-isolated behind ``vla.invoke`` tensor regions.
-"""
+"""Typed builders for the small Invocation IR v0.2 operation set."""
 
 from __future__ import annotations
 
 from typing import Any, Iterable, Mapping
 
-from vlaforge.ir.attrs import EpochExpr
 from vlaforge.ir.program import Block, Operation, Value
 from vlaforge.ir.types import (
-    ActionType,
-    CommittedActionType,
-    EpochType,
-    EventType,
-    FutureType,
+    CommittedOutputGroupType,
+    InputRevisionType,
     IRType,
+    PendingOutputGroupType,
+    PendingOutputType,
     PendingType,
     ScalarType,
     SnapshotType,
@@ -43,51 +37,40 @@ def op(
     )
 
 
-def sample_input(
+def input_read(
     value_name: str,
-    epoch_name: str,
+    revision_name: str,
     payload: IRType,
-    stream: str,
-    clock: str,
-    *,
-    max_age_ns: int | None = None,
+    port: str,
 ) -> Operation:
-    attrs: dict[str, Any] = {"stream": stream}
-    if max_age_ns is not None:
-        attrs["max_age_ns"] = max_age_ns
     return op(
-        "vla.sample_input",
-        results=(Value(value_name, payload), Value(epoch_name, EpochType(clock))),
-        attributes=attrs,
+        "vla.input.read",
+        results=(
+            Value(value_name, payload),
+            Value(revision_name, InputRevisionType()),
+        ),
+        attributes={"input": port},
     )
 
 
-def transaction_begin(name: str, epoch: str) -> Operation:
+def transaction_begin(name: str) -> Operation:
     return op(
         "vla.txn.begin",
         results=(Value(name, TransactionType()),),
-        operands=(epoch,),
     )
 
 
-def state_read(
+def state_read_latest(
     name: str,
     payload: IRType,
     state: str,
     transaction: str,
-    *,
-    epoch: EpochExpr,
-    version: str = "latest",
 ) -> Operation:
     return op(
-        "vla.state.read",
+        "vla.state.read_latest",
         results=(Value(name, SnapshotType(state, payload)),),
         operands=(transaction,),
-        attributes={
-            "state": state,
-            "epoch": epoch.to_dict(),
-            "version": version,
-        },
+        attributes={"state": state},
     )
 
 
@@ -147,23 +130,6 @@ def for_loop(
     )
 
 
-def while_loop(
-    results: Iterable[Value],
-    operands: Iterable[str],
-    condition: Block,
-    body: Block,
-    *,
-    max_iterations: int,
-) -> Operation:
-    return op(
-        "vla.while",
-        results=results,
-        operands=operands,
-        attributes={"max_iterations": max_iterations},
-        regions=(condition, body),
-    )
-
-
 def if_op(
     results: Iterable[Value],
     condition: str,
@@ -192,19 +158,12 @@ def stage_write(
     state: str,
     transaction: str,
     value: str,
-    *,
-    epoch: EpochExpr,
-    inplace: bool = False,
 ) -> Operation:
     return op(
         "vla.state.stage_write",
         results=(Value(pending_name, PendingType(state, payload)),),
         operands=(transaction, value),
-        attributes={
-            "state": state,
-            "epoch": epoch.to_dict(),
-            "inplace": inplace,
-        },
+        attributes={"state": state},
     )
 
 
@@ -217,28 +176,60 @@ def validate(name: str, value: str, contract: str) -> Operation:
     )
 
 
-def action_create(name: str, value: str, payload: IRType, epoch: str) -> Operation:
+def output_create(
+    name: str,
+    value: str,
+    payload: IRType,
+    output: str,
+) -> Operation:
     return op(
-        "vla.action.create",
-        results=(Value(name, ActionType(payload)),),
-        operands=(value, epoch),
+        "vla.output.create",
+        results=(Value(name, PendingOutputType(output, payload)),),
+        operands=(value,),
+        attributes={"output": output},
+    )
+
+
+def output_group(
+    name: str,
+    group: str,
+    outputs: Iterable[tuple[str, PendingOutputType]],
+) -> Operation:
+    items = tuple(outputs)
+    return op(
+        "vla.output.group",
+        results=(
+            Value(
+                name,
+                PendingOutputGroupType(
+                    group,
+                    tuple(item[1] for item in items),
+                ),
+            ),
+        ),
+        operands=tuple(item[0] for item in items),
+        attributes={"group": group},
     )
 
 
 def transaction_commit(
     committed_name: str,
-    payload: IRType,
+    output_types: Iterable[PendingOutputType],
+    group: str,
     transaction: str,
-    action: str,
+    output_group: str,
     condition: str,
-    *,
-    required_futures: Iterable[str] = (),
 ) -> Operation:
+    outputs = tuple(output_types)
     return op(
         "vla.txn.commit",
-        results=(Value(committed_name, CommittedActionType(payload)),),
-        operands=(transaction, action, condition),
-        attributes={"required_futures": list(required_futures)},
+        results=(
+            Value(
+                committed_name,
+                CommittedOutputGroupType(group, outputs),
+            ),
+        ),
+        operands=(transaction, output_group, condition),
     )
 
 
@@ -247,36 +238,4 @@ def transaction_abort(transaction: str, *, reason: str = "") -> Operation:
         "vla.txn.abort",
         operands=(transaction,),
         attributes={"reason": reason},
-    )
-
-
-def action_publish(committed_action: str) -> Operation:
-    return op("vla.action.publish", operands=(committed_action,))
-
-
-def reset(*states: str) -> Operation:
-    return op("vla.reset", attributes={"states": list(states)})
-
-
-def async_execute(
-    future_name: str,
-    payload: IRType,
-    body: Block,
-    *,
-    reads: Iterable[str] = (),
-    writes: Iterable[str] = (),
-) -> Operation:
-    return op(
-        "vla.async",
-        results=(Value(future_name, FutureType(payload)), Value(f"{future_name}_event", EventType())),
-        attributes={"reads": list(reads), "writes": list(writes)},
-        regions=(body,),
-    )
-
-
-def await_future(name: str, payload: IRType, future: str) -> Operation:
-    return op(
-        "vla.await",
-        results=(Value(name, payload),),
-        operands=(future,),
     )

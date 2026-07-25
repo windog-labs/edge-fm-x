@@ -1,9 +1,4 @@
-"""Compact internal Scheduled Execution representation.
-
-This is intentionally not a second user-facing IR.  One immutable task record
-is used for all semantic operations; ``TaskKind`` only exposes the distinctions
-needed by verification, memory planning, and code generation.
-"""
+"""Compact Scheduled Execution Plan for one passive invocation."""
 
 from __future__ import annotations
 
@@ -17,7 +12,7 @@ from typing import Any, Mapping
 from vlaforge.ir.types import IRType, type_from_dict
 
 
-PLAN_SCHEMA = "vlaforge.scheduled_plan/1"
+PLAN_SCHEMA = "vlaforge.scheduled_plan/2"
 
 
 class TaskKind(str, Enum):
@@ -28,79 +23,22 @@ class TaskKind(str, Enum):
     STATE = "state"
     VALIDATION = "validation"
     COMMIT = "commit"
-    PUBLISH = "publish"
+    OUTPUT = "output"
     CONTROL = "control"
 
 
 class BufferClass(str, Enum):
-    EXTERNAL = "external"
+    EXTERNAL_INPUT = "external_input"
+    EXTERNAL_OUTPUT = "external_output"
     SSA = "ssa"
     CONTROL = "control"
     LOOP_CARRIED = "loop_carried"
     STATE_SNAPSHOT = "state_snapshot"
     STATE_PENDING = "state_pending"
-    PENDING_ACTION = "pending_action"
-    COMMITTED_ACTION = "committed_action"
+    PENDING_OUTPUT = "pending_output"
+    COMMITTED_OUTPUT = "committed_output"
     REGION_WORKSPACE = "region_workspace"
-    TEMPORAL_CACHE = "temporal_cache"
-
-
-@dataclass(frozen=True, slots=True)
-class FreshnessGuard:
-    max_age_ns: int | None = None
-    max_versions: int | None = None
-
-    def __post_init__(self) -> None:
-        if self.max_age_ns is None and self.max_versions is None:
-            raise ValueError("freshness guard requires at least one bound")
-        if self.max_age_ns is not None and self.max_age_ns < 0:
-            raise ValueError("freshness max_age_ns must be non-negative")
-        if self.max_versions is not None and self.max_versions < 0:
-            raise ValueError("freshness max_versions must be non-negative")
-
-    def to_dict(self) -> dict[str, int | None]:
-        return {
-            "max_age_ns": self.max_age_ns,
-            "max_versions": self.max_versions,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "FreshnessGuard":
-        return cls(
-            max_age_ns=(
-                None if data.get("max_age_ns") is None else int(data["max_age_ns"])
-            ),
-            max_versions=(
-                None
-                if data.get("max_versions") is None
-                else int(data["max_versions"])
-            ),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class DeadlineGuard:
-    deadline_ns: int
-
-    def __post_init__(self) -> None:
-        if self.deadline_ns <= 0:
-            raise ValueError("deadline must be positive")
-
-    def to_dict(self) -> dict[str, int]:
-        return {"deadline_ns": self.deadline_ns}
-
-
-@dataclass(frozen=True, slots=True)
-class FallbackTarget:
-    target: str
-    reason: str
-
-    def __post_init__(self) -> None:
-        if not self.target or not self.reason:
-            raise ValueError("fallback target requires target and reason")
-
-    def to_dict(self) -> dict[str, str]:
-        return {"target": self.target, "reason": self.reason}
+    DERIVED_CACHE = "derived_cache"
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,9 +78,6 @@ class StateBinding:
     name: str
     payload: IRType
     retention: int
-    max_in_flight: int = 1
-    consumer_lag: int = 0
-    fallback_snapshots: int = 0
     slot_capacity: int | None = None
     slot_size_bytes: int | None = None
     alignment: int | None = None
@@ -152,12 +87,8 @@ class StateBinding:
     def __post_init__(self) -> None:
         if self.state_id < 0 or not self.name or self.retention < 1:
             raise ValueError("invalid state binding")
-        if self.max_in_flight < 1:
-            raise ValueError("state max_in_flight must be positive")
-        if self.consumer_lag < 0 or self.fallback_snapshots < 0:
-            raise ValueError("state lag/snapshot counts must be non-negative")
-        if self.slot_capacity is not None and self.slot_capacity < 1:
-            raise ValueError("state slot capacity must be positive")
+        if self.slot_capacity is not None and self.slot_capacity < self.retention:
+            raise ValueError("state slot capacity must preserve retention")
         physical = (
             self.slot_size_bytes,
             self.alignment,
@@ -180,18 +111,10 @@ class StateBinding:
                 raise ValueError("state alignment must be a power of two")
             if self.offset % self.alignment:
                 raise ValueError("state offset violates alignment")
-            if not self.device:
-                raise ValueError("state device must be non-empty")
 
     @property
     def required_capacity(self) -> int:
-        return max(
-            self.retention,
-            1
-            + self.max_in_flight
-            + self.consumer_lag
-            + self.fallback_snapshots,
-        )
+        return self.retention
 
     def slot_for(self, logical_version: int) -> int:
         if self.slot_capacity is None:
@@ -212,9 +135,6 @@ class StateBinding:
             "name": self.name,
             "payload": self.payload.to_dict(),
             "retention": self.retention,
-            "max_in_flight": self.max_in_flight,
-            "consumer_lag": self.consumer_lag,
-            "fallback_snapshots": self.fallback_snapshots,
             "slot_capacity": self.slot_capacity,
             "slot_size_bytes": self.slot_size_bytes,
             "alignment": self.alignment,
@@ -233,6 +153,7 @@ class ArtifactBinding:
     workspace_size_bytes: int = 0
     workspace_alignment: int = 1
     workspace_device: str = "cpu"
+    plugin_abi: str = "vlaforge.region_executable/2"
 
     def __post_init__(self) -> None:
         if (
@@ -243,6 +164,7 @@ class ArtifactBinding:
             or self.workspace_size_bytes < 0
             or self.workspace_alignment < 1
             or not self.workspace_device
+            or not self.plugin_abi
         ):
             raise ValueError("invalid artifact binding")
         if self.workspace_alignment & (self.workspace_alignment - 1):
@@ -258,6 +180,7 @@ class ArtifactBinding:
             "workspace_size_bytes": self.workspace_size_bytes,
             "workspace_alignment": self.workspace_alignment,
             "workspace_device": self.workspace_device,
+            "plugin_abi": self.plugin_abi,
         }
 
 
@@ -275,9 +198,6 @@ class Task:
     workspace_buffer: int | None = None
     source_op: str | None = None
     source_location: str | None = None
-    freshness_guard: FreshnessGuard | None = None
-    deadline_guard: DeadlineGuard | None = None
-    fallback: FallbackTarget | None = None
 
     def __post_init__(self) -> None:
         if self.id < 0 or not self.opcode:
@@ -309,19 +229,6 @@ class Task:
             "workspace_buffer": self.workspace_buffer,
             "source_op": self.source_op,
             "source_location": self.source_location,
-            "freshness_guard": (
-                None
-                if self.freshness_guard is None
-                else self.freshness_guard.to_dict()
-            ),
-            "deadline_guard": (
-                None
-                if self.deadline_guard is None
-                else self.deadline_guard.to_dict()
-            ),
-            "fallback": (
-                None if self.fallback is None else self.fallback.to_dict()
-            ),
         }
 
 
@@ -346,30 +253,20 @@ class PlanBlock:
 
 
 @dataclass(frozen=True, slots=True)
-class PlanPolicy:
+class PlanInvocation:
     id: int
     name: str
-    clock: str
-    inputs: tuple[int, ...]
     body_block: int
-    deadline_guard: DeadlineGuard | None = None
 
     def __post_init__(self) -> None:
-        if self.id < 0 or not self.name or not self.clock or self.body_block < 0:
-            raise ValueError("invalid plan policy")
+        if self.id < 0 or not self.name or self.body_block < 0:
+            raise ValueError("invalid plan invocation")
 
     def to_dict(self) -> dict[str, object]:
         return {
             "id": self.id,
             "name": self.name,
-            "clock": self.clock,
-            "inputs": list(self.inputs),
             "body_block": self.body_block,
-            "deadline_guard": (
-                None
-                if self.deadline_guard is None
-                else self.deadline_guard.to_dict()
-            ),
         }
 
 
@@ -444,7 +341,8 @@ class StaticArenaPlan:
 class PlanModule:
     name: str
     semantic_digest: str
-    policies: tuple[PlanPolicy, ...]
+    io_schema_digest: str
+    invocations: tuple[PlanInvocation, ...]
     tasks: tuple[Task, ...]
     blocks: tuple[PlanBlock, ...]
     buffers: tuple[LogicalBuffer, ...]
@@ -456,29 +354,27 @@ class PlanModule:
     def __post_init__(self) -> None:
         if self.schema != PLAN_SCHEMA:
             raise ValueError(f"unsupported scheduled plan schema: {self.schema!r}")
-        if not self.name or len(self.semantic_digest) != 64:
-            raise ValueError("plan requires name and semantic SHA-256 digest")
+        if (
+            not self.name
+            or len(self.semantic_digest) != 64
+            or len(self.io_schema_digest) != 64
+        ):
+            raise ValueError("plan requires semantic and I/O SHA-256 digests")
 
-    def policy(self, name: str) -> PlanPolicy:
-        for policy in self.policies:
-            if policy.name == name:
-                return policy
-        raise KeyError(f"unknown plan policy: {name}")
+    def invocation(self, name: str) -> PlanInvocation:
+        for invocation in self.invocations:
+            if invocation.name == name:
+                return invocation
+        raise KeyError(f"unknown plan invocation: {name}")
 
     def task(self, task_id: int) -> Task:
         if 0 <= task_id < len(self.tasks) and self.tasks[task_id].id == task_id:
             return self.tasks[task_id]
-        for task in self.tasks:
-            if task.id == task_id:
-                return task
         raise KeyError(f"unknown task id: {task_id}")
 
     def block(self, block_id: int) -> PlanBlock:
         if 0 <= block_id < len(self.blocks) and self.blocks[block_id].id == block_id:
             return self.blocks[block_id]
-        for block in self.blocks:
-            if block.id == block_id:
-                return block
         raise KeyError(f"unknown block id: {block_id}")
 
     def buffer(self, buffer_id: int) -> LogicalBuffer:
@@ -487,9 +383,6 @@ class PlanModule:
             and self.buffers[buffer_id].id == buffer_id
         ):
             return self.buffers[buffer_id]
-        for buffer in self.buffers:
-            if buffer.id == buffer_id:
-                return buffer
         raise KeyError(f"unknown buffer id: {buffer_id}")
 
     def to_dict(self) -> dict[str, object]:
@@ -497,7 +390,8 @@ class PlanModule:
             "schema": self.schema,
             "name": self.name,
             "semantic_digest": self.semantic_digest,
-            "policies": [item.to_dict() for item in self.policies],
+            "io_schema_digest": self.io_schema_digest,
+            "invocations": [item.to_dict() for item in self.invocations],
             "tasks": [item.to_dict() for item in self.tasks],
             "blocks": [item.to_dict() for item in self.blocks],
             "buffers": [item.to_dict() for item in self.buffers],
@@ -520,62 +414,11 @@ class PlanModule:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "PlanModule":
-        def deadline(value: object) -> DeadlineGuard | None:
-            if value is None:
-                return None
-            assert isinstance(value, Mapping)
-            return DeadlineGuard(int(value["deadline_ns"]))
-
-        def fallback(value: object) -> FallbackTarget | None:
-            if value is None:
-                return None
-            assert isinstance(value, Mapping)
-            return FallbackTarget(str(value["target"]), str(value["reason"]))
-
-        tasks = tuple(
-            Task(
-                id=int(item["id"]),
-                kind=TaskKind(str(item["kind"])),
-                opcode=str(item["opcode"]),
-                inputs=tuple(int(value) for value in item.get("inputs", ())),
-                outputs=tuple(int(value) for value in item.get("outputs", ())),
-                dependencies=tuple(
-                    int(value) for value in item.get("dependencies", ())
-                ),
-                attributes=dict(item.get("attributes", {})),
-                blocks=tuple(int(value) for value in item.get("blocks", ())),
-                artifact_id=(
-                    None
-                    if item.get("artifact_id") is None
-                    else int(item["artifact_id"])
-                ),
-                workspace_buffer=(
-                    None
-                    if item.get("workspace_buffer") is None
-                    else int(item["workspace_buffer"])
-                ),
-                source_op=(
-                    None if item.get("source_op") is None else str(item["source_op"])
-                ),
-                source_location=(
-                    None
-                    if item.get("source_location") is None
-                    else str(item["source_location"])
-                ),
-                freshness_guard=(
-                    None
-                    if item.get("freshness_guard") is None
-                    else FreshnessGuard.from_dict(item["freshness_guard"])
-                ),
-                deadline_guard=deadline(item.get("deadline_guard")),
-                fallback=fallback(item.get("fallback")),
-            )
-            for item in data.get("tasks", ())
-        )
         arena_data = data.get("arena")
-        arena = None
-        if arena_data is not None:
-            arena = StaticArenaPlan(
+        arena = (
+            None
+            if arena_data is None
+            else StaticArenaPlan(
                 device=str(arena_data["device"]),
                 size_bytes=int(arena_data["size_bytes"]),
                 alignment=int(arena_data["alignment"]),
@@ -584,9 +427,9 @@ class PlanModule:
                         id=int(item["id"]),
                         logical_buffers=tuple(
                             int(value)
-                            for value in item.get("logical_buffers", ())
+                            for value in item["logical_buffers"]
                         ),
-                        buffer_class=BufferClass(str(item["buffer_class"])),
+                        buffer_class=BufferClass(item["buffer_class"]),
                         device=str(item["device"]),
                         size_bytes=int(item["size_bytes"]),
                         alignment=int(item["alignment"]),
@@ -597,29 +440,71 @@ class PlanModule:
                     for item in arena_data.get("physical_buffers", ())
                 ),
             )
+        )
         return cls(
             schema=str(data["schema"]),
             name=str(data["name"]),
             semantic_digest=str(data["semantic_digest"]),
-            policies=tuple(
-                PlanPolicy(
+            io_schema_digest=str(data["io_schema_digest"]),
+            invocations=tuple(
+                PlanInvocation(
                     id=int(item["id"]),
                     name=str(item["name"]),
-                    clock=str(item["clock"]),
-                    inputs=tuple(int(value) for value in item.get("inputs", ())),
                     body_block=int(item["body_block"]),
-                    deadline_guard=deadline(item.get("deadline_guard")),
                 )
-                for item in data.get("policies", ())
+                for item in data.get("invocations", ())
             ),
-            tasks=tasks,
+            tasks=tuple(
+                Task(
+                    id=int(item["id"]),
+                    kind=TaskKind(item["kind"]),
+                    opcode=str(item["opcode"]),
+                    inputs=tuple(
+                        int(value) for value in item.get("inputs", ())
+                    ),
+                    outputs=tuple(
+                        int(value) for value in item.get("outputs", ())
+                    ),
+                    dependencies=tuple(
+                        int(value)
+                        for value in item.get("dependencies", ())
+                    ),
+                    attributes=dict(item.get("attributes", {})),
+                    blocks=tuple(
+                        int(value) for value in item.get("blocks", ())
+                    ),
+                    artifact_id=(
+                        None
+                        if item.get("artifact_id") is None
+                        else int(item["artifact_id"])
+                    ),
+                    workspace_buffer=(
+                        None
+                        if item.get("workspace_buffer") is None
+                        else int(item["workspace_buffer"])
+                    ),
+                    source_op=(
+                        None
+                        if item.get("source_op") is None
+                        else str(item["source_op"])
+                    ),
+                    source_location=(
+                        None
+                        if item.get("source_location") is None
+                        else str(item["source_location"])
+                    ),
+                )
+                for item in data.get("tasks", ())
+            ),
             blocks=tuple(
                 PlanBlock(
                     id=int(item["id"]),
                     arguments=tuple(
                         int(value) for value in item.get("arguments", ())
                     ),
-                    tasks=tuple(int(value) for value in item.get("tasks", ())),
+                    tasks=tuple(
+                        int(value) for value in item.get("tasks", ())
+                    ),
                     source=str(item["source"]),
                 )
                 for item in data.get("blocks", ())
@@ -629,7 +514,7 @@ class PlanModule:
                     id=int(item["id"]),
                     name=str(item["name"]),
                     type=type_from_dict(item["type"]),
-                    buffer_class=BufferClass(str(item["buffer_class"])),
+                    buffer_class=BufferClass(item["buffer_class"]),
                     producer_task=(
                         None
                         if item.get("producer_task") is None
@@ -637,7 +522,9 @@ class PlanModule:
                     ),
                     external=bool(item.get("external", False)),
                     source=(
-                        None if item.get("source") is None else str(item["source"])
+                        None
+                        if item.get("source") is None
+                        else str(item["source"])
                     ),
                 )
                 for item in data.get("buffers", ())
@@ -648,9 +535,6 @@ class PlanModule:
                     name=str(item["name"]),
                     payload=type_from_dict(item["payload"]),
                     retention=int(item["retention"]),
-                    max_in_flight=int(item.get("max_in_flight", 1)),
-                    consumer_lag=int(item.get("consumer_lag", 0)),
-                    fallback_snapshots=int(item.get("fallback_snapshots", 0)),
                     slot_capacity=(
                         None
                         if item.get("slot_capacity") is None
@@ -699,6 +583,12 @@ class PlanModule:
                     workspace_device=str(
                         item.get("workspace_device", "cpu")
                     ),
+                    plugin_abi=str(
+                        item.get(
+                            "plugin_abi",
+                            "vlaforge.region_executable/2",
+                        )
+                    ),
                 )
                 for item in data.get("artifacts", ())
             ),
@@ -710,10 +600,14 @@ def _plain(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {
             str(key): _plain(item)
-            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            for key, item in sorted(
+                value.items(), key=lambda pair: str(pair[0])
+            )
         }
     if isinstance(value, tuple | list):
         return [_plain(item) for item in value]
     if value is None or isinstance(value, str | int | float | bool):
         return value
-    raise TypeError(f"plan attribute is not JSON serializable: {type(value).__name__}")
+    raise TypeError(
+        f"plan attribute is not JSON serializable: {type(value).__name__}"
+    )

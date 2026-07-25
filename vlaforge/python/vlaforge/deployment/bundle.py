@@ -12,7 +12,7 @@ from vlaforge.compiler import CompilationCertificate
 from vlaforge.deployment.contract import RegionArtifactContract
 
 
-BUNDLE_SCHEMA = "vlaforge.compile_bundle/2"
+BUNDLE_SCHEMA = "vlaforge.compile_bundle/3"
 _REQUIRED_ROLES = {
     "semantic_ir",
     "scheduled_plan",
@@ -180,6 +180,7 @@ class CompileBundleManifest:
     physical_memory_plan: FileRecord
     input_schema: FileRecord
     output_schema: FileRecord
+    io_schema_digest: str
     region_artifacts: tuple[RegionArtifactContract, ...]
     generated_sources: tuple[FileRecord, ...]
     binaries: tuple[FileRecord, ...]
@@ -192,6 +193,14 @@ class CompileBundleManifest:
     def __post_init__(self) -> None:
         if self.schema != BUNDLE_SCHEMA:
             raise ValueError(f"unsupported bundle schema: {self.schema!r}")
+        _validate_sha256(self.io_schema_digest)
+        if (
+            self.io_schema_digest
+            != self.compilation_certificate.io_schema_digest
+        ):
+            raise ValueError(
+                "bundle I/O schema digest disagrees with compilation certificate"
+            )
         required = (
             self.semantic_ir,
             self.scheduled_plan,
@@ -269,6 +278,7 @@ class CompileBundleManifest:
             "physical_memory_plan": self.physical_memory_plan.to_dict(),
             "input_schema": self.input_schema.to_dict(),
             "output_schema": self.output_schema.to_dict(),
+            "io_schema_digest": self.io_schema_digest,
             "region_artifacts": [
                 item.to_dict()
                 for item in sorted(
@@ -327,6 +337,7 @@ class CompileBundleManifest:
             ),
             input_schema=FileRecord.from_dict(data["input_schema"]),
             output_schema=FileRecord.from_dict(data["output_schema"]),
+            io_schema_digest=str(data["io_schema_digest"]),
             region_artifacts=tuple(
                 RegionArtifactContract.from_dict(item)
                 for item in data["region_artifacts"]

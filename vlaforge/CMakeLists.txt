@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(vlaforge_runtime VERSION 0.1.0 LANGUAGES C CXX)
+project(vlaforge_runtime VERSION 0.2.0 LANGUAGES C CXX)
 
 include(CTest)
 
@@ -17,9 +17,8 @@ option(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND
        "Build the optional CPU TorchScript RegionExecutable backend" OFF)
 
 add_library(vlaforge_runtime STATIC
-    runtime/action_queue.cpp
-    runtime/epoch_cache.cpp
     runtime/region_executable.c
+    runtime/session_c.c
     runtime/static_arena.cpp
     runtime/state_store.cpp
     runtime/transaction.cpp

@@ -1,8 +1,9 @@
 """Real-checkpoint OpenVLA adapter for the VLA-focused reference IR.
 
-OpenVLA's reference ``predict_action`` path is stateless across control ticks:
+OpenVLA's reference ``predict_action`` path is stateless across invocations:
 it deterministically generates a bounded set of action tokens, converts them to
-continuous values, validates the action, and publishes it.  The Semantic IR
+continuous values, validates the action, and commits it as a named output. The
+Semantic IR
 separates multimodal prefill from one cached decode step and composes the step
 in a fixed bounded loop.  KV remains invocation-local loop-carried SSA and is
 never promoted to VLA session state.
@@ -18,18 +19,22 @@ from pathlib import Path
 from typing import Any
 
 from vlaforge.frontend.builder import ModuleBuilder
-from vlaforge.interpreter import Epoch, InputSample, Interpreter
+from vlaforge.interpreter import (
+    InputBinding,
+    InputStamp,
+    Interpreter,
+    TensorView,
+)
 from vlaforge.ir import ops
-from vlaforge.ir.attrs import FreshnessConstraint
 from vlaforge.ir.program import (
     Block,
-    ClockDomain,
-    InputStream,
-    Policy,
+    InputPort,
+    Invocation,
+    OutputPort,
     TensorRegion,
     Value,
 )
-from vlaforge.ir.types import EpochType, ScalarType, TensorType
+from vlaforge.ir.types import PendingOutputType, ScalarType, TensorType
 
 
 OPAQUE = ScalarType("opaque")
@@ -85,41 +90,32 @@ class RealOpenVLAEvidence:
         )
 
 
-def build_real_openvla_action_program(*, action_dim: int) -> Any:
-    """Build the minimal stateless OpenVLA policy program."""
+def build_real_openvla_action_program(
+    *,
+    action_dim: int,
+    token_length: int = 19,
+    device: str = "cuda:0",
+) -> Any:
+    """Build the stateless OpenVLA invocation contract."""
 
-    if action_dim < 2:
+    if action_dim < 2 or token_length < 1:
         raise ValueError("OpenVLA explicit token loop requires action_dim >= 2")
     tokens = TensorType((1, action_dim), "i64")
     action = TensorType((action_dim,), "f64")
     pixels = TensorType((1, 6, 224, 224), "bf16")
-    language = TensorType((1, None), "i64")
+    language = TensorType((1, token_length), "i64")
     builder = ModuleBuilder("openvla_real_action")
-    builder.add_clock(ClockDomain("observation", period_ns=50_000_000))
-    builder.add_clock(ClockDomain("control", period_ns=50_000_000))
     builder.add_input(
-        InputStream(
-            "image",
-            pixels,
-            "observation",
-            FreshnessConstraint(max_age_ns=60_000_000),
-        )
+        InputPort("image", pixels, device=device)
     )
     builder.add_input(
-        InputStream(
-            "instruction_tokens",
-            language,
-            "observation",
-            FreshnessConstraint(max_age_ns=60_000_000),
-        )
+        InputPort("instruction_tokens", language, device=device)
     )
     builder.add_input(
-        InputStream(
-            "instruction_mask",
-            language,
-            "observation",
-            FreshnessConstraint(max_age_ns=60_000_000),
-        )
+        InputPort("instruction_mask", language, device=device)
+    )
+    builder.add_output(
+        OutputPort("action", action, group="manipulation")
     )
     builder.add_region(
         TensorRegion(
@@ -170,31 +166,25 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
     )
     body = Block.of(
         (
-            ops.sample_input(
+            ops.input_read(
                 "image_value",
-                "image_epoch",
+                "image_revision",
                 pixels,
                 "image",
-                "observation",
-                max_age_ns=60_000_000,
             ),
-            ops.sample_input(
+            ops.input_read(
                 "instruction_value",
-                "instruction_epoch",
+                "instruction_revision",
                 language,
                 "instruction_tokens",
-                "observation",
-                max_age_ns=60_000_000,
             ),
-            ops.sample_input(
+            ops.input_read(
                 "instruction_mask_value",
-                "instruction_mask_epoch",
+                "instruction_mask_revision",
                 language,
                 "instruction_mask",
-                "observation",
-                max_age_ns=60_000_000,
             ),
-            ops.transaction_begin("txn", "tick"),
+            ops.transaction_begin("txn"),
             ops.invoke(
                 ("generation_initial",),
                 (OPAQUE,),
@@ -227,29 +217,35 @@ def build_real_openvla_action_program(*, action_dim: int) -> Any:
                 ("action_tokens",),
             ),
             ops.validate("action_valid", "decoded_action", "finite_action"),
-            ops.action_create(
+            ops.output_create(
                 "pending_action",
                 "decoded_action",
                 action,
-                "tick",
+                "action",
+            ),
+            ops.output_group(
+                "pending_outputs",
+                "manipulation",
+                ((
+                    "pending_action",
+                    PendingOutputType("action", action),
+                ),),
             ),
             ops.transaction_commit(
-                "committed_action",
-                action,
+                "committed_outputs",
+                (PendingOutputType("action", action),),
+                "manipulation",
                 "txn",
-                "pending_action",
+                "pending_outputs",
                 "action_valid",
             ),
-            ops.action_publish("committed_action"),
-            ops.return_values("committed_action"),
+            ops.return_values("committed_outputs"),
         )
     )
-    builder.add_policy(
-        Policy(
+    builder.add_invocation(
+        Invocation(
             "act",
-            "control",
             body,
-            inputs=(Value("tick", EpochType("control")),),
             metadata={
                 "action_generation": "real_autoregressive_discrete",
                 "persistent_state": "none",
@@ -442,7 +438,11 @@ def run_real_openvla(
             normalized,
         )
 
-    module = build_real_openvla_action_program(action_dim=action_dim)
+    module = build_real_openvla_action_program(
+        action_dim=action_dim,
+        token_length=int(model_inputs["input_ids"].shape[1]),
+        device=config.device,
+    )
     runtime = Interpreter(
         module,
         regions={
@@ -455,31 +455,42 @@ def run_real_openvla(
         },
         validators={"finite_action": lambda action: bool(np.isfinite(action).all())},
     )
-    tick = Epoch("control", 0, 0, 0)
-    observation_epoch = Epoch("observation", 0, 0, 0)
     started = time.perf_counter()
     with torch.inference_mode():
-        result = runtime.run_tick(
-            "act",
-            tick,
-            {
-                "image": InputSample(
+        result = runtime.run(
+            inputs={
+                "image": InputBinding(
+                    TensorView(
                     model_inputs["pixel_values"],
-                    observation_epoch,
+                        tuple(model_inputs["pixel_values"].shape),
+                        "bf16",
+                        device=config.device,
+                    ),
+                    InputStamp(revision=0),
                 ),
-                "instruction_tokens": InputSample(
+                "instruction_tokens": InputBinding(
+                    TensorView(
                     model_inputs["input_ids"],
-                    observation_epoch,
+                        tuple(model_inputs["input_ids"].shape),
+                        "i64",
+                        device=config.device,
+                    ),
+                    InputStamp(revision=0),
                 ),
-                "instruction_mask": InputSample(
+                "instruction_mask": InputBinding(
+                    TensorView(
                     model_inputs["attention_mask"],
-                    observation_epoch,
+                        tuple(model_inputs["attention_mask"].shape),
+                        "i64",
+                        device=config.device,
+                    ),
+                    InputStamp(revision=0),
                 ),
             },
         )
     _synchronize(torch, config.device)
     ir_seconds = time.perf_counter() - started
-    ir_action = result.returns[0].value
+    ir_action = result.committed_outputs.output("action")
 
     if len(ir_token_runs) != 1:
         raise RuntimeError(
@@ -500,7 +511,7 @@ def run_real_openvla(
     eager_values = tuple(float(item) for item in np.asarray(eager_action).tolist())
     ir_values = tuple(float(item) for item in np.asarray(ir_action).tolist())
     return RealOpenVLAEvidence(
-        schema="vlaforge.real_model_evidence/0.1",
+        schema="vlaforge.real_model_evidence/0.2",
         evidence_kind="real_checkpoint",
         checkpoint_path=str(checkpoint),
         checkpoint_revision=config.revision,

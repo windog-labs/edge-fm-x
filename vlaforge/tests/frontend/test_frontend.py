@@ -28,7 +28,7 @@ from vlaforge.frontend import (  # noqa: E402
     save_exported_region,
     tensor_region,
 )
-from vlaforge.ir.attrs import StateScope  # noqa: E402
+from vlaforge.ir.attrs import Ownership  # noqa: E402
 from vlaforge.ir.program import TensorRegion, Value  # noqa: E402
 from vlaforge.ir.types import ScalarType, TensorType  # noqa: E402
 
@@ -250,25 +250,21 @@ def test_state_lifting_requires_source_evidence() -> None:
                 name="action_queue",
                 payload=TensorType((4, 2), "f32"),
                 source_location="policy.py:select_action",
-                cross_tick_reason="deque survives successive control ticks",
-                scope=StateScope.EPISODE,
-                version_clock="control",
+                cross_run_reason="queue survives successive Session::Run calls",
                 retention=3,
-                authoritative=True,
             ),
         )
     )[0]
     assert state.name == "action_queue"
-    assert state.authoritative
+    assert state.ownership is Ownership.HOST
+    assert state.reset_on_episode
 
     with pytest.raises(ValueError, match="source location"):
         PersistentStateEvidence(
             name="invented",
             payload=ScalarType("i64"),
             source_location="",
-            cross_tick_reason="no evidence",
-            scope=StateScope.EPISODE,
-            version_clock="control",
+            cross_run_reason="no evidence",
             retention=1,
         )
 
@@ -326,7 +322,7 @@ def test_model_audit_report_is_versioned_and_deterministic(
 
     assert report.passed
     assert first.read_bytes() == second.read_bytes()
-    assert b'"schema": "vlaforge.frontend_model_audit/1"' in first.read_bytes()
+    assert b'"schema": "vlaforge.frontend_model_audit/2"' in first.read_bytes()
 
     with pytest.raises(ValueError, match="sorted"):
         ModelFrontendAudit(

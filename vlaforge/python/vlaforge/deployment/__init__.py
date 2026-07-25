@@ -3,6 +3,7 @@
 from vlaforge.deployment.contract import (
     CALLABLE_ABI_VERSION,
     ARTIFACT_SCHEMA,
+    REGION_PLUGIN_ABI,
     ArtifactDiagnostic,
     ArtifactKind,
     BackendCapability,
@@ -34,6 +35,7 @@ __all__ = [
     "ARTIFACT_SCHEMA",
     "BUNDLE_SCHEMA",
     "CALLABLE_ABI_VERSION",
+    "REGION_PLUGIN_ABI",
     "ArtifactDiagnostic",
     "ArtifactKind",
     "BackendCapability",

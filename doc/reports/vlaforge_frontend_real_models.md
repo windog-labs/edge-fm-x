@@ -1,5 +1,8 @@
 # VLAForge Frontend v0: Real-model Audit
 
+> **Historical frontend evidence.** Source/capture findings remain useful,
+> but all invocation/state/cache claims must be remapped to schema v0.2.
+
 ## Scope
 
 This report records the Milestone B evidence for the restricted PyTorch

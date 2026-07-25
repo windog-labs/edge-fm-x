@@ -1,23 +1,22 @@
-"""VLAForge executable reference IR."""
+"""VLAForge Invocation IR and deployment compiler."""
 
 from vlaforge.ir.program import (
     Block,
-    ClockDomain,
-    InputStream,
+    InputPort,
+    Invocation,
     Module,
     Operation,
-    Policy,
+    OutputPort,
     StateSlot,
     TensorRegion,
     Value,
 )
 from vlaforge.ir.types import (
-    ActionType,
-    CommittedActionType,
-    EpochType,
-    EventType,
-    FutureType,
+    CommittedOutputGroupType,
+    InputRevisionType,
     IRType,
+    PendingOutputGroupType,
+    PendingOutputType,
     PendingType,
     ScalarType,
     SnapshotType,
@@ -26,19 +25,18 @@ from vlaforge.ir.types import (
 )
 
 __all__ = [
-    "ActionType",
     "Block",
-    "ClockDomain",
-    "CommittedActionType",
-    "EpochType",
-    "EventType",
-    "FutureType",
+    "CommittedOutputGroupType",
+    "InputPort",
+    "InputRevisionType",
     "IRType",
-    "InputStream",
+    "Invocation",
     "Module",
     "Operation",
+    "OutputPort",
+    "PendingOutputGroupType",
+    "PendingOutputType",
     "PendingType",
-    "Policy",
     "ScalarType",
     "SnapshotType",
     "StateSlot",
@@ -48,5 +46,4 @@ __all__ = [
     "Value",
 ]
 
-__version__ = "0.1.0.dev0"
-
+__version__ = "0.2.0.dev0"

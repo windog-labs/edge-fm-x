@@ -5,8 +5,8 @@ has no model dependency. This adapter validates a real checkpoint in two ways:
 
 1. eager ``predict_action_chunk`` versus the VLAForge IR interpreter split into
    prefix, bounded solver-step, and action-trim TensorRegions;
-2. LeRobot's real action queue versus explicit cross-tick StateSlots and
-   transaction commits across repeated IR control ticks.
+2. LeRobot's real action queue versus Adapter-owned StateSlots and
+   transaction commits across repeated caller-driven Runs.
 """
 
 from __future__ import annotations
@@ -19,27 +19,23 @@ from pathlib import Path
 from typing import Any
 
 from vlaforge.frontend.builder import ModuleBuilder
-from vlaforge.interpreter import Epoch, InputSample, Interpreter
-from vlaforge.ir import ops
-from vlaforge.ir.attrs import (
-    CheckpointPolicy,
-    ConsistencyPolicy,
-    EpochExpr,
-    FreshnessConstraint,
-    Ownership,
-    ResetPolicy,
-    StateScope,
+from vlaforge.interpreter import (
+    InputBinding,
+    InputStamp,
+    Interpreter,
+    TensorView,
 )
+from vlaforge.ir import ops
 from vlaforge.ir.program import (
     Block,
-    ClockDomain,
-    InputStream,
-    Policy,
+    InputPort,
+    Invocation,
+    OutputPort,
     StateSlot,
     TensorRegion,
     Value,
 )
-from vlaforge.ir.types import EpochType, ScalarType, TensorType
+from vlaforge.ir.types import PendingOutputType, ScalarType, TensorType
 
 
 OPAQUE = ScalarType("opaque")
@@ -113,62 +109,71 @@ def build_real_smolvla_action_program(
     max_action_dim: int,
     output_action_dim: int,
     num_steps: int,
+    token_length: int = 48,
+    device: str = "cuda",
 ) -> Any:
+    return _build_real_smolvla_action_program_v02(
+        chunk_size=chunk_size,
+        max_action_dim=max_action_dim,
+        output_action_dim=output_action_dim,
+        num_steps=num_steps,
+        token_length=token_length,
+        device=device,
+    )
+
+
+def _build_real_smolvla_action_program_v02(
+    *,
+    chunk_size: int,
+    max_action_dim: int,
+    output_action_dim: int,
+    num_steps: int,
+    token_length: int,
+    device: str,
+) -> Any:
+    if min(
+        chunk_size,
+        max_action_dim,
+        output_action_dim,
+        num_steps,
+        token_length,
+    ) < 1:
+        raise ValueError("real SmolVLA dimensions and loop bound must be positive")
     solver = TensorType((1, chunk_size, max_action_dim), "f32")
     action_chunk = TensorType((1, chunk_size, output_action_dim), "f32")
     action_step = TensorType((1, output_action_dim), "f32")
+    image = TensorType((1, 3, 256, 256), "f32")
+    state = TensorType((1, 6), "f32")
+    language = TensorType((1, token_length), "i64")
+    language_mask = TensorType((1, token_length), "bool")
     cursor = ScalarType("i32")
     builder = ModuleBuilder("smolvla_real_control")
-    builder.add_clock(ClockDomain("observation", period_ns=33_333_333))
-    builder.add_clock(ClockDomain("control", period_ns=20_000_000))
-    builder.add_input(
-        InputStream(
-            "batch",
-            OPAQUE,
-            "observation",
-            FreshnessConstraint(max_age_ns=50_000_000),
-        )
+    for name, payload in (
+        ("image", image),
+        ("state", state),
+        ("instruction_tokens", language),
+        ("instruction_mask", language_mask),
+        ("noise", solver),
+    ):
+        builder.add_input(InputPort(name, payload, device=device))
+    builder.add_output(
+        OutputPort("action", action_step, group="manipulation")
     )
     builder.add_state(
-        StateSlot(
-            "action_queue",
-            action_chunk,
-            StateScope.EPISODE,
-            "control",
-            retention=5,
-            consistency=ConsistencyPolicy.SNAPSHOT,
-            reset=ResetPolicy.EPISODE_START,
-            authoritative=True,
-            ownership=Ownership.HOST,
-            checkpoint=CheckpointPolicy.ON_COMMIT,
-        )
+        StateSlot("action_queue", action_chunk, retention=5)
     )
     builder.add_state(
-        StateSlot(
-            "queue_cursor",
-            cursor,
-            StateScope.EPISODE,
-            "control",
-            retention=5,
-            consistency=ConsistencyPolicy.SNAPSHOT,
-            reset=ResetPolicy.EPISODE_START,
-            authoritative=True,
-            ownership=Ownership.HOST,
-            checkpoint=CheckpointPolicy.ON_COMMIT,
-        )
-    )
-    builder.add_input(
-        InputStream(
-            "noise",
-            solver,
-            "observation",
-            FreshnessConstraint(max_age_ns=50_000_000),
-        )
+        StateSlot("queue_cursor", cursor, retention=5)
     )
     builder.add_region(
         TensorRegion(
             "prepare_prefix",
-            (Value("batch_arg", OPAQUE),),
+            (
+                Value("image_arg", image),
+                Value("state_arg", state),
+                Value("tokens_arg", language),
+                Value("mask_arg", language_mask),
+            ),
             (OPAQUE,),
             metadata={"memoize": True, "loop_invariant": True},
         )
@@ -229,7 +234,17 @@ def build_real_smolvla_action_program(
     )
     refill = Block.of(
         (
-            ops.invoke(("prefix",), (OPAQUE,), "prepare_prefix", ("batch_value",)),
+            ops.invoke(
+                ("prefix",),
+                (OPAQUE,),
+                "prepare_prefix",
+                (
+                    "image_value",
+                    "state_value",
+                    "instruction_value",
+                    "instruction_mask_value",
+                ),
+            ),
             ops.for_loop(
                 Value("sample_final", solver),
                 "noise_value",
@@ -287,39 +302,41 @@ def build_real_smolvla_action_program(
     )
     body = Block.of(
         (
-            ops.sample_input(
-                "batch_value",
-                "batch_epoch",
-                OPAQUE,
-                "batch",
-                "observation",
-                max_age_ns=50_000_000,
+            ops.input_read("image_value", "image_revision", image, "image"),
+            ops.input_read("state_value", "state_revision", state, "state"),
+            ops.input_read(
+                "instruction_value",
+                "instruction_revision",
+                language,
+                "instruction_tokens",
             ),
-            ops.sample_input(
+            ops.input_read(
+                "instruction_mask_value",
+                "instruction_mask_revision",
+                language_mask,
+                "instruction_mask",
+            ),
+            ops.input_read(
                 "noise_value",
-                "noise_epoch",
+                "noise_revision",
                 solver,
                 "noise",
-                "observation",
-                max_age_ns=50_000_000,
             ),
-            ops.transaction_begin("txn", "tick"),
-            ops.state_read(
+            ops.transaction_begin("txn"),
+            ops.state_read_latest(
                 "queue_snapshot",
                 action_chunk,
                 "action_queue",
                 "txn",
-                epoch=EpochExpr.current("control"),
             ),
             ops.snapshot_value(
                 "queue_value", action_chunk, "queue_snapshot"
             ),
-            ops.state_read(
+            ops.state_read_latest(
                 "cursor_snapshot",
                 cursor,
                 "queue_cursor",
                 "txn",
-                epoch=EpochExpr.current("control"),
             ),
             ops.snapshot_value("cursor_value", cursor, "cursor_snapshot"),
             ops.invoke(
@@ -350,7 +367,6 @@ def build_real_smolvla_action_program(
                 "action_queue",
                 "txn",
                 "queue_next",
-                epoch=EpochExpr.next("control"),
             ),
             ops.stage_write(
                 "cursor_pending",
@@ -358,29 +374,37 @@ def build_real_smolvla_action_program(
                 "queue_cursor",
                 "txn",
                 "cursor_next",
-                epoch=EpochExpr.next("control"),
             ),
             ops.validate("action_valid", "selected_action", "finite_action"),
-            ops.action_create(
-                "pending_action", "selected_action", action_step, "tick"
+            ops.output_create(
+                "pending_action",
+                "selected_action",
+                action_step,
+                "action",
+            ),
+            ops.output_group(
+                "pending_outputs",
+                "manipulation",
+                ((
+                    "pending_action",
+                    PendingOutputType("action", action_step),
+                ),),
             ),
             ops.transaction_commit(
-                "committed_action",
-                action_step,
+                "committed_outputs",
+                (PendingOutputType("action", action_step),),
+                "manipulation",
                 "txn",
-                "pending_action",
+                "pending_outputs",
                 "action_valid",
             ),
-            ops.action_publish("committed_action"),
-            ops.return_values("committed_action"),
+            ops.return_values("committed_outputs"),
         )
     )
-    builder.add_policy(
-        Policy(
+    builder.add_invocation(
+        Invocation(
             "act",
-            "control",
             body,
-            inputs=(Value("tick", EpochType("control")),),
             metadata={
                 "action_generation": "real_iterative_continuous",
                 "persistent_state": "action_queue,queue_cursor",
@@ -484,14 +508,25 @@ def run_real_smolvla(
         max_action_dim=policy_config.max_action_dim,
         output_action_dim=policy_config.action_feature.shape[0],
         num_steps=config.num_steps,
+        token_length=int(tokens["input_ids"].shape[1]),
+        device=config.device,
     )
     ir_velocities: list[Any] = []
 
-    def prepare_prefix(input_batch: dict[str, Any]) -> _PrefixContext:
+    def prepare_prefix(
+        image_value: Any,
+        state_value: Any,
+        language_tokens: Any,
+        language_masks: Any,
+    ) -> _PrefixContext:
+        input_batch = {
+            image_key: image_value,
+            OBS_STATE: state_value,
+            OBS_LANGUAGE_TOKENS: language_tokens,
+            OBS_LANGUAGE_ATTENTION_MASK: language_masks,
+        }
         images, image_masks = policy.prepare_images(input_batch)
         state = policy.prepare_state(input_batch)
-        language_tokens = input_batch[OBS_LANGUAGE_TOKENS]
-        language_masks = input_batch[OBS_LANGUAGE_ATTENTION_MASK]
         prefix_embs, prefix_pad_masks, prefix_att_masks = policy.model.embed_prefix(
             images,
             image_masks,
@@ -565,22 +600,63 @@ def run_real_smolvla(
     started = time.perf_counter()
     with torch.inference_mode():
         for index in range(3):
-            timestamp = index * 20_000_000
-            ir_result = runtime.run_tick(
-                "act",
-                Epoch("control", index, timestamp, 0),
-                {
-                    "batch": InputSample(
-                        batch,
-                        Epoch("observation", index, timestamp, 0),
+            stamp = InputStamp(revision=index)
+            ir_result = runtime.run(
+                inputs={
+                    "image": InputBinding(
+                        TensorView(
+                            batch[image_key],
+                            tuple(batch[image_key].shape),
+                            "f32",
+                            device=config.device,
+                        ),
+                        stamp,
                     ),
-                    "noise": InputSample(
-                        noise,
-                        Epoch("observation", index, timestamp, 0),
+                    "state": InputBinding(
+                        TensorView(
+                            batch[OBS_STATE],
+                            tuple(batch[OBS_STATE].shape),
+                            "f32",
+                            device=config.device,
+                        ),
+                        stamp,
+                    ),
+                    "instruction_tokens": InputBinding(
+                        TensorView(
+                            batch[OBS_LANGUAGE_TOKENS],
+                            tuple(batch[OBS_LANGUAGE_TOKENS].shape),
+                            "i64",
+                            device=config.device,
+                        ),
+                        stamp,
+                    ),
+                    "instruction_mask": InputBinding(
+                        TensorView(
+                            batch[OBS_LANGUAGE_ATTENTION_MASK],
+                            tuple(
+                                batch[
+                                    OBS_LANGUAGE_ATTENTION_MASK
+                                ].shape
+                            ),
+                            "bool",
+                            device=config.device,
+                        ),
+                        stamp,
+                    ),
+                    "noise": InputBinding(
+                        TensorView(
+                            noise,
+                            tuple(noise.shape),
+                            "f32",
+                            device=config.device,
+                        ),
+                        stamp,
                     ),
                 },
             )
-            ir_queue_actions.append(ir_result.returns[0].value.detach().clone())
+            ir_queue_actions.append(
+                ir_result.committed_outputs.output("action").detach().clone()
+            )
     _synchronize(torch, config.device)
     ir_seconds = time.perf_counter() - started
     queue_versions = runtime.state_store.versions("action_queue")
@@ -626,7 +702,7 @@ def run_real_smolvla(
         and all(error <= config.tolerance for error in all_errors)
     )
     return RealSmolVLAEvidence(
-        schema="vlaforge.real_model_evidence/0.1",
+        schema="vlaforge.real_model_evidence/0.2",
         evidence_kind="real_checkpoint",
         checkpoint_path=str(checkpoint.resolve()),
         checkpoint_sha256=_sha256(checkpoint),

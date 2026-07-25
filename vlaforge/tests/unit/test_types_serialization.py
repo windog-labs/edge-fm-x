@@ -5,13 +5,16 @@ import pytest
 from vlaforge.adapters import build_openvla_fixture, build_smolvla_fixture
 from vlaforge.ir.parser import ParseError, parse_module
 from vlaforge.ir.printer import print_module
-from vlaforge.ir.serializer import canonical_json, module_digest
+from vlaforge.ir.serializer import (
+    canonical_json,
+    io_schema_digest,
+    module_digest,
+)
 from vlaforge.ir.types import (
-    ActionType,
-    CommittedActionType,
-    EpochType,
-    EventType,
-    FutureType,
+    CommittedOutputGroupType,
+    InputRevisionType,
+    PendingOutputGroupType,
+    PendingOutputType,
     PendingType,
     ScalarType,
     SnapshotType,
@@ -21,19 +24,23 @@ from vlaforge.ir.types import (
 )
 
 
+ACTION = TensorType((2,), "f32")
+PENDING_ACTION = PendingOutputType("action", ACTION)
+
+
 @pytest.mark.parametrize(
     "ir_type",
     [
         ScalarType("i64"),
+        ScalarType("u64"),
         TensorType((1, None, 7), "f16", "channels_last"),
-        EpochType("control"),
+        InputRevisionType(),
         SnapshotType("cache", TensorType((2,), "f32")),
         PendingType("cache", TensorType((2,), "f32")),
-        ActionType(TensorType((16, 7), "f32")),
-        CommittedActionType(TensorType((16, 7), "f32")),
+        PENDING_ACTION,
+        PendingOutputGroupType("manipulation", (PENDING_ACTION,)),
+        CommittedOutputGroupType("manipulation", (PENDING_ACTION,)),
         TransactionType(),
-        EventType(),
-        FutureType(ScalarType("bool")),
     ],
 )
 def test_type_round_trip(ir_type):
@@ -51,6 +58,7 @@ def test_textual_ir_round_trip_is_byte_stable(factory):
     assert print_module(rebuilt) == text
     assert canonical_json(rebuilt) == canonical_json(module)
     assert module_digest(rebuilt) == module_digest(module)
+    assert io_schema_digest(rebuilt) == io_schema_digest(module)
 
 
 def test_parser_rejects_missing_header():
@@ -60,12 +68,14 @@ def test_parser_rejects_missing_header():
 
 def test_parser_rejects_header_payload_version_mismatch():
     module = build_smolvla_fixture().module
-    text = print_module(module).replace("!vlaforge.ir 0.1", "!vlaforge.ir 9.9", 1)
+    text = print_module(module).replace(
+        "!vlaforge.ir 0.2", "!vlaforge.ir 9.9", 1
+    )
     with pytest.raises(ValueError, match="unsupported"):
         parse_module(text)
 
 
 def test_duplicate_declaration_names_are_rejected():
     module = build_smolvla_fixture().module
-    with pytest.raises(ValueError, match="duplicate clock"):
-        replace(module, clocks=module.clocks + (module.clocks[0],))
+    with pytest.raises(ValueError, match="duplicate input"):
+        replace(module, inputs=module.inputs + (module.inputs[0],))

@@ -1,5 +1,9 @@
 # VLAForge Scheduled Plan and Runtime Contract
 
+> **Archived v0.1 contract.** The current Plan/Runtime contract is documented
+> in `vlaforge/spec/deployment-contracts.md` and
+> `doc/vlaforge_cpp_aot_progress.md`.
+
 ## Status
 
 This document records the executable contract between VLA Semantic IR,

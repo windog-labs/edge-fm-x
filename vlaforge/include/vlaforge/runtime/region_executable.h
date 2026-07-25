@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 #define VLAFORGE_REGION_EXECUTABLE_ABI_VERSION 1u
+#define VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION 2u
 
 typedef enum VLAForgeStatusCode {
   VLAFORGE_STATUS_OK = 0,
@@ -36,7 +37,9 @@ typedef enum VLAForgeDType {
   VLAFORGE_DTYPE_F16 = 4,
   VLAFORGE_DTYPE_BF16 = 5,
   VLAFORGE_DTYPE_F32 = 6,
-  VLAFORGE_DTYPE_F64 = 7
+  VLAFORGE_DTYPE_F64 = 7,
+  VLAFORGE_DTYPE_U64 = 8,
+  VLAFORGE_DTYPE_U8 = 9
 } VLAForgeDType;
 
 typedef enum VLAForgeDeviceKind {
@@ -58,6 +61,49 @@ typedef struct VLAForgeTensorView {
   VLAForgeDType dtype;
   VLAForgeDevice device;
 } VLAForgeTensorView;
+
+typedef enum VLAForgeLayout {
+  VLAFORGE_LAYOUT_CONTIGUOUS = 0,
+  VLAFORGE_LAYOUT_NCHW = 1,
+  VLAFORGE_LAYOUT_NHWC = 2,
+  VLAFORGE_LAYOUT_CUSTOM = 3
+} VLAForgeLayout;
+
+typedef struct VLAForgeBoundTensor {
+  uint32_t struct_size;
+  VLAForgeTensorView tensor;
+  VLAForgeLayout layout;
+  uint64_t alignment;
+} VLAForgeBoundTensor;
+
+typedef union VLAForgeScalarPayload {
+  uint8_t boolean;
+  int32_t i32;
+  int64_t i64;
+  uint64_t u64;
+  float f32;
+  double f64;
+} VLAForgeScalarPayload;
+
+typedef struct VLAForgeScalarValue {
+  uint32_t struct_size;
+  VLAForgeDType dtype;
+  VLAForgeScalarPayload value;
+} VLAForgeScalarValue;
+
+typedef enum VLAForgeValueKind {
+  VLAFORGE_VALUE_TENSOR = 0,
+  VLAFORGE_VALUE_SCALAR = 1
+} VLAForgeValueKind;
+
+typedef struct VLAForgeValueView {
+  uint32_t struct_size;
+  VLAForgeValueKind kind;
+  union {
+    VLAForgeBoundTensor tensor;
+    VLAForgeScalarValue scalar;
+  } value;
+} VLAForgeValueView;
 
 typedef struct VLAForgeWorkspaceRequirement {
   uint64_t size_bytes;
@@ -119,11 +165,31 @@ typedef struct VLAForgeRegionExecutableApi {
   VLAForgeRegionDestroyFn destroy;
 } VLAForgeRegionExecutableApi;
 
+typedef VLAForgeStatus (*VLAForgeRegionBindValueFn)(
+    VLAForgeRegionExecutable* executable, uint32_t index,
+    const VLAForgeValueView* value);
+
+typedef struct VLAForgeRegionExecutableValueApi {
+  uint32_t struct_size;
+  uint32_t abi_version;
+  VLAForgeRegionCreateFn create;
+  VLAForgeRegionLoadFn load;
+  VLAForgeRegionQueryWorkspaceFn query_workspace;
+  VLAForgeRegionBindValueFn bind_input;
+  VLAForgeRegionBindValueFn bind_output;
+  VLAForgeRegionBindWorkspaceFn bind_workspace;
+  VLAForgeRegionRunFn run;
+  VLAForgeRegionSynchronizeFn synchronize;
+  VLAForgeRegionDestroyFn destroy;
+} VLAForgeRegionExecutableValueApi;
+
 VLAForgeStatus vlaforge_status_ok(void);
 VLAForgeStatus vlaforge_status_error(VLAForgeStatusCode code,
                                      const char* message);
 VLAForgeStatus vlaforge_region_executable_api_validate(
     const VLAForgeRegionExecutableApi* api);
+VLAForgeStatus vlaforge_region_executable_value_api_validate(
+    const VLAForgeRegionExecutableValueApi* api);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -1,5 +1,8 @@
 # VLAForge IR: real SmolVLA evidence
 
+> **Historical real-model evidence.** This run predates Invocation IR v0.2;
+> it is not a current real compiled-artifact or no-Python Session claim.
+
 Date: 2026-07-23
 
 ## Provenance

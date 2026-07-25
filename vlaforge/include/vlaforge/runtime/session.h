@@ -3,11 +3,9 @@
 
 #include <cstdint>
 
-#include "vlaforge/runtime/epoch.h"
+#include "vlaforge/runtime/session_c.h"
 #include "vlaforge/runtime/status.h"
-#include "vlaforge/runtime/tensor_view.h"
 #include "vlaforge/runtime/trace.h"
-#include "vlaforge/runtime/transaction.h"
 
 namespace vlaforge::runtime {
 
@@ -16,12 +14,18 @@ class Session {
   virtual ~Session() = default;
 
   virtual Status ResetEpisode(std::uint64_t new_episode) noexcept = 0;
-  virtual Status BindInput(std::uint32_t input_id,
-                           const TensorView& input,
-                           const Epoch& epoch) noexcept = 0;
-  virtual Status RunTick(const Epoch& tick) noexcept = 0;
-  virtual Status ReadCommittedAction(
-      CommittedAction* action) const noexcept = 0;
+  virtual Status BindTensor(
+      std::uint32_t input_id, const VLAForgeBoundTensor& input,
+      const VLAForgeInputStamp* stamp) noexcept = 0;
+  virtual Status BindScalar(
+      std::uint32_t input_id, const VLAForgeScalarValue& input,
+      const VLAForgeInputStamp* stamp) noexcept = 0;
+  virtual Status Run() noexcept = 0;
+  virtual Status ReadOutputTensor(
+      std::uint32_t output_id, VLAForgeBoundTensor* output) const noexcept = 0;
+  virtual Status ReadOutputScalar(
+      std::uint32_t output_id, VLAForgeScalarValue* output) const noexcept = 0;
+  virtual const char* SchemaDigest() const noexcept = 0;
   virtual void SetTraceSink(TraceSink trace) noexcept = 0;
 };
 

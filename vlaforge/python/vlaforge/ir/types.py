@@ -1,9 +1,4 @@
-"""Strongly typed values used by the executable VLA IR.
-
-The types are immutable and serializable. Persistent state is never represented
-as a mutable Python object in the IR: a read yields ``SnapshotType`` and a
-transactional write yields ``PendingType``.
-"""
+"""Strongly typed values used by Invocation IR v0.2."""
 
 from __future__ import annotations
 
@@ -34,6 +29,7 @@ class ScalarType(IRType):
             "index",
             "i32",
             "i64",
+            "u64",
             "f16",
             "bf16",
             "f32",
@@ -72,12 +68,10 @@ class TensorType(IRType):
 
 
 @dataclass(frozen=True, slots=True)
-class EpochType(IRType):
-    clock: str
-    kind: ClassVar[str] = "epoch"
+class InputRevisionType(IRType):
+    """Opaque exact identity for one bound logical input."""
 
-    def to_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "clock": self.clock}
+    kind: ClassVar[str] = "input_revision"
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,7 +92,7 @@ class SnapshotType(IRType):
 class PendingType(IRType):
     state: str
     payload: IRType
-    kind: ClassVar[str] = "pending"
+    kind: ClassVar[str] = "pending_state"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -114,46 +108,54 @@ class TransactionType(IRType):
 
 
 @dataclass(frozen=True, slots=True)
-class ActionType(IRType):
+class PendingOutputType(IRType):
+    output: str
     payload: IRType
-    kind: ClassVar[str] = "action"
+    kind: ClassVar[str] = "pending_output"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "payload": self.payload.to_dict()}
+        return {
+            "kind": self.kind,
+            "output": self.output,
+            "payload": self.payload.to_dict(),
+        }
 
 
 @dataclass(frozen=True, slots=True)
-class CommittedActionType(IRType):
-    payload: IRType
-    kind: ClassVar[str] = "committed_action"
+class PendingOutputGroupType(IRType):
+    group: str
+    outputs: tuple[PendingOutputType, ...]
+    kind: ClassVar[str] = "pending_output_group"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "payload": self.payload.to_dict()}
+        return {
+            "kind": self.kind,
+            "group": self.group,
+            "outputs": [output.to_dict() for output in self.outputs],
+        }
 
 
 @dataclass(frozen=True, slots=True)
-class EventType(IRType):
-    kind: ClassVar[str] = "event"
-
-
-@dataclass(frozen=True, slots=True)
-class FutureType(IRType):
-    payload: IRType
-    kind: ClassVar[str] = "future"
+class CommittedOutputGroupType(IRType):
+    group: str
+    outputs: tuple[PendingOutputType, ...]
+    kind: ClassVar[str] = "committed_output_group"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "payload": self.payload.to_dict()}
+        return {
+            "kind": self.kind,
+            "group": self.group,
+            "outputs": [output.to_dict() for output in self.outputs],
+        }
 
 
 _LEAF_TYPES: Mapping[str, type[IRType]] = {
+    InputRevisionType.kind: InputRevisionType,
     TransactionType.kind: TransactionType,
-    EventType.kind: EventType,
 }
 
 
 def type_from_dict(data: Mapping[str, Any]) -> IRType:
-    """Decode an IR type from its canonical dictionary representation."""
-
     kind = data.get("kind")
     if kind == ScalarType.kind:
         return ScalarType(str(data["name"]))
@@ -163,19 +165,36 @@ def type_from_dict(data: Mapping[str, Any]) -> IRType:
             str(data["dtype"]),
             str(data.get("layout", "contiguous")),
         )
-    if kind == EpochType.kind:
-        return EpochType(str(data["clock"]))
     if kind == SnapshotType.kind:
         return SnapshotType(str(data["state"]), type_from_dict(data["payload"]))
     if kind == PendingType.kind:
         return PendingType(str(data["state"]), type_from_dict(data["payload"]))
-    if kind == ActionType.kind:
-        return ActionType(type_from_dict(data["payload"]))
-    if kind == CommittedActionType.kind:
-        return CommittedActionType(type_from_dict(data["payload"]))
-    if kind == FutureType.kind:
-        return FutureType(type_from_dict(data["payload"]))
+    if kind == PendingOutputType.kind:
+        return PendingOutputType(
+            str(data["output"]), type_from_dict(data["payload"])
+        )
+    if kind == PendingOutputGroupType.kind:
+        return PendingOutputGroupType(
+            str(data["group"]),
+            tuple(
+                PendingOutputType(
+                    str(item["output"]),
+                    type_from_dict(item["payload"]),
+                )
+                for item in data["outputs"]
+            ),
+        )
+    if kind == CommittedOutputGroupType.kind:
+        return CommittedOutputGroupType(
+            str(data["group"]),
+            tuple(
+                PendingOutputType(
+                    str(item["output"]),
+                    type_from_dict(item["payload"]),
+                )
+                for item in data["outputs"]
+            ),
+        )
     if kind in _LEAF_TYPES:
         return _LEAF_TYPES[kind]()
     raise TypeDecodeError(f"unknown IR type kind: {kind!r}")
-

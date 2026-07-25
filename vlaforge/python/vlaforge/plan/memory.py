@@ -6,12 +6,11 @@ from dataclasses import dataclass, replace
 from typing import Mapping
 
 from vlaforge.ir.types import (
-    ActionType,
-    CommittedActionType,
-    EpochType,
-    EventType,
-    FutureType,
+    CommittedOutputGroupType,
+    InputRevisionType,
     IRType,
+    PendingOutputGroupType,
+    PendingOutputType,
     PendingType,
     ScalarType,
     SnapshotType,
@@ -69,7 +68,7 @@ def physicalize_plan(
 
     ``reuse_temporaries`` enables deterministic interval packing.  It is an
     explicit optimization switch so baseline plans remain byte-for-byte stable.
-    The packed arena is safe to reuse on every policy invocation because every
+    The packed arena is safe to reuse on every invocation because every
     allocation is proven dead before another live allocation may occupy the
     same byte range.
     """
@@ -169,25 +168,22 @@ def storage_size_bytes(type: IRType) -> int:
             "f32": 4,
             "index": 8,
             "i64": 8,
+            "u64": 8,
             "f64": 8,
             "opaque": 8,
         }[type.name]
-    if isinstance(type, EpochType):
-        return 32
+    if isinstance(type, InputRevisionType):
+        return 8
     if isinstance(type, SnapshotType):
         return 64
     if isinstance(type, PendingType):
         return 56
     if isinstance(type, TransactionType):
         return 32
-    if isinstance(type, ActionType):
+    if isinstance(type, PendingOutputType | PendingOutputGroupType):
         return 48
-    if isinstance(type, CommittedActionType):
+    if isinstance(type, CommittedOutputGroupType):
         return 64
-    if isinstance(type, EventType):
-        return 8
-    if isinstance(type, FutureType):
-        return 16
     raise MemoryPlanningError(
         f"unsupported IR type for physical storage: {type!r}"
     )
@@ -304,10 +300,7 @@ def _physicalize_states(
             raise UnsafeStateCapacityError(
                 f"state={state.name} capacity={capacity} "
                 f"required={state.required_capacity} "
-                f"retention={state.retention} "
-                f"max_in_flight={state.max_in_flight} "
-                f"consumer_lag={state.consumer_lag} "
-                f"fallback_snapshots={state.fallback_snapshots}"
+                f"retention={state.retention}"
             )
         override = overrides.get(state.name, StorageOverride())
         payload_size = (
@@ -354,7 +347,14 @@ def _plan_arena(
 
     intervals = []
     for buffer in plan.buffers:
-        if buffer.external or buffer.buffer_class is BufferClass.EXTERNAL:
+        if (
+            buffer.external
+            or buffer.buffer_class
+            in {
+                BufferClass.EXTERNAL_INPUT,
+                BufferClass.EXTERNAL_OUTPUT,
+            }
+        ):
             continue
         override = overrides.get(buffer.id, StorageOverride())
         workspace = _workspace_binding(plan, buffer)
@@ -442,8 +442,8 @@ def can_reuse_physical_storage(
     """
 
     if (
-        left.buffer_class is BufferClass.TEMPORAL_CACHE
-        or right.buffer_class is BufferClass.TEMPORAL_CACHE
+        left.buffer_class is BufferClass.DERIVED_CACHE
+        or right.buffer_class is BufferClass.DERIVED_CACHE
     ):
         return False
     return (

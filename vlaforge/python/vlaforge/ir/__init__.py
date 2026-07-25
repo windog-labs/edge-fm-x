@@ -1,22 +1,13 @@
-"""Core VLAForge IR definitions."""
+"""Core VLAForge Invocation IR definitions."""
 
-from vlaforge.ir.attrs import (
-    CheckpointPolicy,
-    ConsistencyPolicy,
-    Effect,
-    EpochExpr,
-    FreshnessConstraint,
-    Ownership,
-    ResetPolicy,
-    StateScope,
-)
+from vlaforge.ir.attrs import Effect, Ownership
 from vlaforge.ir.program import (
     Block,
-    ClockDomain,
-    InputStream,
+    InputPort,
+    Invocation,
     Module,
     Operation,
-    Policy,
+    OutputPort,
     StateSlot,
     TensorRegion,
     Value,
@@ -25,21 +16,14 @@ from vlaforge.ir.types import *
 
 __all__ = [
     "Block",
-    "CheckpointPolicy",
-    "ClockDomain",
-    "ConsistencyPolicy",
     "Effect",
-    "EpochExpr",
-    "FreshnessConstraint",
-    "InputStream",
+    "InputPort",
+    "Invocation",
     "Module",
     "Operation",
+    "OutputPort",
     "Ownership",
-    "Policy",
-    "ResetPolicy",
-    "StateScope",
     "StateSlot",
     "TensorRegion",
     "Value",
 ]
-

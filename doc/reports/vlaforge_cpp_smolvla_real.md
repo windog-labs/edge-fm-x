@@ -1,5 +1,9 @@
 # Real SmolVLA generated C++ audit
 
+> **Archived v0.1 evidence.** The real checkpoint result below predates the
+> passive Invocation IR v0.2 ABI. It must be reproduced before claiming real
+> SmolVLA v0.2 L3/L4.
+
 ## Result
 
 Gate G3 passed for the pinned local SmolVLA checkpoint. A generated C++17

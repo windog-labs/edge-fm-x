@@ -10,7 +10,7 @@ from typing import Any, Mapping
 from vlaforge.frontend.region_capture import CaptureOutcome
 
 
-FRONTEND_AUDIT_SCHEMA = "vlaforge.frontend_model_audit/1"
+FRONTEND_AUDIT_SCHEMA = "vlaforge.frontend_model_audit/2"
 
 
 @dataclass(frozen=True, slots=True)

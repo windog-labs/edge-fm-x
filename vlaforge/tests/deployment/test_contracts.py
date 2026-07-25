@@ -124,6 +124,7 @@ def _bundle(root: Path) -> CompileBundleManifest:
         physical_memory_plan=required["physical_memory_plan"],
         input_schema=required["input_schema"],
         output_schema=required["output_schema"],
+        io_schema_digest="0" * 64,
         region_artifacts=(_region(root),),
         generated_sources=(source,),
         binaries=(binary,),
@@ -141,17 +142,18 @@ def _bundle(root: Path) -> CompileBundleManifest:
             test_only=False,
             input_semantic_digest="0" * 64,
             compiled_semantic_digest="0" * 64,
+            io_schema_digest="0" * 64,
             plan_digest="0" * 64,
             passes=(
                 PassCertificate(
-                    "epoch_memoization",
+                    "exact_cache_contract",
                     enabled=False,
                     applied=False,
                     reason="fixture",
                 ),
             ),
             caches=(),
-            licm=(),
+            loops=(),
             arena=ArenaCertificate(
                 enabled=False,
                 baseline_bytes=0,

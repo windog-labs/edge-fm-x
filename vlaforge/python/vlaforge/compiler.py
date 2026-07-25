@@ -1,9 +1,4 @@
-"""Small production compiler profile and legality-certificate contract.
-
-The profile is deliberately VLA-specific.  It selects only the temporal passes
-implemented by VLAForge and records every decision consumed by generated C++.
-It is not a general-purpose pass manager.
-"""
+"""VLA-specific whole-program compiler for passive Invocation IR v0.2."""
 
 from __future__ import annotations
 
@@ -14,7 +9,7 @@ from enum import Enum
 from typing import Any, Mapping
 
 from vlaforge.ir.program import Module
-from vlaforge.ir.serializer import module_digest
+from vlaforge.ir.serializer import io_schema_digest, module_digest
 from vlaforge.plan import (
     ArtifactVariant,
     PlanModule,
@@ -22,16 +17,18 @@ from vlaforge.plan import (
     physicalize_plan,
 )
 from vlaforge.transforms import (
-    synthesize_epoch_memoization,
-    temporal_loop_invariant_code_motion,
+    analyze_structured_loop_invariance,
+    canonicalize,
+    configure_exact_cache,
 )
 
 
-COMPILATION_CERTIFICATE_SCHEMA = "vlaforge.compilation_certificate/1"
+COMPILATION_CERTIFICATE_SCHEMA = "vlaforge.compilation_certificate/2"
+EXACT_CACHE_IDENTITIES = ("episode", "model", "artifact")
 
 
 class CompilerProfile(str, Enum):
-    """Supported production optimization policies."""
+    """The only optimization choices exposed by the deployment compiler."""
 
     OFF = "off"
     VERIFIED = "verified"
@@ -80,92 +77,59 @@ class PassCertificate:
 
 
 @dataclass(frozen=True, slots=True)
-class CertifiedDependency:
-    kind: str
-    value: str
-    subject: str
-    subject_id: int
-    max_age_ns: int | None = None
-    max_versions: int | None = None
-
-    def __post_init__(self) -> None:
-        if self.kind not in {"epoch", "state_version"}:
-            raise ValueError(f"unsupported certified dependency: {self.kind}")
-        if not self.value or not self.subject or self.subject_id < 0:
-            raise ValueError("certified dependency requires value and subject")
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "kind": self.kind,
-            "value": self.value,
-            "subject": self.subject,
-            "subject_id": self.subject_id,
-            "max_age_ns": self.max_age_ns,
-            "max_versions": self.max_versions,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "CertifiedDependency":
-        return cls(
-            kind=str(data["kind"]),
-            value=str(data["value"]),
-            subject=str(data["subject"]),
-            subject_id=int(data["subject_id"]),
-            max_age_ns=(
-                None
-                if data.get("max_age_ns") is None
-                else int(data["max_age_ns"])
-            ),
-            max_versions=(
-                None
-                if data.get("max_versions") is None
-                else int(data["max_versions"])
-            ),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class CacheLegalityCertificate:
+class ExactCacheCertificate:
     task_id: int
     region: str
-    legal: bool
+    requested: bool
     enabled: bool
     reason: str
-    dependencies: tuple[CertifiedDependency, ...] = ()
+    input_ids: tuple[int, ...] = ()
+    state_ids: tuple[int, ...] = ()
+    identity_fields: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.task_id < 0 or not self.region or not self.reason:
             raise ValueError("cache certificate requires task, region, and reason")
-        if self.enabled and (not self.legal or not self.dependencies):
-            raise ValueError("enabled cache requires a complete legal signature")
+        if self.enabled:
+            if not self.requested:
+                raise ValueError("enabled cache must be explicitly requested")
+            if self.identity_fields != EXACT_CACHE_IDENTITIES:
+                raise ValueError("exact cache identity fields are incomplete")
+        if len(self.input_ids) != len(set(self.input_ids)):
+            raise ValueError("cache input ids must be unique")
+        if len(self.state_ids) != len(set(self.state_ids)):
+            raise ValueError("cache state ids must be unique")
 
     def to_dict(self) -> dict[str, object]:
         return {
             "task_id": self.task_id,
             "region": self.region,
-            "legal": self.legal,
+            "requested": self.requested,
             "enabled": self.enabled,
             "reason": self.reason,
-            "dependencies": [item.to_dict() for item in self.dependencies],
+            "input_ids": list(self.input_ids),
+            "state_ids": list(self.state_ids),
+            "identity_fields": list(self.identity_fields),
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "CacheLegalityCertificate":
+    def from_dict(cls, data: Mapping[str, Any]) -> "ExactCacheCertificate":
         return cls(
             task_id=int(data["task_id"]),
             region=str(data["region"]),
-            legal=bool(data["legal"]),
+            requested=bool(data["requested"]),
             enabled=bool(data["enabled"]),
             reason=str(data["reason"]),
-            dependencies=tuple(
-                CertifiedDependency.from_dict(item)
-                for item in data.get("dependencies", ())
+            input_ids=tuple(int(item) for item in data.get("input_ids", ())),
+            state_ids=tuple(int(item) for item in data.get("state_ids", ())),
+            identity_fields=tuple(
+                str(item) for item in data.get("identity_fields", ())
             ),
         )
 
 
 @dataclass(frozen=True, slots=True)
-class LICMLegalityCertificate:
+class LoopInvariantCertificate:
     region: str
     loop: str
     disposition: str
@@ -180,7 +144,9 @@ class LICMLegalityCertificate:
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "LICMLegalityCertificate":
+    def from_dict(
+        cls, data: Mapping[str, Any]
+    ) -> "LoopInvariantCertificate":
         return cls(
             region=str(data["region"]),
             loop=str(data["loop"]),
@@ -231,10 +197,11 @@ class CompilationCertificate:
     test_only: bool
     input_semantic_digest: str
     compiled_semantic_digest: str
+    io_schema_digest: str
     plan_digest: str
     passes: tuple[PassCertificate, ...]
-    caches: tuple[CacheLegalityCertificate, ...]
-    licm: tuple[LICMLegalityCertificate, ...]
+    caches: tuple[ExactCacheCertificate, ...]
+    loops: tuple[LoopInvariantCertificate, ...]
     arena: ArenaCertificate
     schema: str = COMPILATION_CERTIFICATE_SCHEMA
 
@@ -246,6 +213,7 @@ class CompilationCertificate:
         for value in (
             self.input_semantic_digest,
             self.compiled_semantic_digest,
+            self.io_schema_digest,
             self.plan_digest,
         ):
             if len(value) != 64 or any(
@@ -254,13 +222,11 @@ class CompilationCertificate:
                 raise ValueError("certificate digests must be SHA-256")
         if self.test_only != self.profile.test_only:
             raise ValueError("certificate test_only flag disagrees with profile")
-        task_ids = [item.task_id for item in self.caches]
-        if len(task_ids) != len(set(task_ids)):
-            raise ValueError("duplicate cache task certificate")
-        if tuple(sorted(task_ids)) != tuple(task_ids):
-            raise ValueError("cache certificates must be sorted by task id")
+        task_ids = tuple(item.task_id for item in self.caches)
+        if task_ids != tuple(sorted(set(task_ids))):
+            raise ValueError("cache certificates must have sorted unique task ids")
 
-    def cache_for_task(self, task_id: int) -> CacheLegalityCertificate | None:
+    def cache_for_task(self, task_id: int) -> ExactCacheCertificate | None:
         return next(
             (item for item in self.caches if item.task_id == task_id),
             None,
@@ -273,10 +239,11 @@ class CompilationCertificate:
             "test_only": self.test_only,
             "input_semantic_digest": self.input_semantic_digest,
             "compiled_semantic_digest": self.compiled_semantic_digest,
+            "io_schema_digest": self.io_schema_digest,
             "plan_digest": self.plan_digest,
             "passes": [item.to_dict() for item in self.passes],
             "caches": [item.to_dict() for item in self.caches],
-            "licm": [item.to_dict() for item in self.licm],
+            "loops": [item.to_dict() for item in self.loops],
             "arena": self.arena.to_dict(),
         }
 
@@ -299,18 +266,19 @@ class CompilationCertificate:
             test_only=bool(data["test_only"]),
             input_semantic_digest=str(data["input_semantic_digest"]),
             compiled_semantic_digest=str(data["compiled_semantic_digest"]),
+            io_schema_digest=str(data["io_schema_digest"]),
             plan_digest=str(data["plan_digest"]),
             passes=tuple(
                 PassCertificate.from_dict(item)
                 for item in data.get("passes", ())
             ),
             caches=tuple(
-                CacheLegalityCertificate.from_dict(item)
+                ExactCacheCertificate.from_dict(item)
                 for item in data.get("caches", ())
             ),
-            licm=tuple(
-                LICMLegalityCertificate.from_dict(item)
-                for item in data.get("licm", ())
+            loops=tuple(
+                LoopInvariantCertificate.from_dict(item)
+                for item in data.get("loops", ())
             ),
             arena=ArenaCertificate.from_dict(data["arena"]),
         )
@@ -331,115 +299,71 @@ def compile_module(
     artifact_variants: Mapping[str, ArtifactVariant] | None = None,
     allow_test_profile: bool = False,
 ) -> CompilationResult:
-    """Compile a Semantic IR module under an explicit optimization profile."""
+    """Compile one caller-driven VLA invocation with auditable contracts."""
 
     selected = CompilerProfile.parse(profile)
     if selected.test_only and not allow_test_profile:
         raise ValueError(
             "force-on is a test-only profile; pass allow_test_profile=True"
         )
-
-    input_digest = module_digest(module)
     enabled = selected is not CompilerProfile.OFF
-    licm_decisions = ()
-    if enabled:
-        memoized = synthesize_epoch_memoization(module)
-        licm_result = temporal_loop_invariant_code_motion(memoized)
-        compiled_module = licm_result.module
-        licm_decisions = licm_result.decisions
-    else:
-        compiled_module = module
-
+    input_digest = module_digest(module)
+    requested = {
+        region.name: bool(region.metadata.get("memoize", False))
+        for region in module.regions
+    }
+    canonical = canonicalize(module)
+    compiled_module = configure_exact_cache(canonical, enabled=enabled)
+    loop_analysis = analyze_structured_loop_invariance(compiled_module)
     lowered = lower_to_plan(
         compiled_module,
         artifact_variants=artifact_variants,
     )
     baseline = physicalize_plan(lowered, reuse_temporaries=False)
-    compiled = (
-        physicalize_plan(lowered, reuse_temporaries=True)
-        if enabled
-        else baseline
+    compiled = physicalize_plan(
+        lowered,
+        reuse_temporaries=enabled,
     )
 
-    input_ids = {
-        stream.name: index for index, stream in enumerate(compiled_module.inputs)
-    }
-    state_ids = {
-        state.name: index for index, state in enumerate(compiled_module.states)
-    }
     caches = []
-    region_metadata = {
-        region.name: region.metadata for region in compiled_module.regions
-    }
     for task in compiled.tasks:
         if task.opcode != "vla.invoke":
             continue
         region = str(task.attributes["region"])
-        if not bool(region_metadata[region].get("memoize", False)):
+        cache_requested = requested[region]
+        if not cache_requested:
             continue
-        if not enabled:
-            caches.append(
-                CacheLegalityCertificate(
-                    task.id,
-                    region,
-                    legal=False,
-                    enabled=False,
-                    reason="compiler profile disables temporal memoization",
-                )
-            )
-            continue
-        dependencies = []
-        for item in task.attributes.get("memoize_dependencies", ()):
-            kind = str(item["kind"])
-            subject = str(item["subject"])
-            subject_id = (
-                input_ids[subject]
-                if kind == "epoch"
-                else state_ids[subject]
-            )
-            dependencies.append(
-                CertifiedDependency(
-                    kind=kind,
-                    value=str(item["value"]),
-                    subject=subject,
-                    subject_id=subject_id,
-                    max_age_ns=(
-                        None
-                        if item.get("max_age_ns") is None
-                        else int(item["max_age_ns"])
-                    ),
-                    max_versions=(
-                        None
-                        if item.get("max_versions") is None
-                        else int(item["max_versions"])
-                    ),
-                )
-            )
+        cache_enabled = bool(
+            compiled_module.region(region).metadata.get("memoize", False)
+        )
         caches.append(
-            CacheLegalityCertificate(
-                task.id,
-                region,
-                legal=bool(dependencies),
-                enabled=bool(dependencies),
-                reason=str(
-                    task.attributes.get(
-                        "memoize_semantics",
-                        "missing dependency certificate",
-                    )
+            ExactCacheCertificate(
+                task_id=task.id,
+                region=region,
+                requested=True,
+                enabled=cache_enabled,
+                reason=(
+                    "exact key uses input revisions, committed state versions, "
+                    "and episode/model/artifact identity"
+                    if cache_enabled
+                    else "compiler profile disables exact cache reuse"
                 ),
-                dependencies=tuple(dependencies),
+                input_ids=(
+                    tuple(port.input_id for port in compiled_module.inputs)
+                    if cache_enabled
+                    else ()
+                ),
+                state_ids=(
+                    tuple(range(len(compiled_module.states)))
+                    if cache_enabled
+                    else ()
+                ),
+                identity_fields=(
+                    EXACT_CACHE_IDENTITIES if cache_enabled else ()
+                ),
             )
         )
 
-    licm_certificates = tuple(
-        LICMLegalityCertificate(
-            item.region,
-            item.loop,
-            item.disposition,
-            item.reason,
-        )
-        for item in licm_decisions
-    )
     assert baseline.arena is not None
     assert compiled.arena is not None
     arena = ArenaCertificate(
@@ -449,50 +373,55 @@ def compile_module(
         baseline_allocations=len(baseline.arena.physical_buffers),
         compiled_allocations=len(compiled.arena.physical_buffers),
     )
-    passes = (
-        PassCertificate(
-            "epoch_memoization",
-            enabled,
-            any(item.enabled for item in caches),
-            (
-                "enabled only for invokes with complete epoch/state signatures"
-                if enabled
-                else "disabled by conservative profile"
-            ),
-        ),
-        PassCertificate(
-            "temporal_licm",
-            enabled,
-            any(
-                item.disposition in {"moved", "prehoisted"}
-                for item in licm_certificates
-            ),
-            (
-                "legality decisions serialized per candidate"
-                if enabled
-                else "disabled by conservative profile"
-            ),
-        ),
-        PassCertificate(
-            "static_arena_reuse",
-            enabled,
-            arena.saved_bytes > 0,
-            (
-                "exact liveness interference packing"
-                if enabled
-                else "disabled by conservative profile"
-            ),
-        ),
+    loops = tuple(
+        LoopInvariantCertificate(
+            item.region,
+            item.loop,
+            item.disposition,
+            item.reason,
+        )
+        for item in loop_analysis.decisions
     )
     certificate = CompilationCertificate(
         profile=selected,
         test_only=selected.test_only,
         input_semantic_digest=input_digest,
         compiled_semantic_digest=module_digest(compiled_module),
+        io_schema_digest=io_schema_digest(compiled_module),
         plan_digest=compiled.digest(),
-        passes=passes,
+        passes=(
+            PassCertificate(
+                "exact_cache_contract",
+                enabled,
+                any(item.enabled for item in caches),
+                (
+                    "only explicit exact memoize regions are enabled"
+                    if enabled
+                    else "disabled by off profile"
+                ),
+            ),
+            PassCertificate(
+                "structured_loop_invariance",
+                enabled,
+                any(
+                    item.disposition == "prehoisted"
+                    for item in loops
+                ),
+                "bounded-for preheader and loop-carried decisions recorded",
+            ),
+            PassCertificate(
+                "static_arena_reuse",
+                enabled,
+                arena.saved_bytes > 0,
+                (
+                    "liveness-based temporary packing"
+                    if enabled
+                    else "disabled by off profile"
+                ),
+            ),
+        ),
         caches=tuple(sorted(caches, key=lambda item: item.task_id)),
-        licm=licm_certificates,
+        loops=loops,
         arena=arena,
     )
     return CompilationResult(

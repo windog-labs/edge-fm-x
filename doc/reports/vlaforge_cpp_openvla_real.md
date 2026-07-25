@@ -1,5 +1,9 @@
 # Real OpenVLA generated C++ audit
 
+> **Archived v0.1 evidence.** The real checkpoint result below predates the
+> passive Invocation IR v0.2 ABI. It must be reproduced before claiming real
+> OpenVLA v0.2 L3/L4.
+
 ## Result
 
 Gate G3 passed for the pinned local OpenVLA-7B checkpoint. The generated C++17

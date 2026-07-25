@@ -30,15 +30,15 @@ def build_dependency_graph(module: Module) -> DependencyGraph:
     readers: dict[str, list[str]] = {}
     writers: dict[str, list[str]] = {}
 
-    for policy in module.policies:
-        for value in policy.inputs:
-            producers[value.name] = f"policy:{policy.name}:arg"
-        for node, operation in _walk(policy.body, f"policy:{policy.name}"):
+    for invocation in module.invocations:
+        for node, operation in _walk(
+            invocation.body, f"invocation:{invocation.name}"
+        ):
             for result in operation.results:
                 producers[result.name] = node
             for operand in operation.operands:
                 consumers.setdefault(operand, []).append(node)
-            if operation.opcode == "vla.state.read":
+            if operation.opcode == "vla.state.read_latest":
                 readers.setdefault(str(operation.attributes["state"]), []).append(node)
             elif operation.opcode == "vla.state.stage_write":
                 writers.setdefault(str(operation.attributes["state"]), []).append(node)
@@ -49,4 +49,3 @@ def build_dependency_graph(module: Module) -> DependencyGraph:
         state_readers={key: tuple(value) for key, value in readers.items()},
         state_writers={key: tuple(value) for key, value in writers.items()},
     )
-

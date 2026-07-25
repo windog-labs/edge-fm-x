@@ -40,3 +40,25 @@ VLAForgeStatus vlaforge_region_executable_api_validate(
   }
   return vlaforge_status_ok();
 }
+
+VLAForgeStatus vlaforge_region_executable_value_api_validate(
+    const VLAForgeRegionExecutableValueApi* api) {
+  if (api == NULL) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "region value API is null");
+  }
+  if (api->struct_size < sizeof(VLAForgeRegionExecutableValueApi) ||
+      api->abi_version != VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION) {
+    return vlaforge_status_error(VLAFORGE_STATUS_UNSUPPORTED_ABI,
+                                 "unsupported region value ABI");
+  }
+  if (api->create == NULL || api->load == NULL ||
+      api->query_workspace == NULL || api->bind_input == NULL ||
+      api->bind_output == NULL || api->bind_workspace == NULL ||
+      api->run == NULL || api->synchronize == NULL ||
+      api->destroy == NULL) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "region value API is incomplete");
+  }
+  return vlaforge_status_ok();
+}

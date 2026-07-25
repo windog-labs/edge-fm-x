@@ -1,0 +1,107 @@
+{
+  "accelerate_version": "0.29.3",
+  "action_max_abs_error": 0.0,
+  "action_shape": [
+    7
+  ],
+  "bitsandbytes_version": "0.49.2",
+  "checkpoint_path": "/home/zhangzimo/.cache/vlaforge/openvla-7b",
+  "checkpoint_revision": "47a0ec7fc4ec123775a391911046cf33cf9ed83f",
+  "checkpoint_shards": [
+    {
+      "bytes": 6948961960,
+      "file": "model-00001-of-00003.safetensors",
+      "sha256": "10d8636256018712c5e5c823d12e22b5797f99bb721bd123bf6bf2379892be85"
+    },
+    {
+      "bytes": 6971232040,
+      "file": "model-00002-of-00003.safetensors",
+      "sha256": "2050b14f21d48904d269f48d5a980fecea87cd7b36641d9b0f015e72d1fe216a"
+    },
+    {
+      "bytes": 1162406824,
+      "file": "model-00003-of-00003.safetensors",
+      "sha256": "ea65305a1577f36f721965bf84c8caec0a948ce7ce84d754701637376c531fef"
+    }
+  ],
+  "device": "cuda:0",
+  "eager_action": [
+    -0.007366363041541167,
+    -0.020820991205818536,
+    0.012230369446470445,
+    -0.024405461504178987,
+    -0.051690315588432206,
+    0.009604077101922431,
+    0.996078431372549
+  ],
+  "eager_seconds": 0.8149298729840666,
+  "evidence_kind": "real_checkpoint",
+  "generated_token_ids": [
+    31904,
+    31935,
+    31852,
+    31911,
+    31938,
+    31865,
+    31744
+  ],
+  "gpu_name": "NVIDIA GeForce RTX 3060",
+  "input_fixture": {
+    "instruction": "pick up the block",
+    "name": "rgb_coordinate_grid_v1",
+    "processed_inputs": {
+      "attention_mask": {
+        "dtype": "torch.int64",
+        "shape": [
+          1,
+          19
+        ]
+      },
+      "input_ids": {
+        "dtype": "torch.int64",
+        "shape": [
+          1,
+          19
+        ]
+      },
+      "pixel_values": {
+        "dtype": "torch.bfloat16",
+        "shape": [
+          1,
+          6,
+          224,
+          224
+        ]
+      }
+    },
+    "prompt": "In: What action should the robot take to pick up the block?\nOut: ",
+    "source_image_dtype": "uint8",
+    "source_image_sha256": "ad060d9279ecb1d3470ed58ae114fa1fb2bd5c610588ebbaaf47b360399a27e1",
+    "source_image_shape": [
+      224,
+      224,
+      3
+    ]
+  },
+  "ir_action": [
+    -0.007366363041541167,
+    -0.020820991205818536,
+    0.012230369446470445,
+    -0.024405461504178987,
+    -0.051690315588432206,
+    0.009604077101922431,
+    0.996078431372549
+  ],
+  "ir_seconds": 0.5348850309383124,
+  "passed": true,
+  "peak_memory_mb": 4756.76806640625,
+  "quantization": "bitsandbytes-nf4",
+  "schema": "vlaforge.real_model_evidence/0.2",
+  "timm_version": "0.9.10",
+  "token_ids_equal": true,
+  "tokenizers_version": "0.19.1",
+  "torch_version": "2.6.0+cu126",
+  "trace_events": 18,
+  "transformers_version": "4.40.1",
+  "unnorm_key": "bridge_orig"
+}

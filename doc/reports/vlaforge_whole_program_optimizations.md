@@ -1,5 +1,8 @@
 # VLAForge whole-program optimization report
 
+> **Archived v0.1 benchmark.** Epoch/freshness results below must not be used
+> for the revision/version-based Invocation IR v0.2 paper claim.
+
 ## Result
 
 Gate G4 passed on 2026-07-24.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://edge-fm.local/schemas/vlaforge-trace-0.1.json",
-  "title": "VLAForge State Solver Action Trace",
+  "$id": "https://edge-fm.local/schemas/vlaforge-trace-0.2.json",
+  "title": "VLAForge Invocation Trace",
   "type": "object",
   "required": [
     "schema",
@@ -9,7 +9,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "vlaforge.trace/0.1"
+      "const": "vlaforge.trace/0.2"
     },
     "events": {
       "type": "array",
@@ -18,8 +18,8 @@
         "required": [
           "index",
           "kind",
-          "policy",
-          "tick",
+          "invocation",
+          "run",
           "op",
           "data"
         ],
@@ -31,17 +31,12 @@
           "kind": {
             "type": "string"
           },
-          "policy": {
+          "invocation": {
             "type": "string"
           },
-          "tick": {
-            "type": "object",
-            "required": [
-              "clock",
-              "sequence",
-              "timestamp_ns",
-              "episode"
-            ]
+          "run": {
+            "type": "integer",
+            "minimum": 0
           },
           "op": {
             "type": "string"
@@ -54,4 +49,3 @@
   },
   "additionalProperties": false
 }
-

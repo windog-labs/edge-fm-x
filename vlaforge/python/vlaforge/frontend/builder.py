@@ -1,12 +1,14 @@
-"""Small explicit builder for the immutable Python IR."""
+"""Small explicit builder for Invocation IR v0.2."""
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from vlaforge.ir.program import (
-    ClockDomain,
-    InputStream,
+    InputPort,
+    Invocation,
     Module,
-    Policy,
+    OutputPort,
     StateSlot,
     TensorRegion,
 )
@@ -15,20 +17,24 @@ from vlaforge.ir.program import (
 class ModuleBuilder:
     def __init__(self, name: str):
         self.name = name
-        self.clocks: list[ClockDomain] = []
-        self.inputs: list[InputStream] = []
+        self.inputs: list[InputPort] = []
+        self.outputs: list[OutputPort] = []
         self.states: list[StateSlot] = []
         self.regions: list[TensorRegion] = []
-        self.policies: list[Policy] = []
+        self.invocations: list[Invocation] = []
         self.metadata: dict[str, object] = {}
 
-    def add_clock(self, clock: ClockDomain) -> ClockDomain:
-        self.clocks.append(clock)
-        return clock
+    def add_input(self, port: InputPort) -> InputPort:
+        if port.input_id is None:
+            port = replace(port, input_id=len(self.inputs))
+        self.inputs.append(port)
+        return port
 
-    def add_input(self, stream: InputStream) -> InputStream:
-        self.inputs.append(stream)
-        return stream
+    def add_output(self, port: OutputPort) -> OutputPort:
+        if port.output_id is None:
+            port = replace(port, output_id=len(self.outputs))
+        self.outputs.append(port)
+        return port
 
     def add_state(self, state: StateSlot) -> StateSlot:
         self.states.append(state)
@@ -38,18 +44,17 @@ class ModuleBuilder:
         self.regions.append(region)
         return region
 
-    def add_policy(self, policy: Policy) -> Policy:
-        self.policies.append(policy)
-        return policy
+    def add_invocation(self, invocation: Invocation) -> Invocation:
+        self.invocations.append(invocation)
+        return invocation
 
     def build(self) -> Module:
         return Module(
             name=self.name,
-            clocks=tuple(self.clocks),
             inputs=tuple(self.inputs),
+            outputs=tuple(self.outputs),
             states=tuple(self.states),
             regions=tuple(self.regions),
-            policies=tuple(self.policies),
+            invocations=tuple(self.invocations),
             metadata=self.metadata,
         )
-

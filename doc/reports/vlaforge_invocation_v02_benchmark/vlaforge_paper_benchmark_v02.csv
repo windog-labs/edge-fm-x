@@ -1,0 +1,13 @@
+model,workload,mode,measurement_reused_from,post_warm_samples,p50_us,p95_us,p99_us,cache_hits,cache_misses,process_rss_peak_bytes,process_vram_peak_bytes,compiler_arena_bytes,backend_declared_tensor_bytes,exact_vs_off
+openvla_fixture,repeat,semantic,,30,116.201,124.90029999999999,192.42188000000007,32,1,0,0,320,40,True
+openvla_fixture,repeat,plan,,30,116.2975,125.92779999999999,165.62927000000005,32,1,0,0,320,40,True
+openvla_fixture,new-revision,semantic,,30,125.011,132.95345,179.88411000000005,0,33,0,0,320,40,True
+openvla_fixture,new-revision,plan,,30,129.7035,135.73055,183.17150000000007,0,33,0,0,320,40,True
+smolvla_fixture,repeat,semantic,,30,155.9915,334.43575,335.19509,0,9,0,0,1216,16,True
+smolvla_fixture,repeat,plan,,30,158.372,343.5818499999999,354.31615999999997,0,9,0,0,1216,16,True
+smolvla_fixture,new-revision,semantic,,30,158.367,341.1398,564.0310600000003,0,9,0,0,1216,16,True
+smolvla_fixture,new-revision,plan,,30,159.9735,338.8696,343.62333,0,9,0,0,1216,16,True
+driving_diffusion_fixture,repeat,semantic,,30,489.7175,552.03775,560.66102,32,1,0,0,1088,360,True
+driving_diffusion_fixture,repeat,plan,,30,486.2665,552.09285,696.9808700000002,32,1,0,0,1088,360,True
+driving_diffusion_fixture,new-revision,semantic,,30,522.5535,583.9853499999999,614.8481800000001,0,33,0,0,1088,360,True
+driving_diffusion_fixture,new-revision,plan,,30,517.7760000000001,576.08405,616.1039300000001,0,33,0,0,1088,360,True

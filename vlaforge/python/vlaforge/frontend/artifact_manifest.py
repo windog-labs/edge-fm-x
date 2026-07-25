@@ -20,7 +20,7 @@ from vlaforge.deployment.contract import (
 from vlaforge.frontend.region_capture import CaptureOutcome
 
 
-COMPILE_REQUEST_SCHEMA = "vlaforge.region_compile_request/1"
+COMPILE_REQUEST_SCHEMA = "vlaforge.region_compile_request/2"
 
 
 @dataclass(frozen=True, slots=True)

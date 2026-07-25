@@ -5,13 +5,14 @@ namespace vlaforge::runtime {
 Transaction::Transaction(std::size_t maximum_staged_states)
     : pending_(maximum_staged_states) {}
 
-Status Transaction::Begin(std::uint64_t id, const Epoch& tick) noexcept {
+Status Transaction::Begin(std::uint64_t id,
+                          std::uint64_t episode) noexcept {
   if (active()) {
     return Status::Error(StatusCode::kFailedPrecondition, 0,
                          "transaction is already active");
   }
   id_ = id;
-  tick_ = tick;
+  episode_ = episode;
   state_ = TransactionState::kActive;
   pending_count_ = 0;
   return Status::Ok();

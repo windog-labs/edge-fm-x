@@ -1,4 +1,4 @@
-"""Canonical, deterministic serialization for VLAForge IR."""
+"""Canonical, deterministic serialization for Invocation IR v0.2."""
 
 from __future__ import annotations
 
@@ -7,22 +7,14 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from vlaforge.ir.attrs import (
-    CheckpointPolicy,
-    ConsistencyPolicy,
-    Effect,
-    FreshnessConstraint,
-    Ownership,
-    ResetPolicy,
-    StateScope,
-)
+from vlaforge.ir.attrs import Effect, Ownership
 from vlaforge.ir.program import (
     Block,
-    ClockDomain,
-    InputStream,
+    InputPort,
+    Invocation,
     Module,
     Operation,
-    Policy,
+    OutputPort,
     StateSlot,
     TensorRegion,
     Value,
@@ -38,15 +30,7 @@ def _json_value(value: Any) -> Any:
         return {str(key): _json_value(item) for key, item in value.items()}
     if isinstance(value, tuple | list):
         return [_json_value(item) for item in value]
-    if isinstance(
-        value,
-        StateScope
-        | ConsistencyPolicy
-        | ResetPolicy
-        | Ownership
-        | CheckpointPolicy
-        | Effect,
-    ):
+    if isinstance(value, Ownership | Effect):
         return value.value
     if value is None or isinstance(value, str | int | float | bool):
         return value
@@ -60,7 +44,9 @@ def _value_to_data(value: Value) -> dict[str, Any]:
 def _block_to_data(block: Block) -> dict[str, Any]:
     return {
         "arguments": [_value_to_data(value) for value in block.arguments],
-        "operations": [_operation_to_data(operation) for operation in block.operations],
+        "operations": [
+            _operation_to_data(operation) for operation in block.operations
+        ],
     }
 
 
@@ -81,42 +67,44 @@ def module_to_data(module: Module) -> dict[str, Any]:
     return {
         "schema": module.schema_version,
         "module": module.name,
-        "clocks": [
-            {
-                "name": clock.name,
-                "period_ns": clock.period_ns,
-                "deadline_ns": clock.deadline_ns,
-                "jitter_ns": clock.jitter_ns,
-            }
-            for clock in module.clocks
-        ],
         "inputs": [
             {
-                "name": stream.name,
-                "payload": stream.payload.to_dict(),
-                "clock": stream.clock,
-                "freshness": (
-                    None if stream.freshness is None else stream.freshness.to_dict()
+                "id": port.input_id,
+                "name": port.name,
+                "payload": port.payload.to_dict(),
+                "required": port.required,
+                "default": _json_value(port.default),
+                "device": port.device,
+                "ownership": port.ownership.value,
+                "alignment": port.alignment,
+                "extension": port.extension,
+                "value_range": (
+                    None
+                    if port.value_range is None
+                    else list(port.value_range)
                 ),
+                "valid_for": port.valid_for,
             }
-            for stream in module.inputs
+            for port in module.inputs
+        ],
+        "outputs": [
+            {
+                "id": port.output_id,
+                "name": port.name,
+                "group": port.group,
+                "payload": port.payload.to_dict(),
+                "device": port.device,
+                "alignment": port.alignment,
+            }
+            for port in module.outputs
         ],
         "states": [
             {
                 "name": state.name,
                 "payload": state.payload.to_dict(),
-                "scope": state.scope.value,
-                "version_clock": state.version_clock,
                 "retention": state.retention,
-                "consistency": state.consistency.value,
-                "initializer": state.initializer,
-                "reset": state.reset.value,
-                "authoritative": state.authoritative,
-                "freshness": (
-                    None if state.freshness is None else state.freshness.to_dict()
-                ),
+                "reset_on_episode": state.reset_on_episode,
                 "ownership": state.ownership.value,
-                "checkpoint": state.checkpoint.value,
             }
             for state in module.states
         ],
@@ -130,15 +118,13 @@ def module_to_data(module: Module) -> dict[str, Any]:
             }
             for region in module.regions
         ],
-        "policies": [
+        "invocations": [
             {
-                "name": policy.name,
-                "clock": policy.clock,
-                "inputs": [_value_to_data(value) for value in policy.inputs],
-                "body": _block_to_data(policy.body),
-                "metadata": _json_value(policy.metadata),
+                "name": invocation.name,
+                "body": _block_to_data(invocation.body),
+                "metadata": _json_value(invocation.metadata),
             }
-            for policy in module.policies
+            for invocation in module.invocations
         ],
         "metadata": _json_value(module.metadata),
     }
@@ -159,6 +145,24 @@ def module_digest(module: Module) -> str:
     return hashlib.sha256(canonical_json(module).encode("utf-8")).hexdigest()
 
 
+def io_schema_data(module: Module) -> dict[str, object]:
+    data = module_to_data(module)
+    return {
+        "schema": "vlaforge.io_schema/2",
+        "inputs": data["inputs"],
+        "outputs": data["outputs"],
+    }
+
+
+def io_schema_digest(module: Module) -> str:
+    payload = json.dumps(
+        io_schema_data(module),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _value_from_data(data: Mapping[str, Any]) -> Value:
     return Value(str(data["name"]), type_from_dict(data["type"]))
 
@@ -166,19 +170,28 @@ def _value_from_data(data: Mapping[str, Any]) -> Value:
 def _operation_from_data(data: Mapping[str, Any]) -> Operation:
     return Operation(
         opcode=str(data["op"]),
-        results=tuple(_value_from_data(item) for item in data.get("results", ())),
+        results=tuple(
+            _value_from_data(item) for item in data.get("results", ())
+        ),
         operands=tuple(str(item) for item in data.get("operands", ())),
         attributes=dict(data.get("attributes", {})),
-        regions=tuple(_block_from_data(item) for item in data.get("regions", ())),
-        location=None if data.get("location") is None else str(data["location"]),
+        regions=tuple(
+            _block_from_data(item) for item in data.get("regions", ())
+        ),
+        location=(
+            None if data.get("location") is None else str(data["location"])
+        ),
     )
 
 
 def _block_from_data(data: Mapping[str, Any]) -> Block:
     return Block(
-        arguments=tuple(_value_from_data(item) for item in data.get("arguments", ())),
+        arguments=tuple(
+            _value_from_data(item) for item in data.get("arguments", ())
+        ),
         operations=tuple(
-            _operation_from_data(item) for item in data.get("operations", ())
+            _operation_from_data(item)
+            for item in data.get("operations", ())
         ),
     )
 
@@ -189,59 +202,53 @@ def module_from_data(data: Mapping[str, Any]) -> Module:
     return Module(
         name=str(data["module"]),
         schema_version=version,
-        clocks=tuple(
-            ClockDomain(
-                name=str(item["name"]),
-                period_ns=(
-                    None if item.get("period_ns") is None else int(item["period_ns"])
-                ),
-                deadline_ns=(
-                    None
-                    if item.get("deadline_ns") is None
-                    else int(item["deadline_ns"])
-                ),
-                jitter_ns=int(item.get("jitter_ns", 0)),
-            )
-            for item in data.get("clocks", ())
-        ),
         inputs=tuple(
-            InputStream(
+            InputPort(
                 name=str(item["name"]),
                 payload=type_from_dict(item["payload"]),
-                clock=str(item["clock"]),
-                freshness=(
+                input_id=int(item["id"]),
+                required=bool(item.get("required", True)),
+                default=item.get("default"),
+                device=str(item.get("device", "cpu")),
+                ownership=Ownership(
+                    item.get("ownership", Ownership.EXTERNAL.value)
+                ),
+                alignment=int(item.get("alignment", 1)),
+                extension=bool(item.get("extension", False)),
+                value_range=(
                     None
-                    if item.get("freshness") is None
-                    else FreshnessConstraint.from_dict(item["freshness"])
+                    if item.get("value_range") is None
+                    else tuple(item["value_range"])
+                ),
+                valid_for=(
+                    None
+                    if item.get("valid_for") is None
+                    else str(item["valid_for"])
                 ),
             )
             for item in data.get("inputs", ())
+        ),
+        outputs=tuple(
+            OutputPort(
+                name=str(item["name"]),
+                payload=type_from_dict(item["payload"]),
+                output_id=int(item["id"]),
+                group=str(item.get("group", "default")),
+                device=str(item.get("device", "cpu")),
+                alignment=int(item.get("alignment", 1)),
+            )
+            for item in data.get("outputs", ())
         ),
         states=tuple(
             StateSlot(
                 name=str(item["name"]),
                 payload=type_from_dict(item["payload"]),
-                scope=StateScope(item["scope"]),
-                version_clock=str(item["version_clock"]),
-                retention=int(item["retention"]),
-                consistency=ConsistencyPolicy(
-                    item.get("consistency", ConsistencyPolicy.SNAPSHOT.value)
+                retention=int(item.get("retention", 2)),
+                reset_on_episode=bool(
+                    item.get("reset_on_episode", True)
                 ),
-                initializer=(
-                    None if item.get("initializer") is None else str(item["initializer"])
-                ),
-                reset=ResetPolicy(
-                    item.get("reset", ResetPolicy.EPISODE_START.value)
-                ),
-                authoritative=bool(item.get("authoritative", False)),
-                freshness=(
-                    None
-                    if item.get("freshness") is None
-                    else FreshnessConstraint.from_dict(item["freshness"])
-                ),
-                ownership=Ownership(item.get("ownership", Ownership.HOST.value)),
-                checkpoint=CheckpointPolicy(
-                    item.get("checkpoint", CheckpointPolicy.ON_COMMIT.value)
+                ownership=Ownership(
+                    item.get("ownership", Ownership.HOST.value)
                 ),
             )
             for item in data.get("states", ())
@@ -250,27 +257,28 @@ def module_from_data(data: Mapping[str, Any]) -> Module:
             TensorRegion(
                 name=str(item["name"]),
                 inputs=tuple(
-                    _value_from_data(value) for value in item.get("inputs", ())
+                    _value_from_data(value)
+                    for value in item.get("inputs", ())
                 ),
                 outputs=tuple(
-                    type_from_dict(result) for result in item.get("outputs", ())
+                    type_from_dict(result)
+                    for result in item.get("outputs", ())
                 ),
-                effects=tuple(Effect(effect) for effect in item.get("effects", ("pure",))),
+                effects=tuple(
+                    Effect(effect)
+                    for effect in item.get("effects", ("pure",))
+                ),
                 metadata=dict(item.get("metadata", {})),
             )
             for item in data.get("regions", ())
         ),
-        policies=tuple(
-            Policy(
+        invocations=tuple(
+            Invocation(
                 name=str(item["name"]),
-                clock=str(item["clock"]),
-                inputs=tuple(
-                    _value_from_data(value) for value in item.get("inputs", ())
-                ),
                 body=_block_from_data(item["body"]),
                 metadata=dict(item.get("metadata", {})),
             )
-            for item in data.get("policies", ())
+            for item in data.get("invocations", ())
         ),
         metadata=dict(data.get("metadata", {})),
     )
@@ -281,4 +289,3 @@ def parse_canonical_json(text: str) -> Module:
     if not isinstance(data, dict):
         raise ValueError("serialized module must be a JSON object")
     return module_from_data(data)
-

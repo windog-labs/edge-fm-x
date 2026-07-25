@@ -1,39 +1,54 @@
-# Mapping from Python IR v0.1 to a Future MLIR Dialect
+# Mapping Invocation IR v0.2 to a Future MLIR Dialect
 
-The Python IR is intentionally shaped so each construct has a direct MLIR
-representation.
+The Python IR is intentionally shaped so it can migrate to MLIR without
+changing its passive invocation semantics.
 
 | Python construct | Proposed MLIR construct |
 | --- | --- |
-| `Module` | builtin `module` with `vla.schema` |
-| `ClockDomain` | `vla.clock` symbol op |
-| `InputStream` | `vla.input` symbol op |
-| `StateSlot` | `vla.state` symbol op |
-| `TensorRegion` | `vla.region` symbol op referencing exported artifact |
-| `Policy` | `vla.policy` region op |
-| `TensorType` | builtin ranked tensor type |
-| `EpochType` | `!vla.epoch<@clock>` |
+| `Module` | builtin `module` with `vla.schema = "0.2"` |
+| `InputPort` | `vla.input` symbol op with stable ID and static contract |
+| `OutputPort` | `vla.output` symbol op with stable ID and group |
+| `StateSlot` | `vla.state` symbol op with retention/reset attributes |
+| `TensorRegion` | `vla.region` symbol op referencing an immutable artifact |
+| `Invocation` | `vla.invocation` region op |
+| `TensorType` | builtin ranked tensor type plus layout/device attributes |
+| `ScalarType` | builtin scalar or a small VLA POD type |
+| `InputRevisionType` | `!vla.input_revision` |
 | `SnapshotType` | `!vla.snapshot<@state, T>` |
-| `PendingType` | `!vla.pending<@state, T>` |
+| `PendingType` | `!vla.pending_state<@state, T>` |
 | `TransactionType` | `!vla.transaction` |
-| `ActionType` | `!vla.action<T>` |
-| `CommittedActionType` | `!vla.committed_action<T>` |
-| `FutureType` | `!async.value<T>` or `!vla.future<T>` |
-| `vla.for` | `scf.for` with explicit iter args |
-| `vla.while` | `scf.while` |
-| `vla.if` | `scf.if` |
-| `vla.async` / `vla.await` | `async.execute` / `async.await` plus VLA effects |
+| `PendingOutputType` | `!vla.pending_output<@port, T>` |
+| `PendingOutputGroupType` | `!vla.pending_output_group<@group, ...>` |
+| `CommittedOutputGroupType` | `!vla.committed_output_group<@group, ...>` |
+| `vla.if` | `scf.if` with typed results |
+| `vla.for` | `scf.for` with explicit loop-carried iter args |
 
-`StateSlot` fields map to dialect attributes. State operations implement a
-`VLAStateEffectInterface` distinguishing read, stage-write, commit, reset, and
-publish effects. Tensor regions implement `MemoryEffectOpInterface` as pure.
+Input/output symbols carry the contract attributes that produce the generic C
+ABI and model-specific typed wrapper. Runtime `InputStamp` metadata is not a
+sensor-time type: only its revision participates in exact cache identity;
+timestamp is optional freshness metadata.
 
-The following semantics must not be weakened during an MLIR port:
+State operations implement a VLA state-effect interface distinguishing
+read-latest, stage-write, atomic commit, abort, and episode reset.
+TensorRegions implement `MemoryEffectOpInterface` as pure at the Semantic IR
+boundary. Backend-private workspace is allowed but hidden persistent mutation
+or I/O is not.
 
-1. a state read yields an immutable logical snapshot;
-2. staged state cannot escape its transaction;
-3. physical buffers are introduced only after liveness/retention analysis;
-4. commit is an external action-effect barrier;
-5. epoch and freshness constraints participate in legality checks;
-6. model adapters cannot create new dialect operations.
+The following semantics must not be weakened in an MLIR port:
+
+1. external binding is push-only and borrowed until `Run()` returns;
+2. a state read yields an immutable logical snapshot with a committed version;
+3. staged state and pending outputs cannot escape their transaction;
+4. state versions advance only on successful commit;
+5. one validated output group and all staged state become visible atomically;
+6. exact cache identity includes all transitive revisions and snapshot
+   versions;
+7. bounded loops use explicit loop-carried SSA;
+8. the four memory classes cannot silently alias or change lifetime;
+9. adapters cannot introduce unverified dialect operations.
+
+There are intentionally no `ClockDomain`, `EpochType`, `Policy.clock`,
+`RunTick`, `ActionType`, `action.publish`, `while`, `async`, or `await`
+constructs in the v0.2 profile. Sensor scheduling and command publication
+remain host responsibilities.
 

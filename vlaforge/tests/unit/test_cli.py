@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -16,7 +17,10 @@ def test_inspect_verify_run_and_diff(tmp_path, capsys):
         encoding="utf-8",
     )
     assert main(["inspect", str(program)]) == 0
-    assert '"action_queue"' in capsys.readouterr().out
+    inspected = capsys.readouterr().out
+    assert '"action_queue"' in inspected
+    assert '"io_schema_digest"' in inspected
+    assert "clock" not in inspected
 
     assert main(["verify", str(program)]) == 0
     assert "verification passed" in capsys.readouterr().out
@@ -61,6 +65,7 @@ def test_codegen_cli_is_reproducible(tmp_path, capsys):
     message = capsys.readouterr().out
     assert "C++ generation passed" in message
     assert "session_generated.cpp" in first
+    assert "compilation_certificate.json" in first
 
     assert main(command) == 0
     second = {
@@ -112,8 +117,18 @@ def test_compile_bundle_cli_builds_and_verifies_no_python(
         text=True,
         env=environment,
     )
-    assert "ACTION,0" in completed.stdout
-    assert "TRACE," in completed.stdout
+    assert "OUTPUT,0" in completed.stdout
+    input_schema = json.loads(
+        (output / "metadata" / "input_schema.json").read_text()
+    )
+    output_schema = json.loads(
+        (output / "metadata" / "output_schema.json").read_text()
+    )
+    assert input_schema["schema"] == "vlaforge.input_schema/2"
+    assert input_schema["io_schema_digest"] == manifest.io_schema_digest
+    assert output_schema["schema"] == "vlaforge.output_schema/2"
+    assert output_schema["runtime_output"] == "CommittedOutputGroup"
+    assert "clock" not in json.dumps(input_schema) + json.dumps(output_schema)
     if sys.platform.startswith("linux"):
         linked = subprocess.run(
             ["ldd", str(output / "bin" / "vlaforge_generated_runner")],
@@ -122,3 +137,29 @@ def test_compile_bundle_cli_builds_and_verifies_no_python(
             text=True,
         ).stdout.lower()
         assert "libpython" not in linked
+
+
+def test_stateful_smolvla_codegen_cli(tmp_path, capsys) -> None:
+    output = tmp_path / "smolvla-generated"
+    assert (
+        main(
+            [
+                "codegen",
+                "--adapter",
+                "smolvla-fixture",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    certificate = json.loads(
+        (output / "compilation_certificate.json").read_text()
+    )
+    assert certificate["schema"] == "vlaforge.compilation_certificate/2"
+    assert certificate["caches"][0]["identity_fields"] == [
+        "episode",
+        "model",
+        "artifact",
+    ]
+    assert "C++ generation passed" in capsys.readouterr().out

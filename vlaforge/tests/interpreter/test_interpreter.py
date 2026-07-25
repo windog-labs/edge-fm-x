@@ -1,20 +1,8 @@
-from dataclasses import replace
-
 import pytest
 
 from vlaforge.adapters import build_openvla_fixture, build_smolvla_fixture
-from vlaforge.frontend.builder import ModuleBuilder
-from vlaforge.interpreter import Epoch, InputSample, Interpreter, InterpreterError
-from vlaforge.interpreter.state_store import StateStoreError
-from vlaforge.ir import ops
-from vlaforge.ir.attrs import (
-    ConsistencyPolicy,
-    FreshnessConstraint,
-    ResetPolicy,
-    StateScope,
-)
-from vlaforge.ir.program import Block, ClockDomain, Policy, StateSlot, Value
-from vlaforge.ir.types import EpochType, ScalarType
+from vlaforge.interpreter import Interpreter, InterpreterError
+from vlaforge.interpreter.trace import normalize_value
 from vlaforge.validation import compare_traces
 
 
@@ -27,7 +15,7 @@ def execute(factory):
         initial_state=fixture.initial_state,
     )
     results = [
-        runtime.run_tick("act", item.tick, item.inputs) for item in fixture.ticks
+        runtime.run(inputs=item.inputs) for item in fixture.runs
     ]
     return fixture, runtime, results
 
@@ -35,15 +23,20 @@ def execute(factory):
 @pytest.mark.parametrize(
     "factory", [build_smolvla_fixture, build_openvla_fixture]
 )
-def test_multi_tick_execution_commits_and_publishes_once(factory):
+def test_each_run_returns_one_committed_output_group(factory):
     fixture, runtime, results = execute(factory)
-    assert all(len(result.published_actions) == 1 for result in results)
+    assert len(results) == len(fixture.runs)
+    assert all(result.committed_outputs.outputs for result in results)
     assert len(
-        [event for event in runtime.trace.events if event.kind == "transaction_commit"]
-    ) == len(fixture.ticks)
-    assert len(
-        [event for event in runtime.trace.events if event.kind == "action_publish"]
-    ) == len(fixture.ticks)
+        [
+            event
+            for event in runtime.trace.events
+            if event.kind == "transaction_commit"
+        ]
+    ) == len(fixture.runs)
+    assert not any(
+        event.kind == "action_publish" for event in runtime.trace.events
+    )
 
 
 @pytest.mark.parametrize(
@@ -56,82 +49,7 @@ def test_execution_trace_is_deterministic(factory):
     assert report.equal, report.format()
 
 
-def test_stale_input_is_rejected_with_context():
-    fixture = build_smolvla_fixture()
-    runtime = Interpreter(
-        fixture.module,
-        regions=fixture.regions,
-        validators=fixture.validators,
-        initial_state=fixture.initial_state,
-    )
-    tick = Epoch("control", 4, 200_000_000, 0)
-    inputs = {
-        "image": InputSample(
-            (0.0, 0.0),
-            Epoch("observation", 0, 0, 0),
-        )
-    }
-    with pytest.raises(InterpreterError, match="freshness.stale_input"):
-        runtime.run_tick("act", tick, inputs)
-
-
-def test_stale_state_version_is_rejected_with_context():
-    fixture = build_smolvla_fixture()
-    module = replace(
-        fixture.module,
-        states=(
-            replace(
-                fixture.module.states[0],
-                freshness=FreshnessConstraint(max_versions=1),
-            ),
-        )
-        + fixture.module.states[1:],
-    )
-    runtime = Interpreter(
-        module,
-        regions=fixture.regions,
-        validators=fixture.validators,
-        initial_state=fixture.initial_state,
-    )
-    item = fixture.ticks[0]
-    tick = replace(item.tick, sequence=4, timestamp_ns=80_000_000)
-    inputs = {
-        name: replace(
-            sample,
-            epoch=replace(sample.epoch, sequence=4, timestamp_ns=80_000_000),
-        )
-        for name, sample in item.inputs.items()
-    }
-    with pytest.raises(InterpreterError, match="freshness.stale_state"):
-        runtime.run_tick("act", tick, inputs)
-
-
-def test_old_episode_state_is_not_read_after_reset():
-    fixture = build_smolvla_fixture()
-    runtime = Interpreter(
-        fixture.module,
-        regions=fixture.regions,
-        validators=fixture.validators,
-        initial_state=fixture.initial_state,
-    )
-    runtime.reset_episode(1)
-    item = fixture.ticks[0]
-    new_inputs = {
-        name: replace(
-            sample,
-            epoch=replace(sample.epoch, episode=1),
-        )
-        for name, sample in item.inputs.items()
-    }
-    with pytest.raises(StateStoreError, match="no committed version"):
-        runtime.run_tick(
-            "act",
-            replace(item.tick, episode=1),
-            new_inputs,
-        )
-
-
-def test_failed_validation_discards_staged_state_and_action():
+def test_failed_validation_discards_state_and_output():
     fixture = build_smolvla_fixture()
     runtime = Interpreter(
         fixture.module,
@@ -140,14 +58,14 @@ def test_failed_validation_discards_staged_state_and_action():
         initial_state=fixture.initial_state,
     )
     before = runtime.state_store.inspect()
-    item = fixture.ticks[0]
     with pytest.raises(InterpreterError, match="failed validation"):
-        runtime.run_tick("act", item.tick, item.inputs)
+        runtime.run(inputs=fixture.runs[0].inputs)
     assert runtime.state_store.inspect() == before
-    assert not any(event.kind == "action_publish" for event in runtime.trace.events)
+    with pytest.raises(InterpreterError, match="no committed output"):
+        runtime.read_output()
 
 
-def test_smolvla_if_refills_then_reuses_queue():
+def test_smolvla_refills_then_consumes_adapter_owned_queue():
     fixture = build_smolvla_fixture()
     runtime = Interpreter(
         fixture.module,
@@ -155,80 +73,106 @@ def test_smolvla_if_refills_then_reuses_queue():
         validators=fixture.validators,
         initial_state=fixture.initial_state,
     )
-    runtime.run_tick("act", fixture.ticks[0].tick, fixture.ticks[0].inputs)
-    first_regions = [
-        event.data["region"]
+    outputs = []
+    region_offsets = [0]
+    for item in fixture.runs:
+        outputs.append(
+            runtime.run(
+                inputs=item.inputs
+            ).committed_outputs.output("action")
+        )
+        region_offsets.append(len(runtime.trace.events))
+    assert len(set(outputs[:4])) == 4
+    assert (
+        runtime.state_store.versions("queue_cursor")[-1].value == 2
+    )
+    refills = [
+        event
         for event in runtime.trace.events
         if event.kind == "region"
+        and event.data["region"] == "encode_observation"
     ]
-    runtime.run_tick("act", fixture.ticks[1].tick, fixture.ticks[1].inputs)
-    second_regions = [
-        event.data["region"]
+    solver_steps = [
+        event
         for event in runtime.trace.events
         if event.kind == "region"
-    ][len(first_regions) :]
-
-    assert first_regions.count("encode_observation") == 1
-    assert first_regions.count("solver_step") == 4
-    assert "encode_observation" not in second_regions
-    assert "solver_step" not in second_regions
-    assert "queue_select" in second_regions
+        and event.data["region"] == "solver_step"
+    ]
+    assert len(refills) == 2
+    assert len(solver_steps) == 8
 
 
-def test_openvla_for_runs_exact_bounded_token_steps():
-    _, runtime, _ = execute(build_openvla_fixture)
+def test_openvla_bounded_decode_runs_exact_steps():
+    fixture, runtime, _ = execute(build_openvla_fixture)
     token_steps = [
         event
         for event in runtime.trace.events
         if event.kind == "region"
         and event.data["region"] == "next_action_token"
     ]
-    assert len(token_steps) == 3 * 3
+    assert len(token_steps) == len(fixture.runs) * 3
 
 
-def test_explicit_reset_and_abort_clear_state_without_commit():
-    builder = ModuleBuilder("explicit_reset_policy")
-    builder.add_clock(ClockDomain("control", period_ns=20_000_000))
-    builder.add_state(
-        StateSlot(
-            "history",
-            ScalarType("i64"),
-            StateScope.EPISODE,
-            "control",
-            retention=1,
-            consistency=ConsistencyPolicy.SNAPSHOT,
-            reset=ResetPolicy.EXPLICIT,
-        )
-    )
-    builder.add_policy(
-        Policy(
-            "reset",
-            "control",
-            Block.of(
-                (
-                    ops.transaction_begin("txn", "tick"),
-                    ops.reset("history"),
-                    ops.transaction_abort("txn", reason="episode_boundary"),
-                    ops.return_values(),
-                )
-            ),
-            inputs=(Value("tick", EpochType("control")),),
-        )
-    )
+def test_episode_reset_restores_initial_authoritative_state():
+    fixture = build_smolvla_fixture()
     runtime = Interpreter(
-        builder.build(),
-        regions={},
-        validators={},
-        initial_state={"history": 42},
+        fixture.module,
+        regions=fixture.regions,
+        validators=fixture.validators,
+        initial_state=fixture.initial_state,
     )
-
-    result = runtime.run_tick("reset", Epoch("control", 0, 0, 0), {})
-
-    assert result.returns == ()
+    first = runtime.run(
+        inputs=fixture.runs[0].inputs
+    ).committed_outputs.output("action")
+    runtime.run(inputs=fixture.runs[1].inputs)
+    runtime.reset_episode(1)
+    reset = runtime.run(
+        inputs=fixture.runs[0].inputs
+    ).committed_outputs.output("action")
+    assert reset == first
     assert runtime.state_store.episode == 1
-    assert result.state["history"] == []
-    assert [event.kind for event in runtime.trace.events] == [
-        "transaction_begin",
-        "reset",
-        "transaction_abort",
-    ]
+
+
+def test_trace_hashes_tensor_storage_when_numpy_conversion_is_unavailable():
+    class StorageOnlyTensor:
+        shape = (2, 64)
+        dtype = "bf16"
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            raise TypeError("bf16 has no NumPy representation")
+
+        def contiguous(self):
+            return self
+
+        def untyped_storage(self):
+            return bytearray(range(256))
+
+    normalized = normalize_value(StorageOnlyTensor())
+    assert normalized["tensor"] is True
+    assert normalized["shape"] == [2, 64]
+    assert normalized["dtype"] == "bf16"
+    assert len(normalized["sha256"]) == 64
+    assert "repr" not in normalized
+
+
+def test_trace_does_not_copy_large_tensor_activations():
+    class LargeTensor:
+        shape = (1, 32, 256)
+        dtype = "bf16"
+
+        def detach(self):
+            raise AssertionError("large trace tensor must not be copied")
+
+    normalized = normalize_value(LargeTensor())
+    assert normalized == {
+        "tensor": True,
+        "shape": [1, 32, 256],
+        "dtype": "bf16",
+        "content": "omitted_large_tensor",
+    }

@@ -1,26 +1,31 @@
-# VLAForge IR Foundation
+# VLAForge Invocation Compiler v0.2
 
-This directory contains the executable Python reference semantics for the
-stateful/temporal VLA IR described in
-[`../doc/vlaforge_development_plan.md`](../doc/vlaforge_development_plan.md).
-It is intentionally isolated from EdgeFM's engine/model/operator hierarchy.
+VLAForge compiles an externally invoked, stateful VLA program into a
+schema-checked, no-Python C++ Session. It is isolated from EdgeFM's
+engine/model/operator hierarchy; EdgeFM is one possible TensorRegion backend.
 
-The first milestone implements:
+Canonical design:
 
-- versioned persistent state and logical epochs;
-- SSA-style tensor regions and structured control flow;
-- transaction-scoped state writes and action commit;
-- type, state-version, freshness, effect and commit verification;
-- a deterministic reference interpreter and trace format;
-- liveness, state dependency and bounded physical-slot analyses.
+- [Invocation IR v0.2](../doc/vlaforge_invocation_ir_v0_2.md)
+- [Development plan](../doc/vlaforge_development_plan.md)
+- [Paper design](../doc/vlaforge_paper_design.md)
+- [Model evidence matrix](../doc/vlaforge_model_adaptation_matrix.md)
+- [Model cards](../doc/model_cards/README.md)
 
-The Python IR is the normative v0 semantics. It is not the final deployment
-runtime and does not attempt to replace a tensor compiler.
+## Scope
 
-The intentionally small public abstraction boundary is documented in
-[`spec/vla-profile.md`](spec/vla-profile.md). Prefix KV or solver tensors are
-not promoted to persistent state unless the real source retains them across
-policy invocations.
+The host pushes static Tensor/Scalar inputs and calls `Session::Run()`.
+VLAForge does not acquire or synchronize sensors, maintain rates/deadlines,
+drop frames, interact with ROS/Cyber, or publish actions.
+
+Invocation IR explicitly models:
+
+- input identity through optional `InputRevision`;
+- authoritative versioned state;
+- pure TensorRegion calls;
+- structured branches and bounded loops;
+- exact derived cache contracts;
+- atomic named output groups.
 
 ## Development setup
 
@@ -28,118 +33,58 @@ policy invocations.
 cd vlaforge
 python -m pip install -e '.[test]'
 python -m pytest -q
-python examples/smolvla/build_fixture.py
+```
+
+Build the C/C++ runtime and ABI tests:
+
+```bash
+cmake -S . -B build-v02 -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTING=ON
+cmake --build build-v02
+ctest --test-dir build-v02 --output-on-failure
+```
+
+The clean generated-C++ tests intentionally run with invalid
+`PYTHONHOME/PYTHONPATH` and check `ldd` for Python dependencies.
+
+## CLI
+
+```bash
 vlaforge verify examples/smolvla/program.vla
 vlaforge run examples/smolvla/program.vla \
   --adapter smolvla-fixture \
   --trace /tmp/vlaforge-smolvla-trace.json
+vlaforge compile examples/smolvla/program.vla \
+  --output /tmp/vlaforge-bundle
 ```
 
-The default test suite is offline and never downloads model weights. Tests
-marked `real_model` are separate evidence gates and must be executed explicitly
-before G2 can be claimed.
+The examples in the repository are deterministic fixtures. A fixture reaching
+generated C++ is `fixture-L4`; it is not evidence that a real checkpoint has
+reached L4.
 
-Real adapters deliberately keep framework internals inside pure TensorRegions:
+## Real-model evidence
 
-- SmolVLA exposes prefix preparation and the bounded flow solver while keeping
-  its cross-tick action queue explicit.
-- OpenVLA exposes deterministic action-token generation and detokenization; it
-  has no persistent state in the reference `predict_action` path.
-
-The runners are:
+Opt-in frontend/eager gates remain separate from the offline suite:
 
 ```text
 tools/run_real_smolvla.py
 tools/run_real_openvla.py
+tools/audit_real_smolvla_frontend.py
+tools/audit_real_openvla_frontend.py
+tools/compile_real_aoti_exports.py
+tools/audit_cuda_aoti_region.py
 ```
 
-Model dependencies and weights are not package dependencies. Each gate runs in
-an explicitly pinned external environment.
+These tools require an explicitly supplied local checkpoint/revision and never
+download weights as part of the default test suite. The old v0.1
+epoch/tick-based generated runners and benchmarks were removed; their reports
+are historical evidence only and must not be used as v0.2 real-model claims.
 
-Their complete command lines are discoverable through:
+## Extension rules
 
-```bash
-python tools/run_real_smolvla.py --help
-python tools/run_real_openvla.py --help
-```
-
-Both runners require an explicit checkpoint path, write a normalized trace and
-schema-versioned JSON report, and exit nonzero when the eager-versus-IR
-contract fails.
-
-## Reproduce the local real-model gates
-
-The following commands are the exact pinned workspace gates used for the
-evidence reports. They do not download weights or mutate shared Python
-packages.
-
-SmolVLA:
-
-```bash
-cd /home/zhangzimo/Repos/private/edge-fm-x
-export VLAFORGE_SMOLVLA_POLICY_PATH="$PWD/examples/smolvla/SmolVLA-Base"
-export VLAFORGE_SMOLVLA_VLM_PATH="$PWD/examples/smolvla/SmolVLM2-500M-Video-Instruct"
-export VLAFORGE_MODEL_DEVICE=cuda:0
-export VLAFORGE_LEROBOT_REVISION=8fff0fde
-PYTHONPATH="$PWD/vlaforge/python:/home/zhangzimo/Repos/public/lerobot-v0.4.4/src" \
-  /home/zhangzimo/miniconda3/envs/horizon_quant/bin/python \
-  -m pytest -q vlaforge/tests/models/test_real_smolvla.py -m real_model
-```
-
-OpenVLA:
-
-```bash
-cd /home/zhangzimo/Repos/private/edge-fm-x
-export HF_HUB_OFFLINE=1
-export TRANSFORMERS_OFFLINE=1
-export VLAFORGE_OPENVLA_CHECKPOINT=/home/zhangzimo/.cache/vlaforge/openvla-7b
-export VLAFORGE_OPENVLA_REVISION=47a0ec7fc4ec123775a391911046cf33cf9ed83f
-export VLAFORGE_MODEL_DEVICE=cuda:0
-export VLAFORGE_OPENVLA_UNNORM_KEY=bridge_orig
-export VLAFORGE_OPENVLA_LOAD_IN_4BIT=1
-PYTHONPATH="$PWD/vlaforge/python" \
-  /home/zhangzimo/.venvs/vlaforge-openvla/bin/python \
-  -m pytest -q vlaforge/tests/models/test_real_openvla.py -m real_model
-```
-
-## Generated C++ and whole-program optimization gates
-
-The no-Python generated-C++ contracts and exact real-model commands are
-recorded in:
-
-- [`../doc/reports/vlaforge_cpp_smolvla_real.md`](../doc/reports/vlaforge_cpp_smolvla_real.md)
-- [`../doc/reports/vlaforge_cpp_openvla_real.md`](../doc/reports/vlaforge_cpp_openvla_real.md)
-- [`../doc/reports/vlaforge_whole_program_optimizations.md`](../doc/reports/vlaforge_whole_program_optimizations.md)
-
-`generate_real_smolvla_cpp.py` and `generate_real_openvla_cpp.py` use the
-`verified` production profile by default and emit
-`compilation_certificate.json`. Use `--profile off` for the conservative
-control. `--profile force-on` is rejected unless `--allow-test-profile` is
-also present. Pass `--optimization-benchmark` only to add workload and
-per-tick measurement instrumentation; it does not create a separate legality
-path.
-
-The combined benchmark/audit entry point is:
-
-```bash
-PYTHONPATH=vlaforge/python \
-python vlaforge/tools/benchmark_whole_program_optimizations.py --help
-```
-
-It runs generated C++ with an invalid Python environment, measures tick p99
-and peak RSS, verifies exact action/evidence/non-Region traces, measures
-compiler-pass cost and static-arena peak, and exits nonzero on a Gate G4
-regression.
-
-The paper/release matrix uses:
-
-```bash
-PYTHONPATH=vlaforge/python \
-python vlaforge/tools/benchmark_paper_artifact.py --help
-```
-
-It requires at least 30 post-warm samples for nominal, repeat, all-miss, and
-stale workloads; reports p50/p95/p99 with bootstrap 95% confidence intervals;
-separates compiler arena, declared backend tensors, process RSS, and
-whole-process VRAM; and writes JSON, CSV, Markdown, raw outputs, exact commands,
-environment, source revision, and artifact hashes.
+Prefer Adapter/template composition, then typed Region/backend plugins, then
+static I/O/validator/cache/variant extensions. A new core opcode is allowed
+only when a new cross-artifact control or state semantic cannot be expressed
+otherwise, and requires verifier, reference, Plan, codegen/runtime,
+serialization, and tests.

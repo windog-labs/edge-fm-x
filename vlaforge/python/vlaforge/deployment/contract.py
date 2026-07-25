@@ -15,8 +15,9 @@ from typing import Any, Mapping
 from vlaforge.ir.types import IRType, TensorType, type_from_dict
 
 
-ARTIFACT_SCHEMA = "vlaforge.region_artifact/1"
-CALLABLE_ABI_VERSION = 1
+ARTIFACT_SCHEMA = "vlaforge.region_artifact/2"
+CALLABLE_ABI_VERSION = 2
+REGION_PLUGIN_ABI = "vlaforge.region_executable/2"
 
 
 def _require_nonempty(value: str, field: str) -> None:
@@ -371,6 +372,7 @@ class RegionArtifactContract:
     workspace: WorkspaceContract
     capability: BackendCapability
     effect_audit: EffectAudit
+    plugin_abi: str = REGION_PLUGIN_ABI
     callable_abi_version: int = CALLABLE_ABI_VERSION
     schema: str = ARTIFACT_SCHEMA
 
@@ -381,6 +383,11 @@ class RegionArtifactContract:
             raise ValueError(
                 f"unsupported callable ABI {self.callable_abi_version}; "
                 f"expected {CALLABLE_ABI_VERSION}"
+            )
+        if self.plugin_abi != REGION_PLUGIN_ABI:
+            raise ValueError(
+                f"unsupported Region plugin ABI {self.plugin_abi!r}; "
+                f"expected {REGION_PLUGIN_ABI!r}"
             )
         if self.region_id < 0:
             raise ValueError("region id must be non-negative")
@@ -421,6 +428,7 @@ class RegionArtifactContract:
     def to_dict(self) -> dict[str, object]:
         return {
             "schema": self.schema,
+            "plugin_abi": self.plugin_abi,
             "callable_abi_version": self.callable_abi_version,
             "region_id": self.region_id,
             "region_name": self.region_name,
@@ -439,6 +447,7 @@ class RegionArtifactContract:
     def from_dict(cls, data: Mapping[str, Any]) -> "RegionArtifactContract":
         return cls(
             schema=str(data["schema"]),
+            plugin_abi=str(data["plugin_abi"]),
             callable_abi_version=int(data["callable_abi_version"]),
             region_id=int(data["region_id"]),
             region_name=str(data["region_name"]),

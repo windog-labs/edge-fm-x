@@ -1,146 +1,148 @@
-# VLAForge IR v0.1 Semantics
+# VLAForge Invocation IR v0.2 Semantics
 
-## Status
+## Scope
 
-This document defines the normative semantics of the executable Python IR.
-The schema version is `0.1`. The implementation lives under
-`python/vlaforge/ir`, and the deterministic semantics are implemented by
-`python/vlaforge/interpreter`.
+VLAForge compiles one externally invoked model call. It does not acquire or
+synchronize sensors, maintain a physical rate, schedule deadlines, drop
+frames, or publish vehicle/robot commands. The host pushes typed values and
+calls `Session::Run()`.
 
-## Program model
-
-A module is a tuple:
+A module is:
 
 $$
-P = (C, I, S, R, M)
+P = (I, S, R, O, M)
 $$
 
-- $C$: logical clock domains;
-- $I$: timestamped input streams;
-- $S$: versioned persistent-state declarations;
-- $R$: pure tensor regions;
-- $M$: policies triggered by a clock.
+- $I$: static external input ports;
+- $S$: authoritative persistent-state slots;
+- $R$: pure typed TensorRegions;
+- $O$: named output ports and groups;
+- $M$: passive invocations.
 
-A runtime configuration is:
+There is no clock, tick, deadline, or middleware object in this tuple.
 
-$$
-\Gamma = (\Sigma, E, T, O)
-$$
+## External inputs
 
-- $\Sigma$: committed state versions;
-- $E$: current clock epochs and input samples;
-- $T$: open transactions;
-- $O$: externally published actions.
+An input port declares a stable integer ID, Tensor or Scalar payload, required
+or optional/default status, static shape/dtype/layout/device/alignment,
+ownership, and optional bounded-profile metadata.
 
-## Logical epochs
-
-An epoch is `(clock, sequence, timestamp_ns, episode)`. `EpochExpr` can select
-the current, next, previous, input, solver, or action-chunk epoch. State reads
-and staged writes use logical epochs; physical addresses are not part of the
-semantic IR.
-
-An input sample is legal when:
-
-1. its episode equals the policy tick episode;
-2. its timestamp does not lie in the future;
-3. its age satisfies the operation and stream freshness contracts.
-
-## Persistent state
-
-A `StateSlot` is a declaration, not mutable storage. A committed logical value
-is identified by:
+`vla.input.read` returns `(value, InputRevision)`. A host binding may include:
 
 ```text
-(session, episode, state, epoch, version)
+InputStamp(revision?: u64, timestamp_ns?: u64)
 ```
 
-`vla.state.read` yields an immutable `snapshot<state, payload>`.
-`vla.snapshot.value` obtains the tensor/scalar payload used by a pure region.
-`vla.state.stage_write` creates a `pending<state, payload>` owned by exactly one
-transaction. Pending values are invisible to other policy ticks.
+`revision` identifies data for exact-cache invalidation. `timestamp_ns` is
+freshness metadata only; VLAForge never synchronizes it. Missing revision is
+replaced by a fresh Session-local revision on every bind/run, so unsafe
+cross-Run reuse is impossible. Optional defaults have stable revision zero.
 
-The reference store deep-copies payloads at read, stage, and commit boundaries.
-This makes accidental Python mutation observably different from an IR state
-transition.
+External CPU/CUDA buffers are borrowed until `Run()` returns. The Session does
+not free them. A contract mismatch is either an explicit copy/preprocessing
+Region or an error; silent dtype/layout/device conversion is illegal.
 
-## Transactions and actions
+## Authoritative state
 
-A policy tick opens a transaction with `vla.txn.begin`. Writes are accumulated
-in a staging map. A successful path:
+A `StateSlot` contains values that affect later Runs and cannot be discarded:
+queue/cursor, previous action, recurrent hidden state, or explicit RNG.
 
-1. samples inputs and reads committed snapshots;
-2. executes pure tensor regions and structured control flow;
-3. stages next state versions;
-4. creates an uncommitted action;
-5. validates the action;
-6. commits state and action exactly once;
-7. publishes only the committed action.
-
-`vla.txn.commit` is the state/action visibility barrier. `vla.action.publish`
-accepts only `committed_action<T>`. An abort discards staged state and publishes
-nothing. A physical robot cannot observe a pending action.
-
-## Pure tensor regions
-
-`TensorRegion` is an opaque, typed, pure function:
+The state transition is:
 
 ```text
-(tensor/scalar inputs, explicit state payloads, explicit RNG state)
-    -> (tensor/scalar outputs, explicit next RNG/state payloads)
+read_latest -> immutable snapshot -> stage_write -> transaction commit
 ```
 
-Hidden RNG, external I/O, and cache/buffer mutation that survives a region
-invocation are illegal effects. Invocation-local workspace or KV cache is
-allowed when it is not externally observable and the region remains
-deterministic for the same explicit inputs. Any value retained across policy
-invocations must be lifted into explicit IR state.
+Committed values are identified by `(session, episode, state, version)`.
+`StateStore` allocates the next monotonically increasing version during a
+successful commit. Abort, execution failure, and validation failure do not
+advance any state version. `ResetEpisode(new_episode)` resets or explicitly
+carries each slot according to its declaration; it is not a clock transition.
 
-## Structured control flow
+## Derived cache
 
-- `vla.if` selects one region and yields its results.
-- `vla.for` carries one explicit iteration value in v0.1.
-- `vla.while` carries explicit values and has a mandatory maximum-iteration
-  bound in the reference interpreter.
-- `vla.async` executes deterministically in the reference interpreter but
-  preserves explicit future/event and read/write effect declarations.
-- `vla.await` is the only operation that unwraps a future.
+Derived cache can be invalidated and recomputed: VLM prefix/KV, condition
+embedding, or diffusion features. It is not authoritative state.
 
-The scheduled IR may later execute asynchronous tasks concurrently. It must
-refine the deterministic result and satisfy the same effects and commit order.
+An exact memoization key is:
 
-## Logical-to-physical state
+$$
+K_f = (\text{model},\text{artifact},\text{region},\text{episode},
+       \text{InputRevision}^*,\text{StateSnapshot.version}^*)
+$$
 
-The semantic IR exposes an unbounded sequence of logical versions. The
-physical-slot analysis computes a bounded capacity:
+Model/artifact identity is compile-time constant in a generated Session.
+Every transitive external input and authoritative snapshot must appear in the
+key. Missing provenance rejects the exact-cache candidate.
+
+Autoregressive decode KV and denoise samples are loop-carried SSA. Exact
+condition reuse may use memoization/LICM. Approximate diffusion reuse must use
+an explicit guarded-reuse contract and never masquerade as exact cache.
+
+## TensorRegions and control flow
+
+`TensorRegion` is a typed deterministic function over Tensor/Scalar values.
+Invocation-local workspace may be internal; external I/O, hidden persistent
+mutation, and hidden RNG are illegal.
+
+The core control set is intentionally small:
+
+- `vla.invoke`;
+- structured `vla.if`;
+- statically bounded `vla.for` with loop-carried SSA;
+- `vla.yield` and `vla.return`.
+
+Model-specific routing remains inside a captured TensorRegion when possible.
+Cross-artifact selection uses structured branch/variant metadata. A new
+extension op is legal only with schema/type verification, reference semantics,
+Plan lowering, serialization version, runtime/codegen, and tests.
+
+## Transactional outputs
+
+Outputs are generic named values, not a hard-coded action:
 
 ```text
-required = max(retention,
-               1 + max_in_flight + consumer_lag + fallback_snapshots)
-slot(version) = version mod required
+output.create -> output.group -> validate -> txn.commit -> return/read_output
 ```
 
-A requested capacity below `required` is rejected. The physicalization
-transformation records the proven capacity but does not change reference
-interpreter behavior.
+`vla.txn.commit` atomically makes all staged state versions and one validated
+output group visible. On failed validation, the transaction aborts, state
+versions do not advance, and the previous committed output remains the latest
+readable result. There is no `vla.action.publish` operation. The host decides
+how to consume or publish trajectories, candidates, scores, detections, VQA
+tokens, or robot actions.
+
+## Four memory classes
+
+| Class | Lifetime | May be discarded? |
+|---|---|---|
+| external input/output | host contract / committed output | host-owned rules |
+| per-Run temporary/static arena | one invocation | yes after Run |
+| authoritative persistent state | across Runs/episodes by policy | no |
+| derived cache | across Runs while key is valid | yes, recompute |
+
+Temporary buffers may alias only under Plan liveness and size/alignment
+compatibility. Derived cache and persistent state never alias ordinary
+temporaries. Persistent state uses a proven ring capacity and logical version
+independent of physical slot.
 
 ## Verification invariants
 
 The verifier rejects:
 
-- undefined or multiply-defined SSA values;
-- unknown clocks, inputs, states, regions, or operations;
-- state accesses using the wrong version clock;
-- state retention incompatible with freshness;
-- state result/payload type mismatches;
-- two staged writes to the same state in one transaction;
-- pending values escaping through yield/return;
-- in-place overwrite of authoritative state;
-- non-pure tensor regions;
-- conflicting un-awaited asynchronous state accesses;
+- undefined or multiply defined SSA values;
+- unknown input/state/region/output identifiers;
+- input/output schema or stable-ID mismatch;
+- unbounded control flow;
+- hidden Region effects;
+- state write without an active transaction;
+- multiple writes to one state in a transaction;
+- pending state/output escaping a block;
 - commit without a dominating validator;
-- commit before required futures are awaited;
-- action publication before commit;
-- successful paths with zero or multiple commits.
+- output/state visibility before commit;
+- exact cache with incomplete revision/state identity;
+- unverified extension opcode;
+- legacy clock/tick/publish operations.
 
-Runtime checks additionally reject stale/future inputs, old-episode state,
-failed validation, missing state versions, and reuse of closed transactions.
+Semantic Interpreter, Scheduled Plan, and generated C++ are required to agree
+on committed outputs, state versions, and normalized runtime trace.

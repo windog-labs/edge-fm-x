@@ -1,5 +1,8 @@
 # VLAForge Static C++ Codegen and CUDA AOTI Report
 
+> **Archived v0.1 evidence.** This report uses tick/epoch/action-publication
+> semantics and is not a current Invocation IR v0.2 release result.
+
 ## Scope and result
 
 Milestone F is implemented and its gate passes.

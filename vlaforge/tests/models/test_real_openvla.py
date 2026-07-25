@@ -5,8 +5,22 @@ import pytest
 
 from vlaforge.adapters.openvla_real import (
     RealOpenVLAConfig,
+    build_real_openvla_action_program,
     run_real_openvla,
 )
+from vlaforge.analysis import verify
+
+
+def test_real_openvla_source_contract_uses_invocation_ir_v02():
+    module = build_real_openvla_action_program(
+        action_dim=7,
+        token_length=19,
+        device="cpu",
+    )
+    assert module.schema_version == "0.2"
+    assert module.states == ()
+    assert [item.name for item in module.outputs] == ["action"]
+    assert verify(module, raise_on_error=False) == ()
 
 
 @pytest.mark.real_model
@@ -28,6 +42,7 @@ def test_real_openvla_checkpoint_matches_ir(tmp_path):
     )
 
     assert evidence.evidence_kind == "real_checkpoint"
+    assert evidence.schema == "vlaforge.real_model_evidence/0.2"
     assert evidence.checkpoint_revision != "unknown"
     assert evidence.input_fixture["name"] == "rgb_coordinate_grid_v1"
     assert evidence.input_fixture["source_image_shape"] == [224, 224, 3]

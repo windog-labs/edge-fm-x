@@ -1,54 +1,48 @@
-# VLAForge Restricted Python Source Contract
+# VLAForge Restricted Source Contract v0.2
 
-VLAForge does not attempt to recover robot semantics from arbitrary Python.
-The source frontend accepts explicitly annotated policies with the following
-contract.
+VLAForge captures model computation, not arbitrary Python applications.
 
-## Tensor regions
+## Adapter declaration
 
-- Inputs and outputs have declared IR types.
-- The callable is deterministic for the same explicit inputs.
-- Persistent buffers and RNG are explicit inputs and outputs.
-- Invocation-local scratch buffers and framework KV caches may remain internal
-  when they are discarded before the region returns.
-- No file, network, robot, global-state, or persistent hidden-cache effects
-  occur.
-- Dynamic shapes are represented by declared shape dimensions and guards.
+An Adapter declares:
 
-The `@tensor_region` annotation records this contract. The restricted
-`torch.export` frontend audits each captured `ExportedProgram` against it and
-returns a versioned unsupported report instead of silently falling back to
-eager Python.
+- static Tensor/Scalar InputPorts and named OutputPorts;
+- required/optional/default values and bounded profiles;
+- authoritative state and episode reset behavior;
+- pure TensorRegion boundaries and artifact variants;
+- bounded loops and structured branches;
+- validators and transactional output groups.
 
-## Program semantics
+The declaration generates Semantic IR ports, stable IDs, I/O schema digest,
+generic C ABI, and model-specific typed C++ wrapper.
 
-The author declares:
+The Adapter does not read sensors, synchronize timestamps, assemble a physical
+schedule, publish commands, or own middleware messages. Bottom software
+converts its objects into TensorView/ScalarValue before binding.
 
-- policy trigger clock;
-- input-stream clock and maximum staleness;
-- persistent state ownership, version clock, retention, reset, and freshness;
-- loop bounds or maximum iterations;
-- action validation and commit point;
-- asynchronous state read/write sets, only when an adapter explicitly uses the
-  compatibility async profile.
+## Captureable TensorRegion
 
-The frontend may infer tensor types and SSA dependencies. It must not infer
-control frequency, action visibility, reset policy, acceptable staleness, or
-whether an approximation is safe.
+A captureable callable must:
 
-## Adapter boundary
+- have declared Tensor/Scalar input/output types;
+- be deterministic for the same explicit values;
+- expose persistent state and RNG as explicit values;
+- use only invocation-local hidden workspace;
+- perform no file/network/middleware/external I/O;
+- satisfy static or bounded shape profiles.
 
-Model adapters may:
+Unsupported capture returns a versioned diagnostic; it never silently falls
+back to eager Python in a no-Python bundle.
 
-- map model input dictionaries to typed input streams;
-- split a source model into pure regions;
-- expose source RNG/cache as explicit state;
-- register Python callables for the reference interpreter;
-- record eager/reference traces.
+## Evidence levels
 
-Adapters may not:
+- L0: pinned source/paper contract mapping.
+- L1: deterministic executable fixture.
+- L2: real frontend capture and eager parity.
+- L3: real compiled artifact parity.
+- L4: generated no-Python C++ Session parity.
 
-- add model-named core operations;
-- mutate the generic interpreter;
-- silently hide unsupported state inside a region;
-- label deterministic fixtures as real-checkpoint evidence.
+Fixture-L4 is labelled separately and never counts as real-checkpoint L4.
+Each Model Adaptation Card records upstream revision, checkpoint/license,
+I/O/state/cache partition, Region split, dynamic profile, Adapter LOC, new core
+op count, unsupported items, evidence paths, memory, and performance.

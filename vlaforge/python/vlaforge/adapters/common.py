@@ -5,14 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Mapping
 
-from vlaforge.interpreter.clocks import Epoch, InputSample
+from vlaforge.interpreter.inputs import InputBinding
 from vlaforge.ir.program import Module
 
 
 @dataclass(frozen=True, slots=True)
-class FixtureTick:
-    tick: Epoch
-    inputs: Mapping[str, InputSample]
+class FixtureRun:
+    inputs: Mapping[str, InputBinding]
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +20,5 @@ class AdapterFixture:
     regions: Mapping[str, Callable[..., object]]
     validators: Mapping[str, Callable[[object], bool]]
     initial_state: Mapping[str, object]
-    ticks: tuple[FixtureTick, ...]
+    runs: tuple[FixtureRun, ...]
     evidence_kind: str = "deterministic_fixture"
-

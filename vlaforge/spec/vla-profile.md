@@ -1,28 +1,39 @@
-# VLAForge v0.1 VLA Profile
+# VLAForge Invocation Profile v0.2
 
-The IR serves VLA inference and control deployment. It is not a general
-reactive-programming, workflow, or distributed-scheduling IR.
+VLAForge is a whole-program compiler for one externally invoked, stateful VLA
+model call. It is deliberately not a sensor, middleware, or real-time
+scheduling framework.
 
-## Required business patterns
+## Required VLA patterns
 
-Every public construct must support at least one of these patterns:
+Every core construct must serve at least one of these deployment patterns:
 
-1. **Observation snapshot** — image, language, and proprioception sampled at a
-   known epoch with a maximum age.
-2. **Persistent policy state** — action queue, RNG state, history, or a cache
-   that the real source retains across policy invocations.
-3. **Pure model regions** — vision/language prefix, autoregressive decode,
-   action expert, solver step, or action decode.
-4. **Bounded action generation** — a finite autoregressive or flow/diffusion
-   loop with explicit carried tensors.
-5. **Action visibility** — state and an action become externally visible only
-   after validation and commit.
+1. **Stamped external input** — statically typed Tensor/Scalar ports with a
+   stable ID and optional `InputRevision`. Multi-camera history, masks,
+   bounded agent/map arrays, language tokens, route commands, and ego state
+   all use this boundary. The host performs acquisition, synchronization, and
+   history assembly.
+2. **Authoritative persistent state** — values whose loss changes later Runs:
+   chunk queues/cursors, recurrent hidden state, previous action, or explicit
+   RNG. A successful transaction allocates the next logical version.
+3. **Pure model Regions** — VLM prefix/decode, vision/BEV encoder, action
+   expert, diffusion/flow step, scorer, detokenizer, and typed external C++ or
+   CUDA preprocessing.
+4. **Bounded generation** — finite autoregressive, diffusion, or flow loops
+   with explicit loop-carried SSA, plus structured branches for cross-artifact
+   fast/slow or expert selection.
+5. **Generic transactional results** — one or more named outputs become
+   visible atomically with staged state. Outputs may be an action, trajectory,
+   candidates and scores, predictions, maps, detections, or auxiliary tokens.
+6. **Derived reuse** — exact cache entries are recomputable and keyed by every
+   transitive input revision, state snapshot version, episode, model, artifact,
+   and Region identity. Guarded approximate reuse is a separate contract.
 
-## Core v0.1 operations
+## Core operations
 
-- `vla.sample_input`
+- `vla.input.read`
 - `vla.txn.begin`
-- `vla.state.read`
+- `vla.state.read_latest`
 - `vla.snapshot.value`
 - `vla.invoke`
 - `vla.if`
@@ -30,47 +41,63 @@ Every public construct must support at least one of these patterns:
 - `vla.yield`
 - `vla.state.stage_write`
 - `vla.validate`
-- `vla.action.create`
+- `vla.output.create`
+- `vla.output.group`
 - `vla.txn.commit` / `vla.txn.abort`
-- `vla.action.publish`
-- `vla.reset`
 - `vla.return`
 
-`vla.if` is needed for action-queue refill versus reuse. `vla.for` covers both
-bounded denoising and bounded action-token generation.
+The passive runtime exposes `Session::Run()` and `ResetEpisode()`. There is no
+IR operation for a timer, tick, deadline, sleep, frame drop, topic, or action
+publication.
 
-## Compatibility-only operations
+## Adapter templates, not core semantics
 
-`vla.while`, `vla.async`, and `vla.await` have minimal reference semantics
-because the original goal requested them. They are not active paper
-contributions and must not grow into general scheduling infrastructure unless
-a real SmolVLA, OpenVLA, or π0 path cannot be represented by the core profile.
+Reusable adapters may implement:
 
-## State admission rule
+- `StatelessTrajectory`
+- `ChunkedAction`
+- `AutoregressiveTrajectory`
+- `DiffusionPlanner`
+- `HybridVLMPlanner`
+- `MultiTaskDriving`
 
-A model adapter may declare a persistent `StateSlot` only when the source
-retains the value across policy invocations.
+For example, an action queue and cursor belong to `ChunkedAction`; they are not
+assumptions of the core IR. Driving adapters normally return an entire
+trajectory or a group of candidates, scores, and auxiliary predictions in one
+Run.
 
-- SmolVLA `select_action`: action queue is persistent.
-- SmolVLA prefix KV: local to one action-chunk inference; keep it as SSA.
-- SmolVLA solver sample: loop-carried SSA, not persistent state.
-- OpenVLA `predict_action`: no cross-tick policy state in the reference path.
-- Transformer KV inside one `generate()` call: region/loop-local unless the
-  deployment source explicitly retains it across calls.
+## State admission
 
-Inventing previous-action, prefix-cache, or history state merely to exercise an
-IR feature is prohibited.
+An adapter declares a persistent `StateSlot` only when the upstream model or
+policy wrapper retains that value across externally visible Runs.
 
-## New-operation admission rule
+- SmolVLA/ACT-style chunk queue and cursor are authoritative state.
+- Transformer decode KV used only inside one bounded generation is
+  loop-carried SSA.
+- A VLM prefix or diffusion condition retained only for acceleration is a
+  derived cache.
+- OpenVLA-style one-shot action generation has no invented cross-Run queue.
 
-A new operation requires:
+The four memory classes remain distinct: external I/O, per-Run arena,
+authoritative persistent state, and derived cache.
 
-1. a source location in a supported real model;
-2. an explanation of why composition of existing core operations is
-   insufficient;
-3. verifier semantics;
-4. positive and negative tests;
-5. evidence that the operation is not model-named.
+## Bounded dynamic inputs
 
-Metadata and TensorRegion names may describe model methods. Core opcodes may
-not contain model names.
+Deployment tensors have a compile-time maximum shape/profile. Runtime
+cardinality is represented by a typed `valid_count` and/or mask. The verifier
+checks the bound; the runtime never allocates unbounded dynamic storage.
+
+## Extension hierarchy
+
+Use the narrowest extension that expresses a new model:
+
+1. add an Adapter/template composition;
+2. add a typed Region or backend/artifact implementation;
+3. add optional fixed-shape input/output ports, an output validator, cache
+   guard, or artifact variant;
+4. only then add a new control/state opcode.
+
+A new opcode requires a versioned schema, type/effect verifier, reference
+semantics, Plan lowering, runtime/codegen implementation, serialization, and
+positive/negative tests. Model-named opcodes and arbitrary unverified
+extension opcodes are forbidden.

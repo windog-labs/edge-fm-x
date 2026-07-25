@@ -1,17 +1,11 @@
-"""Evidence-gated lifting of source-retained values into StateSlot declarations."""
+"""Source-evidence contract for authoritative cross-Run state."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterable
 
-from vlaforge.ir.attrs import (
-    CheckpointPolicy,
-    ConsistencyPolicy,
-    FreshnessConstraint,
-    Ownership,
-    ResetPolicy,
-    StateScope,
-)
+from vlaforge.ir.attrs import Ownership
 from vlaforge.ir.program import StateSlot
 from vlaforge.ir.types import IRType
 
@@ -21,47 +15,41 @@ class PersistentStateEvidence:
     name: str
     payload: IRType
     source_location: str
-    cross_tick_reason: str
-    scope: StateScope
-    version_clock: str
-    retention: int
-    consistency: ConsistencyPolicy = ConsistencyPolicy.SNAPSHOT
-    initializer: str | None = None
-    reset: ResetPolicy = ResetPolicy.EPISODE_START
-    authoritative: bool = False
-    freshness: FreshnessConstraint | None = None
+    cross_run_reason: str
+    retention: int = 2
+    reset_on_episode: bool = True
     ownership: Ownership = Ownership.HOST
-    checkpoint: CheckpointPolicy = CheckpointPolicy.ON_COMMIT
 
     def __post_init__(self) -> None:
-        if not self.name or not self.source_location or not self.cross_tick_reason:
+        if (
+            not self.name
+            or not self.source_location
+            or not self.cross_run_reason
+        ):
             raise ValueError(
-                "state lifting requires name, source location, and cross-tick reason"
+                "persistent state evidence requires name, source location, "
+                "and cross-Run reason"
             )
         if self.retention < 1:
-            raise ValueError("state retention must be positive")
+            raise ValueError("persistent state retention must be positive")
+        if self.ownership is Ownership.EXTERNAL:
+            raise ValueError("authoritative state cannot be externally owned")
 
-    def lift(self) -> StateSlot:
+    def as_ir(self) -> StateSlot:
         return StateSlot(
-            name=self.name,
-            payload=self.payload,
-            scope=self.scope,
-            version_clock=self.version_clock,
+            self.name,
+            self.payload,
             retention=self.retention,
-            consistency=self.consistency,
-            initializer=self.initializer,
-            reset=self.reset,
-            authoritative=self.authoritative,
-            freshness=self.freshness,
+            reset_on_episode=self.reset_on_episode,
             ownership=self.ownership,
-            checkpoint=self.checkpoint,
         )
 
 
 def lift_persistent_states(
-    evidence: tuple[PersistentStateEvidence, ...],
+    evidence: Iterable[PersistentStateEvidence],
 ) -> tuple[StateSlot, ...]:
-    names = [item.name for item in evidence]
+    items = tuple(evidence)
+    names = [item.name for item in items]
     if len(names) != len(set(names)):
-        raise ValueError("state lifting contains duplicate state names")
-    return tuple(item.lift() for item in evidence)
+        raise ValueError("persistent state evidence contains duplicate names")
+    return tuple(item.as_ir() for item in items)

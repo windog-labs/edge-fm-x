@@ -1,4 +1,4 @@
-"""Deterministic interpreter for the normative Python IR semantics."""
+"""Deterministic passive interpreter for Invocation IR v0.2."""
 
 from __future__ import annotations
 
@@ -6,20 +6,24 @@ from dataclasses import dataclass
 from typing import Callable, Mapping
 
 from vlaforge.analysis.verifier import verify
-from vlaforge.interpreter.clocks import Epoch, InputSample, resolve_epoch
+from vlaforge.interpreter.cache import ExactCache
+from vlaforge.interpreter.inputs import (
+    InputBinding,
+    InputStamp,
+    default_binding,
+    resolve_binding,
+)
 from vlaforge.interpreter.state_store import StateStore
 from vlaforge.interpreter.trace import Trace
 from vlaforge.interpreter.transaction import (
-    CommittedAction,
-    EventValue,
-    FutureValue,
-    PendingAction,
+    CommittedOutputGroup,
+    PendingOutput,
+    PendingOutputGroup,
     SnapshotValue,
     Transaction,
 )
-from vlaforge.ir.attrs import EpochExpr
-from vlaforge.ir.program import Block, Module, Operation, Policy
-from vlaforge.ir.types import EpochType
+from vlaforge.ir.program import Block, Invocation, Module, Operation
+from vlaforge.ir.serializer import io_schema_digest, module_digest
 
 
 RegionCallable = Callable[..., object]
@@ -43,12 +47,14 @@ class _ReturnSignal(Exception):
 @dataclass(frozen=True, slots=True)
 class RunResult:
     returns: tuple[object, ...]
-    published_actions: tuple[CommittedAction, ...]
+    committed_outputs: CommittedOutputGroup
     trace: Trace
     state: dict[str, list[dict[str, object]]]
 
 
 class Interpreter:
+    """A caller-driven Session: BindInput, Run, then ReadOutput."""
+
     def __init__(
         self,
         module: Module,
@@ -56,77 +62,204 @@ class Interpreter:
         regions: Mapping[str, RegionCallable],
         validators: Mapping[str, ValidatorCallable],
         initial_state: Mapping[str, object] | None = None,
+        expected_schema_digest: str | None = None,
     ):
         verify(module)
         self.module = module
         self.regions = dict(regions)
         self.validators = dict(validators)
-        missing_regions = {region.name for region in module.regions} - set(self.regions)
+        missing_regions = {
+            region.name for region in module.regions
+        } - set(self.regions)
         if missing_regions:
             raise InterpreterError(
                 f"missing TensorRegion implementations: {sorted(missing_regions)}"
             )
+        self.schema_digest = io_schema_digest(module)
+        self.model_digest = module_digest(module)
+        if (
+            expected_schema_digest is not None
+            and expected_schema_digest != self.schema_digest
+        ):
+            raise InterpreterError(
+                "input/output schema digest mismatch: "
+                f"expected={expected_schema_digest} actual={self.schema_digest}"
+            )
         self.state_store = StateStore(module, initial_values=initial_state)
         self.trace = Trace()
-        self._published: list[CommittedAction] = []
+        self._bindings: dict[str, InputBinding] = {}
+        self._next_auto_revision = 1
+        self._run_index = 0
+        self._active_transaction: Transaction | None = None
+        self._last_outputs: CommittedOutputGroup | None = None
+        self._active_revisions: tuple[tuple[str, int], ...] = ()
+        self._active_snapshots: dict[str, tuple[int, int]] = {}
+        self.cache = ExactCache()
 
-    def run_tick(
+    def bind_input(
         self,
-        policy_name: str,
-        tick: Epoch,
-        inputs: Mapping[str, InputSample],
-        *,
-        arguments: Mapping[str, object] | None = None,
+        input_id: int | str,
+        value: object,
+        stamp: InputStamp | None = None,
+    ) -> None:
+        port = (
+            self.module.inputs[input_id]
+            if isinstance(input_id, int)
+            and 0 <= input_id < len(self.module.inputs)
+            else self.module.input(str(input_id))
+        )
+        self._bindings[port.name] = InputBinding(
+            value,
+            InputStamp() if stamp is None else stamp,
+        )
+
+    def initialize_state(self, state: str, value: object) -> None:
+        self.state_store.initialize(state, value)
+
+    def run(
+        self,
+        invocation_name: str = "act",
+        inputs: Mapping[str, InputBinding] | None = None,
     ) -> RunResult:
-        policy = self.module.policy(policy_name)
-        if tick.clock != policy.clock:
-            raise InterpreterError(
-                f"policy @{policy.name} requires clock @{policy.clock}, "
-                f"got @{tick.clock}"
-            )
-        env = dict(arguments or {})
-        for argument in policy.inputs:
-            if argument.name in env:
-                continue
-            if argument.type == EpochType(policy.clock):
-                env[argument.name] = tick
-            else:
-                raise InterpreterError(
-                    f"missing policy argument %{argument.name} for @{policy.name}"
-                )
-        epochs = {tick.clock: tick}
-        for stream_name, sample in inputs.items():
-            epochs[sample.epoch.clock] = sample.epoch
-            if stream_name not in {stream.name for stream in self.module.inputs}:
-                raise InterpreterError(f"unknown runtime input stream @{stream_name}")
-        start_actions = len(self._published)
+        if inputs is not None:
+            for name, binding in inputs.items():
+                if not isinstance(binding, InputBinding):
+                    raise InterpreterError(
+                        "run inputs must be InputBinding values"
+                    )
+                self.bind_input(name, binding.value, binding.stamp)
+        invocation = self.module.invocation(invocation_name)
         try:
-            self._execute_block(policy, policy.body, env, tick, inputs, epochs)
+            resolved = self._resolve_bindings()
+        finally:
+            self._bindings.clear()
+        self._active_revisions = tuple(
+            sorted((name, value[1]) for name, value in resolved.items())
+        )
+        self._active_snapshots = {}
+        env: dict[str, object] = {}
+        self._active_transaction = None
+        start_index = self._run_index
+        try:
+            self._execute_block(
+                invocation,
+                invocation.body,
+                env,
+                resolved,
+                start_index,
+            )
             returns: tuple[object, ...] = ()
         except _ReturnSignal as signal:
             returns = signal.values
+        except Exception as error:
+            transaction = self._active_transaction
+            if transaction is not None and not transaction.closed:
+                self.state_store.abort(transaction)
+                self._record(
+                    invocation,
+                    start_index,
+                    Operation("vla.txn.abort"),
+                    "transaction_abort",
+                    {
+                        "transaction_id": transaction.id,
+                        "reason": "execution_error",
+                    },
+                )
+            self._active_transaction = None
+            if isinstance(error, InterpreterError):
+                raise
+            raise InterpreterError(str(error)) from error
+        finally:
+            self._run_index += 1
+
+        if len(returns) != 1 or not isinstance(
+            returns[0], CommittedOutputGroup
+        ):
+            raise InterpreterError(
+                f"invocation @{invocation.name} did not return committed "
+                "output group"
+            )
+        committed = returns[0]
+        if self._last_outputs != committed:
+            raise InterpreterError(
+                "returned output group is not the committed output group"
+            )
         return RunResult(
             returns=returns,
-            published_actions=tuple(self._published[start_actions:]),
+            committed_outputs=committed,
             trace=self.trace,
             state=self.state_store.inspect(),
         )
 
+    def read_output(self, output_id: int | str = 0) -> object:
+        if self._last_outputs is None:
+            raise InterpreterError("no committed output is available")
+        port = (
+            self.module.outputs[output_id]
+            if isinstance(output_id, int)
+            and 0 <= output_id < len(self.module.outputs)
+            else self.module.output(str(output_id))
+        )
+        try:
+            return self._last_outputs.output(port.name)
+        except KeyError as error:
+            raise InterpreterError(
+                f"latest output group does not contain @{port.name}"
+            ) from error
+
+    def read_output_group(self) -> CommittedOutputGroup:
+        if self._last_outputs is None:
+            raise InterpreterError("no committed output group is available")
+        return self._last_outputs
+
     def reset_episode(self, new_episode: int) -> None:
         self.state_store.reset(new_episode)
+        self._last_outputs = None
+        self.cache.clear()
+        self.trace.record(
+            "reset",
+            "session",
+            self._run_index,
+            "vla.session.reset",
+            {"episode": new_episode},
+        )
+
+    def _resolve_bindings(self) -> dict[str, tuple[object, int, int | None]]:
+        result: dict[str, tuple[object, int, int | None]] = {}
+        for port in self.module.inputs:
+            binding = self._bindings.get(port.name)
+            if binding is None:
+                if port.required:
+                    raise InterpreterError(
+                        f"required input @{port.name} is not bound"
+                    )
+                binding = default_binding(port)
+            revision = binding.stamp.revision
+            if revision is None:
+                revision = self._next_auto_revision
+                self._next_auto_revision += 1
+            try:
+                value = resolve_binding(port, binding)
+            except (TypeError, ValueError) as error:
+                raise InterpreterError(str(error)) from error
+            result[port.name] = (value, revision, binding.stamp.timestamp_ns)
+        return result
 
     def _execute_block(
         self,
-        policy: Policy,
+        invocation: Invocation,
         block: Block,
         env: dict[str, object],
-        tick: Epoch,
-        inputs: Mapping[str, InputSample],
-        epochs: dict[str, Epoch],
+        inputs: Mapping[str, tuple[object, int, int | None]],
+        run_index: int,
     ) -> None:
         for operation in block.operations:
             results = self._execute_operation(
-                policy, operation, env, tick, inputs, epochs
+                invocation,
+                operation,
+                env,
+                inputs,
+                run_index,
             )
             if len(results) != len(operation.results):
                 raise InterpreterError(
@@ -138,83 +271,61 @@ class Interpreter:
 
     def _execute_operation(
         self,
-        policy: Policy,
+        invocation: Invocation,
         operation: Operation,
         env: dict[str, object],
-        tick: Epoch,
-        inputs: Mapping[str, InputSample],
-        epochs: dict[str, Epoch],
+        inputs: Mapping[str, tuple[object, int, int | None]],
+        run_index: int,
     ) -> tuple[object, ...]:
         opcode = operation.opcode
         operands = tuple(env[name] for name in operation.operands)
 
-        if opcode == "vla.sample_input":
-            stream_name = str(operation.attributes["stream"])
-            if stream_name not in inputs:
-                raise InterpreterError(f"missing input sample @{stream_name}")
-            sample = inputs[stream_name]
-            if sample.epoch.episode != tick.episode:
-                raise InterpreterError(
-                    f"input @{stream_name} belongs to episode "
-                    f"{sample.epoch.episode}, current episode is {tick.episode}"
-                )
-            if sample.epoch.timestamp_ns > tick.timestamp_ns:
-                raise InterpreterError(
-                    f"input @{stream_name} is from the future: "
-                    f"{sample.epoch.timestamp_ns}>{tick.timestamp_ns}"
-                )
-            max_age = operation.attributes.get("max_age_ns")
-            age = tick.timestamp_ns - sample.epoch.timestamp_ns
-            if max_age is not None and age > int(max_age):
-                raise InterpreterError(
-                    f"program={self.module.name} rule=freshness.stale_input "
-                    f"op={opcode} stream={stream_name} epoch={sample.epoch.sequence} "
-                    f"age_ns={age} max_age_ns={max_age}"
-                )
-            epochs[sample.epoch.clock] = sample.epoch
-            self._record(policy, tick, opcode, "input", {
-                "stream": stream_name,
-                "epoch": sample.epoch,
-                "value": sample.value,
-            })
-            return sample.value, sample.epoch
+        if opcode == "vla.input.read":
+            name = str(operation.attributes["input"])
+            value, revision, timestamp_ns = inputs[name]
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "input",
+                {
+                    "input": name,
+                    "revision": revision,
+                    "timestamp_ns": timestamp_ns,
+                    "value": value,
+                },
+            )
+            return value, revision
 
         if opcode == "vla.txn.begin":
-            transaction = self.state_store.begin(operands[0])
-            self._record(policy, tick, opcode, "transaction_begin", {
-                "transaction_id": transaction.id
-            })
+            transaction = self.state_store.begin()
+            self._active_transaction = transaction
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "transaction_begin",
+                {"transaction_id": transaction.id},
+            )
             return (transaction,)
 
-        if opcode == "vla.state.read":
+        if opcode == "vla.state.read_latest":
             transaction = _expect(operands[0], Transaction, opcode)
+            if transaction is not self._active_transaction:
+                raise InterpreterError("state read uses inactive transaction")
             state_name = str(operation.attributes["state"])
-            expression = EpochExpr.from_dict(operation.attributes["epoch"])
-            resolved = resolve_epoch(expression, epochs, fallback=transaction.tick)
-            version_mode = str(operation.attributes.get("version", "latest"))
-            snapshot = self.state_store.read(
-                state_name,
-                episode=tick.episode,
-                exact_sequence=(
-                    resolved.sequence if version_mode == "exact" else None
-                ),
-                max_sequence=(
-                    None if version_mode == "exact" else resolved.sequence
-                ),
+            snapshot = self.state_store.read_latest(state_name)
+            self._active_snapshots[state_name] = (
+                snapshot.episode,
+                snapshot.version,
             )
-            slot = self.module.state(state_name)
-            if (
-                slot.freshness is not None
-                and slot.freshness.max_versions is not None
-                and resolved.sequence - snapshot.epoch.sequence
-                > slot.freshness.max_versions
-            ):
-                raise InterpreterError(
-                    f"program={self.module.name} rule=freshness.stale_state "
-                    f"op={opcode} state={state_name} epoch={resolved.sequence} "
-                    f"version={snapshot.version}"
-                )
-            self._record(policy, tick, opcode, "state_read", snapshot)
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "state_read",
+                snapshot,
+            )
             return (snapshot,)
 
         if opcode == "vla.snapshot.value":
@@ -224,23 +335,60 @@ class Interpreter:
         if opcode == "vla.invoke":
             region_name = str(operation.attributes["region"])
             call_args = tuple(_unwrap(value) for value in operands)
-            result = self.regions[region_name](*call_args)
+            region = self.module.region(region_name)
+            cache_key = None
+            cache_hit = False
+            executed = True
+            result: object
+            if bool(region.metadata.get("memoize", False)):
+                cache_key = self._cache_key(region_name)
+                lookup = self.cache.lookup(cache_key)
+                cache_hit = lookup.hit
+                if lookup.hit:
+                    result = lookup.value
+                    executed = False
+                else:
+                    result = self.regions[region_name](*call_args)
+                    self.cache.store(cache_key, result)
+                self._record(
+                    invocation,
+                    run_index,
+                    operation,
+                    "cache",
+                    {
+                        "region": region_name,
+                        "hit": cache_hit,
+                        "input_revisions": self._active_revisions,
+                        "state_snapshots": tuple(
+                            sorted(self._active_snapshots.items())
+                        ),
+                    },
+                )
+            else:
+                result = self.regions[region_name](*call_args)
             expected = len(operation.results)
             if expected == 0:
                 values: tuple[object, ...] = ()
             elif expected == 1:
                 values = (result,)
+            elif not isinstance(result, tuple | list):
+                raise InterpreterError(
+                    f"region @{region_name} must return {expected} values"
+                )
             else:
-                if not isinstance(result, tuple | list):
-                    raise InterpreterError(
-                        f"region @{region_name} must return {expected} values"
-                    )
                 values = tuple(result)
-            self._record(policy, tick, opcode, "region", {
-                "region": region_name,
-                "inputs": call_args,
-                "outputs": values,
-            })
+            if executed:
+                self._record(
+                    invocation,
+                    run_index,
+                    operation,
+                    "region",
+                    {
+                        "region": region_name,
+                        "inputs": call_args,
+                        "outputs": values,
+                    },
+                )
             return values
 
         if opcode == "vla.for":
@@ -257,57 +405,34 @@ class Interpreter:
                 nested[induction_name] = index
                 nested[iter_name] = current
                 try:
-                    self._execute_block(policy, body, nested, tick, inputs, epochs)
+                    self._execute_block(
+                        invocation,
+                        body,
+                        nested,
+                        inputs,
+                        run_index,
+                    )
                 except _YieldSignal as signal:
                     if len(signal.values) != 1:
-                        raise InterpreterError("vla.for body must yield one iter value")
+                        raise InterpreterError(
+                            "vla.for body must yield one iter value"
+                        )
                     current = signal.values[0]
                 else:
                     raise InterpreterError("vla.for body did not yield")
             return (current,)
 
-        if opcode == "vla.while":
-            carry = operands
-            condition_block, body_block = operation.regions
-            for _ in range(int(operation.attributes["max_iterations"])):
-                condition_env = dict(env)
-                for argument, value in zip(
-                    condition_block.arguments, carry, strict=True
-                ):
-                    condition_env[argument.name] = value
-                try:
-                    self._execute_block(
-                        policy, condition_block, condition_env, tick, inputs, epochs
-                    )
-                except _YieldSignal as signal:
-                    if not signal.values:
-                        raise InterpreterError("while condition yielded no predicate")
-                    predicate = bool(signal.values[0])
-                    condition_carry = signal.values[1:] or carry
-                else:
-                    raise InterpreterError("while condition did not yield")
-                if not predicate:
-                    return tuple(condition_carry)
-                body_env = dict(env)
-                for argument, value in zip(
-                    body_block.arguments, condition_carry, strict=True
-                ):
-                    body_env[argument.name] = value
-                try:
-                    self._execute_block(
-                        policy, body_block, body_env, tick, inputs, epochs
-                    )
-                except _YieldSignal as signal:
-                    carry = signal.values
-                else:
-                    raise InterpreterError("while body did not yield")
-            raise InterpreterError("vla.while exceeded max_iterations")
-
         if opcode == "vla.if":
             block = operation.regions[0 if bool(operands[0]) else 1]
             nested = dict(env)
             try:
-                self._execute_block(policy, block, nested, tick, inputs, epochs)
+                self._execute_block(
+                    invocation,
+                    block,
+                    nested,
+                    inputs,
+                    run_index,
+                )
             except _YieldSignal as signal:
                 return signal.values
             raise InterpreterError("vla.if branch did not yield")
@@ -321,12 +446,18 @@ class Interpreter:
         if opcode == "vla.state.stage_write":
             transaction = _expect(operands[0], Transaction, opcode)
             state_name = str(operation.attributes["state"])
-            expression = EpochExpr.from_dict(operation.attributes["epoch"])
-            resolved = resolve_epoch(expression, epochs, fallback=transaction.tick)
             pending = self.state_store.stage(
-                transaction, state_name, resolved, _unwrap(operands[1])
+                transaction,
+                state_name,
+                _unwrap(operands[1]),
             )
-            self._record(policy, tick, opcode, "state_stage", pending)
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "state_stage",
+                pending,
+            )
             return (pending,)
 
         if opcode == "vla.validate":
@@ -334,95 +465,129 @@ class Interpreter:
             if contract not in self.validators:
                 raise InterpreterError(f"missing validator @{contract}")
             valid = bool(self.validators[contract](_unwrap(operands[0])))
-            self._record(policy, tick, opcode, "validation", {
-                "contract": contract,
-                "valid": valid,
-            })
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "validation",
+                {"contract": contract, "valid": valid},
+            )
             return (valid,)
 
-        if opcode == "vla.action.create":
-            epoch = _expect(operands[1], Epoch, opcode)
-            action = PendingAction(epoch, _unwrap(operands[0]))
-            self._record(policy, tick, opcode, "action_pending", action)
-            return (action,)
+        if opcode == "vla.output.create":
+            pending = PendingOutput(
+                str(operation.attributes["output"]),
+                _unwrap(operands[0]),
+            )
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "output_pending",
+                pending,
+            )
+            return (pending,)
+
+        if opcode == "vla.output.group":
+            group = PendingOutputGroup(
+                str(operation.attributes["group"]),
+                tuple(
+                    _expect(item, PendingOutput, opcode)
+                    for item in operands
+                ),
+            )
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "output_group_pending",
+                group,
+            )
+            return (group,)
 
         if opcode == "vla.txn.commit":
             transaction = _expect(operands[0], Transaction, opcode)
-            action = _expect(operands[1], PendingAction, opcode)
+            pending = _expect(operands[1], PendingOutputGroup, opcode)
             if not bool(operands[2]):
                 self.state_store.abort(transaction)
-                self._record(policy, tick, opcode, "transaction_abort", {
-                    "transaction_id": transaction.id,
-                    "reason": "validation",
-                })
+                self._active_transaction = None
+                self._record(
+                    invocation,
+                    run_index,
+                    operation,
+                    "transaction_abort",
+                    {
+                        "transaction_id": transaction.id,
+                        "reason": "validation",
+                    },
+                )
                 raise InterpreterError(
                     f"transaction {transaction.id} failed validation"
                 )
             committed_states = self.state_store.commit(transaction)
-            committed_action = CommittedAction(
-                action.epoch, action.value, transaction.id
+            committed = CommittedOutputGroup(
+                pending.group,
+                pending.outputs,
+                transaction.id,
+                self.state_store.episode,
             )
-            self._record(policy, tick, opcode, "transaction_commit", {
-                "transaction_id": transaction.id,
-                "states": committed_states,
-                "action": committed_action,
-            })
-            return (committed_action,)
+            self._last_outputs = committed
+            self._active_transaction = None
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "transaction_commit",
+                {
+                    "transaction_id": transaction.id,
+                    "states": committed_states,
+                    "output": committed,
+                },
+            )
+            return (committed,)
 
         if opcode == "vla.txn.abort":
             transaction = _expect(operands[0], Transaction, opcode)
             self.state_store.abort(transaction)
-            self._record(policy, tick, opcode, "transaction_abort", {
-                "transaction_id": transaction.id,
-                "reason": operation.attributes.get("reason", ""),
-            })
+            self._active_transaction = None
+            self._record(
+                invocation,
+                run_index,
+                operation,
+                "transaction_abort",
+                {
+                    "transaction_id": transaction.id,
+                    "reason": operation.attributes.get("reason", ""),
+                },
+            )
             return ()
 
-        if opcode == "vla.action.publish":
-            action = _expect(operands[0], CommittedAction, opcode)
-            self._published.append(action)
-            self._record(policy, tick, opcode, "action_publish", action)
-            return ()
+        raise InterpreterError(f"unsupported operation {opcode}")
 
-        if opcode == "vla.reset":
-            states = tuple(str(item) for item in operation.attributes["states"])
-            self.state_store.reset(tick.episode + 1, states)
-            self._record(policy, tick, opcode, "reset", {"states": states})
-            return ()
-
-        if opcode == "vla.async":
-            nested = dict(env)
-            try:
-                self._execute_block(
-                    policy, operation.regions[0], nested, tick, inputs, epochs
-                )
-            except _YieldSignal as signal:
-                if len(signal.values) != 1:
-                    raise InterpreterError("vla.async must yield one value")
-                future = FutureValue(signal.values[0], completed=True)
-            else:
-                raise InterpreterError("vla.async body did not yield")
-            self._record(policy, tick, opcode, "async_complete", future.value)
-            return future, EventValue(True)
-
-        if opcode == "vla.await":
-            future = _expect(operands[0], FutureValue, opcode)
-            if not future.completed:
-                raise InterpreterError("reference interpreter received incomplete future")
-            self._record(policy, tick, opcode, "await", future.value)
-            return (future.value,)
-
-        raise InterpreterError(f"unsupported operation: {opcode}")
+    def _cache_key(self, region_name: str) -> tuple[object, ...]:
+        return (
+            self.model_digest,
+            region_name,
+            self.state_store.episode,
+            self._active_revisions,
+            tuple(sorted(self._active_snapshots.items())),
+        )
 
     def _record(
         self,
-        policy: Policy,
-        tick: Epoch,
-        op: str,
+        invocation: Invocation,
+        run_index: int,
+        operation: Operation,
         kind: str,
         data: object,
     ) -> None:
-        self.trace.record(kind, policy.name, tick, op, data)
+        self.trace.record(
+            kind,
+            invocation.name,
+            run_index,
+            operation.opcode,
+            data,
+        )
 
 
 def _unwrap(value: object) -> object:
@@ -434,6 +599,7 @@ def _unwrap(value: object) -> object:
 def _expect(value: object, expected: type, opcode: str):
     if not isinstance(value, expected):
         raise InterpreterError(
-            f"{opcode} expected {expected.__name__}, got {type(value).__name__}"
+            f"{opcode} expected {expected.__name__}, "
+            f"got {type(value).__name__}"
         )
     return value

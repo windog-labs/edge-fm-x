@@ -1,6 +1,4 @@
 import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 from vlaforge.adapters import build_smolvla_fixture
 from vlaforge.analysis import (
@@ -29,7 +27,7 @@ def test_liveness_covers_loop_and_commit_values():
             build_smolvla_fixture().module, "act"
         )
     }
-    assert ranges["tick"].first_definition == -1
+    assert ranges["image_value"].first_definition == 0
     assert ranges["txn"].last_use > ranges["txn"].first_definition
     assert ranges["selected_action"].last_use > ranges["selected_action"].first_definition
 
@@ -50,12 +48,14 @@ def test_physical_slot_plan_rejects_unsafe_capacity():
         )
 
 
-@settings(max_examples=100, derandomize=True, deadline=None)
-@given(
-    in_flight=st.integers(min_value=1, max_value=8),
-    lag=st.integers(min_value=0, max_value=6),
-    fallback=st.integers(min_value=0, max_value=4),
-    first_version=st.integers(min_value=0, max_value=10_000),
+@pytest.mark.parametrize(
+    ("in_flight", "lag", "fallback", "first_version"),
+    (
+        (1, 0, 0, 0),
+        (2, 1, 1, 17),
+        (4, 3, 2, 1_001),
+        (8, 6, 4, 10_000),
+    ),
 )
 def test_physical_slot_mapping_is_bounded_and_collision_free_in_live_window(
     in_flight,

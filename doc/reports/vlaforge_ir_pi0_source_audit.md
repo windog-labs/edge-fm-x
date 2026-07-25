@@ -1,5 +1,8 @@
 # VLAForge IR: π0 / π0.5 held-out source audit
 
+> **Historical source audit.** Use the current pinned contract and evidence
+> status in `doc/model_cards/pi0.md` for v0.2.
+
 Date: 2026-07-23
 
 Evidence level: source audit only; no checkpoint execution is claimed.

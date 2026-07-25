@@ -1,0 +1,62 @@
+{
+  "ablations": [
+    {
+      "ablation": "no_input_revision_fail_closed",
+      "adversarial_case": "same borrowed tensor is bound twice without a revision",
+      "contract_detected_fault": true,
+      "expected_rule": "runtime.cache_miss_without_revision",
+      "failure_mode": "without fail-closed identity, changed external storage could silently reuse a derived cache",
+      "observed_rules": [
+        "hits=0",
+        "misses=2"
+      ],
+      "removed_contract": "missing InputRevision is assigned a fresh identity per Bind/Run",
+      "unsafe_program_accepted": false
+    },
+    {
+      "ablation": "no_io_schema_digest",
+      "adversarial_case": "caller initializes a session with a stale schema",
+      "contract_detected_fault": true,
+      "expected_rule": "runtime.schema_digest_mismatch",
+      "failure_mode": "model upgrade could silently bind the wrong input id",
+      "observed_rules": [
+        "input/output schema digest mismatch: expected=0000000000000000000000000000000000000000000000000000000000000000 actual=144081eb6287422643a1f88ede09d39652250d16d6442da654bfef9d09e87b5c"
+      ],
+      "removed_contract": "bundle/session I/O schema digest match",
+      "unsafe_program_accepted": false
+    },
+    {
+      "ablation": "no_atomic_state_output_commit",
+      "adversarial_case": "output validation fails after state staging",
+      "contract_detected_fault": true,
+      "expected_rule": "runtime.abort_preserves_state_and_output",
+      "failure_mode": "state and externally observed model output could describe different invocations",
+      "observed_rules": [
+        "before_version=0",
+        "after_version=0",
+        "output_unavailable=True"
+      ],
+      "removed_contract": "state staging and named outputs share one validated transaction",
+      "unsafe_program_accepted": false
+    },
+    {
+      "ablation": "no_transactional_output_boundary",
+      "adversarial_case": "an Adapter inserts an action.publish opcode",
+      "contract_detected_fault": true,
+      "expected_rule": "op.unknown",
+      "failure_mode": "the compiler would perform bottom-software I/O and expose uncommitted values",
+      "observed_rules": [
+        "op.unknown"
+      ],
+      "removed_contract": "Session returns only committed output groups",
+      "unsafe_program_accepted": false
+    }
+  ],
+  "baseline": {
+    "openvla_verifier_rules": [],
+    "smolvla_verifier_rules": []
+  },
+  "evidence_scope": "adversarial deployment-contract tests; not vehicle safety proof",
+  "gate_passed": true,
+  "schema": "vlaforge.ir_necessity_ablation/2"
+}

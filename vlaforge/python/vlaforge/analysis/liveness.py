@@ -14,10 +14,12 @@ class LiveRange:
     last_use: int
 
 
-def analyze_liveness(module: Module, policy_name: str) -> tuple[LiveRange, ...]:
-    policy = module.policy(policy_name)
-    positions: dict[str, int] = {value.name: -1 for value in policy.inputs}
-    last_use: dict[str, int] = dict(positions)
+def analyze_liveness(
+    module: Module, invocation_name: str
+) -> tuple[LiveRange, ...]:
+    invocation = module.invocation(invocation_name)
+    positions: dict[str, int] = {}
+    last_use: dict[str, int] = {}
     counter = 0
 
     def visit(block: Block) -> None:
@@ -36,9 +38,8 @@ def analyze_liveness(module: Module, policy_name: str) -> tuple[LiveRange, ...]:
             for region in operation.regions:
                 visit(region)
 
-    visit(policy.body)
+    visit(invocation.body)
     return tuple(
         LiveRange(name, start, last_use.get(name, start))
         for name, start in sorted(positions.items())
     )
-

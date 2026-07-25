@@ -1,0 +1,46 @@
+{
+  "action_max_abs_error": 0.0,
+  "action_queue_max_abs_errors": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "action_shape": [
+    1,
+    50,
+    6
+  ],
+  "checkpoint_path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base/model.safetensors",
+  "checkpoint_sha256": "7cd549ac2351fb069c0ddb3c34ad2d09cfc92b56a15dccdfc2e41467aaca01eb",
+  "device": "cuda:0",
+  "eager_seconds": 0.3253974700346589,
+  "evidence_kind": "real_checkpoint",
+  "gpu_name": "NVIDIA GeForce RTX 3060",
+  "ir_seconds": 0.12683320580981672,
+  "lerobot_revision": "8fff0fde",
+  "num_steps": 10,
+  "passed": true,
+  "peak_memory_mb": 920.466796875,
+  "queue_seconds": [
+    0.11686862399801612,
+    0.0019537180196493864,
+    0.0018925019539892673
+  ],
+  "schema": "vlaforge.real_model_evidence/0.2",
+  "solver_max_abs_errors": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "torch_version": "2.6.0+cu126",
+  "trace_events": 67,
+  "transformers_version": "4.57.3",
+  "vlm_path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLM2-500M-Video-Instruct"
+}

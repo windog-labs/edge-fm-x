@@ -1,37 +1,27 @@
-"""Deterministic SmolVLA-shaped fixture using only generic core operations.
+"""SmolVLA-shaped ChunkedAction fixture for Invocation IR v0.2.
 
-This adapter is for offline semantic testing. It is deliberately labelled as a
-fixture and is not evidence that the real ``lerobot/smolvla_base`` checkpoint
-has run.
+This is executable model-structure evidence (L1), not proof that the real
+``lerobot/smolvla_base`` checkpoint has been captured or compiled.
 """
 
 from __future__ import annotations
 
 import math
 
-from vlaforge.adapters.common import AdapterFixture, FixtureTick
+from vlaforge.adapters.common import AdapterFixture, FixtureRun
 from vlaforge.frontend.builder import ModuleBuilder
-from vlaforge.interpreter.clocks import Epoch, InputSample
+from vlaforge.interpreter import InputBinding, InputStamp, TensorView
 from vlaforge.ir import ops
-from vlaforge.ir.attrs import (
-    CheckpointPolicy,
-    ConsistencyPolicy,
-    EpochExpr,
-    FreshnessConstraint,
-    Ownership,
-    ResetPolicy,
-    StateScope,
-)
 from vlaforge.ir.program import (
     Block,
-    ClockDomain,
-    InputStream,
-    Policy,
+    InputPort,
+    Invocation,
+    OutputPort,
     StateSlot,
     TensorRegion,
     Value,
 )
-from vlaforge.ir.types import EpochType, ScalarType, TensorType
+from vlaforge.ir.types import PendingOutputType, ScalarType, TensorType
 
 
 VECTOR = TensorType((2,), "f32")
@@ -41,65 +31,18 @@ CURSOR = ScalarType("i32")
 
 
 def build_smolvla_fixture() -> AdapterFixture:
-    builder = ModuleBuilder("flow_policy_fixture")
-    builder.add_clock(ClockDomain("observation", period_ns=33_333_333))
-    builder.add_clock(
-        ClockDomain("control", period_ns=20_000_000, deadline_ns=18_000_000)
-    )
-    builder.add_input(
-        InputStream(
-            "image",
-            VECTOR,
-            "observation",
-            FreshnessConstraint(max_age_ns=50_000_000),
-        )
-    )
-    builder.add_state(
-        StateSlot(
-            "action_queue",
-            ACTION_CHUNK,
-            StateScope.EPISODE,
-            "control",
-            retention=3,
-            consistency=ConsistencyPolicy.SNAPSHOT,
-            reset=ResetPolicy.EPISODE_START,
-            authoritative=True,
-            ownership=Ownership.HOST,
-            checkpoint=CheckpointPolicy.ON_COMMIT,
-        )
-    )
-    builder.add_state(
-        StateSlot(
-            "queue_cursor",
-            CURSOR,
-            StateScope.EPISODE,
-            "control",
-            retention=3,
-            consistency=ConsistencyPolicy.SNAPSHOT,
-            reset=ResetPolicy.EPISODE_START,
-            authoritative=True,
-            checkpoint=CheckpointPolicy.ON_COMMIT,
-        )
-    )
-    builder.add_state(
-        StateSlot(
-            "rng",
-            RNG,
-            StateScope.SESSION,
-            "control",
-            retention=3,
-            consistency=ConsistencyPolicy.SNAPSHOT,
-            reset=ResetPolicy.EPISODE_START,
-            checkpoint=CheckpointPolicy.ON_COMMIT,
-        )
-    )
-
+    builder = ModuleBuilder("smolvla_chunked_action_fixture")
+    builder.add_input(InputPort("image", VECTOR))
+    builder.add_output(OutputPort("action", VECTOR, group="manipulation"))
+    builder.add_state(StateSlot("action_queue", ACTION_CHUNK, retention=3))
+    builder.add_state(StateSlot("queue_cursor", CURSOR, retention=3))
+    builder.add_state(StateSlot("rng", RNG, retention=3))
     builder.add_region(
         TensorRegion(
             "encode_observation",
             (Value("image_arg", VECTOR),),
             (VECTOR,),
-            metadata={"memoize": True, "loop_invariant": True},
+            metadata={"memoize": True, "template": "ChunkedAction"},
         )
     )
     builder.add_region(
@@ -159,7 +102,7 @@ def build_smolvla_fixture() -> AdapterFixture:
                 ("sample_next",),
                 (ACTION_CHUNK,),
                 "solver_step",
-                ("prefix", "sample_iter", "step"),
+                ("prefix", "sample_iter", "solver_index"),
             ),
             ops.yield_values("sample_next"),
         )
@@ -167,7 +110,10 @@ def build_smolvla_fixture() -> AdapterFixture:
     refill_branch = Block.of(
         (
             ops.invoke(
-                ("prefix",), (VECTOR,), "encode_observation", ("image_value",)
+                ("prefix",),
+                (VECTOR,),
+                "encode_observation",
+                ("image_value",),
             ),
             ops.invoke(
                 ("sample_initial", "rng_after_refill"),
@@ -178,7 +124,7 @@ def build_smolvla_fixture() -> AdapterFixture:
             ops.for_loop(
                 Value("sample_final", ACTION_CHUNK),
                 "sample_initial",
-                Value("step", ScalarType("index")),
+                Value("solver_index", ScalarType("index")),
                 Value("sample_iter", ACTION_CHUNK),
                 loop_body,
                 lower=0,
@@ -232,40 +178,26 @@ def build_smolvla_fixture() -> AdapterFixture:
             ),
         )
     )
+    pending_action_type = PendingOutputType("action", VECTOR)
     body = Block.of(
         (
-            ops.sample_input(
-                "image_value",
-                "observation_epoch",
-                VECTOR,
-                "image",
-                "observation",
-                max_age_ns=50_000_000,
-            ),
-            ops.transaction_begin("txn", "tick"),
-            ops.state_read(
+            ops.input_read("image_value", "image_revision", VECTOR, "image"),
+            ops.transaction_begin("txn"),
+            ops.state_read_latest(
                 "queue_snapshot",
                 ACTION_CHUNK,
                 "action_queue",
                 "txn",
-                epoch=EpochExpr.current("control"),
             ),
             ops.snapshot_value("queue_value", ACTION_CHUNK, "queue_snapshot"),
-            ops.state_read(
+            ops.state_read_latest(
                 "cursor_snapshot",
                 CURSOR,
                 "queue_cursor",
                 "txn",
-                epoch=EpochExpr.current("control"),
             ),
             ops.snapshot_value("cursor_value", CURSOR, "cursor_snapshot"),
-            ops.state_read(
-                "rng_snapshot",
-                RNG,
-                "rng",
-                "txn",
-                epoch=EpochExpr.current("control"),
-            ),
+            ops.state_read_latest("rng_snapshot", RNG, "rng", "txn"),
             ops.snapshot_value("rng_value", RNG, "rng_snapshot"),
             ops.invoke(
                 ("queue_empty",),
@@ -273,12 +205,7 @@ def build_smolvla_fixture() -> AdapterFixture:
                 "queue_is_empty",
                 ("cursor_value",),
             ),
-            ops.invoke(
-                ("zero_cursor",),
-                (CURSOR,),
-                "queue_zero",
-                (),
-            ),
+            ops.invoke(("zero_cursor",), (CURSOR,), "queue_zero", ()),
             ops.if_op(
                 (
                     Value("selected_action", VECTOR),
@@ -296,7 +223,6 @@ def build_smolvla_fixture() -> AdapterFixture:
                 "action_queue",
                 "txn",
                 "queue_next",
-                epoch=EpochExpr.next("control"),
             ),
             ops.stage_write(
                 "cursor_pending",
@@ -304,7 +230,6 @@ def build_smolvla_fixture() -> AdapterFixture:
                 "queue_cursor",
                 "txn",
                 "cursor_next",
-                epoch=EpochExpr.next("control"),
             ),
             ops.stage_write(
                 "rng_pending",
@@ -312,37 +237,46 @@ def build_smolvla_fixture() -> AdapterFixture:
                 "rng",
                 "txn",
                 "rng_next",
-                epoch=EpochExpr.next("control"),
             ),
             ops.validate("action_valid", "selected_action", "finite_action"),
-            ops.action_create(
-                "pending_action", "selected_action", VECTOR, "tick"
+            ops.output_create(
+                "pending_action",
+                "selected_action",
+                VECTOR,
+                "action",
+            ),
+            ops.output_group(
+                "pending_outputs",
+                "manipulation",
+                (("pending_action", pending_action_type),),
             ),
             ops.transaction_commit(
-                "committed_action",
-                VECTOR,
+                "committed_outputs",
+                (pending_action_type,),
+                "manipulation",
                 "txn",
-                "pending_action",
+                "pending_outputs",
                 "action_valid",
             ),
-            ops.action_publish("committed_action"),
-            ops.return_values("committed_action"),
+            ops.return_values("committed_outputs"),
         )
     )
-    builder.add_policy(
-        Policy(
+    builder.add_invocation(
+        Invocation(
             "act",
-            "control",
             body,
-            inputs=(Value("tick", EpochType("control")),),
-            metadata={"action_generation": "iterative_continuous"},
+            metadata={
+                "action_generation": "iterative_continuous_chunk",
+                "adapter_template": "ChunkedAction",
+                "persistent_state": "action_queue,queue_cursor,rng",
+            },
         )
     )
 
-    def encode_observation(image: tuple[float, float]) -> tuple[float, float]:
+    def encode_observation(image):
         return tuple(float(item) * 2.0 for item in image)
 
-    def sample_noise(rng: int) -> tuple[tuple[tuple[float, float], ...], int]:
+    def sample_noise(rng):
         chunk = tuple(
             (
                 ((rng * 17 + 11 + index * 5) % 101) / 100.0,
@@ -352,11 +286,7 @@ def build_smolvla_fixture() -> AdapterFixture:
         )
         return chunk, rng + 1
 
-    def solver_step(
-        prefix: tuple[float, float],
-        sample: tuple[tuple[float, float], ...],
-        step: int,
-    ) -> tuple[tuple[float, float], ...]:
+    def solver_step(prefix, sample, step):
         return tuple(
             tuple(
                 float(current) + 0.05 * float(context) + 0.01 * step
@@ -365,39 +295,26 @@ def build_smolvla_fixture() -> AdapterFixture:
             for action in sample
         )
 
-    def decode_action_chunk(
-        sample: tuple[tuple[float, float], ...],
-    ) -> tuple[tuple[float, float], ...]:
+    def decode_action_chunk(sample):
         return tuple(
             tuple(max(-1.0, min(1.0, float(item))) for item in action)
             for action in sample
         )
 
-    def queue_is_empty(cursor: int) -> bool:
-        return cursor >= 4
-
-    def queue_select(
-        queue: tuple[tuple[float, float], ...], cursor: int
-    ) -> tuple[float, float]:
-        return queue[cursor]
-
-    def queue_advance(cursor: int) -> int:
-        return cursor + 1
-
-    def queue_zero() -> int:
-        return 0
-
-    ticks = tuple(
-        FixtureTick(
-            tick=Epoch("control", index, index * 20_000_000, 0),
-            inputs={
-                "image": InputSample(
-                    (0.25 + index * 0.1, -0.5 + index * 0.05),
-                    Epoch("observation", index, index * 20_000_000, 0),
+    runs = tuple(
+        FixtureRun(
+            {
+                "image": InputBinding(
+                    TensorView(
+                        (0.25 + (index // 4) * 0.1, -0.5),
+                        (2,),
+                        "f32",
+                    ),
+                    InputStamp(revision=100 + index // 4),
                 )
-            },
+            }
         )
-        for index in range(3)
+        for index in range(6)
     )
     return AdapterFixture(
         module=builder.build(),
@@ -406,18 +323,21 @@ def build_smolvla_fixture() -> AdapterFixture:
             "sample_noise": sample_noise,
             "solver_step": solver_step,
             "decode_action_chunk": decode_action_chunk,
-            "queue_is_empty": queue_is_empty,
-            "queue_select": queue_select,
-            "queue_advance": queue_advance,
-            "queue_zero": queue_zero,
+            "queue_is_empty": lambda cursor: cursor >= 4,
+            "queue_select": lambda queue, cursor: queue[cursor],
+            "queue_advance": lambda cursor: cursor + 1,
+            "queue_zero": lambda: 0,
         },
         validators={
-            "finite_action": lambda action: all(math.isfinite(item) for item in action)
+            "finite_action": lambda action: all(
+                math.isfinite(item) for item in action
+            )
         },
         initial_state={
             "action_queue": tuple((0.0, 0.0) for _ in range(4)),
             "queue_cursor": 4,
             "rng": 7,
         },
-        ticks=ticks,
+        runs=runs,
+        evidence_kind="source_faithful_fixture_l1",
     )

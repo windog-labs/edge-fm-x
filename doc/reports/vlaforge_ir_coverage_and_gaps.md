@@ -1,5 +1,8 @@
 # VLAForge IR v0.1 coverage and abstraction gaps
 
+> **Archived v0.1 report.** Current model coverage and evidence levels are in
+> `doc/model_cards/README.md`.
+
 Date: 2026-07-23
 
 This report audits the deliberately small VLA business IR. It does not assess

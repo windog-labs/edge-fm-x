@@ -1,28 +1,22 @@
-"""Deterministic autoregressive VLA-shaped fixture.
-
-The fixture exercises a different action-generation structure from the flow
-policy fixture while using exactly the same core IR. It is not a substitute for
-the required real OpenVLA checkpoint gate.
-"""
+"""Deterministic autoregressive VLA invocation fixture."""
 
 from __future__ import annotations
 
 import math
 
-from vlaforge.adapters.common import AdapterFixture, FixtureTick
+from vlaforge.adapters.common import AdapterFixture, FixtureRun
 from vlaforge.frontend.builder import ModuleBuilder
-from vlaforge.interpreter.clocks import Epoch, InputSample
+from vlaforge.interpreter import InputBinding, InputStamp, TensorView
 from vlaforge.ir import ops
-from vlaforge.ir.attrs import FreshnessConstraint
 from vlaforge.ir.program import (
     Block,
-    ClockDomain,
-    InputStream,
-    Policy,
+    InputPort,
+    Invocation,
+    OutputPort,
     TensorRegion,
     Value,
 )
-from vlaforge.ir.types import EpochType, ScalarType, TensorType
+from vlaforge.ir.types import PendingOutputType, ScalarType, TensorType
 
 
 VECTOR = TensorType((2,), "f32")
@@ -31,25 +25,10 @@ TOKEN = ScalarType("i64")
 
 
 def build_openvla_fixture() -> AdapterFixture:
-    builder = ModuleBuilder("autoregressive_policy_fixture")
-    builder.add_clock(ClockDomain("observation", period_ns=50_000_000))
-    builder.add_clock(ClockDomain("control", period_ns=50_000_000))
-    builder.add_input(
-        InputStream(
-            "image",
-            VECTOR,
-            "observation",
-            FreshnessConstraint(max_age_ns=60_000_000),
-        )
-    )
-    builder.add_input(
-        InputStream(
-            "instruction",
-            TOKENS,
-            "observation",
-            FreshnessConstraint(max_age_ns=60_000_000),
-        )
-    )
+    builder = ModuleBuilder("autoregressive_invocation_fixture")
+    builder.add_input(InputPort("image", VECTOR))
+    builder.add_input(InputPort("instruction", TOKENS))
+    builder.add_output(OutputPort("action", VECTOR))
     builder.add_region(
         TensorRegion(
             "encode_context",
@@ -62,7 +41,11 @@ def build_openvla_fixture() -> AdapterFixture:
         )
     )
     builder.add_region(
-        TensorRegion("initial_action_token", (Value("context_arg", VECTOR),), (TOKEN,))
+        TensorRegion(
+            "initial_action_token",
+            (Value("context_arg", VECTOR),),
+            (TOKEN,),
+        )
     )
     builder.add_region(
         TensorRegion(
@@ -76,7 +59,11 @@ def build_openvla_fixture() -> AdapterFixture:
         )
     )
     builder.add_region(
-        TensorRegion("detokenize_action", (Value("token_arg", TOKEN),), (VECTOR,))
+        TensorRegion(
+            "detokenize_action",
+            (Value("token_arg", TOKEN),),
+            (VECTOR,),
+        )
     )
 
     token_loop = Block.of(
@@ -92,23 +79,19 @@ def build_openvla_fixture() -> AdapterFixture:
     )
     body = Block.of(
         (
-            ops.sample_input(
+            ops.input_read(
                 "image_value",
-                "image_epoch",
+                "image_revision",
                 VECTOR,
                 "image",
-                "observation",
-                max_age_ns=60_000_000,
             ),
-            ops.sample_input(
+            ops.input_read(
                 "instruction_value",
-                "instruction_epoch",
+                "instruction_revision",
                 TOKENS,
                 "instruction",
-                "observation",
-                max_age_ns=60_000_000,
             ),
-            ops.transaction_begin("txn", "tick"),
+            ops.transaction_begin("txn"),
             ops.invoke(
                 ("context",),
                 (VECTOR,),
@@ -136,27 +119,42 @@ def build_openvla_fixture() -> AdapterFixture:
                 "detokenize_action",
                 ("token_final",),
             ),
-            ops.validate("action_valid", "decoded_action", "bounded_action"),
-            ops.action_create(
-                "pending_action", "decoded_action", VECTOR, "tick"
+            ops.validate(
+                "output_valid",
+                "decoded_action",
+                "bounded_action",
+            ),
+            ops.output_create(
+                "pending_output",
+                "decoded_action",
+                VECTOR,
+                "action",
+            ),
+            ops.output_group(
+                "pending_outputs",
+                "default",
+                (
+                    (
+                        "pending_output",
+                        PendingOutputType("action", VECTOR),
+                    ),
+                ),
             ),
             ops.transaction_commit(
-                "committed_action",
-                VECTOR,
+                "committed_outputs",
+                (PendingOutputType("action", VECTOR),),
+                "default",
                 "txn",
-                "pending_action",
-                "action_valid",
+                "pending_outputs",
+                "output_valid",
             ),
-            ops.action_publish("committed_action"),
-            ops.return_values("committed_action"),
+            ops.return_values("committed_outputs"),
         )
     )
-    builder.add_policy(
-        Policy(
+    builder.add_invocation(
+        Invocation(
             "act",
-            "control",
             body,
-            inputs=(Value("tick", EpochType("control")),),
             metadata={"action_generation": "autoregressive_discrete"},
         )
     )
@@ -174,7 +172,11 @@ def build_openvla_fixture() -> AdapterFixture:
     def initial_action_token(context: tuple[float, float]) -> int:
         return int(round((context[0] - context[1]) * 10.0)) % 64
 
-    def next_action_token(context: tuple[float, float], token: int, step: int) -> int:
+    def next_action_token(
+        context: tuple[float, float],
+        token: int,
+        step: int,
+    ) -> int:
         bias = int(round((context[0] + context[1]) * 5.0))
         return (token * 7 + bias + step + 3) % 64
 
@@ -182,19 +184,22 @@ def build_openvla_fixture() -> AdapterFixture:
         first = token / 63.0 * 2.0 - 1.0
         return first, -0.5 * first
 
-    ticks = tuple(
-        FixtureTick(
-            tick=Epoch("control", index, index * 50_000_000, 0),
+    runs = tuple(
+        FixtureRun(
             inputs={
-                "image": InputSample(
-                    (0.1 * index, 0.4 - 0.05 * index),
-                    Epoch("observation", index, index * 50_000_000, 0),
+                "image": InputBinding(
+                    TensorView(
+                        (0.1 * index, 0.4 - 0.05 * index),
+                        (2,),
+                        "f32",
+                    ),
+                    InputStamp(revision=index),
                 ),
-                "instruction": InputSample(
-                    (1, 2 + index, 3),
-                    Epoch("observation", index, index * 50_000_000, 0),
+                "instruction": InputBinding(
+                    TensorView((1, 2 + index, 3), (3,), "i64"),
+                    InputStamp(revision=index),
                 ),
-            },
+            }
         )
         for index in range(3)
     )
@@ -208,9 +213,10 @@ def build_openvla_fixture() -> AdapterFixture:
         },
         validators={
             "bounded_action": lambda action: all(
-                math.isfinite(item) and -1.0 <= item <= 1.0 for item in action
+                math.isfinite(item) and -1.0 <= item <= 1.0
+                for item in action
             )
         },
         initial_state={},
-        ticks=ticks,
+        runs=runs,
     )

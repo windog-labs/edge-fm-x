@@ -1,5 +1,6 @@
 #include "vlaforge/runtime/state_store.h"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 
@@ -18,127 +19,100 @@ bool IsPowerOfTwo(std::size_t value) noexcept {
 StateStore::StateStore(StaticArena& arena,
                        const StateSlotDescriptor* descriptors,
                        std::size_t state_count, TraceSink trace)
-    : arena_(arena),
-      descriptors_(state_count),
-      metadata_offsets_(state_count),
-      staging_offsets_(state_count),
-      next_versions_(state_count),
-      trace_(trace),
-      initialization_status_(Status::Ok()) {
+    : arena_(arena), trace_(trace) {
   if (state_count != 0 && descriptors == nullptr) {
     initialization_status_ =
         Status::Error(StatusCode::kInvalidArgument, 0,
-                      "state descriptor pointer is null");
+                      "state descriptors are null");
     return;
   }
-  for (std::size_t index = 0; index < state_count; ++index) {
-    descriptors_[index] = descriptors[index];
+  if (state_count != 0) {
+    descriptors_.assign(descriptors, descriptors + state_count);
   }
+  metadata_offsets_.resize(state_count);
+  staging_offsets_.resize(state_count);
+  initialized_.assign(state_count, false);
+  next_versions_.assign(state_count, 0);
   std::size_t metadata_count = 0;
   std::size_t staging_size = 0;
   for (std::size_t index = 0; index < state_count; ++index) {
-    const StateSlotDescriptor& descriptor = descriptors_[index];
+    const auto& descriptor = descriptors_[index];
     if (descriptor.state_id != index || descriptor.capacity == 0 ||
-        descriptor.slot_size == 0 ||
-        !IsPowerOfTwo(descriptor.alignment) ||
-        descriptor.offset % descriptor.alignment != 0) {
+        descriptor.value_size == 0 ||
+        descriptor.slot_stride < descriptor.value_size ||
+        !IsPowerOfTwo(descriptor.alignment)) {
       initialization_status_ =
           Status::Error(StatusCode::kInvalidArgument,
-                        descriptor.state_id,
-                        "invalid state slot descriptor");
+                        static_cast<std::uint32_t>(index),
+                        "invalid state descriptor");
       return;
     }
-    const std::size_t bytes =
-        descriptor.slot_size * descriptor.capacity;
-    if (bytes / descriptor.capacity != descriptor.slot_size ||
-        arena_.Resolve(descriptor.offset, bytes, descriptor.alignment) ==
-            nullptr) {
+    const std::size_t total =
+        descriptor.slot_stride * descriptor.capacity;
+    if (arena_.Resolve(descriptor.offset, total, descriptor.alignment) ==
+        nullptr) {
       initialization_status_ =
           Status::Error(StatusCode::kOutOfRange, descriptor.state_id,
-                        "state slot descriptor exceeds arena");
+                        "state ring is outside the static arena");
       return;
     }
     metadata_offsets_[index] = metadata_count;
     metadata_count += descriptor.capacity;
     staging_offsets_[index] = staging_size;
-    staging_size += descriptor.slot_size;
+    staging_size += descriptor.value_size;
   }
   metadata_.resize(metadata_count);
   staging_.resize(staging_size);
+  initial_.resize(staging_size);
+  initialization_status_ = Status::Ok();
 }
 
-Status StateStore::Initialize(std::uint32_t state_id, const Epoch& epoch,
-                              const void* data,
+Status StateStore::Initialize(std::uint32_t state_id, const void* data,
                               std::size_t size_bytes) noexcept {
-  if (!Ready()) {
-    return initialization_status_;
-  }
-  if (active_transaction_id_ != kNoTransaction) {
-    return Status::Error(StatusCode::kFailedPrecondition, state_id,
-                         "cannot initialize during a transaction");
-  }
-  const StateSlotDescriptor* descriptor = Descriptor(state_id);
-  if (descriptor == nullptr || (size_bytes != 0 && data == nullptr) ||
-      size_bytes > descriptor->slot_size) {
+  const auto* descriptor = Descriptor(state_id);
+  if (descriptor == nullptr || data == nullptr ||
+      size_bytes != descriptor->value_size) {
     return Status::Error(StatusCode::kInvalidArgument, state_id,
                          "invalid state initializer");
   }
-  void* destination = SlotData(*descriptor, 0);
-  if (destination == nullptr) {
-    return Status::Error(StatusCode::kInternal, state_id,
-                         "state slot resolution failed");
+  if (initialized_[state_id]) {
+    return Status::Error(StatusCode::kAlreadyExists, state_id,
+                         "state is already initialized");
   }
-  std::memset(destination, 0, descriptor->slot_size);
-  if (size_bytes != 0) {
-    std::memcpy(destination, data, size_bytes);
-  }
-  SlotMetadata& metadata = metadata_[MetadataIndex(state_id, 0)];
-  metadata.valid = true;
-  metadata.logical_version = 0;
-  metadata.epoch = epoch;
+  std::memcpy(InitialData(state_id), data, size_bytes);
+  std::memcpy(SlotData(*descriptor, 0), data, size_bytes);
+  auto& metadata = metadata_[MetadataIndex(state_id, 0)];
+  metadata = SlotMetadata{true, 0, episode_};
+  initialized_[state_id] = true;
   next_versions_[state_id] = 1;
-  episode_ = epoch.episode;
   return Status::Ok();
 }
 
-Status StateStore::Begin(Transaction* transaction, const Epoch& tick,
+Status StateStore::Begin(Transaction* transaction,
                          std::uint32_t task_id) noexcept {
-  if (!Ready()) {
-    return initialization_status_;
-  }
-  if (transaction == nullptr ||
-      transaction->capacity() < descriptors_.size()) {
+  if (transaction == nullptr) {
     return Status::Error(StatusCode::kInvalidArgument, task_id,
-                         "invalid transaction storage");
+                         "transaction is null");
   }
   if (active_transaction_id_ != kNoTransaction) {
     return Status::Error(StatusCode::kFailedPrecondition, task_id,
                          "another transaction is active");
   }
-  if (tick.episode != episode_) {
-    return Status::Error(StatusCode::kFailedPrecondition, task_id,
-                         "tick episode does not match state store");
-  }
-  const Status status = transaction->Begin(next_transaction_id_++, tick);
+  const Status status =
+      transaction->Begin(next_transaction_id_++, episode_);
   if (!status.ok()) {
     return status;
   }
   active_transaction_id_ = transaction->id();
   EmitTrace(trace_, TraceEvent{TraceKind::kTransactionBegin, task_id, 0, 0,
-                               transaction->id(), tick});
+                               transaction->id(), episode_, run_, 0});
   return Status::Ok();
 }
 
 Status StateStore::ReadLatest(std::uint32_t state_id,
-                              std::uint64_t episode,
-                              std::uint64_t maximum_sequence,
-                              bool exact_sequence,
                               std::uint32_t task_id,
                               StateSnapshot* output) noexcept {
-  if (!Ready()) {
-    return initialization_status_;
-  }
-  const StateSlotDescriptor* descriptor = Descriptor(state_id);
+  const auto* descriptor = Descriptor(state_id);
   if (descriptor == nullptr || output == nullptr) {
     return Status::Error(StatusCode::kInvalidArgument, state_id,
                          "invalid state read");
@@ -146,185 +120,149 @@ Status StateStore::ReadLatest(std::uint32_t state_id,
   const SlotMetadata* selected = nullptr;
   std::uint32_t selected_slot = 0;
   for (std::uint32_t slot = 0; slot < descriptor->capacity; ++slot) {
-    const SlotMetadata& candidate =
-        metadata_[MetadataIndex(state_id, slot)];
-    if (!candidate.valid || candidate.epoch.episode != episode ||
-        (exact_sequence
-             ? candidate.epoch.sequence != maximum_sequence
-             : candidate.epoch.sequence > maximum_sequence)) {
-      continue;
-    }
-    if (selected == nullptr ||
-        candidate.epoch.sequence > selected->epoch.sequence ||
-        (candidate.epoch.sequence == selected->epoch.sequence &&
-         candidate.logical_version > selected->logical_version)) {
-      selected = &candidate;
+    const auto& metadata = metadata_[MetadataIndex(state_id, slot)];
+    if (metadata.valid && metadata.episode == episode_ &&
+        (selected == nullptr ||
+         metadata.logical_version > selected->logical_version)) {
+      selected = &metadata;
       selected_slot = slot;
     }
   }
   if (selected == nullptr) {
     return Status::Error(StatusCode::kNotFound, state_id,
-                         "no matching committed state version");
+                         "state has no version in current episode");
   }
-  output->state_id = state_id;
-  output->physical_slot = selected_slot;
-  output->logical_version = selected->logical_version;
-  output->epoch = selected->epoch;
-  output->data = SlotData(*descriptor, selected_slot);
-  output->size_bytes = descriptor->slot_size;
-  const std::uint64_t transaction_id =
-      active_transaction_id_ == kNoTransaction
-          ? 0u
-          : active_transaction_id_;
+  *output = StateSnapshot{state_id,
+                          selected_slot,
+                          selected->logical_version,
+                          selected->episode,
+                          SlotData(*descriptor, selected_slot),
+                          descriptor->value_size};
   EmitTrace(trace_, TraceEvent{TraceKind::kStateRead, task_id, state_id,
-                               selected->logical_version, transaction_id,
-                               selected->epoch});
+                               selected->logical_version,
+                               active_transaction_id_ == kNoTransaction
+                                   ? 0
+                                   : active_transaction_id_,
+                               episode_, run_, 0});
   return Status::Ok();
 }
 
 Status StateStore::Stage(Transaction* transaction, std::uint32_t state_id,
-                         const Epoch& epoch, const void* data,
-                         std::size_t size_bytes,
+                         const void* data, std::size_t size_bytes,
                          std::uint32_t task_id) noexcept {
-  if (!Ready()) {
-    return initialization_status_;
-  }
-  const StateSlotDescriptor* descriptor = Descriptor(state_id);
+  const auto* descriptor = Descriptor(state_id);
   if (transaction == nullptr || !IsActive(*transaction) ||
-      descriptor == nullptr || (size_bytes != 0 && data == nullptr) ||
-      size_bytes > descriptor->slot_size ||
-      epoch.episode != episode_) {
+      descriptor == nullptr || data == nullptr ||
+      size_bytes != descriptor->value_size) {
     return Status::Error(StatusCode::kInvalidArgument, state_id,
                          "invalid staged state write");
   }
   std::byte* staging = StagingData(state_id);
-  std::memset(staging, 0, descriptor->slot_size);
-  if (size_bytes != 0) {
-    std::memcpy(staging, data, size_bytes);
+  std::memcpy(staging, data, size_bytes);
+  const Status status =
+      transaction->Add(PendingWrite{state_id, staging, size_bytes});
+  if (status.ok()) {
+    EmitTrace(trace_, TraceEvent{TraceKind::kStateStage, task_id, state_id, 0,
+                                 transaction->id(), episode_, run_, 0});
   }
-  const Status status = transaction->Add(
-      PendingWrite{state_id, epoch, staging, descriptor->slot_size});
-  if (!status.ok()) {
-    return status;
-  }
-  EmitTrace(trace_, TraceEvent{TraceKind::kStateStage, task_id, state_id, 0,
-                               transaction->id(), epoch});
-  return Status::Ok();
+  return status;
 }
 
 Status StateStore::Commit(Transaction* transaction,
-                          const PendingAction& action,
-                          bool validation_passed,
-                          std::uint32_t task_id,
-                          CommittedAction* output) noexcept {
-  if (!Ready()) {
-    return initialization_status_;
-  }
-  if (transaction == nullptr || output == nullptr ||
-      !IsActive(*transaction)) {
+                          std::uint32_t task_id) noexcept {
+  if (transaction == nullptr || !IsActive(*transaction)) {
     return Status::Error(StatusCode::kFailedPrecondition, task_id,
-                         "transaction cannot be committed");
+                         "transaction is not active");
   }
-  if (!validation_passed) {
-    const std::uint64_t transaction_id = transaction->id();
-    const Epoch tick = transaction->tick();
-    transaction->Close(TransactionState::kAborted);
-    active_transaction_id_ = kNoTransaction;
-    EmitTrace(trace_, TraceEvent{TraceKind::kTransactionAbort, task_id, 0, 0,
-                                 transaction_id, tick});
-    return Status::Error(StatusCode::kValidationFailed, task_id,
-                         "action validation failed");
-  }
-  if ((action.size_bytes != 0 && action.data == nullptr) ||
-      action.epoch.episode != transaction->tick().episode) {
-    return Status::Error(StatusCode::kInvalidArgument, task_id,
-                         "invalid pending action");
-  }
-  for (std::size_t index = 0; index < transaction->pending_count();
-       ++index) {
-    const PendingWrite& pending = transaction->pending(index);
-    const StateSlotDescriptor& descriptor =
-        descriptors_[pending.state_id];
-    const std::uint64_t logical_version =
-        next_versions_[pending.state_id]++;
-    const std::uint32_t slot = static_cast<std::uint32_t>(
-        logical_version % descriptor.capacity);
-    void* destination = SlotData(descriptor, slot);
-    if (destination == nullptr) {
+  for (std::size_t index = 0; index < transaction->pending_count(); ++index) {
+    const auto& pending = transaction->pending(index);
+    const auto* descriptor = Descriptor(pending.state_id);
+    if (descriptor == nullptr) {
       return Status::Error(StatusCode::kInternal, pending.state_id,
-                           "state slot resolution failed");
+                           "staged state descriptor disappeared");
     }
-    std::memcpy(destination, pending.data, descriptor.slot_size);
-    SlotMetadata& metadata =
-        metadata_[MetadataIndex(pending.state_id, slot)];
-    metadata.valid = true;
-    metadata.logical_version = logical_version;
-    metadata.epoch = pending.epoch;
+    const std::uint64_t version = next_versions_[pending.state_id]++;
+    const auto slot =
+        static_cast<std::uint32_t>(version % descriptor->capacity);
+    std::memcpy(SlotData(*descriptor, slot), pending.data,
+                pending.size_bytes);
+    metadata_[MetadataIndex(pending.state_id, slot)] =
+        SlotMetadata{true, version, episode_};
     EmitTrace(trace_, TraceEvent{TraceKind::kStateCommit, task_id,
-                                 pending.state_id, logical_version,
-                                 transaction->id(), pending.epoch});
+                                 pending.state_id, version,
+                                 transaction->id(), episode_, run_, 0});
   }
   const std::uint64_t transaction_id = transaction->id();
-  const Epoch tick = transaction->tick();
   transaction->Close(TransactionState::kCommitted);
   active_transaction_id_ = kNoTransaction;
-  *output = CommittedAction{action.epoch, action.data, action.size_bytes,
-                            transaction_id, true};
   EmitTrace(trace_, TraceEvent{TraceKind::kTransactionCommit, task_id, 0, 0,
-                               transaction_id, tick});
-  EmitTrace(trace_, TraceEvent{TraceKind::kActionCommit, task_id, 0, 0,
-                               transaction_id, action.epoch});
+                               transaction_id, episode_, run_, 0});
   return Status::Ok();
 }
 
 Status StateStore::Abort(Transaction* transaction,
                          std::uint32_t task_id) noexcept {
-  if (!Ready()) {
-    return initialization_status_;
-  }
   if (transaction == nullptr || !IsActive(*transaction)) {
     return Status::Error(StatusCode::kFailedPrecondition, task_id,
-                         "transaction cannot be aborted");
+                         "transaction is not active");
   }
   const std::uint64_t transaction_id = transaction->id();
-  const Epoch tick = transaction->tick();
   transaction->Close(TransactionState::kAborted);
   active_transaction_id_ = kNoTransaction;
   EmitTrace(trace_, TraceEvent{TraceKind::kTransactionAbort, task_id, 0, 0,
-                               transaction_id, tick});
+                               transaction_id, episode_, run_, 0});
   return Status::Ok();
 }
 
 Status StateStore::ResetEpisode(std::uint64_t new_episode,
                                 std::uint32_t task_id) noexcept {
-  if (!Ready()) {
-    return initialization_status_;
-  }
   if (active_transaction_id_ != kNoTransaction ||
       new_episode <= episode_) {
     return Status::Error(StatusCode::kFailedPrecondition, task_id,
                          "invalid episode reset");
   }
-  for (std::size_t state = 0; state < descriptors_.size(); ++state) {
-    if (!descriptors_[state].reset_on_episode) {
-      continue;
+  for (const auto& descriptor : descriptors_) {
+    StateSnapshot latest{};
+    const Status latest_status =
+        ReadLatest(descriptor.state_id, task_id, &latest);
+    std::vector<std::byte> carried;
+    std::uint64_t carried_version = 0;
+    if (!descriptor.reset_on_episode && latest_status.ok()) {
+      const auto* begin = static_cast<const std::byte*>(latest.data);
+      carried.assign(begin, begin + latest.size_bytes);
+      carried_version = latest.logical_version;
     }
-    for (std::uint32_t slot = 0;
-         slot < descriptors_[state].capacity; ++slot) {
-      metadata_[MetadataIndex(static_cast<std::uint32_t>(state), slot)] =
-          SlotMetadata{};
+    for (std::uint32_t slot = 0; slot < descriptor.capacity; ++slot) {
+      metadata_[MetadataIndex(descriptor.state_id, slot)].valid = false;
     }
-    next_versions_[state] = 0;
+    if (descriptor.reset_on_episode && initialized_[descriptor.state_id]) {
+      std::memcpy(SlotData(descriptor, 0),
+                  InitialData(descriptor.state_id), descriptor.value_size);
+      metadata_[MetadataIndex(descriptor.state_id, 0)] =
+          SlotMetadata{true, 0, new_episode};
+      next_versions_[descriptor.state_id] = 1;
+    } else if (!carried.empty()) {
+      const auto slot = static_cast<std::uint32_t>(
+          carried_version % descriptor.capacity);
+      std::memcpy(SlotData(descriptor, slot), carried.data(),
+                  descriptor.value_size);
+      metadata_[MetadataIndex(descriptor.state_id, slot)] =
+          SlotMetadata{true, carried_version, new_episode};
+      next_versions_[descriptor.state_id] = carried_version + 1;
+    }
   }
   episode_ = new_episode;
   EmitTrace(trace_, TraceEvent{TraceKind::kReset, task_id, 0, 0, 0,
-                               Epoch{0, 0, 0, new_episode}});
+                               episode_, run_, 0});
   return Status::Ok();
 }
 
 const StateSlotDescriptor* StateStore::Descriptor(
     std::uint32_t state_id) const noexcept {
-  return state_id < descriptors_.size() ? &descriptors_[state_id] : nullptr;
+  if (!initialization_status_.ok() || state_id >= descriptors_.size()) {
+    return nullptr;
+  }
+  return &descriptors_[state_id];
 }
 
 std::size_t StateStore::MetadataIndex(std::uint32_t state_id,
@@ -336,16 +274,21 @@ std::byte* StateStore::StagingData(std::uint32_t state_id) noexcept {
   return staging_.data() + staging_offsets_[state_id];
 }
 
+std::byte* StateStore::InitialData(std::uint32_t state_id) noexcept {
+  return initial_.data() + staging_offsets_[state_id];
+}
+
 void* StateStore::SlotData(const StateSlotDescriptor& descriptor,
                            std::uint32_t slot) noexcept {
   return arena_.Resolve(
-      descriptor.offset + descriptor.slot_size * slot,
-      descriptor.slot_size, descriptor.alignment);
+      descriptor.offset + slot * descriptor.slot_stride,
+      descriptor.value_size, descriptor.alignment);
 }
 
 bool StateStore::IsActive(const Transaction& transaction) const noexcept {
   return transaction.active() &&
-         transaction.id() == active_transaction_id_;
+         transaction.id() == active_transaction_id_ &&
+         transaction.episode() == episode_;
 }
 
 }  // namespace vlaforge::runtime

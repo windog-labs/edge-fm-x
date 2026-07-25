@@ -22,7 +22,7 @@ from vlaforge.frontend.unsupported import (
 from vlaforge.ir.program import TensorRegion, Value
 
 
-CAPTURE_SCHEMA = "vlaforge.frontend_capture/1"
+CAPTURE_SCHEMA = "vlaforge.frontend_capture/2"
 
 
 @dataclass(frozen=True, slots=True)

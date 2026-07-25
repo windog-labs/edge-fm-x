@@ -1,17 +1,17 @@
-"""Whole-program verifier for the VLAForge Python reference IR."""
+"""Whole-program verifier for Invocation IR v0.2."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable, Mapping
 
-from vlaforge.ir.attrs import Effect, EpochExpr
-from vlaforge.ir.program import Block, Module, Operation, Policy, Value
+from vlaforge.ir.attrs import Effect
+from vlaforge.ir.program import Block, Invocation, Module, Operation, Value
 from vlaforge.ir.types import (
-    ActionType,
-    CommittedActionType,
-    EpochType,
-    FutureType,
+    CommittedOutputGroupType,
+    InputRevisionType,
+    PendingOutputGroupType,
+    PendingOutputType,
     PendingType,
     ScalarType,
     SnapshotType,
@@ -21,25 +21,21 @@ from vlaforge.ir.versioning import require_supported
 
 
 ALLOWED_OPS = {
-    "vla.sample_input",
+    "vla.input.read",
     "vla.txn.begin",
-    "vla.state.read",
+    "vla.state.read_latest",
     "vla.snapshot.value",
     "vla.invoke",
     "vla.for",
-    "vla.while",
     "vla.if",
     "vla.yield",
     "vla.return",
     "vla.state.stage_write",
     "vla.validate",
-    "vla.action.create",
+    "vla.output.create",
+    "vla.output.group",
     "vla.txn.commit",
     "vla.txn.abort",
-    "vla.action.publish",
-    "vla.reset",
-    "vla.async",
-    "vla.await",
 }
 
 
@@ -48,16 +44,15 @@ class Diagnostic:
     rule: str
     message: str
     program: str
-    policy: str | None = None
+    invocation: str | None = None
     op: str | None = None
     state: str | None = None
-    epoch: str | None = None
-    version: str | None = None
+    value: str | None = None
     location: str | None = None
 
     def __str__(self) -> str:
         context = [f"program={self.program}", f"rule={self.rule}"]
-        for key in ("policy", "op", "state", "epoch", "version", "location"):
+        for key in ("invocation", "op", "state", "value", "location"):
             value = getattr(self, key)
             if value is not None:
                 context.append(f"{key}={value}")
@@ -74,8 +69,8 @@ class _Verifier:
     def __init__(self, module: Module):
         self.module = module
         self.diagnostics: list[Diagnostic] = []
-        self.clocks = {item.name: item for item in module.clocks}
         self.inputs = {item.name: item for item in module.inputs}
+        self.outputs = {item.name: item for item in module.outputs}
         self.states = {item.name: item for item in module.states}
         self.regions = {item.name: item for item in module.regions}
 
@@ -84,22 +79,22 @@ class _Verifier:
         rule: str,
         message: str,
         *,
-        policy: Policy | None = None,
+        invocation: Invocation | None = None,
         operation: Operation | None = None,
         state: str | None = None,
-        epoch: str | None = None,
-        version: str | None = None,
+        value: str | None = None,
     ) -> None:
         self.diagnostics.append(
             Diagnostic(
                 rule=rule,
                 message=message,
                 program=self.module.name,
-                policy=None if policy is None else policy.name,
+                invocation=(
+                    None if invocation is None else invocation.name
+                ),
                 op=None if operation is None else operation.opcode,
                 state=state,
-                epoch=epoch,
-                version=version,
+                value=value,
                 location=None if operation is None else operation.location,
             )
         )
@@ -107,791 +102,669 @@ class _Verifier:
     def run(self) -> None:
         try:
             require_supported(self.module.schema_version)
-        except ValueError as exc:
-            self.error("schema.version", str(exc))
-
-        self._verify_declarations()
-        for policy in self.module.policies:
-            self._verify_policy(policy)
-
-    def _verify_declarations(self) -> None:
-        for stream in self.module.inputs:
-            if stream.clock not in self.clocks:
-                self.error(
-                    "input.clock",
-                    f"input @{stream.name} references unknown clock @{stream.clock}",
-                )
-        for state in self.module.states:
-            if state.version_clock not in self.clocks:
-                self.error(
-                    "state.clock",
-                    f"state @{state.name} references unknown clock "
-                    f"@{state.version_clock}",
-                    state=state.name,
-                )
-            if (
-                state.freshness is not None
-                and state.freshness.max_versions is not None
-                and state.retention <= state.freshness.max_versions
-            ):
-                self.error(
-                    "state.retention",
-                    f"retention={state.retention} cannot satisfy "
-                    f"max_versions={state.freshness.max_versions}; need at least "
-                    f"{state.freshness.max_versions + 1}",
-                    state=state.name,
-                    version=f"retention:{state.retention}",
-                )
+        except ValueError as error:
+            self.error("schema.version", str(error))
+        if not self.module.invocations:
+            self.error("invocation.missing", "module has no invocation")
         for region in self.module.regions:
-            if not region.pure:
-                effects = ",".join(effect.value for effect in region.effects)
+            illegal = set(region.effects) - {Effect.PURE}
+            if illegal or not region.pure:
                 self.error(
-                    "region.hidden_effect",
-                    f"TensorRegion @{region.name} must be pure; explicit state/RNG "
-                    f"must be inputs and outputs, found effects [{effects}]",
+                    "region.effect",
+                    f"TensorRegion @{region.name} must be pure",
                 )
-            if region.effects != (Effect.PURE,):
-                self.error(
-                    "region.effect_contract",
-                    f"TensorRegion @{region.name} has unsupported effects",
-                )
+        for invocation in self.module.invocations:
+            self._verify_invocation(invocation)
 
-    def _verify_policy(self, policy: Policy) -> None:
-        if policy.clock not in self.clocks:
-            self.error(
-                "policy.clock",
-                f"policy @{policy.name} references unknown clock @{policy.clock}",
-                policy=policy,
-            )
-        definitions = {value.name: value for value in policy.inputs}
+    def _verify_invocation(self, invocation: Invocation) -> None:
+        definitions: dict[str, Value] = {}
+        validators: set[str] = set()
         self._verify_block(
-            policy,
-            policy.body,
+            invocation.body,
+            invocation,
             definitions,
-            awaited=set(),
-            staged={},
-            active_async={},
+            validators,
+            nested=False,
         )
-        outcomes = self._commit_outcomes(policy.body)
+        outcomes = self._commit_outcomes(invocation.body)
         for count, aborted in outcomes:
             if aborted:
                 continue
             if count == 0:
                 self.error(
                     "commit.zero",
-                    "successful policy path reaches exit without exactly one commit",
-                    policy=policy,
-                    version="commits:0",
+                    "successful invocation path reaches exit without commit",
+                    invocation=invocation,
                 )
             elif count > 1:
                 self.error(
                     "commit.double",
-                    f"successful policy path contains {count} commits",
-                    policy=policy,
-                    version=f"commits:{count}",
+                    f"successful invocation path contains {count} commits",
+                    invocation=invocation,
                 )
 
     def _verify_block(
         self,
-        policy: Policy,
         block: Block,
+        invocation: Invocation,
         inherited: Mapping[str, Value],
+        inherited_validators: set[str],
         *,
-        awaited: set[str],
-        staged: dict[str, set[str]],
-        active_async: dict[str, tuple[set[str], set[str]]],
+        nested: bool,
     ) -> dict[str, Value]:
         definitions = dict(inherited)
+        validators = set(inherited_validators)
         for argument in block.arguments:
             if argument.name in definitions:
                 self.error(
                     "ssa.duplicate",
-                    f"block argument %{argument.name} shadows an existing value",
-                    policy=policy,
+                    f"block argument %{argument.name} is already defined",
+                    invocation=invocation,
+                    value=argument.name,
                 )
             definitions[argument.name] = argument
 
-        for index, operation in enumerate(block.operations):
+        for operation in block.operations:
             if operation.opcode not in ALLOWED_OPS:
                 self.error(
                     "op.unknown",
-                    f"unknown core operation {operation.opcode!r}",
-                    policy=policy,
+                    f"unknown operation {operation.opcode}",
+                    invocation=invocation,
                     operation=operation,
                 )
+                continue
             for operand in operation.operands:
                 if operand not in definitions:
                     self.error(
-                        "ssa.read_before_definition",
-                        f"operand %{operand} is not defined before use at op #{index}",
-                        policy=policy,
+                        "ssa.undefined",
+                        f"operand %{operand} is not defined",
+                        invocation=invocation,
                         operation=operation,
-                        version=operand,
+                        value=operand,
                     )
             for result in operation.results:
                 if result.name in definitions:
                     self.error(
                         "ssa.duplicate",
-                        f"SSA value %{result.name} is defined more than once",
-                        policy=policy,
+                        f"result %{result.name} is already defined",
+                        invocation=invocation,
                         operation=operation,
-                        version=result.name,
+                        value=result.name,
                     )
-
             self._verify_operation(
-                policy,
                 operation,
+                invocation,
                 definitions,
-                awaited=awaited,
-                staged=staged,
-                active_async=active_async,
+                validators,
+                nested=nested,
             )
-
-            # Operation results do not exist inside their own regions. Verify
-            # nested blocks against the pre-operation environment to reject
-            # circular references from a loop/if body to the parent result.
-            for region in operation.regions:
-                self._verify_block(
-                    policy,
-                    region,
-                    definitions,
-                    awaited=set(awaited),
-                    staged={name: set(items) for name, items in staged.items()},
-                    active_async=dict(active_async),
-                )
             for result in operation.results:
                 definitions[result.name] = result
+            if operation.opcode == "vla.validate" and operation.results:
+                validators.add(operation.results[0].name)
         return definitions
-
-    def _operand(
-        self,
-        definitions: Mapping[str, Value],
-        operation: Operation,
-        index: int,
-    ) -> Value | None:
-        if index >= len(operation.operands):
-            return None
-        return definitions.get(operation.operands[index])
 
     def _verify_operation(
         self,
-        policy: Policy,
         operation: Operation,
+        invocation: Invocation,
         definitions: Mapping[str, Value],
+        validators: set[str],
         *,
-        awaited: set[str],
-        staged: dict[str, set[str]],
-        active_async: dict[str, tuple[set[str], set[str]]],
+        nested: bool,
     ) -> None:
-        if operation.opcode == "vla.sample_input":
-            stream_name = str(operation.attributes.get("stream", ""))
-            stream = self.inputs.get(stream_name)
-            if stream is None:
+        opcode = operation.opcode
+
+        if opcode == "vla.input.read":
+            name = str(operation.attributes.get("input", ""))
+            port = self.inputs.get(name)
+            if port is None:
                 self.error(
                     "input.unknown",
-                    f"sample references unknown input @{stream_name}",
-                    policy=policy,
+                    f"unknown input @{name}",
+                    invocation=invocation,
                     operation=operation,
                 )
-                return
             if len(operation.results) != 2:
                 self.error(
                     "input.results",
-                    "sample_input must return payload and epoch",
-                    policy=policy,
+                    "input.read requires payload and revision results",
+                    invocation=invocation,
                     operation=operation,
                 )
-            elif operation.results[0].type != stream.payload or operation.results[
-                1
-            ].type != EpochType(stream.clock):
+            elif port is not None:
+                if operation.results[0].type != port.payload:
+                    self.error(
+                        "input.payload_type",
+                        "input payload result type does not match declaration",
+                        invocation=invocation,
+                        operation=operation,
+                    )
+                if not isinstance(
+                    operation.results[1].type, InputRevisionType
+                ):
+                    self.error(
+                        "input.revision_type",
+                        "input revision result requires InputRevisionType",
+                        invocation=invocation,
+                        operation=operation,
+                    )
+            if operation.operands:
                 self.error(
-                    "input.type",
-                    f"sample results do not match input @{stream_name}",
-                    policy=policy,
+                    "input.operands",
+                    "input.read has no SSA operands",
+                    invocation=invocation,
                     operation=operation,
-                    epoch=stream.clock,
                 )
-            max_age = operation.attributes.get("max_age_ns")
-            if max_age is not None and int(max_age) < 0:
-                self.error(
-                    "freshness.invalid",
-                    "max_age_ns must be non-negative",
-                    policy=policy,
-                    operation=operation,
-                    epoch=f"max_age_ns:{max_age}",
-                )
+            return
 
-        elif operation.opcode == "vla.txn.begin":
-            epoch = self._operand(definitions, operation, 0)
-            if epoch is not None and not isinstance(epoch.type, EpochType):
-                self.error(
-                    "txn.epoch_type",
-                    "transaction must begin from an epoch value",
-                    policy=policy,
-                    operation=operation,
-                )
-            if len(operation.results) != 1 or not isinstance(
-                operation.results[0].type, TransactionType
+        if opcode == "vla.txn.begin":
+            if (
+                operation.operands
+                or len(operation.results) != 1
+                or not isinstance(operation.results[0].type, TransactionType)
             ):
                 self.error(
-                    "txn.result_type",
-                    "transaction begin must return TransactionType",
-                    policy=policy,
+                    "txn.signature",
+                    "txn.begin returns one transaction and takes no operand",
+                    invocation=invocation,
                     operation=operation,
                 )
+            return
 
-        elif operation.opcode == "vla.state.read":
+        if opcode == "vla.state.read_latest":
             state_name = str(operation.attributes.get("state", ""))
             state = self.states.get(state_name)
-            version = str(operation.attributes.get("version", "latest"))
-            epoch_data = operation.attributes.get("epoch", {})
-            try:
-                epoch = EpochExpr.from_dict(epoch_data)
-            except Exception as exc:
+            transaction = self._type(operation, 0, definitions)
+            if not isinstance(transaction, TransactionType):
                 self.error(
-                    "state.epoch",
-                    f"invalid state epoch expression: {exc}",
-                    policy=policy,
+                    "state.transaction_type",
+                    "state.read_latest requires a transaction",
+                    invocation=invocation,
                     operation=operation,
                     state=state_name,
-                    version=version,
                 )
-                return
             if state is None:
                 self.error(
                     "state.unknown",
-                    f"read references unknown state @{state_name}",
-                    policy=policy,
+                    f"unknown state @{state_name}",
+                    invocation=invocation,
                     operation=operation,
                     state=state_name,
-                    epoch=epoch.clock,
-                    version=version,
                 )
-                return
-            if epoch.clock not in {None, state.version_clock}:
-                self.error(
-                    "state.wrong_version_clock",
-                    f"state @{state_name} is versioned by @{state.version_clock}, "
-                    f"not @{epoch.clock}",
-                    policy=policy,
-                    operation=operation,
-                    state=state_name,
-                    epoch=epoch.clock,
-                    version=version,
-                )
-            if (
-                state.freshness is not None
-                and state.freshness.max_versions is not None
-                and epoch.offset < -state.freshness.max_versions
-            ):
-                self.error(
-                    "state.stale_epoch",
-                    f"state @{state_name} read offset {epoch.offset} exceeds "
-                    f"max_versions={state.freshness.max_versions}",
-                    policy=policy,
-                    operation=operation,
-                    state=state_name,
-                    epoch=epoch.clock,
-                    version=f"offset:{epoch.offset}",
-                )
-            txn = self._operand(definitions, operation, 0)
-            if txn is not None and not isinstance(txn.type, TransactionType):
-                self.error(
-                    "state.read_transaction",
-                    "state read requires a transaction operand",
-                    policy=policy,
-                    operation=operation,
-                    state=state_name,
-                    epoch=epoch.clock,
-                    version=version,
-                )
-            if (
-                len(operation.results) != 1
-                or operation.results[0].type
-                != SnapshotType(state_name, state.payload)
+            if len(operation.results) != 1 or not isinstance(
+                operation.results[0].type, SnapshotType
             ):
                 self.error(
                     "state.snapshot_type",
-                    f"state read result must be snapshot<{state_name}>",
-                    policy=policy,
+                    "state.read_latest must return SnapshotType",
+                    invocation=invocation,
                     operation=operation,
                     state=state_name,
-                    epoch=epoch.clock,
-                    version=version,
                 )
+            elif state is not None and operation.results[0].type != SnapshotType(
+                state_name, state.payload
+            ):
+                self.error(
+                    "state.snapshot_type",
+                    "snapshot state/payload does not match declaration",
+                    invocation=invocation,
+                    operation=operation,
+                    state=state_name,
+                )
+            return
 
-        elif operation.opcode == "vla.invoke":
+        if opcode == "vla.snapshot.value":
+            snapshot = self._type(operation, 0, definitions)
+            if not isinstance(snapshot, SnapshotType):
+                self.error(
+                    "snapshot.operand_type",
+                    "snapshot.value requires SnapshotType",
+                    invocation=invocation,
+                    operation=operation,
+                )
+            elif (
+                len(operation.results) != 1
+                or operation.results[0].type != snapshot.payload
+            ):
+                self.error(
+                    "snapshot.result_type",
+                    "snapshot.value result must match snapshot payload",
+                    invocation=invocation,
+                    operation=operation,
+                )
+            return
+
+        if opcode == "vla.invoke":
             region_name = str(operation.attributes.get("region", ""))
             region = self.regions.get(region_name)
             if region is None:
                 self.error(
                     "region.unknown",
-                    f"invoke references unknown TensorRegion @{region_name}",
-                    policy=policy,
+                    f"unknown TensorRegion @{region_name}",
+                    invocation=invocation,
                     operation=operation,
                 )
                 return
             operand_types = tuple(
-                definitions[name].type
+                self._type_at(name, definitions)
                 for name in operation.operands
-                if name in definitions
             )
-            expected = tuple(value.type for value in region.inputs)
-            if operand_types != expected:
+            expected_inputs = tuple(value.type for value in region.inputs)
+            if operand_types != expected_inputs:
                 self.error(
-                    "region.input_types",
-                    f"invoke @{region_name} expects {expected}, got {operand_types}",
-                    policy=policy,
+                    "region.input_type",
+                    f"region @{region_name} input signature mismatch",
+                    invocation=invocation,
                     operation=operation,
                 )
-            result_types = tuple(value.type for value in operation.results)
-            if result_types != region.outputs:
+            if tuple(value.type for value in operation.results) != region.outputs:
                 self.error(
-                    "region.output_types",
-                    f"invoke @{region_name} returns {region.outputs}, "
-                    f"op declares {result_types}",
-                    policy=policy,
+                    "region.output_type",
+                    f"region @{region_name} output signature mismatch",
+                    invocation=invocation,
                     operation=operation,
                 )
+            return
 
-        elif operation.opcode == "vla.for":
-            initial = self._operand(definitions, operation, 0)
-            result_type = (
-                operation.results[0].type
-                if len(operation.results) == 1
-                else None
-            )
-            if (
-                initial is None
-                or result_type is None
-                or initial.type != result_type
+        if opcode == "vla.for":
+            self._verify_for(operation, invocation, definitions, validators)
+            return
+
+        if opcode == "vla.if":
+            self._verify_if(operation, invocation, definitions, validators)
+            return
+
+        if opcode == "vla.yield":
+            if not nested:
+                self.error(
+                    "control.yield_scope",
+                    "yield is only legal inside a structured region",
+                    invocation=invocation,
+                    operation=operation,
+                )
+            return
+
+        if opcode == "vla.return":
+            if len(operation.operands) != 1 or not isinstance(
+                self._type(operation, 0, definitions),
+                CommittedOutputGroupType,
             ):
                 self.error(
-                    "control.for_types",
-                    "vla.for requires one initial value and one result of the "
-                    "same type",
-                    policy=policy,
+                    "output.return_type",
+                    "invocation must return one committed output group",
+                    invocation=invocation,
                     operation=operation,
                 )
-            step = int(operation.attributes.get("step", 0))
-            if step == 0:
-                self.error(
-                    "control.for_step",
-                    "vla.for step must be nonzero",
-                    policy=policy,
-                    operation=operation,
-                )
-            if len(operation.regions) != 1:
-                self.error(
-                    "control.for_region",
-                    "vla.for requires exactly one body region",
-                    policy=policy,
-                    operation=operation,
-                )
-            else:
-                body = operation.regions[0]
-                expected_arguments = (
-                    ScalarType("index"),
-                    result_type,
-                )
-                if tuple(argument.type for argument in body.arguments) != expected_arguments:
-                    self.error(
-                        "control.for_arguments",
-                        f"vla.for body arguments must be {expected_arguments}",
-                        policy=policy,
-                        operation=operation,
-                    )
-                if not _block_yields_types(body, (result_type,), definitions):
-                    self.error(
-                        "control.for_yield",
-                        f"vla.for body must yield one {result_type} value",
-                        policy=policy,
-                        operation=operation,
-                    )
+            return
 
-        elif operation.opcode == "vla.if":
-            condition = self._operand(definitions, operation, 0)
-            if condition is not None and condition.type != ScalarType("bool"):
-                self.error(
-                    "control.if_condition",
-                    "vla.if condition must be bool",
-                    policy=policy,
-                    operation=operation,
-                )
-            expected = tuple(result.type for result in operation.results)
-            if len(operation.regions) != 2:
-                self.error(
-                    "control.if_regions",
-                    "vla.if requires exactly two branch regions",
-                    policy=policy,
-                    operation=operation,
-                )
-            else:
-                for branch in operation.regions:
-                    if not _block_yields_types(branch, expected, definitions):
-                        self.error(
-                            "control.if_yield",
-                            f"each vla.if branch must yield {expected}",
-                            policy=policy,
-                            operation=operation,
-                        )
-
-        elif operation.opcode == "vla.while":
-            if int(operation.attributes.get("max_iterations", 0)) < 1:
-                self.error(
-                    "control.while_bound",
-                    "vla.while requires max_iterations >= 1",
-                    policy=policy,
-                    operation=operation,
-                )
-            if len(operation.regions) != 2:
-                self.error(
-                    "control.while_regions",
-                    "vla.while requires condition and body regions",
-                    policy=policy,
-                    operation=operation,
-                )
-
-        elif operation.opcode == "vla.snapshot.value":
-            snapshot = self._operand(definitions, operation, 0)
-            if snapshot is not None and not isinstance(snapshot.type, SnapshotType):
-                self.error(
-                    "state.snapshot_unwrap",
-                    "snapshot.value requires SnapshotType",
-                    policy=policy,
-                    operation=operation,
-                )
-            elif (
-                snapshot is not None
-                and (
-                    len(operation.results) != 1
-                    or operation.results[0].type != snapshot.type.payload
-                )
-            ):
-                self.error(
-                    "state.snapshot_payload_type",
-                    f"snapshot.value must return {snapshot.type.payload}",
-                    policy=policy,
-                    operation=operation,
-                    state=snapshot.type.state,
-                )
-
-        elif operation.opcode == "vla.state.stage_write":
+        if opcode == "vla.state.stage_write":
             state_name = str(operation.attributes.get("state", ""))
             state = self.states.get(state_name)
-            txn = self._operand(definitions, operation, 0)
-            value = self._operand(definitions, operation, 1)
-            epoch_data = operation.attributes.get("epoch", {})
-            try:
-                epoch = EpochExpr.from_dict(epoch_data)
-            except Exception as exc:
+            transaction = self._type(operation, 0, definitions)
+            value_type = self._type(operation, 1, definitions)
+            if not isinstance(transaction, TransactionType):
                 self.error(
-                    "state.epoch",
-                    f"invalid staged epoch expression: {exc}",
-                    policy=policy,
+                    "state.transaction_type",
+                    "stage_write requires a transaction",
+                    invocation=invocation,
                     operation=operation,
                     state=state_name,
                 )
-                return
             if state is None:
                 self.error(
                     "state.unknown",
-                    f"stage_write references unknown state @{state_name}",
-                    policy=policy,
+                    f"unknown state @{state_name}",
+                    invocation=invocation,
                     operation=operation,
                     state=state_name,
-                    epoch=epoch.clock,
                 )
-                return
-            if epoch.clock != state.version_clock:
+            elif value_type != state.payload:
                 self.error(
-                    "state.wrong_version_clock",
-                    f"state @{state_name} is versioned by @{state.version_clock}, "
-                    f"not @{epoch.clock}",
-                    policy=policy,
+                    "state.payload_type",
+                    "staged payload does not match StateSlot",
+                    invocation=invocation,
                     operation=operation,
                     state=state_name,
-                    epoch=epoch.clock,
-                )
-            if txn is not None and not isinstance(txn.type, TransactionType):
-                self.error(
-                    "state.write_transaction",
-                    "stage_write requires a transaction operand",
-                    policy=policy,
-                    operation=operation,
-                    state=state_name,
-                    epoch=epoch.clock,
-                )
-            if value is not None and isinstance(value.type, SnapshotType):
-                value_type = value.type.payload
-            else:
-                value_type = None if value is None else value.type
-            if value_type != state.payload:
-                self.error(
-                    "state.write_type",
-                    f"state @{state_name} expects {state.payload}, got {value_type}",
-                    policy=policy,
-                    operation=operation,
-                    state=state_name,
-                    epoch=epoch.clock,
                 )
             if (
-                len(operation.results) != 1
-                or operation.results[0].type != PendingType(state_name, state.payload)
+                state is not None
+                and (
+                    len(operation.results) != 1
+                    or operation.results[0].type
+                    != PendingType(state_name, state.payload)
+                )
             ):
                 self.error(
                     "state.pending_type",
-                    f"stage_write result must be pending<{state_name}>",
-                    policy=policy,
+                    "stage_write result must be PendingType",
+                    invocation=invocation,
                     operation=operation,
                     state=state_name,
-                    epoch=epoch.clock,
                 )
-            txn_name = operation.operands[0] if operation.operands else "<missing>"
-            if state_name in staged.setdefault(txn_name, set()):
-                self.error(
-                    "state.double_write",
-                    f"state @{state_name} is staged twice in transaction %{txn_name}",
-                    policy=policy,
-                    operation=operation,
-                    state=state_name,
-                    epoch=epoch.clock,
-                )
-            staged[txn_name].add(state_name)
-            if state.authoritative and bool(operation.attributes.get("inplace", False)):
-                self.error(
-                    "state.authoritative_inplace",
-                    f"authoritative state @{state_name} cannot be overwritten "
-                    "in-place before action commit",
-                    policy=policy,
-                    operation=operation,
-                    state=state_name,
-                    epoch=epoch.clock,
-                )
+            return
 
-        elif operation.opcode == "vla.validate":
-            if len(operation.results) != 1 or operation.results[0].type != ScalarType(
-                "bool"
+        if opcode == "vla.validate":
+            if (
+                len(operation.operands) != 1
+                or len(operation.results) != 1
+                or operation.results[0].type != ScalarType("bool")
+                or not str(operation.attributes.get("contract", ""))
             ):
                 self.error(
-                    "validate.type",
-                    "validator must return bool",
-                    policy=policy,
+                    "validation.signature",
+                    "validate requires value, contract, and bool result",
+                    invocation=invocation,
                     operation=operation,
                 )
+            return
 
-        elif operation.opcode == "vla.action.create":
-            if len(operation.operands) >= 2:
-                epoch = definitions.get(operation.operands[1])
-                if epoch is not None and not isinstance(epoch.type, EpochType):
-                    self.error(
-                        "action.epoch_type",
-                        "action_create epoch operand must have EpochType",
-                        policy=policy,
-                        operation=operation,
-                    )
-            if len(operation.results) != 1 or not isinstance(
-                operation.results[0].type, ActionType
+        if opcode == "vla.output.create":
+            value_type = self._type(operation, 0, definitions)
+            output_name = str(operation.attributes.get("output", ""))
+            output = self.outputs.get(output_name)
+            if output is None:
+                self.error(
+                    "output.unknown",
+                    f"unknown output @{output_name}",
+                    invocation=invocation,
+                    operation=operation,
+                )
+            if (
+                value_type is None
+                or output is None
+                or value_type != output.payload
+                or len(operation.results) != 1
+                or operation.results[0].type
+                != PendingOutputType(output_name, value_type)
             ):
                 self.error(
-                    "action.type",
-                    "action_create must return ActionType",
-                    policy=policy,
+                    "output.pending_type",
+                    "output.create must return PendingOutputType<payload>",
+                    invocation=invocation,
                     operation=operation,
                 )
+            return
 
-        elif operation.opcode == "vla.await":
-            future = self._operand(definitions, operation, 0)
-            if future is not None and not isinstance(future.type, FutureType):
+        if opcode == "vla.output.group":
+            group_name = str(operation.attributes.get("group", ""))
+            pending_types = tuple(
+                self._type_at(name, definitions)
+                for name in operation.operands
+            )
+            if (
+                not group_name
+                or not pending_types
+                or any(
+                    not isinstance(item, PendingOutputType)
+                    for item in pending_types
+                )
+                or len(operation.results) != 1
+                or operation.results[0].type
+                != PendingOutputGroupType(group_name, pending_types)
+            ):
                 self.error(
-                    "async.await_type",
-                    "await operand must be FutureType",
-                    policy=policy,
+                    "output.group_type",
+                    "output.group requires named pending outputs and "
+                    "matching PendingOutputGroupType",
+                    invocation=invocation,
                     operation=operation,
                 )
-            if operation.operands:
-                awaited.add(operation.operands[0])
-                active_async.pop(operation.operands[0], None)
-
-        elif operation.opcode == "vla.async":
-            reads = {str(item) for item in operation.attributes.get("reads", ())}
-            writes = {str(item) for item in operation.attributes.get("writes", ())}
-            for future_name, (other_reads, other_writes) in active_async.items():
-                conflicts = (writes & (other_reads | other_writes)) | (
-                    other_writes & reads
+                return
+            output_names = [item.output for item in pending_types]
+            if len(output_names) != len(set(output_names)):
+                self.error(
+                    "output.group_duplicate",
+                    "output group contains duplicate named outputs",
+                    invocation=invocation,
+                    operation=operation,
                 )
-                if conflicts:
+            for item in pending_types:
+                port = self.outputs.get(item.output)
+                if port is None or port.group != group_name:
                     self.error(
-                        "async.state_race",
-                        f"async task conflicts with un-awaited %{future_name} on "
-                        f"states {sorted(conflicts)}",
-                        policy=policy,
+                        "output.group_membership",
+                        f"output @{item.output} is not declared in "
+                        f"group @{group_name}",
+                        invocation=invocation,
                         operation=operation,
-                        state=",".join(sorted(conflicts)),
                     )
-            if operation.results:
-                active_async[operation.results[0].name] = (reads, writes)
+            return
 
-        elif operation.opcode == "vla.txn.commit":
-            txn = self._operand(definitions, operation, 0)
-            action = self._operand(definitions, operation, 1)
-            condition = self._operand(definitions, operation, 2)
-            if txn is not None and not isinstance(txn.type, TransactionType):
+        if opcode == "vla.txn.commit":
+            transaction = self._type(operation, 0, definitions)
+            pending = self._type(operation, 1, definitions)
+            condition_name = (
+                operation.operands[2]
+                if len(operation.operands) > 2
+                else ""
+            )
+            condition = self._type(operation, 2, definitions)
+            if not isinstance(transaction, TransactionType):
                 self.error(
                     "commit.transaction_type",
                     "commit requires TransactionType",
-                    policy=policy,
+                    invocation=invocation,
                     operation=operation,
                 )
-            if action is not None and not isinstance(action.type, ActionType):
+            if not isinstance(pending, PendingOutputGroupType):
                 self.error(
-                    "commit.action_type",
-                    "commit requires an uncommitted ActionType",
-                    policy=policy,
+                    "commit.output_type",
+                    "commit requires PendingOutputGroupType",
+                    invocation=invocation,
                     operation=operation,
                 )
-            if condition is not None:
-                if condition.type != ScalarType("bool"):
-                    self.error(
-                        "commit.condition_type",
-                        "commit condition must be bool",
-                        policy=policy,
-                        operation=operation,
+            if condition != ScalarType("bool"):
+                self.error(
+                    "commit.condition_type",
+                    "commit condition must be bool",
+                    invocation=invocation,
+                    operation=operation,
+                )
+            if condition_name not in validators:
+                self.error(
+                    "commit.validator_dominance",
+                    "commit condition must be produced by dominating validate",
+                    invocation=invocation,
+                    operation=operation,
+                    value=condition_name,
+                )
+            if (
+                isinstance(pending, PendingOutputGroupType)
+                and (
+                    len(operation.results) != 1
+                    or operation.results[0].type
+                    != CommittedOutputGroupType(
+                        pending.group,
+                        pending.outputs,
                     )
-                producer = _find_producer(policy.body, condition.name)
-                if producer is None or producer.opcode != "vla.validate":
-                    self.error(
-                        "commit.validator_dominance",
-                        f"commit condition %{condition.name} is not produced by a "
-                        "dominating validator",
-                        policy=policy,
-                        operation=operation,
-                    )
-            for required in operation.attributes.get("required_futures", ()):
-                required_name = str(required)
-                if required_name not in awaited:
-                    self.error(
-                        "commit.future_not_awaited",
-                        f"required future %{required_name} is not awaited before commit",
-                        policy=policy,
-                        operation=operation,
-                        version=required_name,
-                    )
-            if len(operation.results) != 1 or not isinstance(
-                operation.results[0].type, CommittedActionType
+                )
             ):
                 self.error(
                     "commit.result_type",
-                    "commit must return CommittedActionType",
-                    policy=policy,
+                    "commit result must be CommittedOutputGroupType",
+                    invocation=invocation,
                     operation=operation,
                 )
+            return
 
-        elif operation.opcode == "vla.action.publish":
-            action = self._operand(definitions, operation, 0)
-            if action is not None and not isinstance(
-                action.type, CommittedActionType
+        if opcode == "vla.txn.abort":
+            if not isinstance(
+                self._type(operation, 0, definitions), TransactionType
             ):
                 self.error(
-                    "action.publish_before_commit",
-                    "only CommittedActionType may be published",
-                    policy=policy,
+                    "txn.abort_type",
+                    "txn.abort requires TransactionType",
+                    invocation=invocation,
                     operation=operation,
                 )
 
-        elif operation.opcode in {"vla.return", "vla.yield"}:
-            for operand in operation.operands:
-                value = definitions.get(operand)
-                if value is not None and isinstance(value.type, PendingType):
-                    self.error(
-                        "state.pending_escape",
-                        f"pending state %{operand} escapes transaction scope",
-                        policy=policy,
-                        operation=operation,
-                        state=value.type.state,
-                        version=operand,
-                    )
+    def _verify_for(
+        self,
+        operation: Operation,
+        invocation: Invocation,
+        definitions: Mapping[str, Value],
+        validators: set[str],
+    ) -> None:
+        if len(operation.regions) != 1 or len(operation.results) != 1:
+            self.error(
+                "control.for_shape",
+                "vla.for requires one body and one carried result",
+                invocation=invocation,
+                operation=operation,
+            )
+            return
+        lower = int(operation.attributes.get("lower", 0))
+        upper = int(operation.attributes.get("upper", 0))
+        step = int(operation.attributes.get("step", 0))
+        if step <= 0 or upper <= lower:
+            self.error(
+                "control.for_bound",
+                "vla.for requires a finite positive iteration range",
+                invocation=invocation,
+                operation=operation,
+            )
+        body = operation.regions[0]
+        if len(body.arguments) != 2:
+            self.error(
+                "control.for_args",
+                "vla.for body requires induction and carry arguments",
+                invocation=invocation,
+                operation=operation,
+            )
+            return
+        initial = self._type(operation, 0, definitions)
+        if (
+            initial != body.arguments[1].type
+            or operation.results[0].type != body.arguments[1].type
+        ):
+            self.error(
+                "control.for_carry",
+                "vla.for initial, carry, and result types must match",
+                invocation=invocation,
+                operation=operation,
+            )
+        nested = self._verify_block(
+            body,
+            invocation,
+            definitions,
+            validators,
+            nested=True,
+        )
+        if (
+            not body.operations
+            or body.operations[-1].opcode != "vla.yield"
+            or len(body.operations[-1].operands) != 1
+            or self._type_at(body.operations[-1].operands[0], nested)
+            != operation.results[0].type
+        ):
+            self.error(
+                "control.for_yield",
+                "vla.for body must yield one carried value",
+                invocation=invocation,
+                operation=operation,
+            )
 
-        elif operation.opcode == "vla.reset":
-            for state_name in operation.attributes.get("states", ()):
-                if state_name not in self.states:
-                    self.error(
-                        "reset.unknown_state",
-                        f"reset references unknown state @{state_name}",
-                        policy=policy,
-                        operation=operation,
-                        state=str(state_name),
-                    )
+    def _verify_if(
+        self,
+        operation: Operation,
+        invocation: Invocation,
+        definitions: Mapping[str, Value],
+        validators: set[str],
+    ) -> None:
+        if self._type(operation, 0, definitions) != ScalarType("bool"):
+            self.error(
+                "control.if_condition",
+                "vla.if condition must be bool",
+                invocation=invocation,
+                operation=operation,
+            )
+        if len(operation.regions) != 2:
+            self.error(
+                "control.if_regions",
+                "vla.if requires then and else regions",
+                invocation=invocation,
+                operation=operation,
+            )
+            return
+        expected = tuple(value.type for value in operation.results)
+        for branch in operation.regions:
+            nested = self._verify_block(
+                branch,
+                invocation,
+                definitions,
+                validators,
+                nested=True,
+            )
+            if not branch.operations or branch.operations[-1].opcode != "vla.yield":
+                self.error(
+                    "control.if_yield",
+                    "every vla.if branch must end in yield",
+                    invocation=invocation,
+                    operation=operation,
+                )
+                continue
+            actual = tuple(
+                self._type_at(name, nested)
+                for name in branch.operations[-1].operands
+            )
+            if actual != expected:
+                self.error(
+                    "control.if_yield",
+                    "branch yield types must match vla.if results",
+                    invocation=invocation,
+                    operation=operation,
+                )
+
+    @staticmethod
+    def _type(
+        operation: Operation,
+        index: int,
+        definitions: Mapping[str, Value],
+    ):
+        if index >= len(operation.operands):
+            return None
+        value = definitions.get(operation.operands[index])
+        return None if value is None else value.type
+
+    @staticmethod
+    def _type_at(name: str, definitions: Mapping[str, Value]):
+        value = definitions.get(name)
+        return None if value is None else value.type
 
     def _commit_outcomes(self, block: Block) -> set[tuple[int, bool]]:
         outcomes: set[tuple[int, bool]] = {(0, False)}
         for operation in block.operations:
             next_outcomes: set[tuple[int, bool]] = set()
-            for count, terminated in outcomes:
-                if terminated:
-                    next_outcomes.add((count, terminated))
-                    continue
-                if operation.opcode == "vla.txn.commit":
+            for count, aborted in outcomes:
+                if aborted:
+                    next_outcomes.add((count, True))
+                elif operation.opcode == "vla.txn.commit":
                     next_outcomes.add((count + 1, False))
                 elif operation.opcode == "vla.txn.abort":
                     next_outcomes.add((count, True))
-                elif operation.opcode == "vla.if" and len(operation.regions) == 2:
+                elif operation.opcode == "vla.if":
                     for branch in operation.regions:
                         for branch_count, branch_aborted in self._commit_outcomes(
                             branch
                         ):
                             next_outcomes.add(
-                                (count + branch_count, branch_aborted)
+                                (
+                                    count + branch_count,
+                                    branch_aborted,
+                                )
                             )
                 else:
-                    nested_commits = sum(
-                        1
-                        for region in operation.regions
-                        for nested in _walk_operations(region)
-                        if nested.opcode == "vla.txn.commit"
-                    )
-                    next_outcomes.add((count + nested_commits, False))
+                    next_outcomes.add((count, False))
             outcomes = next_outcomes
         return outcomes
 
 
-def _walk_operations(block: Block) -> Iterable[Operation]:
-    for operation in block.operations:
-        yield operation
-        for region in operation.regions:
-            yield from _walk_operations(region)
-
-
-def _find_producer(block: Block, value_name: str) -> Operation | None:
-    for operation in _walk_operations(block):
-        if any(result.name == value_name for result in operation.results):
-            return operation
-    return None
-
-
-def _block_yields_types(
-    block: Block,
-    expected: tuple[object, ...],
-    inherited: Mapping[str, Value],
-) -> bool:
-    if not block.operations or block.operations[-1].opcode != "vla.yield":
-        return False
-    definitions = dict(inherited)
-    definitions.update((argument.name, argument) for argument in block.arguments)
-    for operation in block.operations[:-1]:
-        definitions.update((result.name, result) for result in operation.results)
-    yielded = tuple(
-        definitions[name].type
-        for name in block.operations[-1].operands
-        if name in definitions
-    )
-    return (
-        len(yielded) == len(block.operations[-1].operands)
-        and yielded == expected
-    )
-
-
-def verify(module: Module, *, raise_on_error: bool = True) -> tuple[Diagnostic, ...]:
+def verify(
+    module: Module,
+    *,
+    raise_on_error: bool = True,
+) -> tuple[Diagnostic, ...]:
     verifier = _Verifier(module)
     verifier.run()
     diagnostics = tuple(verifier.diagnostics)

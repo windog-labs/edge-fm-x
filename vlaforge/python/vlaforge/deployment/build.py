@@ -48,6 +48,7 @@ def build_compile_bundle(
     source_revision: str,
     source_dirty: bool,
     environment: Mapping[str, str] | None = None,
+    initial_state: Mapping[str, object] | None = None,
 ) -> CompileBundleManifest:
     """Compile, build, hash, and verify one standalone deployment bundle."""
 
@@ -66,6 +67,7 @@ def build_compile_bundle(
         regions=regions,
         validators=validators,
         runner_source=runner_source,
+        initial_state=initial_state,
     )
 
     metadata = root / "metadata"
@@ -90,6 +92,11 @@ def build_compile_bundle(
                         "name": item.name,
                         "payload": item.payload.to_dict(),
                         "retention": item.retention,
+                        "reset_on_episode": (
+                            compilation.module.states[
+                                item.state_id
+                            ].reset_on_episode
+                        ),
                     }
                     for item in compilation.plan.states
                 ]
@@ -115,14 +122,23 @@ def build_compile_bundle(
         metadata / "input_schema.json",
         json.dumps(
             {
+                "schema": "vlaforge.input_schema/2",
+                "io_schema_digest": compilation.certificate.io_schema_digest,
                 "inputs": [
                     {
-                        "input_id": index,
+                        "input_id": item.input_id,
                         "name": item.name,
                         "payload": item.payload.to_dict(),
-                        "clock": item.clock,
+                        "required": item.required,
+                        "default": _json_value(item.default),
+                        "device": item.device,
+                        "ownership": item.ownership.value,
+                        "alignment": item.alignment,
+                        "extension": item.extension,
+                        "value_range": item.value_range,
+                        "valid_for": item.valid_for,
                     }
-                    for index, item in enumerate(compilation.module.inputs)
+                    for item in compilation.module.inputs
                 ]
             },
             sort_keys=True,
@@ -133,15 +149,20 @@ def build_compile_bundle(
         metadata / "output_schema.json",
         json.dumps(
             {
-                "policies": [
+                "schema": "vlaforge.output_schema/2",
+                "io_schema_digest": compilation.certificate.io_schema_digest,
+                "outputs": [
                     {
-                        "policy_id": index,
+                        "output_id": item.output_id,
                         "name": item.name,
-                        "clock": item.clock,
+                        "payload": item.payload.to_dict(),
+                        "group": item.group,
+                        "device": item.device,
+                        "alignment": item.alignment,
                     }
-                    for index, item in enumerate(compilation.module.policies)
+                    for item in compilation.module.outputs
                 ],
-                "runtime_output": "CommittedAction",
+                "runtime_output": "CommittedOutputGroup",
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -200,6 +221,7 @@ def build_compile_bundle(
                     requires_synchronize=False,
                 ),
                 effect_audit=EffectAudit(),
+                plugin_abi="vlaforge.region_executable/2",
             )
         )
 
@@ -260,6 +282,7 @@ def build_compile_bundle(
         physical_memory_plan=required["physical_memory_plan"],
         input_schema=required["input_schema"],
         output_schema=required["output_schema"],
+        io_schema_digest=compilation.certificate.io_schema_digest,
         region_artifacts=tuple(region_contracts),
         generated_sources=(
             FileRecord.from_file(
@@ -319,3 +342,11 @@ def _first_version_line(command: list[str]) -> str:
 
 def _dtype_name(value: TensorType | ScalarType) -> str:
     return value.dtype if isinstance(value, TensorType) else value.name
+
+
+def _json_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, tuple | list):
+        return [_json_value(item) for item in value]
+    return value

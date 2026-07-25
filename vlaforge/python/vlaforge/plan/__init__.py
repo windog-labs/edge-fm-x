@@ -1,4 +1,4 @@
-"""Internal lowering, verification, and simulation for Scheduled Plans."""
+"""Lowering, verification, execution, and memory planning for Plan v2."""
 
 from vlaforge.plan.executor import PlanExecutionError, PlanExecutor
 from vlaforge.plan.lowering import ArtifactVariant, lower_to_plan
@@ -16,14 +16,11 @@ from vlaforge.plan.model import (
     PLAN_SCHEMA,
     ArtifactBinding,
     BufferClass,
-    DeadlineGuard,
-    FallbackTarget,
-    FreshnessGuard,
     LogicalBuffer,
     PhysicalBuffer,
     PlanBlock,
+    PlanInvocation,
     PlanModule,
-    PlanPolicy,
     StateBinding,
     StaticArenaPlan,
     Task,
@@ -40,9 +37,6 @@ __all__ = [
     "ArtifactBinding",
     "ArtifactVariant",
     "BufferClass",
-    "DeadlineGuard",
-    "FallbackTarget",
-    "FreshnessGuard",
     "LogicalBuffer",
     "MemoryPlanningError",
     "PhysicalBuffer",
@@ -50,8 +44,8 @@ __all__ = [
     "PlanDiagnostic",
     "PlanExecutionError",
     "PlanExecutor",
+    "PlanInvocation",
     "PlanModule",
-    "PlanPolicy",
     "PlanVerificationError",
     "StateBinding",
     "StaticArenaPlan",

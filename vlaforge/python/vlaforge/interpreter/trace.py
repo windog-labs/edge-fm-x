@@ -1,4 +1,4 @@
-"""Stable state/solver/action trace representation."""
+"""Stable state/region/output trace for passive invocations."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from vlaforge.interpreter.clocks import Epoch
 from vlaforge.interpreter.transaction import (
-    CommittedAction,
-    PendingAction,
+    CommittedOutputGroup,
+    PendingOutput,
+    PendingOutputGroup,
     PendingValue,
     SnapshotValue,
 )
@@ -21,45 +21,40 @@ def normalize_value(value: Any) -> Any:
     trace_summary = getattr(value, "__vlaforge_trace__", None)
     if callable(trace_summary):
         return normalize_value(trace_summary())
-    if isinstance(value, Epoch):
-        return {
-            "clock": value.clock,
-            "sequence": value.sequence,
-            "timestamp_ns": value.timestamp_ns,
-            "episode": value.episode,
-        }
     if isinstance(value, SnapshotValue):
         return {
             "state": value.state,
             "version": value.version,
-            "epoch": normalize_value(value.epoch),
+            "episode": value.episode,
             "value": normalize_value(value.value),
         }
     if isinstance(value, PendingValue):
+        return {"state": value.state, "value": normalize_value(value.value)}
+    if isinstance(value, PendingOutput):
         return {
-            "state": value.state,
-            "epoch": normalize_value(value.epoch),
+            "output": value.output,
             "value": normalize_value(value.value),
         }
-    if isinstance(value, PendingAction | CommittedAction):
+    if isinstance(value, PendingOutputGroup | CommittedOutputGroup):
         result = {
-            "epoch": normalize_value(value.epoch),
-            "value": normalize_value(value.value),
+            "group": value.group,
+            "outputs": [normalize_value(item) for item in value.outputs],
         }
-        if isinstance(value, CommittedAction):
+        if isinstance(value, CommittedOutputGroup):
             result["transaction_id"] = value.transaction_id
+            result["episode"] = value.episode
         return result
     if (
         type(value).__name__ == "StateVersion"
         and hasattr(value, "state")
         and hasattr(value, "version")
-        and hasattr(value, "epoch")
+        and hasattr(value, "episode")
         and hasattr(value, "value")
     ):
         return {
             "state": str(value.state),
             "version": int(value.version),
-            "epoch": normalize_value(value.epoch),
+            "episode": int(value.episode),
             "value": normalize_value(value.value),
         }
     if value is None or isinstance(value, str | int | float | bool):
@@ -71,35 +66,56 @@ def normalize_value(value: Any) -> Any:
         }
     if isinstance(value, tuple | list):
         return [normalize_value(item) for item in value]
-
     shape = getattr(value, "shape", None)
     dtype = getattr(value, "dtype", None)
     if shape is not None and dtype is not None:
+        size = 1
+        for dim in shape:
+            size *= int(dim)
+        result: dict[str, Any] = {
+            "tensor": True,
+            "shape": [int(dim) for dim in shape],
+            "dtype": str(dtype),
+        }
+        # Runtime trace is a control/state-identity contract, not a dump of
+        # model activations. Avoid device-to-host copies of large KV/feature
+        # tensors; numerical parity is checked separately at Region/output
+        # boundaries.
+        if size > 4096:
+            result["content"] = "omitted_large_tensor"
+            return result
         detached = value
         if hasattr(detached, "detach"):
             detached = detached.detach()
         if hasattr(detached, "cpu"):
             detached = detached.cpu()
+        raw: bytes | None = None
         if hasattr(detached, "numpy"):
             try:
-                detached = detached.numpy()
+                array = detached.numpy()
+                raw = array.tobytes()
             except Exception:
                 pass
-        if hasattr(detached, "tobytes"):
-            raw = detached.tobytes()
-            digest = hashlib.sha256(raw).hexdigest()
-            result: dict[str, Any] = {
-                "tensor": True,
-                "shape": [int(dim) for dim in shape],
-                "dtype": str(dtype),
-                "sha256": digest,
-            }
-            size = 1
-            for dim in shape:
-                size *= int(dim)
-            if size <= 64 and hasattr(detached, "tolist"):
+        if raw is None and hasattr(detached, "untyped_storage"):
+            try:
+                contiguous = (
+                    detached.contiguous()
+                    if hasattr(detached, "contiguous")
+                    else detached
+                )
+                raw = bytes(contiguous.untyped_storage())
+            except Exception:
+                pass
+        if raw is not None:
+            result["sha256"] = hashlib.sha256(raw).hexdigest()
+        if size <= 64 and hasattr(detached, "tolist"):
+            try:
                 result["values"] = detached.tolist()
-            return result
+            except Exception:
+                pass
+        if raw is None and "values" not in result:
+            result["content"] = "unavailable"
+        return result
     return {"opaque_type": type(value).__qualname__, "repr": repr(value)}
 
 
@@ -107,8 +123,8 @@ def normalize_value(value: Any) -> Any:
 class TraceEvent:
     index: int
     kind: str
-    policy: str
-    tick: dict[str, Any]
+    invocation: str
+    run: int
     op: str
     data: Any
 
@@ -124,8 +140,8 @@ class Trace:
     def record(
         self,
         kind: str,
-        policy: str,
-        tick: Epoch,
+        invocation: str,
+        run: int,
         op: str,
         data: Any,
     ) -> None:
@@ -133,8 +149,8 @@ class Trace:
             TraceEvent(
                 len(self._events),
                 kind,
-                policy,
-                normalize_value(tick),
+                invocation,
+                run,
                 op,
                 normalize_value(data),
             )
@@ -142,7 +158,7 @@ class Trace:
 
     def to_data(self) -> dict[str, Any]:
         return {
-            "schema": "vlaforge.trace/0.1",
+            "schema": "vlaforge.trace/0.2",
             "events": [asdict(event) for event in self._events],
         }
 
@@ -158,7 +174,7 @@ class Trace:
 
     @classmethod
     def from_data(cls, data: Mapping[str, Any]) -> "Trace":
-        if data.get("schema") != "vlaforge.trace/0.1":
+        if data.get("schema") != "vlaforge.trace/0.2":
             raise ValueError(f"unsupported trace schema: {data.get('schema')!r}")
         return cls(TraceEvent(**event) for event in data.get("events", ()))
 

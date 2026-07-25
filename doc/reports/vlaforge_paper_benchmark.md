@@ -1,5 +1,8 @@
 # VLAForge Paper Benchmark
 
+> **Archived v0.1 benchmark.** The measurements below use the removed
+> tick/epoch runner and cannot support Invocation IR v0.2 performance claims.
+
 - Revision: `d818bf6d611e8ad257a7ff434934c8e14e8f868f`
 - Gate passed: `true`
 - Exact state/action/evidence: `true`
