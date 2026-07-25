@@ -1,0 +1,111 @@
+{
+  "artifacts": [
+    {
+      "compile_seconds": 23.91377918701619,
+      "path": "prepare_prefix.pt2",
+      "region": "prepare_prefix",
+      "sha256": "f6b6b691cf52a7c585f22d1b360aafba4f67bb59806ca3e34ffd86762b1f6905",
+      "size_bytes": 608580305,
+      "target": "sm_86"
+    },
+    {
+      "compile_seconds": 17.859540849924088,
+      "path": "solver_step.pt2",
+      "region": "solver_step",
+      "sha256": "43d8694ce95fa31b4d718104eb13581646bfb786983de78f6317eeb821c87b00",
+      "size_bytes": 208608106,
+      "target": "sm_86"
+    },
+    {
+      "compile_seconds": 4.385674476856366,
+      "path": "trim_action_chunk.pt2",
+      "region": "trim_action_chunk",
+      "sha256": "3ee7d4f7e9f1d463a5368de7ce7e8a2f6fb329e71ade770c023e93f37560ce43",
+      "size_bytes": 396391,
+      "target": "sm_86"
+    }
+  ],
+  "checkpoint_sha256": "7cd549ac2351fb069c0ddb3c34ad2d09cfc92b56a15dccdfc2e41467aaca01eb",
+  "environment": {
+    "cuda": "12.8",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "torch": "2.10.0+cu128",
+    "transformers": "4.57.3"
+  },
+  "evidence_kind": "real_checkpoint_compiled_artifact",
+  "evidence_level": "L3",
+  "exported_final_vs_eager": {
+    "exact": true,
+    "maximum_absolute_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "normalized_root_mean_square_error": 0.0,
+    "shape": [1, 50, 6]
+  },
+  "exported_programs": [
+    {
+      "graph_nodes": 2935,
+      "path": "prepare_prefix.pt2e",
+      "region": "prepare_prefix",
+      "sha256": "93d759087836b011fc8a406ba4facb5ffdbc61623a93fe09b94726a71f9fb300",
+      "size_bytes": 911380318
+    },
+    {
+      "graph_nodes": 2545,
+      "path": "solver_step.pt2e",
+      "region": "solver_step",
+      "sha256": "fdbfabadf83562a4bd73a24f575e1cb9adf1f89967a408a561f61d09708104b5",
+      "size_bytes": 911970035
+    },
+    {
+      "graph_nodes": 3,
+      "path": "trim_action_chunk.pt2e",
+      "region": "trim_action_chunk",
+      "sha256": "88ad0be681404629628e902292181f4c21194f6c7c3f57d001826e37c7db6eef",
+      "size_bytes": 12639
+    }
+  ],
+  "final_artifact_vs_eager": {
+    "exact": false,
+    "maximum_absolute_error": 0.027849435806274414,
+    "mean_absolute_error": 0.008020714689046145,
+    "normalized_root_mean_square_error": 0.013031273593785695,
+    "shape": [1, 50, 6]
+  },
+  "frontend_report_sha256": "20c3b57c3ffad2f51508173f532baeac3a922aa02cb8932c7eed6f61b8541349",
+  "passed": true,
+  "peak_cuda_memory_mb": 1796.5947265625,
+  "prefix_maximum_absolute_error": 0.25,
+  "prefix_maximum_normalized_root_mean_square_error": 0.018600937461736522,
+  "repeat_artifact_execution_exact": true,
+  "schema": "vlaforge.smolvla_artifact_evidence/1",
+  "solver_step_maximum_absolute_errors": [
+    0.0031793713569641113,
+    0.0051102787256240845,
+    0.006924016401171684,
+    0.009185582399368286,
+    0.011236071586608887,
+    0.013172641396522522,
+    0.01645815372467041,
+    0.019707918167114258,
+    0.023393869400024414,
+    0.027849435806274414
+  ],
+  "solver_step_normalized_root_mean_square_errors": [
+    0.0012786918356187651,
+    0.0023128424720058344,
+    0.0035572646889478403,
+    0.005090455833139093,
+    0.006903486969461254,
+    0.008831091811834049,
+    0.010669271486800589,
+    0.012043339637410425,
+    0.01298179253070944,
+    0.01323196334589676
+  ],
+  "tolerances": {
+    "final_maximum_absolute_error": 0.05,
+    "final_mean_absolute_error": 0.01,
+    "region_normalized_root_mean_square_error": 0.02
+  },
+  "upstream_revision": "8fff0fde"
+}

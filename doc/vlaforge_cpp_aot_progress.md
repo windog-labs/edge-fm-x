@@ -134,9 +134,22 @@ RTX 3060 12GB、CUDA 12.8、PyTorch 2.10.0+cu128、`sm_86` 已验证：
 该 audit 使用确定性小型 TensorRegion，只证明真实 production backend 通路，
 不升级任何 VLA checkpoint 的 L3/L4 等级。
 
+## SmolVLA real Host-CUDA L3
+
+真实 `SmolVLA-Base` 的 prefix、solver-step 与 trim Region 已使用同一
+`torch 2.10.0+cu128` 环境编译为 `sm_86` AOTInductor package。10 步
+exported pipeline 与 upstream eager 的最终 action bit-exact；artifact
+pipeline 在显式 BF16 数值容差内通过，且重复 artifact 执行 bit-exact。详细
+hash、size、compile time 和逐步误差见
+`doc/reports/vlaforge_real_v03/`。
+
+这将 SmolVLA 真实证据从 L2 提升到 L3，但尚未提升到 L4。下一步必须完成
+generated no-Python C++ Session、device-resident exact prefix cache、CUDA
+authoritative state、事务化 action queue 以及失败回滚。
+
 ## 下一步
 
-1. 以已通过审计的 AOTI Bundle/Session 通路完成 SmolVLA 真实 L3/L4；
+1. 以已通过审计的 AOTI Bundle/Session 通路完成 SmolVLA 真实 L4；
 2. 再完成 DiffusionDrive L3/L4 与 OpenVLA 分 Region L3/L4；
 3. Host CUDA latency/memory/profile 与长稳；
 4. Orin 台架就绪后运行模型专属 SM87 artifact、性能和长稳测试。

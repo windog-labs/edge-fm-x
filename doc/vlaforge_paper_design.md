@@ -403,19 +403,23 @@ Generality：
 - robot/driving deterministic fixtures；
 - generated no-Python C++ fixture parity；
 - OpenVLA-7B 与 SmolVLA 真实 checkpoint eager/IR L2；
+- SmolVLA 真实 prefix/solver-step/trim 的 `sm_86` AOTInductor L3 数值
+  parity；BF16 artifact 不声称 bit-exact；
 - pinned upstream source audit 与 Model Adaptation Cards。
 
 尚未完成、且决定投稿强度：
 
-- 真实 checkpoint 的 v0.2 L2/L3/L4；
+- SmolVLA generated no-Python C++ L4，以及 DiffusionDrive/OpenVLA 的真实
+  L3/L4；
 - real-model optimization speedup 与 memory 消融；
 - frozen-core held-out model 数据；
 - Host CUDA 长稳与 profile；
 - Orin 真机 latency/power/closed-loop。
 
-这里的 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
-不能计入模型覆盖表中的 real-model L3/L4。模型证据升级仍必须使用固定
-checkpoint、真实前端 capture 和对应 Model Adaptation Card。
+小型 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
+不能计入模型覆盖表中的 real-model L3/L4。SmolVLA 的 L3 是独立的固定
+checkpoint、真实前端 capture、三 Region artifact 和逐步数值报告，证据见
+`doc/reports/vlaforge_real_v03/`。
 
 ## 13. 投稿 go/no-go
 

@@ -5,7 +5,7 @@
 | Upstream | `huggingface/lerobot@0d383d09f2051444de211739196a28cc94736861` |
 | License / checkpoint | Apache-2.0；`lerobot/smolvla_base` 未在 bundle 固定 hash |
 | Source entry | `policies/smolvla/modeling_smolvla.py`、`configuration_smolvla.py` |
-| 当前证据 | L0 + L1 + real L2 + deterministic fixture-L4 |
+| 当前证据 | L0 + L1 + real L2 + real Host-CUDA L3 + deterministic fixture-L4 |
 | Adapter | fixture 311 LOC；real adapter 743 LOC（含 capture/audit） |
 | Core op 增量 | 0 |
 
@@ -21,3 +21,11 @@ Invocation IR L2。单次审计 peak 约 920.47 MiB，不是稳定 benchmark。
 
 `fixture-L4` 不代表真实 SmolVLA checkpoint 已经 L4。真实 v0.2 artifact 与
 no-Python Session parity 仍 pending。
+
+2026-07-25 进一步在 `torch 2.10.0+cu128` 上将真实 prefix、solver-step 和
+trim Region 编译为 `sm_86` AOTInductor package。exported 10 步 pipeline 与
+upstream eager 的最终 action bit-exact；artifact 与 eager 的最终 action
+`max_abs=0.02784944`、`mean_abs=0.00802071`、`NRMSE=0.01303127`，重复
+artifact 执行 bit-exact。该结果按显式 BF16 数值容差判为 real L3，不声称
+exact parity。证据见
+`doc/reports/vlaforge_real_v03/smolvla_artifact_l3.json`。
