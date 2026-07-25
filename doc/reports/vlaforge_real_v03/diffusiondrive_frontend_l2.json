@@ -1,0 +1,372 @@
+{
+  "captures": [
+    {
+      "effect_audit": {
+        "diagnostics": [
+          {
+            "code": "frontend.local_workspace_mutation",
+            "message": "113 invocation-local mutable operators do not alias inputs or module values",
+            "severity": "info",
+            "source": null
+          },
+          {
+            "code": "frontend.eval_dropout",
+            "message": "40 dropout operators have train=false and are deterministic",
+            "severity": "info",
+            "source": null
+          }
+        ],
+        "explicit_rng": false,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-diffusiondrive-l2-report/exports/condition_encoder.capture.json",
+      "export_seconds": 5.7348607091698796,
+      "graph_sha256": "477e0ab4f2c10d8c1d24935d427a0f5ad1b7da1cc948c10239ebca2e9d4dbcc3",
+      "maximum_export_error": 0.0,
+      "name": "condition_encoder",
+      "program": "/tmp/vlaforge-diffusiondrive-l2-report/exports/condition_encoder.pt2e",
+      "program_sha256": "6a4f2998459ff0734f4f41ca966538d5b55cdfa81b8d0b678645a2b26a298f45",
+      "program_size_bytes": 229071541
+    },
+    {
+      "effect_audit": {
+        "diagnostics": [],
+        "explicit_rng": true,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-diffusiondrive-l2-report/exports/initialize_planner_state.capture.json",
+      "export_seconds": 0.08240681909956038,
+      "graph_sha256": "e349c30337915d7b85adbd4fd6dd87c7f234a5ed27ac3e7c15507c473a6cba62",
+      "maximum_export_error": 0.0,
+      "name": "initialize_planner_state",
+      "program": "/tmp/vlaforge-diffusiondrive-l2-report/exports/initialize_planner_state.pt2e",
+      "program_sha256": "6d7a7928de58e576f45b24ad1be183391a04bbc8d739349e299f314d614abd45",
+      "program_size_bytes": 49238
+    },
+    {
+      "effect_audit": {
+        "diagnostics": [],
+        "explicit_rng": false,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-diffusiondrive-l2-report/exports/make_denoise_timestep.capture.json",
+      "export_seconds": 0.03819269989617169,
+      "graph_sha256": "38f21034b826abb73535e97bed2dc8b009fc1f18312a92627c64e68a86921b2a",
+      "maximum_export_error": 0.0,
+      "name": "make_denoise_timestep",
+      "program": "/tmp/vlaforge-diffusiondrive-l2-report/exports/make_denoise_timestep.pt2e",
+      "program_sha256": "68cc73ced472de6275ac22977d6d164f2968f25e4d0d05d936b34c2f2257a725",
+      "program_size_bytes": 12739
+    },
+    {
+      "effect_audit": {
+        "diagnostics": [
+          {
+            "code": "frontend.local_workspace_mutation",
+            "message": "15 invocation-local mutable operators do not alias inputs or module values",
+            "severity": "info",
+            "source": null
+          },
+          {
+            "code": "frontend.eval_dropout",
+            "message": "6 dropout operators have train=false and are deterministic",
+            "severity": "info",
+            "source": null
+          }
+        ],
+        "explicit_rng": false,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-diffusiondrive-l2-report/exports/denoise_planner_step.capture.json",
+      "export_seconds": 1.1431314030196518,
+      "graph_sha256": "a96d810f97d857ccf99857faff0bf18f84dec95f4cb52f0a82e5668150c5a7de",
+      "maximum_export_error": 0.0,
+      "name": "denoise_planner_step",
+      "program": "/tmp/vlaforge-diffusiondrive-l2-report/exports/denoise_planner_step.pt2e",
+      "program_sha256": "6df6bdc0179e04c963d98a116b6b45d97ef2c03cc8d2a71e2b69527cfd0f0706",
+      "program_size_bytes": 24855478
+    },
+    {
+      "effect_audit": {
+        "diagnostics": [],
+        "explicit_rng": false,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-diffusiondrive-l2-report/exports/decode_planner_outputs.capture.json",
+      "export_seconds": 0.04842345789074898,
+      "graph_sha256": "0c50af4e71a61fd03b8ebb13305edc4b2176142082d4aaa15f19521c118a1433",
+      "maximum_export_error": 0.0,
+      "name": "decode_planner_outputs",
+      "program": "/tmp/vlaforge-diffusiondrive-l2-report/exports/decode_planner_outputs.pt2e",
+      "program_sha256": "327bc9ac5abbb975b9bdb5de7c94c3f3e232e08376514c81d23865a98d79c21b",
+      "program_size_bytes": 20364
+    }
+  ],
+  "checkpoint": {
+    "expected_size_bytes": 729518199,
+    "license": "non-commercial per Hugging Face model card",
+    "missing_keys": [],
+    "path": "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+    "repository": "hustvl/DiffusionDrive",
+    "revision": "8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71",
+    "sha256": "008ffc39cc6c57ff9007025217e601f408818afa036c0bae4e543907993a005b",
+    "size_bytes": 729518199,
+    "unexpected_keys": []
+  },
+  "correctness": {
+    "candidate_scores_finite": true,
+    "candidate_trajectories_finite": true,
+    "upstream_forward_vs_region_chain": {
+      "agent_labels": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          30
+        ]
+      },
+      "agent_states": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          30,
+          5
+        ]
+      },
+      "bev_semantic_map": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          7,
+          128,
+          256
+        ]
+      },
+      "candidate_scores": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          20
+        ]
+      },
+      "candidate_trajectories": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          20,
+          8,
+          3
+        ]
+      },
+      "trajectory": {
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          8,
+          3
+        ]
+      }
+    }
+  },
+  "environment": {
+    "cuda": "12.8",
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "packages": {
+      "diffusers": "0.35.2",
+      "numpy": "2.4.3",
+      "timm": "1.0.28",
+      "torchvision": "0.25.0"
+    },
+    "python": "3.13.12",
+    "torch": "2.10.0+cu128"
+  },
+  "evidence_kind": "real-checkpoint-frontend-capture",
+  "evidence_level": "L2",
+  "input_contract": {
+    "camera_feature": [
+      1,
+      3,
+      256,
+      1024
+    ],
+    "lidar_feature": [
+      1,
+      1,
+      256,
+      256
+    ],
+    "noise": [
+      1,
+      20,
+      8,
+      2
+    ],
+    "note": "Sensor synchronization and feature construction remain external; noise is explicit for deterministic deployment.",
+    "status_feature": [
+      1,
+      8
+    ]
+  },
+  "model": "DiffusionDrive NAVSIM 88.1 PDMS",
+  "output_contract": {
+    "agent_labels": [
+      1,
+      30
+    ],
+    "agent_states": [
+      1,
+      30,
+      5
+    ],
+    "bev_semantic_map": [
+      1,
+      7,
+      128,
+      256
+    ],
+    "candidate_scores": [
+      1,
+      20
+    ],
+    "candidate_trajectories": [
+      1,
+      20,
+      8,
+      3
+    ],
+    "trajectory": [
+      1,
+      8,
+      3
+    ]
+  },
+  "passed": true,
+  "repository": {
+    "revision": "f937bc3f85eb1f57754241830d30db2ba0be62ee",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command": [
+      "/tmp/vlaforge-smolvla-env/bin/python",
+      "vlaforge/tools/audit_real_diffusiondrive_frontend.py",
+      "--source-root",
+      "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725",
+      "--checkpoint",
+      "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+      "--export-dir",
+      "/tmp/vlaforge-diffusiondrive-l2-report/exports",
+      "--report",
+      "<report.json>",
+      "--device",
+      "cuda:0"
+    ],
+    "environment": {
+      "CUDA_VISIBLE_DEVICES": "<unset>",
+      "PYTHONPATH": "vlaforge/python"
+    }
+  },
+  "schema": "vlaforge.diffusiondrive_real_frontend/1",
+  "semantic_ir": {
+    "bounded_denoise_steps": 2,
+    "cache_input_ids": [
+      0,
+      1,
+      2
+    ],
+    "cache_state_ids": [],
+    "core_op_delta": 0,
+    "io_schema_digest": "971574b96dc06a33abb5b036d3392cefbb3d48a1df74433ca91eb3e626f39997",
+    "loop_carried_state_shape": [
+      1,
+      820
+    ],
+    "regions": [
+      "condition_encoder",
+      "initialize_planner_state",
+      "make_denoise_timestep",
+      "denoise_planner_step",
+      "decode_planner_outputs"
+    ]
+  },
+  "status": "passed",
+  "timing": {
+    "capture_total_seconds": 8.565360044129193,
+    "checkpoint_load_seconds": 2.473992496030405,
+    "eager_chain_seconds": 0.25468954793177545,
+    "peak_cuda_allocated_bytes": 307197952
+  },
+  "upstream": {
+    "code_license": "MIT",
+    "repository": "https://github.com/hustvl/DiffusionDrive",
+    "revision": "9b52ed0ec06b073d82d6f392ab084c7b301c8681",
+    "source_files": [
+      {
+        "matches_pinned_revision": true,
+        "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/transfuser_model_v2.py",
+        "pinned_git_object_sha256": "84a7f824fa51f172d6d2a940ad566a96eb253f26231065f5283bf6507701a697",
+        "relative_path": "navsim/agents/diffusiondrive/transfuser_model_v2.py",
+        "sha256": "84a7f824fa51f172d6d2a940ad566a96eb253f26231065f5283bf6507701a697"
+      },
+      {
+        "matches_pinned_revision": true,
+        "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/transfuser_backbone.py",
+        "pinned_git_object_sha256": "53cb334652860634cf2cd9c4867b270465631f5f1e33b2e4c7bcadfc448471a3",
+        "relative_path": "navsim/agents/diffusiondrive/transfuser_backbone.py",
+        "sha256": "53cb334652860634cf2cd9c4867b270465631f5f1e33b2e4c7bcadfc448471a3"
+      },
+      {
+        "matches_pinned_revision": true,
+        "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/modules/blocks.py",
+        "pinned_git_object_sha256": "de879c63cbfaf8fe96437cb84f4a9c28392625ec6706132032afceed4ffc2776",
+        "relative_path": "navsim/agents/diffusiondrive/modules/blocks.py",
+        "sha256": "de879c63cbfaf8fe96437cb84f4a9c28392625ec6706132032afceed4ffc2776"
+      },
+      {
+        "matches_pinned_revision": true,
+        "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/modules/conditional_unet1d.py",
+        "pinned_git_object_sha256": "0d6d589fb29d6e076b77bddbb3d7ab6b86c216c29e13391fb532d661a13f5cf7",
+        "relative_path": "navsim/agents/diffusiondrive/modules/conditional_unet1d.py",
+        "sha256": "0d6d589fb29d6e076b77bddbb3d7ab6b86c216c29e13391fb532d661a13f5cf7"
+      }
+    ]
+  }
+}

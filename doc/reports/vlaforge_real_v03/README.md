@@ -67,3 +67,25 @@ trace counts, and the exact reproduction command are recorded in
 This upgrades the fixed `SmolVLA-Base` checkpoint to real Host-CUDA L4. It is
 not an Orin claim and the recorded audit runtime is not yet a paper-grade
 latency benchmark.
+
+## DiffusionDrive real L2
+
+The official NAVSIM checkpoint at Hugging Face revision
+`8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71` was validated by exact size and
+SHA256, then strictly loaded into upstream Git revision
+`9b52ed0ec06b073d82d6f392ab084c7b301c8681` with no missing or unexpected
+keys. The four executed upstream source files also match their pinned Git
+objects byte-for-byte.
+
+The deployment partition uses five Regions: cached condition encoding,
+explicit-noise initialization, timestep construction, a loop-carried denoise
+step, and generic multi-output decoding. The original upstream forward was
+observed through a read-only hook so all already-computed planner outputs could
+be compared. Candidate trajectories, candidate scores, selected trajectory,
+BEV semantic map, agent states, and agent labels were bit-exact to the Region
+chain. All strict exports replayed with zero error and passed the effect audit.
+
+This proves real-checkpoint frontend/Invocation parity at L2 with zero new core
+ops. It does not yet claim compiled-artifact or generated-C++ parity; those are
+the L3/L4 steps. The full hashes, shapes, environment, timing, and reproduction
+command are in `diffusiondrive_frontend_l2.json`.

@@ -402,7 +402,7 @@ Generality：
   package 到 generated no-Python C++ Session 的 production-path audit；
 - robot/driving deterministic fixtures；
 - generated no-Python C++ fixture parity；
-- OpenVLA-7B 与 SmolVLA 真实 checkpoint eager/IR L2；
+- OpenVLA-7B、SmolVLA 与 DiffusionDrive 真实 checkpoint eager/IR L2；
 - SmolVLA 真实 prefix/solver-step/trim 的 `sm_86` AOTInductor L3 数值
   parity；BF16 artifact 不声称 bit-exact；
 - SmolVLA 真实八 Region verified bundle 与 generated no-Python C++ L4：
@@ -412,7 +412,7 @@ Generality：
 
 尚未完成、且决定投稿强度：
 
-- DiffusionDrive/OpenVLA 的真实 L3/L4；
+- DiffusionDrive 的真实 L3/L4 与 OpenVLA 的真实 L3/L4；
 - real-model optimization speedup 与 memory 消融；
 - frozen-core held-out model 数据；
 - Host CUDA 长稳与 profile；
