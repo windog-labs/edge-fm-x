@@ -311,7 +311,7 @@
       },
       {
         "path": "vlaforge/backends/tensorrt_region_executable.cpp",
-        "sha256": "2f6d4a80673d344203e4c0b9bba65399e0c6d79c5f94acfa550fe5f9fdd50156"
+        "sha256": "757efb879faabd3e321c83bb0461c48512d9f0ec5926e508477192d9edd51b73"
       },
       {
         "path": "vlaforge/backends/torchscript_region_executable.cpp",
@@ -387,7 +387,7 @@
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/model.py",
-        "sha256": "8061c3a490c1ff3dec13feb42a5d04a6b344e13f1cc93bf54cf5d63a0255a8cc"
+        "sha256": "0ae2afd8266781a448d81386ed880cc4a5e50a2406e3aee55766b95d58443b38"
       },
       {
         "path": "vlaforge/python/vlaforge/compiler.py",
@@ -513,33 +513,9 @@
     ]
   },
   "repository": {
-    "revision": "dadf4f218d59eac018e5c29d667f59995b696580",
-    "source_dirty": true,
-    "tracked_status": [
-      "M  doc/reports/vlaforge_orin_validation.md",
-      "M  doc/vlaforge_cpp_aot_progress.md",
-      "M  doc/vlaforge_development_plan.md",
-      "M  vlaforge/.gitignore",
-      "M  vlaforge/CMakeLists.txt",
-      "A  vlaforge/backends/tensorrt_region_executable.cpp",
-      "M  vlaforge/cmake/VLAForgeRuntimeConfig.cmake.in",
-      "A  vlaforge/docker/orin/Dockerfile",
-      "A  vlaforge/docker/orin/README.md",
-      "A  vlaforge/include/vlaforge/backends/tensorrt_region_executable.h",
-      "M  vlaforge/python/vlaforge/codegen/cpp.py",
-      "M  vlaforge/python/vlaforge/codegen/model.py",
-      "A  vlaforge/scripts/orin/build_backend.sh",
-      "A  vlaforge/scripts/orin/cross_compile_bundle.sh",
-      "A  vlaforge/scripts/orin/run_backend_smoke_on_orin.sh",
-      "A  vlaforge/scripts/orin/run_bundle_on_orin.sh",
-      "M  vlaforge/tests/codegen/test_codegen.py",
-      "M  vlaforge/tests/cpp/CMakeLists.txt",
-      "A  vlaforge/tests/cpp/tensorrt_region_contract_smoke.cpp",
-      "A  vlaforge/tests/cpp/tensorrt_region_on_device_smoke.cpp",
-      "A  vlaforge/tests/tensorrt_install_consumer/CMakeLists.txt",
-      "A  vlaforge/tests/tensorrt_install_consumer/main.cpp",
-      "A  vlaforge/tools/materialize_orin_tensorrt_fixture.py"
-    ]
+    "revision": "19ee19af5bb30d219d41b9fa6495c0c5c62e10fb",
+    "source_dirty": false,
+    "tracked_status": []
   },
   "schema": "vlaforge.architecture_surface_audit/1",
   "semantic_ir": {
