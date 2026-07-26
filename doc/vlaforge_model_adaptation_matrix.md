@@ -80,7 +80,7 @@ memory/performance results
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
-| MindDrive 0.5B | complete real L2 + real L3 + real L4：真实六相机 frontend、8 logical/66 physical Regions、16 authoritative states、10 named outputs、五帧 compiled parity | 是 | real checkpoint | 正式 MindDrive 性能/内存矩阵（可选增强） |
+| MindDrive 0.5B | complete real L2 + real L3 + real L4：真实六相机 frontend、8 logical/66 physical Regions、16 authoritative states、10 named outputs、五帧 compiled parity | 是 | real checkpoint | generated C++ 四 revision 模式统计与 1000-Run soak 已完成；完整 eager/direct/generated 三路径对照为补充增强 |
 | AutoVLA | L0 + L1 + real L2 partition + L3-candidate | 是 | 否 | 完整 camera/VLM/decode 与通过门槛的 real L3/L4 |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
@@ -119,5 +119,9 @@ artifact identity 做精确绑定。contract v3 在新帧 `00404` 执行前冻�
 组成 66-artifact verified bundle；generated runner 在 invalid-Python
 环境下通过 typed/generic exact parity、same/new revision、16-state
 commit、validation abort/retry 与 reset，达到完整 real L4，
-`core_op_delta=0`。OpenVLA real L4、跨 GPU、第二机复现和 Orin 属于可选
+`core_op_delta=0`。其 generated C++ 路径随后以 full/same/new/missing 四种
+revision 模式各运行 5 个独立进程，报告 cold/first/warm、RSS/CUDA memory
+和进程级 bootstrap 95% CI；1000-Run same-revision soak 的 CUDA drift 为
+0、RSS drift 为 +60 KiB。该补充数据尚不是 eager/direct/generated
+三路径的完整对照。OpenVLA real L4、跨 GPU、第二机复现和 Orin 属于可选
 增强，不阻塞本机主线。

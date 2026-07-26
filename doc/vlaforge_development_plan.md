@@ -481,14 +481,18 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    verified bundle 与 generated no-Python Session 已通过；typed/generic
    10-output exact parity、revision cache、16-state transaction、validation
    abort/retry 和 ResetEpisode 均闭合；
-5. **可选增强**：将 MindDrive 加入 fresh-process cold/first/warm、
-   RSS/CUDA memory、扩展性能矩阵和模型专属消融；当前 real L4 correctness
-   与投稿结论不依赖这些附加性能数据；
+5. **generated 路径已完成，三路径对照待补**：MindDrive generated C++
+   已完成 full/same/new/missing 四模式 × 5 fresh process 的
+   cold/first/warm、RSS/CUDA memory 与 2,000 次 cluster-bootstrap 统计，
+   并通过 1000-Run same-revision soak（CUDA drift 0，RSS drift +60 KiB）。
+   eager/direct-AOTI/generated-C++ 的同输入、常驻 provider 三路径对照仍是
+   补充实验；完成前不得声称 MindDrive orchestration overhead；
 6. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3
    conservative candidate 按预声明阈值未晋级；
-7. **进行中刷新**：在 MindDrive L4 提交后重跑最终
-   Python/CPU-CUDA CTest/live AOTI/clean-wheel gate、reproducibility
-   manifest 和机械 completion audit；
+7. **阶段门禁已通过，最终提交仍需刷新**：MindDrive L4 后的
+   Python/CPU-CUDA CTest/live AOTI/clean-wheel/no-Python/reproducibility
+   gate 已通过；新增 benchmark/provider/runtime 代码稳定后必须从最终提交
+   再执行一次，不能用旧提交的绿色结果替代；
 8. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
    探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
 9. **已完成可离线部分**：JetPack r36.4 ARM64 Docker 中完成 TensorRT 10

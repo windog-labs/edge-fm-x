@@ -486,6 +486,13 @@ verified bounded allocation and explicit class separation. Both generated
 Sessions complete 10,000 Runs with zero CUDA-memory drift; maximum RSS drift is
 52 KiB for SmolVLA and 4 KiB for DiffusionDrive.
 
+MindDrive uses a 56,559,808-byte per-Run static arena, a 3,351,680-byte
+authoritative-state arena for 16 states, and a 39,321,600-byte derived cache.
+Its separate 1,000-Run same-revision generated-Session soak records 16,000
+state commits and 1,000 transactional output commits. All 16 state versions
+finish at 1001 (one warmup plus 1,000 measured Runs), with zero sampled CUDA-
+memory drift and 60 KiB Host-RSS drift.
+
 ### 6.6 Transaction failure and retry
 
 We inject a non-finite model output into each real generated Session. Both
@@ -554,8 +561,24 @@ wrapper and generic C ABI return all outputs bit-exact to the real compiled
 reference and to each other. An execution audit records one exact cache hit,
 eight misses, 128 state commits, eight transaction/output commits, one
 validation abort followed by a successful retry, and one episode reset. The
-Adapter adds no core operation. This is deployment-correctness evidence, not a
-third performance matrix.
+Adapter adds no core operation.
+
+As supplemental generated-L4 evidence, we also run four revision modes in five
+independent fresh processes, with one warmup and ten measured Runs per process:
+
+| MindDrive generated Session mode | Init mean | First Run mean | Warm mean | Warm-mean 95% CI |
+|---|---:|---:|---:|---:|
+| full | 4083.01 ms | 1388.93 ms | 1270.38 ms | [1263.47, 1276.01] ms |
+| same | 4082.14 ms | 1392.75 ms | 260.01 ms | [259.86, 260.16] ms |
+| new | 4075.96 ms | 1395.93 ms | 1279.27 ms | [1277.59, 1280.66] ms |
+| missing | 4073.88 ms | 1398.62 ms | 1281.75 ms | [1281.26, 1282.16] ms |
+
+Every same-revision process records 10 exact-cache hits and no misses; all
+other modes record no hits and 10 misses. Same revision is approximately
+4.92x faster than new revision. This demonstrates exact-reuse value and
+generated-Session stability. It is not a third full
+eager/direct-AOTI/generated-C++ matrix, and we do not derive a MindDrive
+orchestration-overhead claim from it.
 
 ## 7. Discussion
 
@@ -668,7 +691,7 @@ The artifact contains:
 - raw JSON/CSV for 40 exact-reuse tasks and three other formal ablations;
 - the held-out AutoVLA real L2 report and non-promoted L3-candidate audit;
 - the MindDrive real L3 held-out index and clean-worktree real L4 generated
-  bundle/report;
+  bundle/report, four-mode generated benchmark, and 1,000-Run stateful soak;
 - checkpoint, source, export, artifact, bundle, and runner hashes;
 - generated C/C++ schema and ABI negative tests;
 - Python, CPU CTest, CUDA CTest, live CUDA AOTI, and no-Python gates.

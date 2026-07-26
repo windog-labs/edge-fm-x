@@ -30,7 +30,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | C5 | Generated C++ adds low orchestration overhead over identical direct artifacts | five workloads, five independent processes, direct-vs-generated exact output | 150-task CUDA matrix | passed | approximately 0.5% on two models and one RTX 3060 only |
 | C6 | Generated deployment is no-Python and contract verified | clean wheel, non-Git cwd, invalid Python env, `ldd`, negative schema/hash/target cases | reproducibility report and deployment-boundary ablation | passed | does not imply a Python-free compile toolchain |
 | C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving artifacts, held-out real model with core delta zero | SmolVLA L4, OpenVLA L3, MindDrive complete driving-VLA L4, DiffusionDrive planner L4 | passed | MindDrive is full six-camera-to-trajectory; DiffusionDrive is not a language VLA |
-| C8 | Memory is statically bounded and stable | Plan certificate, memory-class split, 10k soak | static-arena ablation and real L4 soaks | passed | packing savings are small; claim boundedness, not compression |
+| C8 | Memory is statically bounded and stable | Plan certificate, memory-class split, 10k soak | static-arena ablation, SmolVLA/DiffusionDrive 10k soaks, and MindDrive 1k 16-state soak | passed | packing savings are small; claim boundedness, not compression |
 
 ## Performance evidence
 
@@ -40,6 +40,8 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | SmolVLA overhead | direct AOTI control vs generated Session | 0.43–0.63%, mean 0.508% | same |
 | DiffusionDrive overhead | direct AOTI control vs generated Session | 0.15–0.71%, mean 0.509% | same |
 | exact reuse | 4 modes × 2 models × 5 processes; 100 samples | DiffusionDrive same revision 3.064 ms vs full 16.403 ms, 5.353x | `doc/reports/vlaforge_ablations_v01/paper_ablations.json` |
+| MindDrive generated L4 | 4 revision modes × 5 fresh processes; 1 warmup + 10 samples; 2,000 cluster bootstraps | full/same/new/missing warm means 1270.38/260.01/1279.27/1281.75 ms; same vs new 4.92x | `doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json` |
+| MindDrive stateful soak | 1 warmup + 1,000 same-revision Runs | 1,000 hits, 16,000 state commits, CUDA drift 0, RSS drift +60 KiB | `doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json` |
 | static memory | unpacked logical-lifetime control vs verified packed plan | small byte savings; 10k Runs with zero CUDA drift | same |
 | deployment boundary | direct AOTI, generated C++, clean installed wheel | direct/generated exact; no `libpython`; all negative cases rejected | same |
 
@@ -50,7 +52,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | real eager/frontend | L2 | L2 | complete L2 | L2 partition, exact |
 | compiled artifact | L3 | L3 | complete held-out L3 | L3 candidate not promoted |
 | generated C++ | L4 | L4 | L4 | not required |
-| same/new/missing revision | passed | passed | same/new passed; missing covered by core and other L4 paths | same/new passed |
+| same/new/missing revision | passed | passed | passed on real generated L4; full/same/new/missing each have 5 fresh-process traces | same/new passed |
 | episode reset | passed | passed | passed for 16 states | stateless partition |
 | authoritative state commit/abort | queue/cursor versions passed | stateless, N/A | 128 commits + one abort passed | stateless partition |
 | transactional named outputs | action output | six planning outputs | ten trajectory/detection/motion outputs | trajectory + action tokens passed |

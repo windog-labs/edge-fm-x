@@ -42,3 +42,33 @@ artifacts total. The generated runner:
 
 The durable paths are `l4/bundle` and `l4/evidence`; the full L4 report SHA256
 is `20cef99bef75ee60a5d43bd62b731d25451640b1f694be9dfe3c339eba885a6e`.
+
+## Generated L4 statistical evidence
+
+`minddrive_l4_benchmark.json` and `minddrive_l4_benchmark.md` index a formal
+Host-CUDA benchmark under:
+
+`/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5`
+
+The protocol has four revision modes (`full`, `same`, `new`, and `missing`),
+five independent fresh processes per mode, one warmup plus ten measured Runs
+per process, and 2,000 process-cluster bootstrap resamples. Generated C++ warm
+means are 1270.38, 260.01, 1279.27, and 1281.75 ms respectively. Every
+same-revision process records 10 hits and no misses; every other process
+records no hits and 10 misses. The approximately 4.92x same-vs-new speedup is
+therefore an exact-reuse result, not a full-compute kernel speedup.
+
+`minddrive_l4_soak.json` indexes the 1,000-Run same-revision soak under:
+
+`/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/soak-same-1000-a7daea5`
+
+It records 1,000 cache hits, 16,000 state commits, 1,000 transactional output
+commits, version 1001 for all 16 states, zero sampled CUDA-memory drift, and
+60 KiB Host-RSS drift. The declared deployment contract separately records
+29,493,452 input bytes, 29,332 output bytes, a 56,559,808-byte per-Run arena,
+a 3,351,680-byte authoritative-state arena, and a 39,321,600-byte derived
+cache.
+
+These reports are formal generated no-Python C++ measurements. They are not
+yet a third eager/direct-AOTI/generated-C++ comparison matrix, so they do not
+support a MindDrive orchestration-overhead claim.

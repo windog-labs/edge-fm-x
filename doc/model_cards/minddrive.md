@@ -9,7 +9,7 @@
 | 当前证据 | **完整 real L4**：real L2/L3 保持；8 logical Regions 由 66 个真实 `sm_86` AOTI artifacts 执行，生成的 no-Python C++ Session 在五帧序列上通过 typed/generic API、事务、cache、reset 与 10 named outputs exact parity |
 | Adapter | 13 个静态 InputPort、8 个 TensorRegion、16 个 StateSlot、1 个 transactional output group；无 sensor/timer/middleware 语义 |
 | Core op 增量 | **0** |
-| 当前缺口 | MindDrive 专属正式 cold/first/warm、RSS/CUDA memory 与性能矩阵；不影响 real L4 correctness 等级 |
+| 当前缺口 | generated C++ 的正式 cold/first/warm、RSS/CUDA memory、revision 矩阵与 1000-Run soak 已完成；尚未形成与 SmolVLA/DiffusionDrive 相同协议的 eager/direct-AOTI/generated-C++ 三路径性能对照，不影响 real L4 correctness 等级 |
 
 ## 固定发布物
 
@@ -237,7 +237,7 @@ retry 正常提交。L4 参考采用已通过 frozen contract-v3 的真实 SDPA/
 compiled path，作用是验证部署等价与事务边界；它不被描述成新增的模型
 泛化样本。
 
-## 资源记录
+## 资源与性能记录
 
 官方完整 eager 的已记录峰值：
 
@@ -247,16 +247,44 @@ compiled path，作用是验证部署等价与事务边界；它不被描述成�
 在 IR/Plan L2 验证中，source-exact vision、16-state Session 和逐调用释放的
 export providers 可在 RTX 3060 12GB 上连续执行；修正 provider 的
 inference-only/no-grad 调用契约后，单次调试峰值约 5.68 GB。该数值是开发
-诊断，不替代后续按论文 workload 采集的 cold/first/warm、RSS、CUDA
-allocated/reserved 正式统计。
+诊断，不替代下面的 fresh-process generated C++ 正式统计。
+
+generated no-Python C++ Session 使用四种 revision 模式，各执行 5 个独立
+fresh process、每进程 1 次 warmup 加 10 次测量，并以进程为 bootstrap
+单元执行 2,000 次重采样：
+
+| Revision mode | Init mean | First Run mean | Warm mean | 95% CI of warm mean |
+|---|---:|---:|---:|---:|
+| full | 4083.01 ms | 1388.93 ms | 1270.38 ms | [1263.47, 1276.01] ms |
+| same | 4082.14 ms | 1392.75 ms | 260.01 ms | [259.86, 260.16] ms |
+| new | 4075.96 ms | 1395.93 ms | 1279.27 ms | [1277.59, 1280.66] ms |
+| missing | 4073.88 ms | 1398.62 ms | 1281.75 ms | [1281.26, 1282.16] ms |
+
+每个 same-revision 进程均记录 10 hit/0 miss；full/new/missing 均记录
+0 hit/10 miss。same 相对 new 的端到端加速为约 4.92×。四类声明内存为：
+
+- external inputs：29,493,452 bytes/Run，13 个输入；
+- external outputs：29,332 bytes/Run，10 个输出；
+- per-Run static arena：56,559,808 bytes；
+- authoritative state arena：3,351,680 bytes，16 个 states；
+- derived cache：39,321,600 bytes，1 个物理 buffer。
+
+额外的 1000-Run same-revision soak 记录 1000 cache hits、0 misses、16,000
+state commits 和 1000 transaction/output commits。16 个 state version
+均为 1001（1 次 warmup + 1000 次正式 Run），CUDA memory drift 为 0，
+Host RSS drift 为 +60 KiB。正式索引为：
+
+- `doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json`；
+- `doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.md`；
+- `doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json`。
 
 ## 后续可选证据
 
-1. 采集 MindDrive 专属 fresh-process cold load、first/warm Run、Host RSS 与
-   CUDA memory；由于调用包含多个 cache/事务探针，不能把上述总 wall time
-   当成单次 latency；
-2. 将 MindDrive 加入扩展性能/消融图表，但不改变当前 L4 correctness
-   结论；
+1. 使用相同真实五帧、同一批 artifacts 和常驻 provider 补充
+   eager/direct-AOTI/generated-C++ 三路径对照；在完成前不能把上述
+   generated-only 数字解释为 direct-artifact orchestration overhead；
+2. 按模型适用性补充 Region 粒度、derived-cache 或 validation overhead
+   消融，但不改变当前 L4 correctness 结论；
 3. 在第二台 GPU 或 Orin 上复现 artifact；它们属于跨硬件增强，不是当前
    Host-CUDA L4 的完成条件。
 

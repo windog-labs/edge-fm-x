@@ -1,0 +1,956 @@
+{
+  "bundle": {
+    "artifact_bytes": 4280465454,
+    "digest": "7b91233d74563e959f1d7e1dbbae0ade08a889cdef011379e45a74566e01d453",
+    "io_schema_digest": "62e566cde5ca9cec1bbb7949b7eacf42393d1316e35a16e9c1b839f6220ded2a",
+    "root": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+    "source_dirty": false,
+    "source_revision": "b9372682abd9af484a046014be6305dd2ae1ee45"
+  },
+  "cells": {
+    "full": {
+      "cache_hits": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cache_misses": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "cuda_used_drift_bytes": [
+        -131072,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cuda_used_initialized_bytes": {
+        "ci95": [
+          6449528832.0,
+          6449607475.2
+        ],
+        "maximum": 6449659904.0,
+        "mean": 6449555046.4,
+        "minimum": 6449528832.0,
+        "samples": [
+          6449659904.0,
+          6449528832.0,
+          6449528832.0,
+          6449528832.0,
+          6449528832.0
+        ],
+        "stddev": 58617.180389370485
+      },
+      "cuda_used_peak_sampled_bytes": {
+        "ci95": [
+          8385200128.0,
+          8385278771.2
+        ],
+        "maximum": 8385331200.0,
+        "mean": 8385226342.4,
+        "minimum": 8385200128.0,
+        "samples": [
+          8385331200.0,
+          8385200128.0,
+          8385200128.0,
+          8385200128.0,
+          8385200128.0
+        ],
+        "stddev": 58617.180389370485
+      },
+      "first_run_ns": {
+        "ci95": [
+          1383609889.2,
+          1393235750.0
+        ],
+        "maximum": 1394148668.0,
+        "mean": 1388933989.4,
+        "minimum": 1379933757.0,
+        "samples": [
+          1379933757.0,
+          1385621037.0,
+          1392339347.0,
+          1392627138.0,
+          1394148668.0
+        ],
+        "stddev": 6008504.737568516
+      },
+      "initialization_ns": {
+        "ci95": [
+          4079890130.6,
+          4084980169.6
+        ],
+        "maximum": 4085499822.0,
+        "mean": 4083013963.6,
+        "minimum": 4076773090.0,
+        "samples": [
+          4085499822.0,
+          4076773090.0,
+          4084429486.0,
+          4084735859.0,
+          4083631561.0
+        ],
+        "stddev": 3552395.2925440744
+      },
+      "maximum_rss_kib": {
+        "ci95": [
+          6134881.6,
+          6135326.4
+        ],
+        "maximum": 6135484.0,
+        "mean": 6135095.2,
+        "minimum": 6134788.0,
+        "samples": [
+          6135276.0,
+          6134788.0,
+          6135024.0,
+          6134904.0,
+          6135484.0
+        ],
+        "stddev": 282.77765116783894
+      },
+      "output_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "processes": 5,
+      "rss_drift_kib": [
+        116,
+        124,
+        120,
+        120,
+        116
+      ],
+      "rss_initialized_kib": {
+        "ci95": [
+          5928034.4,
+          5928129.6
+        ],
+        "maximum": 5928140.0,
+        "mean": 5928084.8,
+        "minimum": 5928004.0,
+        "samples": [
+          5928120.0,
+          5928036.0,
+          5928004.0,
+          5928124.0,
+          5928140.0
+        ],
+        "stddev": 60.68937304009657
+      },
+      "samples_per_process": 10,
+      "state_commits": [
+        160,
+        160,
+        160,
+        160,
+        160
+      ],
+      "transaction_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "warm_latency": {
+        "maximum_ns": 1281424330,
+        "mean_ns": {
+          "ci95": [
+            1263472297.22,
+            1276009007.34
+          ],
+          "estimate": 1270377681.74
+        },
+        "minimum_ns": 1251207201,
+        "p50_ns": {
+          "ci95": [
+            1260776096.0,
+            1276246389.0
+          ],
+          "estimate": 1272006001.0
+        },
+        "p90_ns": {
+          "ci95": [
+            1274268197.0,
+            1280742816.0
+          ],
+          "estimate": 1279177923.0
+        },
+        "p99_ns": {
+          "ci95": [
+            1278589122.0,
+            1281424330.0
+          ],
+          "estimate": 1281424330.0
+        },
+        "process_mean_ns": [
+          1257496138.2,
+          1267460274.9,
+          1273818954.5,
+          1275700244.5,
+          1277412796.6
+        ],
+        "process_mean_stddev_ns": 8125735.355634606,
+        "processes": 5,
+        "samples_per_process": [
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        "throughput_runs_per_second": 0.7871674812724422
+      }
+    },
+    "missing": {
+      "cache_hits": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cache_misses": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "cuda_used_drift_bytes": [
+        0,
+        0,
+        0,
+        -131072,
+        0
+      ],
+      "cuda_used_initialized_bytes": {
+        "ci95": [
+          6449528832.0,
+          6449607475.2
+        ],
+        "maximum": 6449659904.0,
+        "mean": 6449555046.4,
+        "minimum": 6449528832.0,
+        "samples": [
+          6449528832.0,
+          6449528832.0,
+          6449528832.0,
+          6449659904.0,
+          6449528832.0
+        ],
+        "stddev": 58617.180389370485
+      },
+      "cuda_used_peak_sampled_bytes": {
+        "ci95": [
+          8385200128.0,
+          8385278771.2
+        ],
+        "maximum": 8385331200.0,
+        "mean": 8385226342.4,
+        "minimum": 8385200128.0,
+        "samples": [
+          8385200128.0,
+          8385200128.0,
+          8385200128.0,
+          8385331200.0,
+          8385200128.0
+        ],
+        "stddev": 58617.180389370485
+      },
+      "first_run_ns": {
+        "ci95": [
+          1398345655.0,
+          1398943473.8
+        ],
+        "maximum": 1399125750.0,
+        "mean": 1398623923.4,
+        "minimum": 1398214369.0,
+        "samples": [
+          1398351986.0,
+          1398214369.0,
+          1398595565.0,
+          1398831947.0,
+          1399125750.0
+        ],
+        "stddev": 366603.5697975403
+      },
+      "initialization_ns": {
+        "ci95": [
+          4067200748.6,
+          4080647742.8
+        ],
+        "maximum": 4084234269.0,
+        "mean": 4073883481.6,
+        "minimum": 4066301638.0,
+        "samples": [
+          4067962371.0,
+          4083200082.0,
+          4084234269.0,
+          4066301638.0,
+          4067719048.0
+        ],
+        "stddev": 9006691.783534912
+      },
+      "maximum_rss_kib": {
+        "ci95": [
+          6135000.0,
+          6135334.4
+        ],
+        "maximum": 6135444.0,
+        "mean": 6135155.2,
+        "minimum": 6134976.0,
+        "samples": [
+          6135016.0,
+          6135324.0,
+          6135016.0,
+          6134976.0,
+          6135444.0
+        ],
+        "stddev": 213.75499994152185
+      },
+      "output_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "processes": 5,
+      "rss_drift_kib": [
+        116,
+        124,
+        120,
+        120,
+        116
+      ],
+      "rss_initialized_kib": {
+        "ci95": [
+          5928016.8,
+          5928106.4
+        ],
+        "maximum": 5928144.0,
+        "mean": 5928061.6,
+        "minimum": 5927988.0,
+        "samples": [
+          5927988.0,
+          5928144.0,
+          5928036.0,
+          5928036.0,
+          5928104.0
+        ],
+        "stddev": 61.87729793712715
+      },
+      "samples_per_process": 10,
+      "state_commits": [
+        160,
+        160,
+        160,
+        160,
+        160
+      ],
+      "transaction_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "warm_latency": {
+        "maximum_ns": 1286190026,
+        "mean_ns": {
+          "ci95": [
+            1281261122.1,
+            1282159840.56
+          ],
+          "estimate": 1281749610.86
+        },
+        "minimum_ns": 1275786676,
+        "p50_ns": {
+          "ci95": [
+            1282453727.0,
+            1283349949.0
+          ],
+          "estimate": 1282900061.0
+        },
+        "p90_ns": {
+          "ci95": [
+            1284331075.0,
+            1286075413.0
+          ],
+          "estimate": 1285592770.0
+        },
+        "p99_ns": {
+          "ci95": [
+            1285907540.0,
+            1286190026.0
+          ],
+          "estimate": 1286190026.0
+        },
+        "process_mean_ns": [
+          1281459259.7,
+          1281850555.0,
+          1280963915.7,
+          1282121876.7,
+          1282352447.2
+        ],
+        "process_mean_stddev_ns": 550863.8462489172,
+        "processes": 5,
+        "samples_per_process": [
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        "throughput_runs_per_second": 0.7801835799497862
+      }
+    },
+    "new": {
+      "cache_hits": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cache_misses": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "cuda_used_drift_bytes": [
+        -131072,
+        0,
+        0,
+        0,
+        -131072
+      ],
+      "cuda_used_initialized_bytes": {
+        "ci95": [
+          6449528832.0,
+          6449607475.2
+        ],
+        "maximum": 6449659904.0,
+        "mean": 6449555046.4,
+        "minimum": 6449528832.0,
+        "samples": [
+          6449528832.0,
+          6449528832.0,
+          6449528832.0,
+          6449528832.0,
+          6449659904.0
+        ],
+        "stddev": 58617.180389370485
+      },
+      "cuda_used_peak_sampled_bytes": {
+        "ci95": [
+          8385200128.0,
+          8385304985.6
+        ],
+        "maximum": 8385331200.0,
+        "mean": 8385252556.8,
+        "minimum": 8385200128.0,
+        "samples": [
+          8385331200.0,
+          8385200128.0,
+          8385200128.0,
+          8385200128.0,
+          8385331200.0
+        ],
+        "stddev": 71791.09105731713
+      },
+      "first_run_ns": {
+        "ci95": [
+          1394069654.2,
+          1397681570.2
+        ],
+        "maximum": 1398833180.0,
+        "mean": 1395926903.6,
+        "minimum": 1393022363.0,
+        "samples": [
+          1393022363.0,
+          1394159333.0,
+          1396497793.0,
+          1398833180.0,
+          1397121849.0
+        ],
+        "stddev": 2332429.7230700864
+      },
+      "initialization_ns": {
+        "ci95": [
+          4069009453.0,
+          4084103123.2
+        ],
+        "maximum": 4091829278.0,
+        "mean": 4075962212.6,
+        "minimum": 4064858882.0,
+        "samples": [
+          4091829278.0,
+          4064858882.0,
+          4072513891.0,
+          4079201207.0,
+          4071407805.0
+        ],
+        "stddev": 10224631.411302429
+      },
+      "maximum_rss_kib": {
+        "ci95": [
+          6135038.4,
+          6135467.2
+        ],
+        "maximum": 6135540.0,
+        "mean": 6135260.0,
+        "minimum": 6134872.0,
+        "samples": [
+          6134872.0,
+          6135104.0,
+          6135540.0,
+          6135472.0,
+          6135312.0
+        ],
+        "stddev": 274.2845238069403
+      },
+      "output_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "processes": 5,
+      "rss_drift_kib": [
+        120,
+        120,
+        120,
+        120,
+        120
+      ],
+      "rss_initialized_kib": {
+        "ci95": [
+          5928032.0,
+          5928106.4
+        ],
+        "maximum": 5928108.0,
+        "mean": 5928080.8,
+        "minimum": 5927984.0,
+        "samples": [
+          5928104.0,
+          5927984.0,
+          5928104.0,
+          5928104.0,
+          5928108.0
+        ],
+        "stddev": 54.14055781020362
+      },
+      "samples_per_process": 10,
+      "state_commits": [
+        160,
+        160,
+        160,
+        160,
+        160
+      ],
+      "transaction_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "warm_latency": {
+        "maximum_ns": 1284209327,
+        "mean_ns": {
+          "ci95": [
+            1277594669.54,
+            1280664898.96
+          ],
+          "estimate": 1279271414.3
+        },
+        "minimum_ns": 1268782871,
+        "p50_ns": {
+          "ci95": [
+            1279221556.0,
+            1281957599.0
+          ],
+          "estimate": 1280346750.0
+        },
+        "p90_ns": {
+          "ci95": [
+            1282120040.0,
+            1283605328.0
+          ],
+          "estimate": 1282949064.0
+        },
+        "p99_ns": {
+          "ci95": [
+            1282949064.0,
+            1284209327.0
+          ],
+          "estimate": 1284209327.0
+        },
+        "process_mean_ns": [
+          1276101197.9,
+          1278590317.3,
+          1280006617.8,
+          1280403619.8,
+          1281255318.7
+        ],
+        "process_mean_stddev_ns": 2016956.5745957007,
+        "processes": 5,
+        "samples_per_process": [
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        "throughput_runs_per_second": 0.7816949466874366
+      }
+    },
+    "same": {
+      "cache_hits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "cache_misses": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cuda_used_drift_bytes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cuda_used_initialized_bytes": {
+        "ci95": [
+          6449528832.0,
+          6449528832.0
+        ],
+        "maximum": 6449528832.0,
+        "mean": 6449528832.0,
+        "minimum": 6449528832.0,
+        "samples": [
+          6449528832.0,
+          6449528832.0,
+          6449528832.0,
+          6449528832.0,
+          6449528832.0
+        ],
+        "stddev": 0.0
+      },
+      "cuda_used_peak_sampled_bytes": {
+        "ci95": [
+          8385200128.0,
+          8385200128.0
+        ],
+        "maximum": 8385200128.0,
+        "mean": 8385200128.0,
+        "minimum": 8385200128.0,
+        "samples": [
+          8385200128.0,
+          8385200128.0,
+          8385200128.0,
+          8385200128.0,
+          8385200128.0
+        ],
+        "stddev": 0.0
+      },
+      "first_run_ns": {
+        "ci95": [
+          1391238718.4,
+          1394396177.4
+        ],
+        "maximum": 1395852195.0,
+        "mean": 1392748489.6,
+        "minimum": 1390377206.0,
+        "samples": [
+          1395852195.0,
+          1392451073.0,
+          1393425499.0,
+          1390377206.0,
+          1391636475.0
+        ],
+        "stddev": 2063937.254004782
+      },
+      "initialization_ns": {
+        "ci95": [
+          4079235408.6,
+          4085057232.0
+        ],
+        "maximum": 4086798366.0,
+        "mean": 4082142630.4,
+        "minimum": 4078939700.0,
+        "samples": [
+          4085951362.0,
+          4079749805.0,
+          4078939700.0,
+          4079273919.0,
+          4086798366.0
+        ],
+        "stddev": 3885749.3491141833
+      },
+      "maximum_rss_kib": {
+        "ci95": [
+          6135103.2,
+          6135344.8
+        ],
+        "maximum": 6135412.0,
+        "mean": 6135229.6,
+        "minimum": 6134996.0,
+        "samples": [
+          6135148.0,
+          6135328.0,
+          6134996.0,
+          6135264.0,
+          6135412.0
+        ],
+        "stddev": 162.29849044276412
+      },
+      "output_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "processes": 5,
+      "rss_drift_kib": [
+        56,
+        60,
+        48,
+        44,
+        56
+      ],
+      "rss_initialized_kib": {
+        "ci95": [
+          5928027.2,
+          5928119.2
+        ],
+        "maximum": 5928136.0,
+        "mean": 5928076.8,
+        "minimum": 5927984.0,
+        "samples": [
+          5928108.0,
+          5928136.0,
+          5927984.0,
+          5928108.0,
+          5928048.0
+        ],
+        "stddev": 61.018030122251574
+      },
+      "samples_per_process": 10,
+      "state_commits": [
+        160,
+        160,
+        160,
+        160,
+        160
+      ],
+      "transaction_commits": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ],
+      "warm_latency": {
+        "maximum_ns": 261457509,
+        "mean_ns": {
+          "ci95": [
+            259856964.46,
+            260164360.7
+          ],
+          "estimate": 260007938.62
+        },
+        "minimum_ns": 259145291,
+        "p50_ns": {
+          "ci95": [
+            259809060.0,
+            260034802.0
+          ],
+          "estimate": 259954422.0
+        },
+        "p90_ns": {
+          "ci95": [
+            260381197.0,
+            261017292.0
+          ],
+          "estimate": 260688824.0
+        },
+        "p99_ns": {
+          "ci95": [
+            260767952.0,
+            261457509.0
+          ],
+          "estimate": 261457509.0
+        },
+        "process_mean_ns": [
+          260269836.6,
+          260155652.5,
+          259813977.1,
+          259943585.7,
+          259856641.2
+        ],
+        "process_mean_stddev_ns": 196890.33821180277,
+        "processes": 5,
+        "samples_per_process": [
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        "throughput_runs_per_second": 3.8460364145323034
+      }
+    }
+  },
+  "classification": "real MindDrive Host-CUDA generated C++ Session performance; no Orin, cross-GPU, closed-loop, power, thermal, or model-kernel-optimization claim",
+  "environment": {
+    "cuda": "11.8",
+    "driver": "595.58.03",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python_orchestrator": "3.10.20",
+    "torch": "2.4.1+cu118"
+  },
+  "evidence": "real-L4-generated-no-Python-C++",
+  "memory_contract": {
+    "authoritative_state_arena_capacity_bytes": 3351680,
+    "authoritative_state_count": 16,
+    "authoritative_state_payload_bytes": 1675568,
+    "authoritative_state_retained_payload_bytes": 3351136,
+    "derived_cache_physical_buffer_count": 1,
+    "derived_cache_physical_capacity_bytes": 39321600,
+    "external_input_bytes_per_invocation": 29493452,
+    "external_input_count": 13,
+    "external_output_bytes_per_invocation": 29332,
+    "external_output_count": 10,
+    "per_run_static_arena_bytes": 56559808
+  },
+  "model": "MindDrive 0.5B",
+  "output_validation": {
+    "exact_revision_probe": [
+      0.004352413583546877,
+      -0.0014824247919023037,
+      -0.0005060812109149992,
+      0.0005860621458850801,
+      -0.0006261584931053221,
+      -0.00043004710460081697,
+      -0.00016305368626490235,
+      -4.618108505383134e-05,
+      -0.0002903068088926375,
+      -0.0002991348155774176
+    ],
+    "fresh_process_deterministic": true,
+    "full_sequence_probe": [
+      0.0048826574347913265,
+      0.00651550805196166,
+      0.009155607782304287,
+      0.008821309544146061,
+      0.0010007978416979313,
+      0.0013816594146192074,
+      0.011355058290064335,
+      0.01405736617743969,
+      0.012140604667365551,
+      0.003229261841624975
+    ],
+    "same_new_missing_exact": true
+  },
+  "passed": true,
+  "protocol": {
+    "bootstrap_resamples": 2000,
+    "bootstrap_unit": "independent fresh process",
+    "modes": [
+      "full",
+      "same",
+      "new",
+      "missing"
+    ],
+    "processes_per_cell": 5,
+    "samples_per_process": 10,
+    "warmup_runs": 1
+  },
+  "raw_reports": [
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_00/minddrive_full_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_01/minddrive_full_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_02/minddrive_full_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_03/minddrive_full_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_04/minddrive_full_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_00/minddrive_same_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_01/minddrive_same_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_02/minddrive_same_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_03/minddrive_same_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_04/minddrive_same_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_00/minddrive_new_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_01/minddrive_new_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_02/minddrive_new_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_03/minddrive_new_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_04/minddrive_new_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_00/minddrive_missing_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_01/minddrive_missing_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_02/minddrive_missing_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_03/minddrive_missing_10.json",
+    "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_04/minddrive_missing_10.json"
+  ],
+  "repository": {
+    "revision": "a7daea5fd9e4aa987b31f8ad9dc3750447189b66",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command": [
+      "/home/zhangzimo/miniconda3/bin/python",
+      "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_minddrive_l4.py",
+      "--torch-python",
+      "/home/zhangzimo/.cache/vlaforge/envs/minddrive-conda-py310/bin/python",
+      "--bundle-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+      "--input-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/inputs",
+      "--output-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5",
+      "--binary-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary",
+      "--process-repeats",
+      "5",
+      "--warmup",
+      "1",
+      "--samples",
+      "10",
+      "--bootstrap-resamples",
+      "2000",
+      "--seed",
+      "20260727"
+    ]
+  },
+  "runner": {
+    "build_seconds": 9.215182502986863,
+    "invalid_python_environment": true,
+    "links_libpython": false,
+    "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary/bin/vlaforge_generated_benchmark",
+    "sha256": "ff8921332196139ed62bf31020cfbe633cd5069c5c44244dca4b8fad8da75ec5",
+    "wall_seconds": 18.877617076970637
+  },
+  "schema": "vlaforge.minddrive_l4_benchmark/1",
+  "status": "passed"
+}
