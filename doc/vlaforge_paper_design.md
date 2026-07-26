@@ -422,9 +422,11 @@ Generality：
   process-cluster bootstrap 95% CI、first Run、fresh-process
   initialization 和 memory，50 个输出一致性单元全部通过。该对照不把
   AOTI kernel 收益写成 VLAForge 贡献；
-- DiffusionDrive same-revision exact condition cache 为 `5.533x`；
-  new/missing revision 均完整失效。SmolVLA action-chunk 业务 Run 平均
-  `0.689 ms`，queue/cursor 仍只属于 Adapter；
+- 正式五进程消融中，DiffusionDrive same-revision exact condition cache
+  为 `5.353x`（`3.064 ms` vs full `16.403 ms`）；new/missing revision
+  均完整失效并各记录 `500/500` miss。SmolVLA action-chunk Adapter 路径
+  平均 `0.694 ms`，但 queue/cursor 仍只属于 Adapter，不作为 core
+  cache-only 结果；
 - 两真实 L4 generated Session 均通过 10,000 Run：transaction abort 和
   CUDA drift 均为 0，RSS drift 为 4/52 KiB；NSYS/NCU 直接 profile
   no-Python C++ binary；
@@ -506,3 +508,12 @@ no-Python 证据齐全。Orin 只能作为后续平台扩展实验，不能回�
 JSON/CSV、聚合表和机器可读 SHA256 清单见
 `doc/reports/vlaforge_cuda_matrix_v01/`。该结果仅证明 RTX 3060
 (`sm_86`)/CUDA 12.8 Host-CUDA，不外推跨 GPU、Orin 或真实车辆性能。
+
+同日的四类正式消融把 exact reuse、static arena、transaction
+failure/retry 和 deployment boundary 固化为一份统一报告。static arena
+相对未打包 logical-lifetime memory-plan baseline 仅节省
+`0.051%–0.082%`，因此论文只把它表述为 verified bounded allocation 和
+10,000 Run 零 CUDA drift 的确定性内存机制，不声称显著内存压缩。两真实 L4
+模型的 NaN output validation 均产生一次 abort、不暴露未提交输出，并在
+retry 时产生一次 commit；SmolVLA authoritative state version 序列保持正确。
+证据见 `doc/reports/vlaforge_ablations_v01/`。

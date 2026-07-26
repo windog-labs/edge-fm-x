@@ -432,9 +432,11 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    50 个输出一致性单元全部通过，并报告标准差、process-cluster bootstrap
    95% CI、fresh-process initialization、first Run、warm Run 与 memory。
    证据见 `doc/reports/vlaforge_cuda_matrix_v01/`；
-2. **当前优先级**：把 exact reuse、static arena、transaction failure 和部署边界整理为四组
-   可投稿消融，原始 JSON/CSV 与汇总分离；
-3. 在 AutoVLA、GR00T N1.7、Octo 中只选一个可行对象推进真实 L2，争取 L3，
+2. **已完成**：exact reuse、static arena、transaction failure/retry 和部署
+   边界四组可投稿消融；exact-reuse 共 40 个 fresh process 任务，每单元
+   5 个独立进程 × 100 次稳态 Run，原始 JSON/CSV 与汇总分离。正式证据见
+   `doc/reports/vlaforge_ablations_v01/`；
+3. **当前优先级**：在 AutoVLA、GR00T N1.7、Octo 中只选一个可行对象推进真实 L2，争取 L3，
    新增 core op 目标仍为 0；
 4. 形成论文初稿和 artifact-evaluation 指南；
 5. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts

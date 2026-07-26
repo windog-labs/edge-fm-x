@@ -1,0 +1,1458 @@
+{
+  "claim_boundary": {
+    "gpu": "RTX 3060 sm_86",
+    "host_cuda": true,
+    "legacy_edgefm_cuda_kernels": false,
+    "model_kernel_optimization_attributed_to_vlaforge": false,
+    "orin": false,
+    "real_vehicle_or_sensor_loop": false
+  },
+  "deployment_boundary": {
+    "claim_boundary": "direct AOTI is the orchestration-overhead control; the wheel evaluation is synthetic packaging evidence and does not add real-model coverage",
+    "clean_wheel_artifact_evaluation": {
+      "all_negative_contract_cases_rejected": true,
+      "installed_from_wheel_only": true,
+      "invalid_python_environment_run": true,
+      "links_libpython": false,
+      "maximum_absolute_error": 4.340820147774593e-09,
+      "negative_contract_cases_per_variant": 8,
+      "non_git_cwd": true,
+      "residency_variants": [
+        "session",
+        "invocation"
+      ]
+    },
+    "real_model_control": {
+      "diffusiondrive": {
+        "control": "direct AOTI artifact invocation",
+        "direct_generated_output_exact": true,
+        "generated_over_direct_percent": {
+          "maximum": 0.7112661491539107,
+          "mean": 0.5090670789998031,
+          "minimum": 0.1513133725807414
+        },
+        "treatment": "generated no-Python C++ ModelSession::Run",
+        "workloads": 5
+      },
+      "smolvla": {
+        "control": "direct AOTI artifact invocation",
+        "direct_generated_output_exact": true,
+        "generated_over_direct_percent": {
+          "maximum": 0.6276204497850157,
+          "mean": 0.5081711367790209,
+          "minimum": 0.42975649667325033
+        },
+        "treatment": "generated no-Python C++ ModelSession::Run",
+        "workloads": 5
+      }
+    }
+  },
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 3060, 8.6, 595.58.03, 12288 MiB, 170.00 W",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python": "/tmp/vlaforge-smolvla-env/bin/python"
+  },
+  "exact_reuse": {
+    "cells": [
+      {
+        "first_run": {
+          "ci95": [
+            202530670.6,
+            203850234.4
+          ],
+          "maximum": 204444774.0,
+          "mean": 203203638.2,
+          "minimum": 202106020.0,
+          "samples": [
+            203614760.0,
+            203132104.0,
+            202720533.0,
+            202106020.0,
+            204444774.0
+          ],
+          "stddev": 887793.9932051805
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            287294531.6,
+            288617960.4
+          ],
+          "maximum": 289087813.0,
+          "mean": 287933520.0,
+          "minimum": 287087426.0,
+          "samples": [
+            287315904.0,
+            288510459.0,
+            287087426.0,
+            289087813.0,
+            287665998.0
+          ],
+          "stddev": 841745.7366013207
+        },
+        "full_over_mode_speedup": 1.0,
+        "interpretation": "exact condition-cache control",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 8
+        },
+        "mode": "full",
+        "model": "diffusiondrive",
+        "processes": 5,
+        "raw_reports": [
+          "raw/diffusiondrive/full/repeat_00/report.json",
+          "raw/diffusiondrive/full/repeat_01/report.json",
+          "raw/diffusiondrive/full/repeat_02/report.json",
+          "raw/diffusiondrive/full/repeat_03/report.json",
+          "raw/diffusiondrive/full/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 17598558,
+          "mean_ns": {
+            "ci95": [
+              16382684.898,
+              16424159.058
+            ],
+            "estimate": 16403421.978
+          },
+          "minimum_ns": 16034228,
+          "p50_ns": {
+            "ci95": [
+              16372584.0,
+              16399929.0
+            ],
+            "estimate": 16390025.0
+          },
+          "p90_ns": {
+            "ci95": [
+              16945633.0,
+              16975912.0
+            ],
+            "estimate": 16958217.0
+          },
+          "p99_ns": {
+            "ci95": [
+              17315693.0,
+              17341651.0
+            ],
+            "estimate": 17333326.0
+          },
+          "process_mean_ns": [
+            16393410.83,
+            16441109.54,
+            16422582.69,
+            16374589.9,
+            16385416.93
+          ],
+          "process_mean_stddev_ns": 27582.507017170232,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 60.96288941058662
+        },
+        "trace_totals": {
+          "cache_hits": 0,
+          "cache_misses": 500,
+          "output_commits": 500,
+          "regions": 3500,
+          "resets": 0,
+          "state_commits": 0,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      },
+      {
+        "first_run": {
+          "ci95": [
+            203359205.8,
+            203913979.8
+          ],
+          "maximum": 204162885.0,
+          "mean": 203626910.0,
+          "minimum": 203155866.0,
+          "samples": [
+            203416541.0,
+            203748043.0,
+            204162885.0,
+            203651215.0,
+            203155866.0
+          ],
+          "stddev": 377051.2907536586
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            286270845.0,
+            289987787.6
+          ],
+          "maximum": 290269464.0,
+          "mean": 288134253.8,
+          "minimum": 285358829.0,
+          "samples": [
+            289562192.0,
+            285561875.0,
+            290269464.0,
+            289918909.0,
+            285358829.0
+          ],
+          "stddev": 2454752.522925417
+        },
+        "full_over_mode_speedup": 1.0007341489207986,
+        "interpretation": "exact condition-cache control",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 4
+        },
+        "mode": "missing",
+        "model": "diffusiondrive",
+        "processes": 5,
+        "raw_reports": [
+          "raw/diffusiondrive/missing/repeat_00/report.json",
+          "raw/diffusiondrive/missing/repeat_01/report.json",
+          "raw/diffusiondrive/missing/repeat_02/report.json",
+          "raw/diffusiondrive/missing/repeat_03/report.json",
+          "raw/diffusiondrive/missing/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 17381468,
+          "mean_ns": {
+            "ci95": [
+              16368635.152,
+              16416531.166
+            ],
+            "estimate": 16391388.258
+          },
+          "minimum_ns": 16012424,
+          "p50_ns": {
+            "ci95": [
+              16354954.0,
+              16393887.0
+            ],
+            "estimate": 16368943.0
+          },
+          "p90_ns": {
+            "ci95": [
+              16946229.0,
+              16969705.0
+            ],
+            "estimate": 16960182.0
+          },
+          "p99_ns": {
+            "ci95": [
+              17312787.0,
+              17333986.0
+            ],
+            "estimate": 17333986.0
+          },
+          "process_mean_ns": [
+            16363585.18,
+            16375566.02,
+            16432432.87,
+            16415137.53,
+            16370219.69
+          ],
+          "process_mean_stddev_ns": 30496.519176513546,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 61.007645250056164
+        },
+        "trace_totals": {
+          "cache_hits": 0,
+          "cache_misses": 500,
+          "output_commits": 500,
+          "regions": 3500,
+          "resets": 0,
+          "state_commits": 0,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      },
+      {
+        "first_run": {
+          "ci95": [
+            202674601.0,
+            203768225.4
+          ],
+          "maximum": 203934549.0,
+          "mean": 203276888.6,
+          "minimum": 202149501.0,
+          "samples": [
+            203934549.0,
+            202149501.0,
+            203821571.0,
+            203102931.0,
+            203375891.0
+          ],
+          "stddev": 714188.6377273164
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            287533018.8,
+            288925802.6
+          ],
+          "maximum": 289623387.0,
+          "mean": 288172941.2,
+          "minimum": 287253023.0,
+          "samples": [
+            288505829.0,
+            287253023.0,
+            287805886.0,
+            289623387.0,
+            287676581.0
+          ],
+          "stddev": 927625.9710692667
+        },
+        "full_over_mode_speedup": 1.0002150595473227,
+        "interpretation": "exact condition-cache control",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 8
+        },
+        "mode": "new",
+        "model": "diffusiondrive",
+        "processes": 5,
+        "raw_reports": [
+          "raw/diffusiondrive/new/repeat_00/report.json",
+          "raw/diffusiondrive/new/repeat_01/report.json",
+          "raw/diffusiondrive/new/repeat_02/report.json",
+          "raw/diffusiondrive/new/repeat_03/report.json",
+          "raw/diffusiondrive/new/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 17407629,
+          "mean_ns": {
+            "ci95": [
+              16383327.146,
+              16413439.706
+            ],
+            "estimate": 16399895.024
+          },
+          "minimum_ns": 16039891,
+          "p50_ns": {
+            "ci95": [
+              16379827.0,
+              16409447.0
+            ],
+            "estimate": 16393389.0
+          },
+          "p90_ns": {
+            "ci95": [
+              16853588.0,
+              16978565.0
+            ],
+            "estimate": 16966759.0
+          },
+          "p99_ns": {
+            "ci95": [
+              17326558.0,
+              17344364.0
+            ],
+            "estimate": 17338866.0
+          },
+          "process_mean_ns": [
+            16388358.36,
+            16373009.82,
+            16409015.35,
+            16419843.68,
+            16409247.91
+          ],
+          "process_mean_stddev_ns": 18871.37057457739,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 60.97600006198674
+        },
+        "trace_totals": {
+          "cache_hits": 0,
+          "cache_misses": 500,
+          "output_commits": 500,
+          "regions": 3500,
+          "resets": 0,
+          "state_commits": 0,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      },
+      {
+        "first_run": {
+          "ci95": [
+            202221576.2,
+            203030557.6
+          ],
+          "maximum": 203282222.0,
+          "mean": 202610599.4,
+          "minimum": 201945846.0,
+          "samples": [
+            202348691.0,
+            201945846.0,
+            202957431.0,
+            202518807.0,
+            203282222.0
+          ],
+          "stddev": 522084.2875171594
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            286325616.0,
+            289588392.6
+          ],
+          "maximum": 290364434.0,
+          "mean": 287974870.0,
+          "minimum": 284796943.0,
+          "samples": [
+            286872817.0,
+            288467217.0,
+            289372939.0,
+            284796943.0,
+            290364434.0
+          ],
+          "stddev": 2192074.3280853867
+        },
+        "full_over_mode_speedup": 5.352812047585743,
+        "interpretation": "exact condition-cache control",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 8
+        },
+        "mode": "same",
+        "model": "diffusiondrive",
+        "processes": 5,
+        "raw_reports": [
+          "raw/diffusiondrive/same/repeat_00/report.json",
+          "raw/diffusiondrive/same/repeat_01/report.json",
+          "raw/diffusiondrive/same/repeat_02/report.json",
+          "raw/diffusiondrive/same/repeat_03/report.json",
+          "raw/diffusiondrive/same/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 3424326,
+          "mean_ns": {
+            "ci95": [
+              3058221.4,
+              3070417.108
+            ],
+            "estimate": 3064449.458
+          },
+          "minimum_ns": 2977538,
+          "p50_ns": {
+            "ci95": [
+              3046971.0,
+              3052010.0
+            ],
+            "estimate": 3048156.0
+          },
+          "p90_ns": {
+            "ci95": [
+              3054046.0,
+              3061215.0
+            ],
+            "estimate": 3059325.0
+          },
+          "p99_ns": {
+            "ci95": [
+              3360834.0,
+              3363458.0
+            ],
+            "estimate": 3362081.0
+          },
+          "process_mean_ns": [
+            3060199.25,
+            3075659.25,
+            3064908.54,
+            3066766.5,
+            3054713.75
+          ],
+          "process_mean_stddev_ns": 7811.64443155665,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 326.3228888926254
+        },
+        "trace_totals": {
+          "cache_hits": 500,
+          "cache_misses": 0,
+          "output_commits": 500,
+          "regions": 3000,
+          "resets": 0,
+          "state_commits": 0,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      },
+      {
+        "first_run": {
+          "ci95": [
+            254287311.6,
+            254677107.8
+          ],
+          "maximum": 254800808.0,
+          "mean": 254491508.6,
+          "minimum": 254179863.0,
+          "samples": [
+            254602010.0,
+            254800808.0,
+            254294959.0,
+            254179863.0,
+            254579903.0
+          ],
+          "stddev": 250721.44575863468
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            884937386.4,
+            889501952.2
+          ],
+          "maximum": 889796620.0,
+          "mean": 887188659.8,
+          "minimum": 883849481.0,
+          "samples": [
+            883849481.0,
+            888358723.0,
+            889796620.0,
+            884159576.0,
+            889778899.0
+          ],
+          "stddev": 2966703.0157982954
+        },
+        "full_over_mode_speedup": 1.0,
+        "interpretation": "full recompute control",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 8
+        },
+        "mode": "full",
+        "model": "smolvla",
+        "processes": 5,
+        "raw_reports": [
+          "raw/smolvla/full/repeat_00/report.json",
+          "raw/smolvla/full/repeat_01/report.json",
+          "raw/smolvla/full/repeat_02/report.json",
+          "raw/smolvla/full/repeat_03/report.json",
+          "raw/smolvla/full/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 48300220,
+          "mean_ns": {
+            "ci95": [
+              45442331.058,
+              45568599.954
+            ],
+            "estimate": 45504857.294
+          },
+          "minimum_ns": 45153356,
+          "p50_ns": {
+            "ci95": [
+              45294126.0,
+              45425846.0
+            ],
+            "estimate": 45377547.0
+          },
+          "p90_ns": {
+            "ci95": [
+              45693641.0,
+              45811969.0
+            ],
+            "estimate": 45776185.0
+          },
+          "p99_ns": {
+            "ci95": [
+              47013202.0,
+              47799886.0
+            ],
+            "estimate": 47769154.0
+          },
+          "process_mean_ns": [
+            45445104.87,
+            45581315.01,
+            45605526.63,
+            45429105.59,
+            45463234.37
+          ],
+          "process_mean_stddev_ns": 82190.69013840154,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 21.97567599298579
+        },
+        "trace_totals": {
+          "cache_hits": 0,
+          "cache_misses": 500,
+          "output_commits": 500,
+          "regions": 13000,
+          "resets": 500,
+          "state_commits": 1000,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      },
+      {
+        "first_run": {
+          "ci95": [
+            254129129.4,
+            254874259.4
+          ],
+          "maximum": 255147083.0,
+          "mean": 254488375.0,
+          "minimum": 253976735.0,
+          "samples": [
+            254388009.0,
+            253976735.0,
+            254167228.0,
+            255147083.0,
+            254762820.0
+          ],
+          "stddev": 470159.68203739036
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            886358709.4,
+            890522009.8
+          ],
+          "maximum": 891228286.0,
+          "mean": 888813896.2,
+          "minimum": 883961539.0,
+          "samples": [
+            888855028.0,
+            889954465.0,
+            883961539.0,
+            891228286.0,
+            890070163.0
+          ],
+          "stddev": 2839693.8121927334
+        },
+        "full_over_mode_speedup": 43.478524486304664,
+        "interpretation": "ChunkedAction Adapter queue/cursor path; not a core cache-only result",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 48
+        },
+        "mode": "missing",
+        "model": "smolvla",
+        "processes": 5,
+        "raw_reports": [
+          "raw/smolvla/missing/repeat_00/report.json",
+          "raw/smolvla/missing/repeat_01/report.json",
+          "raw/smolvla/missing/repeat_02/report.json",
+          "raw/smolvla/missing/repeat_03/report.json",
+          "raw/smolvla/missing/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 48696275,
+          "mean_ns": {
+            "ci95": [
+              1043920.38,
+              1049627.674
+            ],
+            "estimate": 1046605.372
+          },
+          "minimum_ns": 80602,
+          "p50_ns": {
+            "ci95": [
+              82273.0,
+              82757.0
+            ],
+            "estimate": 82565.0
+          },
+          "p90_ns": {
+            "ci95": [
+              84351.0,
+              85083.0
+            ],
+            "estimate": 84571.0
+          },
+          "p99_ns": {
+            "ci95": [
+              48127878.0,
+              48287656.0
+            ],
+            "estimate": 48165686.0
+          },
+          "process_mean_ns": [
+            1049554.18,
+            1044556.05,
+            1044064.0,
+            1051506.73,
+            1043345.9
+          ],
+          "process_mean_stddev_ns": 3674.2764214835242,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 955.46996676413
+        },
+        "trace_totals": {
+          "cache_hits": 0,
+          "cache_misses": 10,
+          "output_commits": 500,
+          "regions": 2220,
+          "resets": 0,
+          "state_commits": 1000,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      },
+      {
+        "first_run": {
+          "ci95": [
+            254269577.4,
+            255830966.4
+          ],
+          "maximum": 256755062.0,
+          "mean": 254888209.0,
+          "minimum": 254083252.0,
+          "samples": [
+            254444823.0,
+            254083252.0,
+            254368280.0,
+            254789628.0,
+            256755062.0
+          ],
+          "stddev": 1073514.2545695424
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            888163360.8,
+            889808843.4
+          ],
+          "maximum": 889907669.0,
+          "mean": 889210358.0,
+          "minimum": 887165198.0,
+          "samples": [
+            889723684.0,
+            889657713.0,
+            887165198.0,
+            889597526.0,
+            889907669.0
+          ],
+          "stddev": 1149179.1847712435
+        },
+        "full_over_mode_speedup": 43.45013582609481,
+        "interpretation": "ChunkedAction Adapter queue/cursor path; not a core cache-only result",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 48
+        },
+        "mode": "new",
+        "model": "smolvla",
+        "processes": 5,
+        "raw_reports": [
+          "raw/smolvla/new/repeat_00/report.json",
+          "raw/smolvla/new/repeat_01/report.json",
+          "raw/smolvla/new/repeat_02/report.json",
+          "raw/smolvla/new/repeat_03/report.json",
+          "raw/smolvla/new/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 48590959,
+          "mean_ns": {
+            "ci95": [
+              1045572.588,
+              1049112.156
+            ],
+            "estimate": 1047289.184
+          },
+          "minimum_ns": 80794,
+          "p50_ns": {
+            "ci95": [
+              82632.0,
+              83070.0
+            ],
+            "estimate": 82794.0
+          },
+          "p90_ns": {
+            "ci95": [
+              84350.0,
+              85271.0
+            ],
+            "estimate": 84894.0
+          },
+          "p99_ns": {
+            "ci95": [
+              48159085.0,
+              48206588.0
+            ],
+            "estimate": 48206588.0
+          },
+          "process_mean_ns": [
+            1044537.26,
+            1048951.42,
+            1045299.74,
+            1050000.44,
+            1047657.06
+          ],
+          "process_mean_stddev_ns": 2333.4654218307733,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 954.8461067654835
+        },
+        "trace_totals": {
+          "cache_hits": 0,
+          "cache_misses": 10,
+          "output_commits": 500,
+          "regions": 2220,
+          "resets": 0,
+          "state_commits": 1000,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      },
+      {
+        "first_run": {
+          "ci95": [
+            254207933.2,
+            255022404.2
+          ],
+          "maximum": 255354421.0,
+          "mean": 254572128.6,
+          "minimum": 253984554.0,
+          "samples": [
+            253984554.0,
+            254613094.0,
+            255354421.0,
+            254472910.0,
+            254435664.0
+          ],
+          "stddev": 496832.56518147036
+        },
+        "fresh_process_initialization": {
+          "ci95": [
+            884045633.6,
+            889669760.0
+          ],
+          "maximum": 889972449.0,
+          "mean": 886898282.4,
+          "minimum": 882241537.0,
+          "samples": [
+            889972449.0,
+            883531108.0,
+            889657584.0,
+            882241537.0,
+            889088734.0
+          ],
+          "stddev": 3704236.2565276935
+        },
+        "full_over_mode_speedup": 65.6063374222326,
+        "interpretation": "ChunkedAction Adapter queue/cursor path; not a core cache-only result",
+        "memory": {
+          "maximum_absolute_cuda_drift_bytes": 0,
+          "maximum_absolute_rss_drift_kib": 24
+        },
+        "mode": "same",
+        "model": "smolvla",
+        "processes": 5,
+        "raw_reports": [
+          "raw/smolvla/same/repeat_00/report.json",
+          "raw/smolvla/same/repeat_01/report.json",
+          "raw/smolvla/same/repeat_02/report.json",
+          "raw/smolvla/same/repeat_03/report.json",
+          "raw/smolvla/same/repeat_04/report.json"
+        ],
+        "samples_per_process": 100,
+        "steady_latency": {
+          "maximum_ns": 30957399,
+          "mean_ns": {
+            "ci95": [
+              691734.954,
+              695800.692
+            ],
+            "estimate": 693604.598
+          },
+          "minimum_ns": 80391,
+          "p50_ns": {
+            "ci95": [
+              82605.0,
+              83095.0
+            ],
+            "estimate": 82849.0
+          },
+          "p90_ns": {
+            "ci95": [
+              85099.0,
+              85564.0
+            ],
+            "estimate": 85343.0
+          },
+          "p99_ns": {
+            "ci95": [
+              30328558.0,
+              30632341.0
+            ],
+            "estimate": 30506611.0
+          },
+          "process_mean_ns": [
+            692110.64,
+            692490.99,
+            691014.82,
+            694615.49,
+            697791.05
+          ],
+          "process_mean_stddev_ns": 2679.891152485517,
+          "processes": 5,
+          "samples_per_process": [
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "throughput_runs_per_second": 1441.743614277482
+        },
+        "trace_totals": {
+          "cache_hits": 10,
+          "cache_misses": 0,
+          "output_commits": 500,
+          "regions": 2210,
+          "resets": 0,
+          "state_commits": 1000,
+          "transaction_aborts": 0,
+          "transaction_commits": 500
+        },
+        "warmup_per_process": 5
+      }
+    ],
+    "primary_cache_only_model": "diffusiondrive",
+    "smolvla_caveat": "non-full modes include ChunkedAction Adapter queue/cursor behavior and are not a core cache-only ablation"
+  },
+  "passed": true,
+  "protocol": {
+    "bootstrap_resamples": 2000,
+    "bootstrap_unit": "independent process cluster",
+    "exact_reuse_processes_per_cell": 5,
+    "exact_reuse_samples_per_process": 100,
+    "exact_reuse_warmup_per_process": 5,
+    "schedule_seed": 20260726,
+    "timing_boundary": "generated no-Python C++ ModelSession::Run including backend synchronization"
+  },
+  "raw_evidence": [
+    {
+      "path": "raw/diffusiondrive/full/repeat_00/report.csv",
+      "sha256": "87ae0428573cb7470cf7579abff952924ae53b1fa8bc481b0bb80748132c524c",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_00/report.json",
+      "sha256": "1294f81d433e7937d2083f83b4b0df41a3d024bba207c93621ecb8955f70adc7",
+      "size_bytes": 3580
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_01/report.csv",
+      "sha256": "08e26600c45b723f1e126272db23dd740cf7e6e84dce9f0a289aea052fba1669",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_01/report.json",
+      "sha256": "26f5196a398ba9d0dc80e9103a516245713718f467761e858f094585c79f8d13",
+      "size_bytes": 3582
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_02/report.csv",
+      "sha256": "7c0f45f42763dbd733bbabdf051a15fadeda010fb6ccfea4a0e28533c0e7257b",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_02/report.json",
+      "sha256": "507efd9ec431091d776c8c58d76fbe3d554dbbc44b23a70344b9e7058c0d7cf7",
+      "size_bytes": 3582
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_03/report.csv",
+      "sha256": "6d99c950929ff13c6851b72abe9509fcc5b7a5bae9aa1174dbd650c8fa33e375",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_03/report.json",
+      "sha256": "a23693042b116cfae1a6e77c637accb2ad316c645f6c4ff8f2c5402812fa760b",
+      "size_bytes": 3581
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_04/report.csv",
+      "sha256": "cdee4367bef0e8dab90370af4da48c6ec1b18ea0b9b96ac41c62c802a7f2a033",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/full/repeat_04/report.json",
+      "sha256": "2762291f4e8ceb397c1aea04084bfedf5d9a478883e6b6b83d4590ca48a98bad",
+      "size_bytes": 3581
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_00/report.csv",
+      "sha256": "8a258b9eec7d1954872136894ae935a426b320c47a00e41058a99e44371c6c72",
+      "size_bytes": 4347
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_00/report.json",
+      "sha256": "0a775ddba548be5d1c4f99b36d62c9d858f5e9b80bfc3a8d38d8ff7e59750d2e",
+      "size_bytes": 3593
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_01/report.csv",
+      "sha256": "0bb2748ddcc140ce58321e3d99fb00c4536ddcae39f768c9563c211ff1558b8f",
+      "size_bytes": 4347
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_01/report.json",
+      "sha256": "01201b6224a03050a990ff1a227ea9a2bb8290ffe47b2e5c12f25c64bd5e60e2",
+      "size_bytes": 3594
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_02/report.csv",
+      "sha256": "f7ce0a1cf133bdf80e8afc22b62d534954a68c4051386074cd188538f9ce18d3",
+      "size_bytes": 4347
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_02/report.json",
+      "sha256": "faee03c612a33c99b1e4f978dc5fa3e7a6d35457a4dd5ffbd0a16ca3e02b403b",
+      "size_bytes": 3593
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_03/report.csv",
+      "sha256": "7ec6d55db58339281a2ae98817246d3aa7b91934c11665994b123f47ec79eadb",
+      "size_bytes": 4347
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_03/report.json",
+      "sha256": "df4d899854b2d8fa23a94455d27d36ded27eeab6facd0cbcaeac3c85510e69b8",
+      "size_bytes": 3594
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_04/report.csv",
+      "sha256": "65c781bec5ea1ba12e06c5dc294db47421be3b626dae27ed32686655663a797c",
+      "size_bytes": 4347
+    },
+    {
+      "path": "raw/diffusiondrive/missing/repeat_04/report.json",
+      "sha256": "7711eb70788e6baccb8908aa330d5de3d8a3a95543000a933e6c2e969eaf9a46",
+      "size_bytes": 3595
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_00/report.csv",
+      "sha256": "df096e02da751f6b41e6932e03d36144290c9be99defd785df2889fa3219cd81",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_00/report.json",
+      "sha256": "53b02a4726bc52bddbd7fae1d3ede18b1817691f3fea58eb1e84603b890b9b1e",
+      "size_bytes": 3578
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_01/report.csv",
+      "sha256": "a742e250941e5d2aaff35e6d5ab64dab70315cb98c4eabe3686b408fa9f036d9",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_01/report.json",
+      "sha256": "1ca122922af1aec52ba801f382beb111cfb1a9e3f759e434611d51c9e4f0babc",
+      "size_bytes": 3577
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_02/report.csv",
+      "sha256": "df8b4acea4687d20c9b7286f1a98c3996ce83703ed0ed45a1ce6b012db50c60c",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_02/report.json",
+      "sha256": "2e83149240910c813316ac6024a9cd1ce1fef78ebb66d402fe3acd7bd55c2022",
+      "size_bytes": 3577
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_03/report.csv",
+      "sha256": "5c15963b57cefacdd25e97415bf6a18f8763789c02c86baf1070ca4ca191c332",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_03/report.json",
+      "sha256": "48afc901ccbfe0f9505433f5d6f8616c82efd4a79760eb9b63c929f84154f6d1",
+      "size_bytes": 3577
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_04/report.csv",
+      "sha256": "d7d0c5f0909c5a1c428e4a32f312e0fe49d0c84983f14b3d1be2316b9ce1923a",
+      "size_bytes": 4247
+    },
+    {
+      "path": "raw/diffusiondrive/new/repeat_04/report.json",
+      "sha256": "098873fd2b8a57d58f4aa713878bf5fdf8c619a4046140fb2def9a8cbe19c56a",
+      "size_bytes": 3578
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_00/report.csv",
+      "sha256": "344bc377e2ec4e506447048cb0fd40d201005e8081986d5c5c86aa23fa7af112",
+      "size_bytes": 4147
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_00/report.json",
+      "sha256": "8562f37efd2afc66961e3dde7376783c3e90d26b848a09111f12a3febeed6b3e",
+      "size_bytes": 3575
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_01/report.csv",
+      "sha256": "4d3ade837065c4dc2cae0760d959f1d4c156ab7ceb46ea6338590c9bbd83ac8a",
+      "size_bytes": 4147
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_01/report.json",
+      "sha256": "7b314e26eff326d74b298f78cb225ed6a6836f01c00bcc60df72fbefdc53f29c",
+      "size_bytes": 3565
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_02/report.csv",
+      "sha256": "43613743bb72e058f919db308ed077c4f6ec5bf9a49b9da7b026e8dc5a72ffd0",
+      "size_bytes": 4147
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_02/report.json",
+      "sha256": "3b9ed81e3c2476256351a77eb5617762ddbb8aeb0bef2f604cd8e872bf47d063",
+      "size_bytes": 3577
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_03/report.csv",
+      "sha256": "1ca3ab7f40f8864bad899892af6a7d5b560597c04a8375222adb8b56dbea13f2",
+      "size_bytes": 4147
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_03/report.json",
+      "sha256": "94126b34b36a1888540711fad6a07ff3f8343d1a1cbaca1793103a1a651ce2f2",
+      "size_bytes": 3576
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_04/report.csv",
+      "sha256": "7673ad9ff6650445f13a323d683425a5be26119ec2e9291c2fa3602c76ae2c63",
+      "size_bytes": 4147
+    },
+    {
+      "path": "raw/diffusiondrive/same/repeat_04/report.json",
+      "sha256": "9839515ba6404a1edacaddca2c9d336648d6d8e7eec633b60d48c6bd145e68e2",
+      "size_bytes": 3576
+    },
+    {
+      "path": "raw/smolvla/full/repeat_00/report.csv",
+      "sha256": "e880d189eaa7401230c4ab48ce202bce67bb43b5ee8ff8893e61a95bddb62566",
+      "size_bytes": 4447
+    },
+    {
+      "path": "raw/smolvla/full/repeat_00/report.json",
+      "sha256": "18e599c4d72de8447a8a4c86c048e9fda3fddeb8571d6c43abceefa296d877b9",
+      "size_bytes": 3547
+    },
+    {
+      "path": "raw/smolvla/full/repeat_01/report.csv",
+      "sha256": "2cb91468112cf5d01533ae83a16d1859bb0783cb12a79277d5b1fe33e15e9066",
+      "size_bytes": 4447
+    },
+    {
+      "path": "raw/smolvla/full/repeat_01/report.json",
+      "sha256": "5f38a8887e9cbe945f62ecc1415fa825f36802850127f653356e8906dffaf141",
+      "size_bytes": 3547
+    },
+    {
+      "path": "raw/smolvla/full/repeat_02/report.csv",
+      "sha256": "4a9e3944ad124a0501406bd9292e5a2b51981b4128f773cae8ff35b1197ab6f1",
+      "size_bytes": 4447
+    },
+    {
+      "path": "raw/smolvla/full/repeat_02/report.json",
+      "sha256": "97be8b76059d3c8374ae9b87a32f0fe58a81bd8591200b836eb2757da474fdc6",
+      "size_bytes": 3547
+    },
+    {
+      "path": "raw/smolvla/full/repeat_03/report.csv",
+      "sha256": "7acd01eff5c5bdeb655bf331d4da59f76371177efbd1a7fcaaaaa5e5230e66c6",
+      "size_bytes": 4447
+    },
+    {
+      "path": "raw/smolvla/full/repeat_03/report.json",
+      "sha256": "5d3a5762e38b1d5963dadfcdf449050e3f04324a8d8b129ed64944e79988dac4",
+      "size_bytes": 3547
+    },
+    {
+      "path": "raw/smolvla/full/repeat_04/report.csv",
+      "sha256": "71a49acc60532c7c78e96dbf4ada9cb735f4b33b192947bbfa044f9f7a7529d1",
+      "size_bytes": 4447
+    },
+    {
+      "path": "raw/smolvla/full/repeat_04/report.json",
+      "sha256": "9cbd43ede4060d68f50ddf71f69ebefc23d9d1f65eb3a203753fced889e05ef2",
+      "size_bytes": 3545
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_00/report.csv",
+      "sha256": "a619c813bdaf0eaf9272013a8a7c756b74d5c5ab0415d22369aeaf337e9b281c",
+      "size_bytes": 4151
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_00/report.json",
+      "sha256": "741669aa32e71e2c4b859a340469de2b206bddd7bfc98e1ba9428c5c7941a961",
+      "size_bytes": 3548
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_01/report.csv",
+      "sha256": "7b0779f7ca4c38bb589350ab27330235a9b5456c3d579ca551bd159057e22bad",
+      "size_bytes": 4151
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_01/report.json",
+      "sha256": "6e369f1e067f0f3fd2fcef4f657721b5b7f75b822eb52b947c30ddab9aa3f059",
+      "size_bytes": 3548
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_02/report.csv",
+      "sha256": "e7e60aa81e667e0c4e90a87656818a1f25c781fdce79684ff3b62fd201a4df9e",
+      "size_bytes": 4151
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_02/report.json",
+      "sha256": "8b64bd6afd6c1da9ad0073e3748c66e4a1b2ef0074e03b7d41442b1a5274bf1d",
+      "size_bytes": 3547
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_03/report.csv",
+      "sha256": "816ace11bcd5357b5bbbbdd6352ab54427656469c61606015b5529fadae81231",
+      "size_bytes": 4151
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_03/report.json",
+      "sha256": "6232e68a0597fa24cc12dcf9824530af6b0442e3485d5bd6127d2e60ed054dc8",
+      "size_bytes": 3548
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_04/report.csv",
+      "sha256": "d741f422635f4274484950db359afa2d9f183d88f73a630739a6ac443898653c",
+      "size_bytes": 4151
+    },
+    {
+      "path": "raw/smolvla/missing/repeat_04/report.json",
+      "sha256": "98cb2c6f2077c9cfdca3a539922666754b3af818294c53d0f5bd22882358f4f4",
+      "size_bytes": 3547
+    },
+    {
+      "path": "raw/smolvla/new/repeat_00/report.csv",
+      "sha256": "acfac077a80a23d7d26f98932e1849a6b0990187488b27f3c84cf6b41390c57e",
+      "size_bytes": 4051
+    },
+    {
+      "path": "raw/smolvla/new/repeat_00/report.json",
+      "sha256": "340bc5a1c3ceef52b511b94c7e33d02d3f154eebb0c76796c803d23e69bbec0c",
+      "size_bytes": 3532
+    },
+    {
+      "path": "raw/smolvla/new/repeat_01/report.csv",
+      "sha256": "9ad63a604c686637fa68c33e046f679ada44730dd266ba62cfb6a82da44c4f76",
+      "size_bytes": 4051
+    },
+    {
+      "path": "raw/smolvla/new/repeat_01/report.json",
+      "sha256": "206d8c1caf0830fe6483342146d5ddad712d58f96628f5550c9b14807fb6c195",
+      "size_bytes": 3531
+    },
+    {
+      "path": "raw/smolvla/new/repeat_02/report.csv",
+      "sha256": "93985fe036b8d6c14e831110b74324bbd0bd932c5178ba88844e8a4a7eb45c98",
+      "size_bytes": 4051
+    },
+    {
+      "path": "raw/smolvla/new/repeat_02/report.json",
+      "sha256": "4549dc3914c9b41f1e5105575d5f5c5ad2a7f57af2a34cc90d727d8191d56f11",
+      "size_bytes": 3529
+    },
+    {
+      "path": "raw/smolvla/new/repeat_03/report.csv",
+      "sha256": "2ef99443eabab0cedf23627c8d8f25e18747494c4279f1c64838b953ab09e22a",
+      "size_bytes": 4052
+    },
+    {
+      "path": "raw/smolvla/new/repeat_03/report.json",
+      "sha256": "a70a39863ae6c555399961f1d8d6857d266485569dc3257b4f2b2fd32de82c48",
+      "size_bytes": 3532
+    },
+    {
+      "path": "raw/smolvla/new/repeat_04/report.csv",
+      "sha256": "be23d84bd2281fee8c40a212ea432115cc9ddfc0af1d66df402da2afafb69f2a",
+      "size_bytes": 4051
+    },
+    {
+      "path": "raw/smolvla/new/repeat_04/report.json",
+      "sha256": "fc3b6ad65bc4577b5aabad34ed212c15488134dbed528d24d01a5bba8ef4693e",
+      "size_bytes": 3532
+    },
+    {
+      "path": "raw/smolvla/same/repeat_00/report.csv",
+      "sha256": "e83499372852b06111f095b8e2a437d889cf8f91e61343cd9d7356f41c5c9dbf",
+      "size_bytes": 4051
+    },
+    {
+      "path": "raw/smolvla/same/repeat_00/report.json",
+      "sha256": "d698122969bd5bed14b29980a4f4b84988aa7d13e7f99a98155ebbd7ae0288cc",
+      "size_bytes": 3536
+    },
+    {
+      "path": "raw/smolvla/same/repeat_01/report.csv",
+      "sha256": "a2f8814dfb996cda6f3c6bd38f9436a658da8c7ac0a79cfc2f9e804ac73a7e3e",
+      "size_bytes": 4052
+    },
+    {
+      "path": "raw/smolvla/same/repeat_01/report.json",
+      "sha256": "3966facd27b1fee04c1a35ec3ef078139b910968836a28d382f65bd38906a1e7",
+      "size_bytes": 3535
+    },
+    {
+      "path": "raw/smolvla/same/repeat_02/report.csv",
+      "sha256": "6783ca1b6ae454717d9d82a54163e489fdb915cc2bf63b2953855f929880793d",
+      "size_bytes": 4052
+    },
+    {
+      "path": "raw/smolvla/same/repeat_02/report.json",
+      "sha256": "912bef45f26e94c1210f6d3e6c79e39bd78cf1544a37956463a39d3d24151011",
+      "size_bytes": 3534
+    },
+    {
+      "path": "raw/smolvla/same/repeat_03/report.csv",
+      "sha256": "9faf752da558c3aa00e7367d39c8c0cadfd725b7277c6d6ccb56cac95704ad34",
+      "size_bytes": 4053
+    },
+    {
+      "path": "raw/smolvla/same/repeat_03/report.json",
+      "sha256": "dca3e17c70a25d3dd3e80e4deafab43f55945db3bc70b6e44748b806f1f71921",
+      "size_bytes": 3524
+    },
+    {
+      "path": "raw/smolvla/same/repeat_04/report.csv",
+      "sha256": "a4d98e5375a8770b94a0368ff6a9325e12150747f5234af7cab70d3b90bcaa5b",
+      "size_bytes": 4051
+    },
+    {
+      "path": "raw/smolvla/same/repeat_04/report.json",
+      "sha256": "308b6b4f59c86a9a1b90942407ed6364c5e3dbcbd3c0d602cd08f00b2c9d41cd",
+      "size_bytes": 3535
+    }
+  ],
+  "repository": {
+    "revision": "c1372ada3ec962f89c2d39a9c74d43cd47d45d15",
+    "source_dirty": false
+  },
+  "schema": "vlaforge.cuda_paper_ablations/1",
+  "source_evidence": {
+    "diffusiondrive_l4": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json",
+    "formal_cuda_matrix": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
+    "installed_wheel": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_reproducibility_v01/reproducibility_manifest.json",
+    "real_cuda_soak": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_evidence.json",
+    "smolvla_l4": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+  },
+  "static_arena": [
+    {
+      "authoritative_state_bytes": 2464,
+      "baseline_bytes": 2331712,
+      "claim_boundary": "plan-level lifetime-packing ablation plus generated Session residency check; not a dynamic allocator microbenchmark",
+      "compiled_bytes": 2329792,
+      "control": "unpacked logical-lifetime memory-plan baseline",
+      "derived_cache_bytes": 2314353,
+      "model": "smolvla",
+      "saved_bytes": 1920,
+      "saved_percent": 0.08234293085938572,
+      "soak_cuda_drift_bytes": 0,
+      "soak_rss_drift_kib": 52,
+      "soak_runs": 10000,
+      "treatment": "verified packed static arena"
+    },
+    {
+      "authoritative_state_bytes": 0,
+      "baseline_bytes": 5158016,
+      "claim_boundary": "plan-level lifetime-packing ablation plus generated Session residency check; not a dynamic allocator microbenchmark",
+      "compiled_bytes": 5155392,
+      "control": "unpacked logical-lifetime memory-plan baseline",
+      "derived_cache_bytes": 5145296,
+      "model": "diffusiondrive",
+      "saved_bytes": 2624,
+      "saved_percent": 0.050872273370226075,
+      "soak_cuda_drift_bytes": 0,
+      "soak_rss_drift_kib": 4,
+      "soak_runs": 10000,
+      "treatment": "verified packed static arena"
+    }
+  ],
+  "status": "passed",
+  "summary": {
+    "ablation_count": 4,
+    "all_transaction_failure_retry_passed": true,
+    "clean_wheel_boundary_passed": true,
+    "exact_reuse_cell_count": 8,
+    "exact_reuse_task_count": 40,
+    "minimum_processes_per_exact_reuse_cell": 5
+  },
+  "transaction_failure_retry": [
+    {
+      "authoritative_state_version_sequence": "passed",
+      "committed_output_preserved": true,
+      "injected_failure": "non-finite output validation",
+      "model": "smolvla",
+      "passed": true,
+      "retry_cache_hits": 1,
+      "retry_cache_misses": 1,
+      "retry_commit_delta": 1,
+      "retry_state_commit_delta": 2,
+      "transaction_abort_delta": 1,
+      "validation_failure_status_code": 7
+    },
+    {
+      "authoritative_state_version_sequence": "not_applicable_stateless_model",
+      "committed_output_preserved": true,
+      "injected_failure": "non-finite output validation",
+      "model": "diffusiondrive",
+      "passed": true,
+      "retry_cache_hits": 1,
+      "retry_cache_misses": 1,
+      "retry_commit_delta": 1,
+      "retry_state_commit_delta": 0,
+      "transaction_abort_delta": 1,
+      "validation_failure_status_code": 7
+    }
+  ]
+}

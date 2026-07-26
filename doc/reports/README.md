@@ -15,6 +15,10 @@ Current v0.2 evidence:
   two real models, five deterministic workloads, five independent processes,
   eager/direct-AOTI/generated-C++ paths, clustered 95% confidence intervals,
   first-Run/fresh-process/memory data, raw JSON/CSV, and output parity;
+- `vlaforge_ablations_v01/`: four formal ablations covering InputRevision
+  exact reuse, verified static-arena packing/residency, transaction
+  failure/retry, and the direct-AOTI versus generated-C++/clean-wheel
+  deployment boundary;
 - `vlaforge_orin_validation.md`: JetPack arm64 VLAForge runtime and generated
   Session portability evidence. Real Orin GPU execution is an optional
   cross-platform extension, not a Host-CUDA paper completion condition.
