@@ -3,7 +3,8 @@
 > 状态：当前权威实施计划
 > 更新时间：2026-07-26
 > 分支：`codex/vlaforge-paper-artifact`
-> 硬件边界：Host/C++ 工作先完成；Orin 编译、真机性能和闭环验证后置
+> 硬件边界：当前投稿门禁只要求 RTX 3060 Host-CUDA/C++；Orin 仅是可选
+> 跨平台实验，真车/传感器闭环不属于本编译器完成条件
 
 ## 1. 目标与边界
 
@@ -310,9 +311,9 @@ opcode 或任意未验证 opcode。
 | P12 | frozen-core held-out robot/driving 泛化 | 完成：Octo、GR00T N1.7、AutoVLA pinned-source L0 + executable L1，core op delta=0 |
 | P13 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
 | P14 | 论文 artifact 可复现基线 | 完成：clean wheel、非 Git cwd、installed runtime、真实 `sm_86` AOTI、Bundle、invalid-Python C++ 与外部证据 inventory |
-| P15 | 5 workloads × 5 independent processes 统计实验 | 进行中 |
-| P16 | 一个真实 held-out 模型至少 L2 | 待 AutoVLA/GR00T/Octo 资源审计后选择一个 |
-| P17 | 论文初稿、表格与 artifact-evaluation 指南 | 待 P15/P16 收口 |
+| P15 | 5 workloads × 5 independent processes 统计实验 | 完成：150 fresh-process tasks、4,500 steady samples、30 cells、50 parity cells |
+| P16 | 一个真实 held-out 模型至少 L2 | 完成：AutoVLA real L2 decoder partition，core op delta=0；L3 candidate 未晋级 |
+| P17 | 论文初稿、表格与 artifact-evaluation 指南 | 初稿/图/claim map 已完成，待最终 gate 与 completion audit 刷新 |
 
 ## 9. 测试与验收
 
@@ -388,6 +389,17 @@ compile 后 Semantic/Plan 的 output、state、完整 trace 等价；新增 core
 均为 0。该结果严格标为 L0+L1，不是 checkpoint/artifact/C++ real-model
 证据。报告见 `doc/reports/vlaforge_heldout_v01/heldout_audit.md`。
 
+P16 选择 AutoVLA 作为真实 held-out。发布的 16,292,664,780-byte
+checkpoint、source、Qwen config 与 2,048-entry codebook 均固定 SHA256；
+真实 final Qwen MLP、action projection 和 trajectory decode 被划分为三个
+TensorRegion。eager/strict-export/Semantic/Plan trajectory 与 action tokens
+exact，trace exact；revisions `[100,100,101]` 为 1 hit/2 miss；core op
+delta=0，peak CUDA allocated 533,944,320 bytes，Host RSS
+1,473,228,800 bytes。默认与 conservative AOTI 都成功编译，但中间 Region
+NRMSE `6.65e-3/4.54e-3` 超过预声明 `1e-3`，所以只保留 L3-candidate；
+token exact、trajectory max abs `1.91e-6` 不用于事后放宽门槛。证据见
+`doc/reports/vlaforge_autovla_v01/`。
+
 最终 architecture/build-surface negative audit 也已固化为自动测试：
 47 个 production source files 中不存在 tick/clock/deadline/period/jitter、
 middleware、publish、internal sleep、core action queue 或 Python runtime
@@ -436,9 +448,10 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    边界四组可投稿消融；exact-reuse 共 40 个 fresh process 任务，每单元
    5 个独立进程 × 100 次稳态 Run，原始 JSON/CSV 与汇总分离。正式证据见
    `doc/reports/vlaforge_ablations_v01/`；
-3. **当前优先级**：在 AutoVLA、GR00T N1.7、Octo 中只选一个可行对象推进真实 L2，争取 L3，
-   新增 core op 目标仍为 0；
-4. 形成论文初稿和 artifact-evaluation 指南；
+3. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3
+   conservative candidate 按预声明阈值未晋级；
+4. **当前收口**：刷新最终 Python/CPU-CUDA CTest/live AOTI/clean-wheel
+   gate、reproducibility manifest 和机械 completion audit；
 5. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
    探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
 6. Orin 环境就绪后可选执行模型专属 SM87 artifact 和 latency/power/thermal

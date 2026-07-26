@@ -19,6 +19,10 @@ Current v0.2 evidence:
   exact reuse, verified static-arena packing/residency, transaction
   failure/retry, and the direct-AOTI versus generated-C++/clean-wheel
   deployment boundary;
+- `vlaforge_autovla_v01/`: held-out real AutoVLA decoder-partition L2 with
+  zero new core ops, plus a non-promoted conservative AOTI L3 candidate whose
+  final tokens/trajectory pass but intermediate NRMSE exceeds the predeclared
+  threshold;
 - `vlaforge_orin_validation.md`: JetPack arm64 VLAForge runtime and generated
   Session portability evidence. Real Orin GPU execution is an optional
   cross-platform extension, not a Host-CUDA paper completion condition.

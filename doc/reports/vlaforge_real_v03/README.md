@@ -181,6 +181,16 @@ executable-fixture evidence, not real checkpoint, artifact, or generated-C++
 support. The machine-readable report and reproduction details are in
 `../vlaforge_heldout_v01/heldout_audit.json` and `heldout_audit.md`.
 
+AutoVLA was subsequently selected as the real held-out object. Its released
+checkpoint backs a three-Region post-attention decoder partition with exact
+eager/export/Semantic/Plan trajectory and token outputs, exact trace, one
+same-revision hit, two misses, and zero new core ops. This is honest
+`L2-partitioned-real-checkpoint-frontend` evidence. A conservative `sm_86`
+AOTI attempt retained exact tokens, `1.91e-6` trajectory max-abs error and
+bit-exact repeatability, but intermediate Region NRMSE exceeded the
+predeclared `1e-3` threshold; it remains L3-candidate. Reports and the complete
+scope boundary are in `../vlaforge_autovla_v01/`.
+
 The separate
 `../vlaforge_architecture_v01/architecture_surface.{json,md}` audit proves
 that the production source and CMake graph contain no physical scheduler,

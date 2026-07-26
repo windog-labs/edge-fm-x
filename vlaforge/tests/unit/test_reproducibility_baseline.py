@@ -63,6 +63,7 @@ def test_reproducibility_markdown_discloses_external_archives() -> None:
         "summary": {
             "formal_report_count": 7,
             "committed_raw_file_count": 42,
+            "paper_artifact_count": 9,
             "reproduction_command_count": 8,
             "must_archive_total_bytes": 2 * 1024**3,
             "missing_external_reference_count": 3,
@@ -80,6 +81,7 @@ def test_reproducibility_markdown_discloses_external_archives() -> None:
     markdown = audit.render_markdown(report)
     assert "2.00 GiB" in markdown
     assert "required" in markdown
+    assert "Paper, Model Card and figure artifacts: 9" in markdown
     assert "does not contain Orin evidence" in markdown
     assert "not real-model support evidence" in markdown
 
@@ -94,8 +96,9 @@ def test_formal_status_accepts_legacy_pass_and_explicit_blocker() -> None:
     assert not audit._formal_status_is_acceptable({"status": "failed"})
 
 
-def test_formal_inventory_includes_matrix_and_paper_ablations() -> None:
+def test_formal_inventory_includes_matrix_ablations_and_autovla() -> None:
     audit = _module()
     names = {path.name for path in audit._formal_reports()}
     assert "cuda_paper_matrix.json" in names
     assert "paper_ablations.json" in names
+    assert "autovla_frontend_l2.json" in names

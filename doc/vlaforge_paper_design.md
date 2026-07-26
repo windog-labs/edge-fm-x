@@ -191,11 +191,15 @@ IR 已经存在。
 5. held-out model 证明适配主要发生在 Adapter/Region；
 6. trace/failure injection 证明语义忠实。
 
-目前仓库已经有完整 v0.2 架构、fixture 与 C++ substrate，但真实 checkpoint 的
-v0.2 L2–L4 和性能数据尚未补齐。因此：
+当前仓库已完成真实 SmolVLA/DiffusionDrive L4、OpenVLA L3、正式五
+workload/五进程矩阵、四类消融、failure/retry、clean-wheel/no-Python
+部署边界，以及冻结核心后的 AutoVLA 真实 L2 decoder partition。AutoVLA
+没有增加 core op；eager/export/Semantic/Plan trajectory 与 tokens exact，
+revision hit/miss 正确。因此：
 
-> 设计创新点已经形成，工程 substrate 足够支持投稿实验；但在真实模型
-> L4、优化收益和硬件数据完成前，论文贡献尚未闭环。
+> 当前 Host-CUDA 论文贡献已从设计闭环到真实模型与失败语义证据；论文可以
+> 按“Stateful Invocation Whole-Program Compilation for VLA Deployment”
+> 投稿。剩余 Orin、跨 GPU、OpenVLA L4 与第二机复现只属于可选增强。
 
 ### 7.2 最强差异点
 
@@ -278,7 +282,8 @@ classification、transactional named outputs、legality 和 edge C++ ABI。
 - RQ3 Optimization：revision/version-guided transforms 收益多大？
 - RQ4 Integration：新模型和客户 C++ 输入需要多少 Adapter/core 修改？
 - RQ5 Deployment：无 Python Session 在 Host CUDA 上的 latency、memory 和
-  稳定性如何；Orin 环境可用后再单列 power/energy？
+  稳定性如何？Orin power/energy 仅在未来有实测时单列，不属于当前 RQ
+  完成条件。
 
 ### 9.2 证据等级
 
@@ -305,6 +310,9 @@ classification、transactional named outputs、legality 和 edge C++ ABI。
 
 至少 SmolVLA/OpenVLA/DiffusionDrive 中的代表对象需要真实 L4；如果受
 checkpoint/backend 限制，必须缩小论文 claim，不得用 fixture 替代。
+当前实际选择 AutoVLA 作为冻结 core 后 held-out：达到真实 L2 decoder
+partition，L3 conservative AOTI 尝试未通过预声明 Region NRMSE，故不升级
+证据等级。
 
 ### 9.4 Baselines
 
@@ -446,6 +454,13 @@ Generality：
   Semantic/verified-Plan output、state、完整 trace exact，core op delta=0。
   冻结路径 combined fingerprint 为
   `cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`；
+- AutoVLA 进一步以发布 checkpoint 完成真实 L2 decoder partition：真实
+  final Qwen MLP、action projection 与 2,048-entry vehicle codebook 被划分
+  为三个 TensorRegion；eager/export/Semantic/Plan trajectory/token exact，
+  revisions `[100,100,101]` 为 1 hit/2 miss，core op delta=0。峰值 CUDA
+  allocated 533,944,320 bytes，Host RSS 1,473,228,800 bytes。conservative
+  AOTI 最终 token exact、trajectory max abs `1.91e-6`，但中间 Region NRMSE
+  超过 `1e-3`，因此只记录 L3-candidate；
 - 最终 Host-CUDA release gate 为 Python `215 passed/9 opt-in skipped`、
   CUDA AOTI 现场 `1 passed`、CPU/CUDA CTest `7/7` 与 `8/8`。wheel
   安装后的 CLI 可从非 Git cwd 生成 verified Compile Bundle，runner 在无效
@@ -462,6 +477,8 @@ Generality：
 
 - OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
   已记录，不能把成功 build 写成 L4 execution；
+- AutoVLA 完整 camera/prompt/VLM-prefill/autoregressive capture 与通过数值
+  门槛的 L3/L4；当前 real L2 partition 已满足 held-out 投稿条件；
 - Orin 真机 latency/power/thermal 后置，只作为可选跨平台增强，不进入当前
   Host-CUDA claim。真车、传感器闭环、ROS/Cyber、周期调度、动作发布和车辆
   安全层不属于 VLAForge 编译器的完成条件。
@@ -471,9 +488,10 @@ Generality：
 checkpoint、真实前端 capture、三 Region artifact 和逐步数值报告；同目录
 的 L4 报告再将这些 artifacts 连接到 generated no-Python C++ Session。
 证据见 `doc/reports/vlaforge_real_v03/`。
-Held-out 证据见
-`doc/reports/vlaforge_heldout_v01/heldout_audit.{json,md}`；这部分只证明
-source-contract 覆盖和冻结核心的可表达性，不升级任何模型的 L2/L3/L4。
+Held-out L0/L1 证据见
+`doc/reports/vlaforge_heldout_v01/heldout_audit.{json,md}`；AutoVLA 后续真实
+L2 与 L3-candidate 证据独立见
+`doc/reports/vlaforge_autovla_v01/`，两者不得混淆。
 Architecture negative evidence 见
 `doc/reports/vlaforge_architecture_v01/architecture_surface.{json,md}`：
 production surface 与 CMake build graph 均不包含物理调度、middleware、

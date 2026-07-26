@@ -151,15 +151,26 @@ MODEL_CONTRACTS = (
         "https://github.com/ucla-mobility/AutoVLA",
         "ba34eed74ce6729e7986592d0e66cbaca397b4fa",
         "UCLA Academic Software License",
-        "release checkpoint not downloaded",
+        (
+            "Zewei-Zhou/AutoVLA@"
+            "a7d7ba3ed7529b248d2694c2defa31b35208340f; "
+            "AutoVLA_PDMS_89.ckpt "
+            "sha256:58246773393da45678a3f35d354fd969"
+            "eed6833ecc8ee596edc5e283d1a87473"
+        ),
         (
             "models/autovla.py:AutoVLA.predict",
             "models/action_tokenizer.py:"
             "ActionTokenizer.decode_token_ids_to_trajectory",
         ),
         "build_driving_ar_fixture",
-        "L0+L1",
-        ("real checkpoint capture", "compiled artifact", "C++ parity"),
+        "L0+L1+real-L2-partition",
+        (
+            "full camera/prompt/VLM frontend capture",
+            "full autoregressive generation parity",
+            "promoted compiled artifact",
+            "C++ parity",
+        ),
     ),
     UpstreamModelContract(
         "ReCogDrive",

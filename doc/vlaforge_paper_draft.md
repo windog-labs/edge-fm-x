@@ -35,11 +35,13 @@ DiffusionDrive, while preserving exact direct-artifact outputs. Safe repeated
 input identity yields a 5.35x DiffusionDrive speedup; new or missing revisions
 restore full computation. Failure injection confirms that invalid outputs do
 not advance authoritative state or replace committed outputs, and 10,000-Run
-soaks show zero CUDA-memory drift. The same frozen core covers robot action
-chunks and flow matching, autoregressive VLM action tokens, and driving
-diffusion with candidates, scores, and auxiliary outputs. VLAForge does not
-claim new model kernels or real-time control scheduling; it compiles the
-stateful model-invocation contract above existing tensor backends.
+soaks show zero CUDA-memory drift. A held-out real AutoVLA decoder partition
+reuses the same frozen core with zero new operations and exact eager/export/
+Semantic/Plan trajectory and token outputs. The core therefore covers robot
+action chunks and flow matching, autoregressive VLM and driving trajectory
+tokens, and driving diffusion with candidates, scores, and auxiliary outputs.
+VLAForge does not claim new model kernels or real-time control scheduling; it
+compiles the stateful model-invocation contract above existing tensor backends.
 
 ## 1. Introduction
 
@@ -114,8 +116,8 @@ This paper makes the following contributions:
    execution; state and named outputs commit transactionally.
 4. **Frozen-core evidence across VLA paradigms.** The same core expresses real
    robot flow/chunk and driving diffusion artifacts, real OpenVLA partitioned
-   artifacts, plus deterministic robot and driving fixtures. Held-out adapters
-   add zero core operations.
+   artifacts, a held-out real AutoVLA decoder partition, plus deterministic
+   robot and driving fixtures. Held-out adapters add zero core operations.
 5. **Paper-grade correctness and overhead evidence.** A 150-process-task CUDA
    matrix, four formal ablations, clean-wheel artifact evaluation, failure and
    retry injection, and 10,000-Run soaks quantify performance and semantic
@@ -358,7 +360,7 @@ an Orin, cross-GPU, power, thermal, or embedded-real-time claim.
 | SmolVLA | VLM prefix + flow action expert + chunk queue | real L4 | 0 |
 | DiffusionDrive | condition encoder + two-step $K$-candidate diffusion | real L4 | 0 |
 | OpenVLA | autoregressive VLM action tokens | real L3 | 0 |
-| AutoVLA | driving autoregressive trajectory tokens | held-out real L2 partition in progress | 0 |
+| AutoVLA | driving autoregressive trajectory tokens | held-out real L2 decoder partition | 0 |
 
 We use the following evidence labels: L0 source/contract mapping; L1
 deterministic executable fixture; L2 real frontend/eager parity; L3 real
@@ -515,8 +517,21 @@ The model matrix covers:
 - hybrid external BEV/agent/map features with multiple named outputs.
 
 All use the same 15-op core. Held-out Octo, GR00T, and AutoVLA source/fixture
-audits have `core_op_delta=0`; the real AutoVLA checkpoint partition will be
-reported in the camera-ready table after its formal run.
+audits have `core_op_delta=0`. AutoVLA additionally reaches a real L2 decoder
+partition: the released checkpoint supplies the final Qwen MLP, final norm and
+action-vocabulary projection, while the released 2,048-entry codebook produces
+transactional `trajectory [10,3]` and `action_tokens [10]` outputs. Eager,
+strict export, Semantic IR, and Plan outputs are exact; revisions
+`[100,100,101]` produce one hit and two misses. Peak CUDA allocated is
+533,944,320 bytes and peak Host RSS is 1,473,228,800 bytes. This is a
+correctness envelope, not a latency benchmark.
+
+We also compiled the three partition Regions with the predefined conservative
+AOTI profile. Tokens remained exact, trajectory maximum absolute error was
+$1.91\times10^{-6}$, and repeated artifact runs were bit-exact. The decoder
+and logits NRMSE values, however, were $6.65\times10^{-3}$ and
+$4.54\times10^{-3}$, above the predeclared $10^{-3}$ Region threshold.
+Accordingly we retain the result as L3-candidate and make only the L2 claim.
 
 ## 7. Discussion
 
@@ -602,7 +617,10 @@ robot/driving control, and verified bottom-software C/C++ integration.
    loader/provider lifetime of many large physical artifacts, not a claimed
    Semantic IR result.
 3. The held-out AutoVLA evidence is a real-weight decoder partition rather than
-   full camera/prompt/VLM-prefill capture. Claims must remain partition-scoped.
+   full camera/prompt/VLM-prefill capture. Its conservative AOTI attempt is an
+   L3-candidate, not promoted L3, because intermediate Region NRMSE exceeds the
+   predeclared threshold despite exact tokens and near-exact trajectory.
+   Claims must remain partition-scoped.
 4. Static arena packing saves few bytes in the evaluated real partitions; its
    demonstrated contribution is boundedness and correctness, not compression.
 5. Exact reuse requires a trustworthy caller-provided revision. VLAForge
@@ -624,6 +642,7 @@ The artifact contains:
 - pinned environment and bundle manifests;
 - raw JSON/CSV for the 150-task performance matrix;
 - raw JSON/CSV for 40 exact-reuse tasks and three other formal ablations;
+- the held-out AutoVLA real L2 report and non-promoted L3-candidate audit;
 - checkpoint, source, export, artifact, bundle, and runner hashes;
 - generated C/C++ schema and ABI negative tests;
 - Python, CPU CTest, CUDA CTest, live CUDA AOTI, and no-Python gates.

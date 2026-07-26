@@ -25,10 +25,22 @@ _SCHEMA = "vlaforge.reproducibility_manifest/1"
 _FORMAL_REPORT_GLOBS = (
     "doc/reports/vlaforge_ablations_v01/paper_ablations.json",
     "doc/reports/vlaforge_architecture_v01/*.json",
+    "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json",
     "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
     "doc/reports/vlaforge_heldout_v01/*.json",
     "doc/reports/vlaforge_release_v01/*.json",
     "doc/reports/vlaforge_real_v03/*.json",
+)
+_PAPER_ARTIFACTS = (
+    "doc/vlaforge_paper_draft.md",
+    "doc/vlaforge_paper_design.md",
+    "doc/vlaforge_claim_evidence_map.md",
+    "doc/model_cards/README.md",
+    "doc/model_cards/autovla.md",
+    "doc/figures/vlaforge_paper/architecture.svg",
+    "doc/figures/vlaforge_paper/performance.svg",
+    "doc/figures/vlaforge_paper/ablations.svg",
+    "doc/figures/vlaforge_paper/figures_manifest.json",
 )
 _ARCHIVE_ROOTS = (
     (
@@ -78,6 +90,24 @@ _ARCHIVE_ROOTS = (
         "/tmp/vlaforge-openvla-l3-artifacts",
         True,
         "36 normalized OpenVLA exports and sm_86 AOTI packages",
+    ),
+    (
+        "autovla_checkpoint",
+        "/tmp/vlaforge-autovla-checkpoint-a7d7ba3",
+        True,
+        "pinned 16.29 GB AutoVLA PDMS 89 checkpoint",
+    ),
+    (
+        "autovla_l2_frontend",
+        "/tmp/vlaforge-autovla-l2-f750e54",
+        True,
+        "real AutoVLA partitioned L2 exports and capture evidence",
+    ),
+    (
+        "autovla_l3_candidate",
+        "/tmp/vlaforge-autovla-l3-conservative-f750e54",
+        False,
+        "optional conservative AOTI L3-candidate artifacts",
     ),
     (
         "nsight_binary_profiles",
@@ -359,6 +389,7 @@ def audit(
     reports = [(path, _json(path)) for path in formal_paths]
     required_reports = {
         "architecture_surface.json",
+        "autovla_frontend_l2.json",
         "cuda_paper_matrix.json",
         "paper_ablations.json",
         "heldout_audit.json",
@@ -393,6 +424,10 @@ def audit(
         for path in sorted(root.rglob("*"))
         if path.is_file()
     ]
+    paper_artifacts = [
+        _file_record(_REPOSITORY_ROOT / relative)
+        for relative in _PAPER_ARTIFACTS
+    ]
     frozen = next(
         report
         for path, report in reports
@@ -418,12 +453,14 @@ def audit(
         "installed_wheel_artifact_evaluation": artifact_evaluation,
         "formal_reports": [_file_record(path) for path in formal_paths],
         "committed_raw_evidence": committed_raw,
+        "paper_artifacts": paper_artifacts,
         "external_path_references": references,
         "reproduction_commands": commands,
         "external_archive_roots": archives,
         "summary": {
             "formal_report_count": len(formal_paths),
             "committed_raw_file_count": len(committed_raw),
+            "paper_artifact_count": len(paper_artifacts),
             "reproduction_command_count": len(commands),
             "absolute_reference_count": len(references),
             "external_reference_count": sum(
@@ -493,6 +530,10 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         (
             "- Committed raw JSON/CSV/Nsight text summaries: "
             f"{summary['committed_raw_file_count']}"
+        ),
+        (
+            "- Paper, Model Card and figure artifacts: "
+            f"{summary.get('paper_artifact_count', 0)}"
         ),
         (
             "- Extracted reproduction commands: "

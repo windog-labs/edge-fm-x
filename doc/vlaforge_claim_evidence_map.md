@@ -29,7 +29,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | C4 | State and named outputs commit transactionally | validation failure, version sequence, prior-output preservation, retry | SmolVLA and DiffusionDrive real L4 failure/retry | passed | vehicle safety and fallback policy remain external |
 | C5 | Generated C++ adds low orchestration overhead over identical direct artifacts | five workloads, five independent processes, direct-vs-generated exact output | 150-task CUDA matrix | passed | approximately 0.5% on two models and one RTX 3060 only |
 | C6 | Generated deployment is no-Python and contract verified | clean wheel, non-Git cwd, invalid Python env, `ldd`, negative schema/hash/target cases | reproducibility report and deployment-boundary ablation | passed | does not imply a Python-free compile toolchain |
-| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving L4, held-out adapter with core delta zero | SmolVLA L4, DiffusionDrive L4, OpenVLA L3, frozen held-outs | pending held-out real run | do not count fixture-only rows as real support |
+| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving L4, held-out real model with core delta zero | SmolVLA L4, DiffusionDrive L4, OpenVLA L3, AutoVLA real L2 partition | passed | AutoVLA is a real decoder partition, not full camera-to-trajectory support |
 | C8 | Memory is statically bounded and stable | Plan certificate, memory-class split, 10k soak | static-arena ablation and real L4 soaks | passed | packing savings are small; claim boundedness, not compression |
 
 ## Performance evidence
@@ -47,13 +47,13 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 
 | Property | SmolVLA | DiffusionDrive | Held-out |
 |---|---|---|---|
-| real eager/frontend | L2 | L2 | AutoVLA planned L2 partition |
-| compiled artifact | L3 | L3 | optional AutoVLA L3 partition |
+| real eager/frontend | L2 | L2 | AutoVLA L2 partition, exact |
+| compiled artifact | L3 | L3 | AutoVLA L3 candidate not promoted |
 | generated C++ | L4 | L4 | not required |
-| same/new/missing revision | passed | passed | planned |
+| same/new/missing revision | passed | passed | same/new passed; missing remains core/real-L4 evidence |
 | episode reset | passed | passed | stateless partition |
 | authoritative state commit/abort | queue/cursor versions passed | stateless, N/A | stateless partition |
-| transactional named outputs | action output | six planning outputs | trajectory + action tokens planned |
+| transactional named outputs | action output | six planning outputs | trajectory + action tokens passed |
 | no-Python Session | passed | passed | not required at held-out L2 |
 
 ## Generalization evidence
@@ -67,7 +67,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | flow/chunk VLA | SmolVLA | continuous chunk; queue/cursor | real L4 | 0 |
 | multi-embodiment DiT | GR00T-like | chunk + aux; bounded DiT | L1 fixture | 0 |
 | driving trajectory | trajectory fixture | one trajectory; no state | L1 fixture | 0 |
-| driving autoregressive | AutoVLA | trajectory + tokens | L1; real L2 pending | 0 |
+| driving autoregressive | AutoVLA | trajectory + tokens | real L2 partition | 0 |
 | driving diffusion | DiffusionDrive | candidates/scores/trajectory/aux | real L4 | 0 |
 | external-feature hybrid | DriveVLM-Dual-like | trajectory/prediction/map/VQA | L1 fixture + C++ plugin fixture | 0 |
 
