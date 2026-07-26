@@ -6,9 +6,10 @@
 | Code license | Apache-2.0 |
 | Dataset boundary | Bench2Drive data is CC BY-NC-ND 4.0 |
 | Checkpoint repository | `poleyzdk/Minddrive@5cf1eafc7f6d1028006f2d97d083d8e9aa4c0b12` |
-| 当前证据 | real-checkpoint upstream eager + EVA、Qwen decision/action、trajectory decoder strict capture；完整模型仍为 L2-prerequisite-only |
-| Adapter | offline eager、13-input Semantic IR/Plan contract、4 个 real TensorRegion 和 held-out execution 已实现；object/map/stateful path 进行中 |
-| Core op 增量 | 0（Semantic IR/Plan 与 4 个 real Region 已审计） |
+| 当前证据 | **完整 real L2**：真实六相机 frontend、完整 checkpoint、8 个显式 Region、16 个 authoritative StateSlot、10 个 named outputs，eager/captured/Semantic IR/Plan 连续四帧 parity 通过 |
+| Adapter | 13 个静态 InputPort、8 个 TensorRegion、16 个 StateSlot、1 个 transactional output group；无 sensor/timer/middleware 语义 |
+| Core op 增量 | **0** |
+| 当前缺口 | real L3 AOTI、real L4 no-Python C++、正式性能/内存矩阵 |
 
 ## 固定发布物
 
@@ -21,163 +22,153 @@
 | `llava-qwen2-0.5b-eva02_petr_proj.pth` | 1,307,562,253 | `1feabeea917d46678514eb9160a2108733569608126daa2eb481431c6f94d38e` |
 
 其余 15.88 MiB 是固定 revision 下的 tokenizer/config 文件。全部 11 个
-文件已下载到 durable archive 并完成本地全文件 SHA256 复核。
+文件位于
+`/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/upstream`，
+并完成全文件 SHA256 复核。checkpoint 2,431 keys 被投影为 1,895 个推理态
+keys，`strict=True` 无 missing key；536 个额外 key 均属于已审计的 RL
+critic 或 non-persistent rotary buffer。
 
-## 真实输入与模型边界
+## 真实输入与部署边界
 
-官方部署 profile 是 batch 1、六路 1600×900 RGB 相机，经官方 pipeline
-resize/normalize 到六路 640×640。外部还提供 camera calibration、ego pose、
-speed/can-bus、route command 和语言 prompt。VLAForge 只接收这些准备好的
-Tensor/Scalar 输入，不接管 CARLA、时间同步、route planner 或 PID 控制。
+官方 profile 是 batch 1、六路 1600×900 RGB，经官方 pipeline
+resize/normalize 为 `[1,6,3,640,640]`。VLAForge 的声明式输入还包括：
 
-已固定连续两个真实 Bench2Drive 六相机帧和对应
-measurement/annotation：
+- decision/planning token IDs；
+- route command、CAN bus、lidar-to-image 和相机内参；
+- timestamp、ego pose/inverse pose 和 route-command index；
+- 两个显式 planner noise tensors。
 
-- dataset `Telkwevr/Bench2Drive-Speed-sample@c84ffbc2b7f3bda9b4acb7fab6971b3599092f42`；
-- route `Accident+Follow_Town12_Road392_Route112425_Weather14_01-07-09-36-50`；
-- frame `00400` 作为 backend calibration，frame `00401` 作为锁定门槛后的
-  held-out validation；
-- 六张 RGB 图均为 1600×900；记录包含 speed、command、ego position、
-  heading、acceleration 和 angular velocity；
-- 文件位于
-  `/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/real_input`。
+后两项 noise 原本来自上游 `randn_like`，现在作为调用输入固定，因此
+backend failure 后可以确定性重试。InputRevision 只表示这组输入的数据
+身份，不承担相机同步或帧率语义。CARLA、route planner、PID、
+`VehicleControl`、传感器同步和动作发布均在 Session 外部。
 
-该数据只用于离线输入重建与数值 parity，不重新分发进 Git。
+真实样本固定自
+`Telkwevr/Bench2Drive-Speed-sample@c84ffbc2b7f3bda9b4acb7fab6971b3599092f42`
+的同一路线，连续使用 frame `00400`、`00401`、`00402` 和 `00403`。`00400`
+用于开发校准，后续帧用于连续状态与 held-out 验证；六相机原图、
+measurement、annotation、重建后的 13 输入及 reference state/output 均位于
+durable archive，不提交到 Git。
 
-## 已通过的真实 eager 基线
+## 完整显式 IR
 
-在隔离的 Python 3.10、PyTorch 2.4.1+cu118、flash-attn 2.6.3 与
-本地编译 `sm_86` MMCV CUDA extension 环境中，已完成：
+Adapter 没有保留早期的 monolithic first/stateful planner placeholder，而是
+构造以下 8 个模型 Region：
 
-- 官方 config 和 `build_model` 路径；
-- checkpoint 2,431 keys 到 1,895 个推理态 keys 的精确投影，
-  `strict=True` 无 missing key，536 个额外 key 均属于已审计的 RL
-  critic 或 non-persistent rotary buffer；
-- 官方六相机/VQA preprocessing 和完整
-  `Minddrive.forward_test/simple_test`；
-- 八个 named outputs 和 16 个跨 Run persistent-state tensors 的导出；
-- RTX 3060 FP32 单次 eager forward 成功，峰值 allocated CUDA memory
-  4,123,524,096 bytes，峰值 reserved CUDA memory 5,442,109,440 bytes。
+1. `vision_encoder`：24 层 EVA-ViT，六相机到 dense features；
+2. `position_encoder`：相机几何与位置编码；
+3. `map_encoder`：读取并返回 6 个 map authoritative states，同时产生
+   map tokens/classes/coordinates；
+4. `detection_encoder`：读取并返回 10 个 detection authoritative states，
+   同时产生 detection tokens/classes/boxes/motion；
+5. `decision_expert`：真实 Qwen2-0.5B + LoRA decision expert；
+6. `action_expert`：真实 Qwen2-0.5B + LoRA action expert；
+7. `trajectory_decoder`：GRU/MLP trajectory/path decode；
+8. `detection_decoder`：固定容量 top-300 scores/labels/boxes/motion 与
+   valid mask/count。
 
-耐久化证据位于
-`/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/frontend`。
-`eager_fp32.json` 明确标记为 `L2-prerequisite-only`。后续显式捕获的两份
-Gaussian noise 作为 `trajectory_noise`、`path_noise` InputPort 固定在
-`real_invocation_inputs.pt` 中；它们是模型调用输入，不是 Session 内部 RNG。
-这样同一调用在 backend failure 后可确定性重试，也不会把近似复用伪装成
-exact cache。
+16 个 StateSlot 全部采用
+`read latest -> stage_write -> transaction commit`。它们是 authoritative
+persistent state，不与 derived vision cache 混用。单次成功 Run 后每个
+version 恰好 `+1`；validation/backend failure 不推进 version。输出组包含：
 
-## 首个真实 TensorRegion
+- `trajectory`、`path_trajectory`；
+- `speed_command`、`path_command`；
+- `detection_scores`、`detection_labels`、`detection_boxes`；
+- `motion_trajectories`；
+- `detection_valid_mask`、`detection_valid_count`。
 
-`vision_encoder` 保留严格加载的 24 层 EVA-ViT 和全部 checkpoint
-parameters。上游 evaluation GridMask 是恒等映射但会先执行 Python RNG；
-Adapter 将其静态消除。上游 FlashAttention 2 直接调用无 dispatcher schema
-的 PyCapsule，无法进入 `torch.export`；Adapter 因此使用同 FP16 Q/K/V、
-scale、dropout=0、non-causal 语义的 ATen SDPA backend。该替换不涉及旧
-EdgeFM kernel。
+整个数据流只使用冻结的 Semantic IR v0.2 核心 op，`core_op_delta=0`。
 
-数值门槛在 frame `00401` 运行前锁定为：feature max-abs `<=0.5`，以官方
-feature absolute maximum 归一化的 RMSE `<=1e-3`。结果为：
+## Region capture
 
-| sample | max abs | NRMSE | 结果 |
-|---|---:|---:|---|
-| `00400` calibration | 0.48854065 | 8.8676e-6 | 通过 |
-| `00401` held-out | 0.46158600 | 8.3323e-6 | 通过 |
+除 source-exact vision plugin 外，其余 7 个 Region 均已 strict
+`torch.export`，effect audit 无 hidden RNG、hidden mutation 或 external
+I/O：
 
-frame `00400` strict `torch.export` effect audit 通过，capture eager/export
-max-abs 为 0；同一 exported program 在 frame `00401` 直接执行并通过不变
-门槛。持久证据位于 `capture/vision`：
+| Region | artifact bytes | SHA256 |
+|---|---:|---|
+| `position_encoder` | 41,236,298 | `35d0efcb66cd8a1593325632c9e0e2b722160d5953fef75b753e1e8ce84a23ad` |
+| `map_encoder` | 96,807,824 | `a1a0bceb14150e19f4118e4638bc16ae34db70dcbeaa2f320bf93e734ab6b644` |
+| `detection_encoder` | 116,517,839 | `c67ef0ef9d6a22767208c402931bc25a96f7d2001c1412e872a868982e3f4915` |
+| `decision_expert` | exported program | `4ba68bc01c7caf5574e89a2d8df6b843e1417f171d6ea9b0d467524b7ae06315` |
+| `action_expert` | exported program | `55eb2084c467a5bd464d906f5620f2c1f3d523902b2aa5408be30f598db5296b` |
+| `trajectory_decoder` | 116,408,192 | `b97923e1fbfa01de5928cc004e54b773c62441d00e4fa5d6f3b331a3868debd6` |
+| `detection_decoder` | 838,986 | `bae163c98c3af5988242d044b1001932eb613fe682fe90798428608a4a4bf90b` |
 
-- graph digest
-  `a39d9e3ced87f87e4e87a61b2e0042199286442d520cedc5f51743c5cc816ccd`；
-- `vision_encoder.pt2e` SHA256
-  `68b453e0d03435c8f8f062644991e56dfff2d713e3091474b44a6449f15cb5df`；
-- static ABI `[1,6,3,640,640] f32 -> [1,6,1024,40,40] f32`；
-- 24 个 shared rotary-buffer registration aliases 被复制为等值常量，
-  仅规范化 module ownership，不改变计算。
+上游 FlashAttention 2 通过无 dispatcher schema 的 PyCapsule 调用，无法直接
+进入当前 `torch.export`。曾捕获的 ATen SDPA vision artifact 在 frame
+`00400/00401` 的局部门槛内通过，但在预先锁定的完整 pipeline held-out
+门槛上分别暴露 vision/detection-token 和低置信检测排序偏差。两个失败报告
+被原样保留，门槛没有事后放宽：
 
-## Qwen decision/action TensorRegions
+- `capture/pipeline/heldout_00400_00401_00402.json`；
+- `capture/pipeline/heldout_v2_00400_00401_00402_00403.json`。
 
-真实 Qwen2-0.5B backbone、官方 PEFT LoRA expert 和真实 object/map head
-产生的 529 个 vision tokens 被保留。两个 bounded prefill Region 均 strict
-export、effect audit 和 held-out exported execution 通过：
+完整 L2 因此使用 source-exact FlashAttention vision 作为静态 Tensor
+Region plugin；它仍只接受/返回静态 Tensor ABI，不把任意 Python/CARLA
+宿主对象泄露进 IR。该 provider 在 source reference 上 bit-exact。后续 L3
+必须将它编译为稳定的 no-Python C++/CUDA Region，或明确保留为 L3 blocker。
 
-| Region | static ABI | calibration max abs / NRMSE | held-out max abs / NRMSE | artifact SHA256 |
-|---|---|---:|---:|---|
-| `decision_expert` | `[53] i64 + [1,529,896] f32 -> [1,7] f32` | `1.1921e-5 / 5.8715e-7` | `4.2915e-6 / 2.5535e-7` | `20425d292a630464f774e76cbacd0c6d9ac11119c203f76cc0d9fde730670fc0` |
-| `action_expert` | `[71] i64 + [1,529,896] f32 -> [2,896] f32` | `0 / 0` | `0 / 0` | `675cc94a0a704985820be8f3cb7078facd41eefac735aee559877bbc39c9dfce` |
+## 真实 held-out 端到端 L2
 
-decision Region 只投影上游实际读取的 7 个词表行，是对完整
-151k-vocabulary projection 的 exact DCE，不是缩小或替换模型。静态 FP32
-RoPE 以等价 ATen 表达移除了 PyTorch 2.4 无法验证的 autocast context。
-两个约 2.00 GB 的 exported program 位于 `capture/language`。
+预先锁定 numerical contract v2 后，source-exact vision plugin 与 7 个
+strict-export Regions 在连续 `00400 -> 00401 -> 00402 -> 00403` 上通过：
 
-## 真实 trajectory decoder TensorRegion
+| 关键输出 | held-out 误差 |
+|---|---:|
+| vision feature | bit-exact |
+| detection tokens | max `4.4322e-4`, NRMSE `8.2193e-6` |
+| decision logits | max `2.4295e-4` |
+| action hidden | max `5.4550e-4` |
+| trajectory | max `1.0586e-4`, NRMSE `3.4620e-6` |
+| path trajectory | max `2.6461e-5` |
+| speed/path command | exact |
+| detection set | center p95 `4.1199e-4 m`, 100% within `0.15 m` |
 
-`trajectory_decoder` 保留严格加载的两个 probabilistic distribution、
-4-layer GRU predictor、7/6 mode MLP heads、6 步 ego trajectory 和 20 步
-path decode。上游两个 `randn_like` 被提升为固定 shape 的显式输入。为绕开
-`nn.GRU` 在 strict export 中读取 storage pointer 的 eager-only
-flat-weight cache，Adapter 以相同 named parameters 直接调用相同 ATen GRU；
-模型结构和权重未裁剪。
+报告：
+`capture/pipeline/heldout_l2_flash_plugin_00400_00401_00402_00403.json`。
 
-门槛在 held-out 前锁定为 max-abs `<=3e-6`、NRMSE `<=1e-6`：
+相同 4 帧随后通过真实 Semantic IR 和 Plan executor：
 
-| sample | trajectory max abs | path max abs | speed/path command | 结果 |
-|---|---:|---:|---|---|
-| `00400` calibration | `9.3132e-10` | `1.9073e-6` | exact / exact | 通过 |
-| `00401` held-out | `1.8626e-9` | `9.5367e-7` | exact / exact | 通过 |
+- 4 帧的 10 个 named outputs 全部 exact；
+- normalized Semantic/Plan trace exact；
+- 16 个 state version 均为 4；
+- same revision 的 derived vision cache 命中；
+- new revision miss；
+- missing revision 两次 Run 均 miss、零 hit；
+- validation failure 抛错且 state/output 不变；
+- retry 只提交一次；
+- `ResetEpisode` 后 state version 全为 0，旧输出不可读取。
 
-strict-export eager parity 为 0，effect audit 无 hidden RNG、mutation 或
-external I/O。116,408,192-byte artifact SHA256 为
-`b97923e1fbfa01de5928cc004e54b773c62441d00e4fa5d6f3b331a3868debd6`，
-证据位于 `capture/trajectory`。
+报告：
+`capture/pipeline/heldout_l2_semantic_ir_plan_00400_00401_00402_00403.json`。
+这构成完整 `real-L2`，而不是 fixture、随机权重、decoder partition 或
+只编译未执行的 artifact。
 
-这些结果证明 camera frontend 之后的真实语言与 trajectory partitions 已
-可捕获，但尚不等于完整 MindDrive L2：object/map heads、16 个 authoritative
-state 的显式 first/stateful path，以及完整 Semantic IR/Plan 仍需闭合。
+## 资源记录
 
-## 上游完整推理链
+官方完整 eager 的已记录峰值：
 
-1. EVA-ViT 编码六路相机；
-2. object/map heads 形成 detection 和 lane tokens；
-3. Qwen2-0.5B decision expert 产生 speed/path meta-action；
-4. action expert 从 vision tokens、prompt 和 meta-action 产生 trajectory
-   hidden features；
-5. trajectory heads 返回 6 点 ego trajectory、20 点 path，以及检测、
-   lane、meta-action 等 named auxiliary outputs。
+- CUDA allocated：4,123,524,096 bytes；
+- CUDA reserved：5,442,109,440 bytes。
 
-`team_code/minddrive_b2d_agent.py` 中的 CARLA sensor wrapper、route assembly、
-PID 和 `VehicleControl` 属于外层系统，不进入 VLAForge。离线 L2 从官方
-`Minddrive.forward_test/simple_test` 开始，保留 camera、prompt、ego/route
-到 trajectory 的完整模型路径。
+在 IR/Plan L2 验证中，source-exact vision、16-state Session 和逐调用释放的
+export providers 可在 RTX 3060 12GB 上连续执行；修正 provider 的
+inference-only/no-grad 调用契约后，单次调试峰值约 5.68 GB。该数值是开发
+诊断，不替代后续按论文 workload 采集的 cold/first/warm、RSS、CUDA
+allocated/reserved 正式统计。
 
-## Region 状态
+## 下一证据等级
 
-- `vision_encoder`：六相机 EVA-ViT，real strict capture + held-out
-  exported execution 已通过；
-- `object_map_encoder`：position/object/map tokens，待显式状态化 capture；
-- `decision_expert`：真实 Qwen prefill/meta-action，strict capture +
-  held-out 已通过；
-- `action_expert`：真实 Qwen trajectory feature，strict capture +
-  held-out 已通过；
-- `trajectory_decoder`：显式 noise、6 点 trajectory、20 点 path 和两个
-  command，strict capture + held-out 已通过；
-- `detection_decoder`：scores/labels/motion/boxes，待 capture。
+1. 为 7 个 exported Regions 编译 `sm_86` AOTI artifact；
+2. 为 FlashAttention vision 建立稳定 no-Python C++/CUDA Region provider，
+   或记录不能满足 source-exact 数值门槛的正式 blocker；
+3. 完成 exported/AOTI artifact 与 real L2 reference parity、两次执行、
+   artifact hash/size/load/latency/memory 记录，达到 real L3；
+4. 若 L3 通过，生成 verified Compile Bundle、typed/generic ABI 和
+   no-Python C++ Session，完成 cache/transaction/reset/failure/retry；
+5. 将 MindDrive 加入正式性能矩阵、消融、论文表格与 claim-evidence map。
 
-这些边界均使用现有 TensorRegion、structured bounded control 和 named
-transactional outputs；不新增 core opcode。
-
-## 当前缺口
-
-- real L2 Semantic IR/Plan parity；
-- object/map 和 detection decode 的真实 TensorRegion capture；
-- 用上述真实 Region 替换当前 first/stateful monolithic planner
-  placeholders，闭合 camera 到全部 named outputs 的数据流；
-- 连续两次 Run 的显式 persistent state、ResetEpisode、revision cache
-  和 failure/abort 语义；
-- real L3 AOTI artifacts；
-- real L4 no-Python C++ Session；
-- 实测 memory/performance。
-
-在以上证据形成前，本卡片不得升级为 real L2。
+在第 3 步完成前，论文只能声称 MindDrive 达到完整 real L2，不能声称
+VLAForge 已编译真实自动驾驶 VLA；在第 4 步完成前不能声称 MindDrive L4。

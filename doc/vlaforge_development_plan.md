@@ -314,7 +314,7 @@ opcode 或任意未验证 opcode。
 | P15 | 5 workloads × 5 independent processes 统计实验 | 完成：150 fresh-process tasks、4,500 steady samples、30 cells、50 parity cells |
 | P16 | 一个真实 held-out 模型至少 L2 | 完成：AutoVLA real L2 decoder partition，core op delta=0；L3 candidate 未晋级 |
 | P17 | 论文初稿、表格与 artifact-evaluation 指南 | 完成：论文、三张可复现图、claim map、final gate、manifest 与 completion audit |
-| P18 | 完整真实驾驶 VLA L2–L4 | 进行中：MindDrive 0.5B 完整权重、严格推理态加载、真实六相机 eager 已通过；24 层 EVA、真实 Qwen2 decision/action experts、显式 RNG trajectory decoder 共 4 个 Region 的 strict capture 与第二真实帧 held-out execution 已通过（完整模型仍为 L2-prerequisite-only）；待 object/map + detection、显式 state/cache/transaction 的完整 Semantic IR/Plan 连续 Run parity、AOTI 与 C++ |
+| P18 | 完整真实驾驶 VLA L2–L4 | **real L2 已完成**：MindDrive 0.5B 真实六相机 frontend、完整 checkpoint、8 Region、16 authoritative states、10 named outputs、连续四帧 eager/captured/Semantic IR/Plan parity、revision cache、abort/retry/reset 全通过，core op delta=0；real L3/L4 进行中 |
 
 ## 9. 测试与验收
 
@@ -401,6 +401,19 @@ NRMSE `6.65e-3/4.54e-3` 超过预声明 `1e-3`，所以只保留 L3-candidate；
 token exact、trajectory max abs `1.91e-6` 不用于事后放宽门槛。证据见
 `doc/reports/vlaforge_autovla_v01/`。
 
+P18 选择 MindDrive 0.5B 闭合真正自动驾驶 VLA 的完整 frontend。真实
+Bench2Drive 连续四帧经过官方六相机 preprocessing，进入 vision、position、
+map、detection、Qwen decision/action、trajectory/detection decoder 共 8
+个 Region；16 个上游 memory tensors 被显式建模为 authoritative
+StateSlot，输出是 trajectory/path/command/detection/motion/validity 共 10
+个 named outputs。source-exact FlashAttention vision plugin 与其余 7 个
+strict-export Regions 通过预声明 numerical contract v2。Semantic IR 和
+Plan 在四帧上的 outputs、normalized trace、state versions 全等；same/new/
+missing revision、validation abort、retry 和 ResetEpisode 全通过。新增 core
+op 为 0，因此完整 real L2 已闭合。durable evidence 位于
+`/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/capture/pipeline/`。
+当前 P18 剩余门禁是将这些边界编译为 real L3，并在资源允许时生成 real L4。
+
 最终 architecture/build-surface negative audit 也已固化为自动测试：
 49 个 production source files 中不存在 tick/clock/deadline/period/jitter、
 middleware、publish、internal sleep、core action queue 或 Python runtime
@@ -450,13 +463,23 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    边界四组可投稿消融；exact-reuse 共 40 个 fresh process 任务，每单元
    5 个独立进程 × 100 次稳态 Run，原始 JSON/CSV 与汇总分离。正式证据见
    `doc/reports/vlaforge_ablations_v01/`；
-3. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3
+3. **已完成**：MindDrive 0.5B 完整 real L2；真实六相机到 10 named outputs
+   的 8 Region/16 state 连续四帧链路、cache/transaction/reset 和
+   Semantic/Plan parity 全通过，新增 core op=0；
+4. **进行中**：编译 MindDrive 的 7 个 exported Regions，并将
+   source-exact FlashAttention vision 接入稳定 C++/CUDA Region provider；
+   通过预声明端到端门槛后升级 real L3，再生成 verified bundle/no-Python
+   Session 争取 real L4；
+5. **待重跑**：MindDrive 达到相应等级后，加入 fresh-process
+   cold/first/warm、RSS/CUDA memory、revision cache、四类消融和论文图表；
+6. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3
    conservative candidate 按预声明阈值未晋级；
-4. **已完成**：最终 Python/CPU-CUDA CTest/live AOTI/clean-wheel gate、
+7. **已完成基线，待 MindDrive 后刷新**：最终
+   Python/CPU-CUDA CTest/live AOTI/clean-wheel gate、
    reproducibility manifest 和机械 completion audit；
-5. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
+8. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
    探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
-6. **已完成可离线部分**：JetPack r36.4 ARM64 Docker 中完成 TensorRT 10
+9. **已完成可离线部分**：JetPack r36.4 ARM64 Docker 中完成 TensorRT 10
    Region backend、安装后 SDK consumer、backend-aware generated Session
    和上板 identity-engine smoke 的编译。Orin 环境就绪后只需先运行 smoke，
    再补模型专属 SM87 engine、真实 parity；latency/power/thermal 属于可选

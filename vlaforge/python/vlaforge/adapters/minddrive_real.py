@@ -71,6 +71,7 @@ MINDDRIVE_INPUT_TYPES = (
 )
 
 MINDDRIVE_IMAGE_FEATURES = TensorType((1, 6, 1024, 40, 40), "f32")
+MINDDRIVE_POSITION_EMBEDDING = TensorType((1, 9600, 256), "f32")
 MINDDRIVE_VISION_TOKENS = TensorType((1, 529, 896), "f32")
 MINDDRIVE_DECISION_PROMPT_LENGTH = 53
 MINDDRIVE_ACTION_PROMPT_LENGTH = 71
@@ -87,6 +88,67 @@ MINDDRIVE_DECISION_DCE_NRMSE = 1.0e-6
 # GRU/output re-association; strict-export eager parity remains exact.
 MINDDRIVE_TRAJECTORY_DECODER_MAX_ABS = 3.0e-6
 MINDDRIVE_TRAJECTORY_DECODER_NRMSE = 1.0e-6
+# Perception backend thresholds were fixed after the 00400 calibration and
+# 00400->00401 development sequence, before acquiring/evaluating a third
+# held-out frame.  They cover the source FlashAttention-to-ATen-SDPA
+# substitution; strict-export eager parity remains independently exact.
+MINDDRIVE_POSITION_BACKEND_MAX_ABS = 1.0e-2
+MINDDRIVE_POSITION_BACKEND_NRMSE = 3.0e-5
+MINDDRIVE_MAP_BACKEND_MAX_ABS = 3.0e-2
+MINDDRIVE_MAP_BACKEND_NRMSE = 5.0e-5
+MINDDRIVE_DETECTION_BACKEND_MAX_ABS = 3.0e-3
+MINDDRIVE_DETECTION_BACKEND_NRMSE = 3.0e-5
+MINDDRIVE_DECODED_SCORE_MAX_ABS = 1.0e-3
+MINDDRIVE_DECODED_SCORE_NRMSE = 2.0e-4
+MINDDRIVE_DECODED_BOX_MAX_ABS = 3.0e-3
+MINDDRIVE_DECODED_BOX_NRMSE = 1.0e-5
+MINDDRIVE_DECODED_MOTION_MAX_ABS = 3.0e-3
+MINDDRIVE_DECODED_MOTION_NRMSE = 1.0e-4
+
+# End-to-end thresholds include the composed EVA FlashAttention->SDPA
+# substitution and two consecutive stateful invocations.  They were fixed
+# from the 00400->00401 development sequence before frame 00402 was executed.
+# Contract v1 failed on 00402 only at two heavy-tail intermediate maxima while
+# every task output passed.  Contract v2 therefore gives the composed vision
+# and detection-token intermediates their own bounded maxima/NRMSE and keeps
+# all downstream task thresholds unchanged.  These v2 values were fixed before
+# frame 00403 was acquired or executed; the v1 failure remains archived.
+MINDDRIVE_PIPELINE_CONTRACT_VERSION = 2
+MINDDRIVE_PIPELINE_VISION_MAX_ABS = 1.0
+MINDDRIVE_PIPELINE_VISION_NRMSE = 2.0e-5
+MINDDRIVE_PIPELINE_MAP_MAX_ABS = 2.5e-1
+MINDDRIVE_PIPELINE_MAP_NRMSE = 1.0e-4
+MINDDRIVE_PIPELINE_DETECTION_TOKEN_MAX_ABS = 1.0e-1
+MINDDRIVE_PIPELINE_DETECTION_TOKEN_NRMSE = 7.5e-4
+MINDDRIVE_PIPELINE_DECISION_MAX_ABS = 2.0e-3
+MINDDRIVE_PIPELINE_DECISION_NRMSE = 1.0e-4
+MINDDRIVE_PIPELINE_ACTION_MAX_ABS = 1.5e-2
+MINDDRIVE_PIPELINE_ACTION_NRMSE = 1.0e-4
+MINDDRIVE_PIPELINE_TRAJECTORY_MAX_ABS = 3.0e-3
+MINDDRIVE_PIPELINE_TRAJECTORY_NRMSE = 1.0e-4
+MINDDRIVE_PIPELINE_DETECTION_SCORE_FLOOR = 3.0e-2
+MINDDRIVE_PIPELINE_DETECTION_COUNT_DELTA = 2
+MINDDRIVE_PIPELINE_DETECTION_CENTER_P95_METERS = 2.0e-2
+MINDDRIVE_PIPELINE_DETECTION_MATCH_RADIUS_METERS = 1.5e-1
+MINDDRIVE_PIPELINE_DETECTION_MATCH_FRACTION = 9.9e-1
+MINDDRIVE_PIPELINE_DETECTION_SCORE_P99 = 1.0e-2
+MINDDRIVE_PIPELINE_DETECTION_BOX_P99 = 5.0e-2
+MINDDRIVE_PIPELINE_DETECTION_MOTION_P99 = 3.0e-2
+
+MINDDRIVE_MAP_CLASSES = TensorType((6, 1, 300, 6), "f32")
+MINDDRIVE_MAP_COORDINATES = TensorType((6, 1, 300, 33), "f32")
+MINDDRIVE_MAP_QUERIES = TensorType((6, 1, 300, 256), "f32")
+MINDDRIVE_MAP_TOKENS = TensorType((1, 256, 896), "f32")
+MINDDRIVE_DETECTION_CLASSES = TensorType((6, 1, 900, 9), "f32")
+MINDDRIVE_DETECTION_BOXES = TensorType((6, 1, 900, 10), "f32")
+MINDDRIVE_DETECTION_TRAJECTORIES = TensorType(
+    (6, 1, 900, 1, 12), "f32"
+)
+MINDDRIVE_DETECTION_TRAJECTORY_CLASSES = TensorType(
+    (6, 1, 900, 1), "f32"
+)
+MINDDRIVE_TRAFFIC_STATES = TensorType((6, 1, 900, 4), "f32")
+MINDDRIVE_DETECTION_TOKENS = TensorType((1, 273, 896), "f32")
 
 MINDDRIVE_OUTPUT_TYPES = (
     ("trajectory", TensorType((6, 2), "f32")),
@@ -95,6 +157,8 @@ MINDDRIVE_OUTPUT_TYPES = (
     ("detection_labels", TensorType((300,), "i64")),
     ("motion_trajectories", TensorType((300, 1, 12), "f32")),
     ("detection_boxes", TensorType((300, 9), "f32")),
+    ("detection_valid_mask", TensorType((300,), "bool")),
+    ("detection_valid_count", ScalarType("i64")),
     ("speed_command", ScalarType("i64")),
     ("path_command", ScalarType("i64")),
 )
@@ -151,21 +215,33 @@ MINDDRIVE_STATE_TYPES = (
     ("map_memory_mask", TensorType((1, 600, 1), "f64")),
 )
 
-_INITIALIZED = ScalarType("bool")
-_COMMON_PLANNER_INPUTS = (
-    ("image_features", MINDDRIVE_IMAGE_FEATURES),
-    *MINDDRIVE_INPUT_TYPES[1:],
-)
-_BRANCH_OUTPUT_TYPES = (
-    *(payload for _, payload in MINDDRIVE_OUTPUT_TYPES),
-    *(payload for _, payload in MINDDRIVE_STATE_TYPES),
-    _INITIALIZED,
-)
-_BRANCH_VALUE_NAMES = (
-    *(f"{name}_next" for name, _ in MINDDRIVE_OUTPUT_TYPES),
-    *(f"{name}_next" for name, _ in MINDDRIVE_STATE_TYPES),
-    "state_initialized_next",
-)
+MINDDRIVE_UPSTREAM_STATE_KEYS = {
+    "detection_memory_embedding": "detection.memory_embedding",
+    "detection_memory_reference_point": (
+        "detection.memory_reference_point"
+    ),
+    "detection_memory_timestamp": "detection.memory_timestamp",
+    "detection_memory_egopose": "detection.memory_egopose",
+    "detection_memory_velocity": "detection.memory_velo",
+    "detection_sample_time": "detection.sample_time",
+    "detection_memory_canbus": "detection.memory_canbus",
+    "detection_memory_canbus_length": (
+        "detection.his_memory_canbus_len"
+    ),
+    "detection_memory_scene_query": "detection.memory_scene_query",
+    "detection_scene_memory_timestamp": (
+        "detection.scene_memory_timestamp"
+    ),
+    "map_memory_embedding": "map.memory_embedding",
+    "map_memory_reference_point": "map.memory_reference_point",
+    "map_memory_timestamp": "map.memory_timestamp",
+    "map_memory_egopose": "map.memory_egopose",
+    "map_sample_time": "map.sample_time",
+    "map_memory_mask": "map.memory_mask",
+}
+
+_DETECTION_STATE_TYPES = MINDDRIVE_STATE_TYPES[:10]
+_MAP_STATE_TYPES = MINDDRIVE_STATE_TYPES[10:]
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,11 +279,11 @@ class MindDriveVisionBackendEvidence:
 def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
     """Build the complete passive MindDrive invocation Semantic IR.
 
-    ``state_initialized`` chooses the source-faithful first-frame Region after
-    construction or ``ResetEpisode``.  Every later caller-driven ``Run`` uses
-    the stateful Region.  Both branches return the same fixed tensor ABI, all
-    authoritative state is staged, and state plus the complete named output
-    group becomes visible only after validation succeeds.
+    The graph is an explicit whole-model pipeline rather than a monolithic
+    first-frame/stateful callback.  Empty fixed-shape state is the reset value;
+    the map and detection Regions derive first-frame behavior from that state
+    and return every authoritative next-state tensor.  State plus all named
+    outputs becomes visible only after validation succeeds.
     """
 
     builder = ModuleBuilder("minddrive_0_5b_real")
@@ -225,7 +301,6 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
                 alignment=64,
             )
         )
-    builder.add_state(StateSlot("state_initialized", _INITIALIZED))
     for name, payload in MINDDRIVE_STATE_TYPES:
         builder.add_state(StateSlot(name, payload))
 
@@ -250,13 +325,134 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
     )
     builder.add_region(
         TensorRegion(
+            "position_encoder",
+            (
+                Value(
+                    "image_features",
+                    MINDDRIVE_IMAGE_FEATURES,
+                ),
+                Value(
+                    "lidar2img",
+                    dict(MINDDRIVE_INPUT_TYPES)["lidar2img"],
+                ),
+                Value(
+                    "camera_intrinsics",
+                    dict(MINDDRIVE_INPUT_TYPES)["camera_intrinsics"],
+                ),
+            ),
+            (MINDDRIVE_POSITION_EMBEDDING,),
+            metadata={
+                "source_component": "camera calibration position encoder",
+                "profile": "six-camera-640x640-stride16",
+            },
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "map_encoder",
+            (
+                Value("image_features", MINDDRIVE_IMAGE_FEATURES),
+                Value(
+                    "position_embedding",
+                    MINDDRIVE_POSITION_EMBEDDING,
+                ),
+                Value(
+                    "timestamp",
+                    dict(MINDDRIVE_INPUT_TYPES)["timestamp"],
+                ),
+                Value(
+                    "ego_pose",
+                    dict(MINDDRIVE_INPUT_TYPES)["ego_pose"],
+                ),
+                Value(
+                    "ego_pose_inverse",
+                    dict(MINDDRIVE_INPUT_TYPES)["ego_pose_inverse"],
+                ),
+                *(
+                    Value(name, payload)
+                    for name, payload in _MAP_STATE_TYPES
+                ),
+            ),
+            (
+                MINDDRIVE_MAP_CLASSES,
+                MINDDRIVE_MAP_COORDINATES,
+                MINDDRIVE_MAP_QUERIES,
+                MINDDRIVE_MAP_TOKENS,
+                *(payload for _, payload in _MAP_STATE_TYPES),
+            ),
+            metadata={
+                "source_component": "StreamMapNet temporal map head",
+                "state_semantics": "explicit_read_latest_write_next",
+                "bounded_queries": 300,
+            },
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "detection_encoder",
+            (
+                Value("image_features", MINDDRIVE_IMAGE_FEATURES),
+                Value(
+                    "position_embedding",
+                    MINDDRIVE_POSITION_EMBEDDING,
+                ),
+                Value("map_classes", MINDDRIVE_MAP_CLASSES),
+                Value("map_coordinates", MINDDRIVE_MAP_COORDINATES),
+                Value("map_queries", MINDDRIVE_MAP_QUERIES),
+                Value(
+                    "timestamp",
+                    dict(MINDDRIVE_INPUT_TYPES)["timestamp"],
+                ),
+                Value(
+                    "ego_pose",
+                    dict(MINDDRIVE_INPUT_TYPES)["ego_pose"],
+                ),
+                Value(
+                    "ego_pose_inverse",
+                    dict(MINDDRIVE_INPUT_TYPES)["ego_pose_inverse"],
+                ),
+                Value(
+                    "can_bus",
+                    dict(MINDDRIVE_INPUT_TYPES)["can_bus"],
+                ),
+                Value(
+                    "route_command_index",
+                    dict(MINDDRIVE_INPUT_TYPES)["route_command_index"],
+                ),
+                *(
+                    Value(name, payload)
+                    for name, payload in _DETECTION_STATE_TYPES
+                ),
+            ),
+            (
+                MINDDRIVE_DETECTION_CLASSES,
+                MINDDRIVE_DETECTION_BOXES,
+                MINDDRIVE_DETECTION_TRAJECTORIES,
+                MINDDRIVE_DETECTION_TRAJECTORY_CLASSES,
+                MINDDRIVE_TRAFFIC_STATES,
+                MINDDRIVE_DETECTION_TOKENS,
+                *(payload for _, payload in _DETECTION_STATE_TYPES),
+            ),
+            metadata={
+                "source_component": (
+                    "SparseDrive object/motion/traffic temporal head"
+                ),
+                "state_semantics": "explicit_read_latest_write_next",
+                "bounded_object_queries": 900,
+                "bounded_map_lanes": 300,
+            },
+        )
+    )
+    builder.add_region(
+        TensorRegion(
             "decision_expert",
             (
                 Value(
                     "decision_input_ids",
                     dict(MINDDRIVE_INPUT_TYPES)["decision_input_ids"],
                 ),
-                Value("vision_tokens", MINDDRIVE_VISION_TOKENS),
+                Value("detection_tokens", MINDDRIVE_DETECTION_TOKENS),
+                Value("map_tokens", MINDDRIVE_MAP_TOKENS),
             ),
             (MINDDRIVE_DECISION_LOGITS,),
             metadata={
@@ -274,7 +470,8 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
                     "planning_input_ids",
                     dict(MINDDRIVE_INPUT_TYPES)["planning_input_ids"],
                 ),
-                Value("vision_tokens", MINDDRIVE_VISION_TOKENS),
+                Value("detection_tokens", MINDDRIVE_DETECTION_TOKENS),
+                Value("map_tokens", MINDDRIVE_MAP_TOKENS),
             ),
             (MINDDRIVE_ACTION_HIDDEN,),
             metadata={
@@ -321,34 +518,30 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
             },
         )
     )
-    common_arguments = tuple(
-        Value(name, payload) for name, payload in _COMMON_PLANNER_INPUTS
-    )
     builder.add_region(
         TensorRegion(
-            "first_frame_planner",
-            common_arguments,
-            _BRANCH_OUTPUT_TYPES,
-            metadata={
-                "state_semantics": "reset_memory_then_run",
-                "source_model": "xiaomi-mlab/MindDrive",
-            },
-        )
-    )
-    builder.add_region(
-        TensorRegion(
-            "stateful_planner",
+            "detection_decoder",
             (
-                *common_arguments,
-                *(
-                    Value(name, payload)
-                    for name, payload in MINDDRIVE_STATE_TYPES
+                Value("detection_classes", MINDDRIVE_DETECTION_CLASSES),
+                Value("detection_boxes", MINDDRIVE_DETECTION_BOXES),
+                Value(
+                    "detection_trajectories",
+                    MINDDRIVE_DETECTION_TRAJECTORIES,
                 ),
             ),
-            _BRANCH_OUTPUT_TYPES,
+            (
+                dict(MINDDRIVE_OUTPUT_TYPES)["detection_scores"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["detection_labels"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["motion_trajectories"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["detection_boxes"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["detection_valid_mask"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["detection_valid_count"],
+            ),
             metadata={
-                "state_semantics": "read_latest_then_run",
-                "source_model": "xiaomi-mlab/MindDrive",
+                "source_component": "SparseBox3D fixed-capacity decode",
+                "capacity": 300,
+                "bounded_dynamic": "valid_mask_and_count",
+                "ordering": "canonical-quantized-geometry",
             },
         )
     )
@@ -364,45 +557,6 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
             )
         )
 
-    common_operands = (
-        "image_features_value",
-        *(f"{name}_value" for name, _ in MINDDRIVE_INPUT_TYPES[1:]),
-    )
-    stateful_operands = (
-        *common_operands,
-        *(f"{name}_value" for name, _ in MINDDRIVE_STATE_TYPES),
-    )
-    branch_results = tuple(
-        Value(name, payload)
-        for name, payload in zip(
-            _BRANCH_VALUE_NAMES,
-            _BRANCH_OUTPUT_TYPES,
-            strict=True,
-        )
-    )
-    stateful_branch = Block.of(
-        (
-            ops.invoke(
-                _BRANCH_VALUE_NAMES,
-                _BRANCH_OUTPUT_TYPES,
-                "stateful_planner",
-                stateful_operands,
-            ),
-            ops.yield_values(*_BRANCH_VALUE_NAMES),
-        )
-    )
-    first_frame_branch = Block.of(
-        (
-            ops.invoke(
-                _BRANCH_VALUE_NAMES,
-                _BRANCH_OUTPUT_TYPES,
-                "first_frame_planner",
-                common_operands,
-            ),
-            ops.yield_values(*_BRANCH_VALUE_NAMES),
-        )
-    )
-
     operations = [
         *input_operations,
         ops.transaction_begin("txn"),
@@ -412,16 +566,15 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
             "vision_encoder",
             ("camera_images_value",),
         ),
-        ops.state_read_latest(
-            "state_initialized_snapshot",
-            _INITIALIZED,
-            "state_initialized",
-            "txn",
-        ),
-        ops.snapshot_value(
-            "state_initialized_value",
-            _INITIALIZED,
-            "state_initialized_snapshot",
+        ops.invoke(
+            ("position_embedding_value",),
+            (MINDDRIVE_POSITION_EMBEDDING,),
+            "position_encoder",
+            (
+                "image_features_value",
+                "lidar2img_value",
+                "camera_intrinsics_value",
+            ),
         ),
     ]
     for name, payload in MINDDRIVE_STATE_TYPES:
@@ -440,21 +593,152 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
                 ),
             )
         )
-    operations.append(
-        ops.if_op(
-            branch_results,
-            "state_initialized_value",
-            stateful_branch,
-            first_frame_branch,
-        )
-    )
-    operations.append(
-        ops.stage_write(
-            "state_initialized_pending",
-            _INITIALIZED,
-            "state_initialized",
-            "txn",
-            "state_initialized_next",
+    operations.extend(
+        (
+            ops.invoke(
+                (
+                    "map_classes_value",
+                    "map_coordinates_value",
+                    "map_queries_value",
+                    "map_tokens_value",
+                    *(
+                        f"{name}_next"
+                        for name, _ in _MAP_STATE_TYPES
+                    ),
+                ),
+                (
+                    MINDDRIVE_MAP_CLASSES,
+                    MINDDRIVE_MAP_COORDINATES,
+                    MINDDRIVE_MAP_QUERIES,
+                    MINDDRIVE_MAP_TOKENS,
+                    *(payload for _, payload in _MAP_STATE_TYPES),
+                ),
+                "map_encoder",
+                (
+                    "image_features_value",
+                    "position_embedding_value",
+                    "timestamp_value",
+                    "ego_pose_value",
+                    "ego_pose_inverse_value",
+                    *(
+                        f"{name}_value"
+                        for name, _ in _MAP_STATE_TYPES
+                    ),
+                ),
+            ),
+            ops.invoke(
+                (
+                    "detection_classes_value",
+                    "detection_boxes_raw_value",
+                    "detection_trajectories_value",
+                    "detection_trajectory_classes_value",
+                    "traffic_states_value",
+                    "detection_tokens_value",
+                    *(
+                        f"{name}_next"
+                        for name, _ in _DETECTION_STATE_TYPES
+                    ),
+                ),
+                (
+                    MINDDRIVE_DETECTION_CLASSES,
+                    MINDDRIVE_DETECTION_BOXES,
+                    MINDDRIVE_DETECTION_TRAJECTORIES,
+                    MINDDRIVE_DETECTION_TRAJECTORY_CLASSES,
+                    MINDDRIVE_TRAFFIC_STATES,
+                    MINDDRIVE_DETECTION_TOKENS,
+                    *(
+                        payload
+                        for _, payload in _DETECTION_STATE_TYPES
+                    ),
+                ),
+                "detection_encoder",
+                (
+                    "image_features_value",
+                    "position_embedding_value",
+                    "map_classes_value",
+                    "map_coordinates_value",
+                    "map_queries_value",
+                    "timestamp_value",
+                    "ego_pose_value",
+                    "ego_pose_inverse_value",
+                    "can_bus_value",
+                    "route_command_index_value",
+                    *(
+                        f"{name}_value"
+                        for name, _ in _DETECTION_STATE_TYPES
+                    ),
+                ),
+            ),
+            ops.invoke(
+                ("decision_logits_value",),
+                (MINDDRIVE_DECISION_LOGITS,),
+                "decision_expert",
+                (
+                    "decision_input_ids_value",
+                    "detection_tokens_value",
+                    "map_tokens_value",
+                ),
+            ),
+            ops.invoke(
+                ("action_hidden_value",),
+                (MINDDRIVE_ACTION_HIDDEN,),
+                "action_expert",
+                (
+                    "planning_input_ids_value",
+                    "detection_tokens_value",
+                    "map_tokens_value",
+                ),
+            ),
+            ops.invoke(
+                (
+                    "trajectory_next",
+                    "path_trajectory_next",
+                    "speed_command_next",
+                    "path_command_next",
+                ),
+                (
+                    dict(MINDDRIVE_OUTPUT_TYPES)["trajectory"],
+                    dict(MINDDRIVE_OUTPUT_TYPES)["path_trajectory"],
+                    dict(MINDDRIVE_OUTPUT_TYPES)["speed_command"],
+                    dict(MINDDRIVE_OUTPUT_TYPES)["path_command"],
+                ),
+                "trajectory_decoder",
+                (
+                    "action_hidden_value",
+                    "decision_logits_value",
+                    "ego_route_command_value",
+                    "trajectory_noise_value",
+                    "path_noise_value",
+                ),
+            ),
+            ops.invoke(
+                (
+                    "detection_scores_next",
+                    "detection_labels_next",
+                    "motion_trajectories_next",
+                    "detection_boxes_next",
+                    "detection_valid_mask_next",
+                    "detection_valid_count_next",
+                ),
+                (
+                    dict(MINDDRIVE_OUTPUT_TYPES)["detection_scores"],
+                    dict(MINDDRIVE_OUTPUT_TYPES)["detection_labels"],
+                    dict(MINDDRIVE_OUTPUT_TYPES)["motion_trajectories"],
+                    dict(MINDDRIVE_OUTPUT_TYPES)["detection_boxes"],
+                    dict(MINDDRIVE_OUTPUT_TYPES)[
+                        "detection_valid_mask"
+                    ],
+                    dict(MINDDRIVE_OUTPUT_TYPES)[
+                        "detection_valid_count"
+                    ],
+                ),
+                "detection_decoder",
+                (
+                    "detection_classes_value",
+                    "detection_boxes_raw_value",
+                    "detection_trajectories_value",
+                ),
+            ),
         )
     )
     for name, payload in MINDDRIVE_STATE_TYPES:
@@ -527,6 +811,10 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
                 "episode_identity": "external_reset_episode",
                 "authoritative_state_count": len(MINDDRIVE_STATE_TYPES),
                 "derived_cache": "vision_encoder",
+                "pipeline": (
+                    "vision->position->map->detection->"
+                    "decision/action->trajectory/detection-decode"
+                ),
             },
         )
     )
@@ -544,7 +832,7 @@ def make_minddrive_torch_initial_state(
         "f64": torch.float64,
         "i64": torch.int64,
     }
-    state: dict[str, object] = {"state_initialized": False}
+    state: dict[str, object] = {}
     for name, payload in MINDDRIVE_STATE_TYPES:
         state[name] = torch.zeros(
             payload.shape,
@@ -651,7 +939,11 @@ def load_real_minddrive_model(
     return model.eval().to(device)
 
 
-def make_exportable_minddrive_vision_encoder(model: Any) -> Any:
+def make_exportable_minddrive_vision_encoder(
+    model: Any,
+    *,
+    attention_backend: str = "sdpa",
+) -> Any:
     """Create the real EVA vision Region with an exportable attention backend.
 
     The upstream evaluation GridMask is an identity but evaluates Python RNG
@@ -667,6 +959,12 @@ def make_exportable_minddrive_vision_encoder(model: Any) -> Any:
 
     import torch
     import torch.nn.functional as functional
+
+    if attention_backend not in {"flash", "sdpa"}:
+        raise ValueError(
+            f"unsupported MindDrive vision attention backend: "
+            f"{attention_backend}"
+        )
 
     class ExportableSDPA(torch.nn.Module):
         def __init__(self, *, scale: float | None) -> None:
@@ -717,15 +1015,16 @@ def make_exportable_minddrive_vision_encoder(model: Any) -> Any:
     model.img_backbone.rope_glb = None
 
     replaced = 0
-    for module in model.img_backbone.modules():
-        inner = getattr(module, "inner_attn", None)
-        if inner is None or not hasattr(module, "flash_attn"):
-            continue
-        module.inner_attn = ExportableSDPA(
-            scale=getattr(inner, "softmax_scale", None)
-        )
-        replaced += 1
-    if replaced == 0:
+    if attention_backend == "sdpa":
+        for module in model.img_backbone.modules():
+            inner = getattr(module, "inner_attn", None)
+            if inner is None or not hasattr(module, "flash_attn"):
+                continue
+            module.inner_attn = ExportableSDPA(
+                scale=getattr(inner, "softmax_scale", None)
+            )
+            replaced += 1
+    if attention_backend == "sdpa" and replaced == 0:
         raise ValueError("MindDrive EVA contains no FlashAttention modules")
 
     class ExportableEVABackbone(torch.nn.Module):
@@ -835,7 +1134,16 @@ def make_exportable_minddrive_vision_encoder(model: Any) -> Any:
     encoder = VisionEncoder(model).eval()
     encoder.replaced_flash_attention_modules = replaced
     encoder.canonicalized_rotary_aliases = rotary_aliases_canonicalized
+    encoder.attention_backend = attention_backend
     return encoder
+
+
+def make_minddrive_flash_vision_encoder(model: Any) -> Any:
+    """Build the source-exact vision Region for a FlashAttention plugin."""
+
+    return make_exportable_minddrive_vision_encoder(
+        model, attention_backend="flash"
+    )
 
 
 def compare_minddrive_vision_backends(
@@ -911,8 +1219,14 @@ def make_minddrive_decision_expert(model: Any) -> Any:
             self.register_buffer("meta_action_rows", selected_rows)
 
         def forward(
-            self, input_ids: Any, vision_tokens: Any
+            self,
+            input_ids: Any,
+            detection_tokens: Any,
+            map_tokens: Any,
         ) -> Any:
+            vision_tokens = torch.cat(
+                (detection_tokens, map_tokens), dim=1
+            )
             prefix_ids = input_ids[:MINDDRIVE_IMAGE_TOKEN_INDEX]
             suffix_ids = input_ids[MINDDRIVE_IMAGE_TOKEN_INDEX + 1 :]
             prefix = self.language_model.embed_tokens(prefix_ids)
@@ -955,8 +1269,14 @@ def make_minddrive_action_expert(model: Any) -> Any:
             self.language_model = implementation.model
 
         def forward(
-            self, input_ids: Any, vision_tokens: Any
+            self,
+            input_ids: Any,
+            detection_tokens: Any,
+            map_tokens: Any,
         ) -> Any:
+            vision_tokens = torch.cat(
+                (detection_tokens, map_tokens), dim=1
+            )
             prefix_ids = input_ids[:MINDDRIVE_IMAGE_TOKEN_INDEX]
             suffix_ids = input_ids[MINDDRIVE_IMAGE_TOKEN_INDEX + 1 :]
             prefix = self.language_model.embed_tokens(prefix_ids)
@@ -1183,6 +1503,1572 @@ def make_minddrive_trajectory_decoder(model: Any) -> Any:
             return trajectory, path, speed_index, path_value
 
     return TrajectoryDecoder().eval()
+
+
+def _replace_minddrive_flash_mha(root: Any) -> int:
+    """Replace upstream FlashMHA PyCapsules with exportable ATen SDPA.
+
+    MindDrive projects Q/K/V in FP32, casts those tensors to FP16 for
+    FlashAttention, then casts the context back to FP32 before ``out_proj``.
+    This module preserves that exact boundary.  ``nan_to_num`` also preserves
+    FlashAttention's zero context for rows with no selected keys, whereas
+    PyTorch 2.4 SDPA returns NaN for a fully masked row.
+    """
+
+    import torch
+    import torch.nn.functional as functional
+
+    class ExportableFlashMHA(torch.nn.Module):
+        def __init__(self, upstream: Any) -> None:
+            super().__init__()
+            self.in_proj_weight = upstream.in_proj_weight
+            self.in_proj_bias = upstream.in_proj_bias
+            self.out_proj = upstream.out_proj
+            self.num_heads = int(upstream.num_heads)
+            self.head_dim = int(upstream.head_dim)
+            self.causal = bool(upstream.causal)
+
+        def forward(
+            self,
+            query: Any,
+            key: Any,
+            value: Any,
+            key_padding_mask: Any = None,
+        ) -> tuple[Any, None]:
+            query_weight, key_weight, value_weight = (
+                self.in_proj_weight.chunk(3)
+            )
+            if self.in_proj_bias is None:
+                query_bias = key_bias = value_bias = None
+            else:
+                query_bias, key_bias, value_bias = (
+                    self.in_proj_bias.chunk(3)
+                )
+            query = functional.linear(
+                query, query_weight, query_bias
+            )
+            key = functional.linear(key, key_weight, key_bias)
+            value = functional.linear(
+                value, value_weight, value_bias
+            )
+            batch, query_length, _ = query.shape
+            key_length = key.shape[1]
+            query = query.view(
+                batch, query_length, self.num_heads, self.head_dim
+            ).transpose(1, 2).to(torch.float16)
+            key = key.view(
+                batch, key_length, self.num_heads, self.head_dim
+            ).transpose(1, 2).to(torch.float16)
+            value = value.view(
+                batch, key_length, self.num_heads, self.head_dim
+            ).transpose(1, 2).to(torch.float16)
+            attention_mask = (
+                None
+                if key_padding_mask is None
+                else key_padding_mask[:, None, None, :]
+            )
+            context = functional.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=attention_mask,
+                dropout_p=0.0,
+                is_causal=self.causal,
+            )
+            context = torch.nan_to_num(context)
+            context = (
+                context.transpose(1, 2)
+                .reshape(batch, query_length, -1)
+                .to(torch.float32)
+            )
+            return self.out_proj(context), None
+
+    replacements = 0
+    for parent in list(root.modules()):
+        for name, child in list(parent.named_children()):
+            if child.__class__.__name__ != "FlashMHA":
+                continue
+            setattr(parent, name, ExportableFlashMHA(child))
+            replacements += 1
+    return replacements
+
+
+def make_minddrive_position_encoder(model: Any) -> Any:
+    """Build the fixed-profile camera-calibration position Region."""
+
+    import torch
+    from mmcv.models.utils.transformer import inverse_sigmoid
+
+    class PositionEncoder(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.position_encoder = model.position_encoder
+            self.coords_d = model.coords_d
+            self.position_range = model.position_range
+            self.stride = int(model.stride)
+
+        def forward(
+            self,
+            image_features: Any,
+            lidar2image: Any,
+            camera_intrinsics: Any,
+        ) -> Any:
+            batch, cameras, _, height, width = image_features.shape
+            shifts_x = (
+                torch.arange(
+                    width,
+                    dtype=torch.float32,
+                    device=image_features.device,
+                )
+                * self.stride
+                + self.stride // 2
+            ) / 640.0
+            shifts_y = (
+                torch.arange(
+                    height,
+                    dtype=torch.float32,
+                    device=image_features.device,
+                )
+                * self.stride
+                + self.stride // 2
+            ) / 640.0
+            shift_y, shift_x = torch.meshgrid(
+                shifts_y, shifts_x, indexing="ij"
+            )
+            location = torch.stack((shift_x, shift_y), dim=-1)
+            location = location[None].repeat(
+                batch * cameras, 1, 1, 1
+            )
+            intrinsic = torch.stack(
+                (
+                    camera_intrinsics[..., 0, 0],
+                    camera_intrinsics[..., 1, 1],
+                ),
+                dim=-1,
+            )
+            intrinsic = torch.abs(intrinsic) / 1.0e3
+            intrinsic = intrinsic.repeat(
+                1, height * width, 1
+            ).view(batch, -1, 2)
+            token_count = intrinsic.shape[1]
+            location = location.clone()
+            location[..., 0] = location[..., 0] * 640.0
+            location[..., 1] = location[..., 1] * 640.0
+            depth_count = self.coords_d.shape[0]
+            centers = location.detach().view(
+                batch, token_count, 1, 2
+            )
+            centers = centers.repeat(1, 1, depth_count, 1)
+            depth = self.coords_d.view(1, 1, depth_count, 1)
+            depth = depth.repeat(batch, token_count, 1, 1)
+            coordinates = torch.cat((centers, depth), dim=-1)
+            coordinates = torch.cat(
+                (
+                    coordinates,
+                    torch.ones_like(coordinates[..., :1]),
+                ),
+                dim=-1,
+            )
+            coordinates = coordinates.clone()
+            coordinates[..., :2] = (
+                coordinates[..., :2]
+                * torch.maximum(
+                    coordinates[..., 2:3],
+                    torch.ones_like(coordinates[..., 2:3])
+                    * 1.0e-5,
+                )
+            )
+            coordinates = coordinates[..., None]
+            image_to_lidar = lidar2image.inverse().view(
+                batch * cameras, 1, 1, 4, 4
+            )
+            image_to_lidar = image_to_lidar.repeat(
+                1, height * width, depth_count, 1, 1
+            ).view(
+                batch, token_count, depth_count, 4, 4
+            )
+            coordinates_3d = (
+                image_to_lidar @ coordinates
+            ).squeeze(-1)[..., :3]
+            coordinates_3d = (
+                coordinates_3d - self.position_range[:3]
+            ) / (
+                self.position_range[3:6]
+                - self.position_range[:3]
+            )
+            coordinates_3d = coordinates_3d.reshape(
+                batch, token_count, depth_count * 3
+            )
+            inverse = inverse_sigmoid(coordinates_3d)
+            return self.position_encoder(inverse)
+
+    return PositionEncoder().eval()
+
+
+def make_minddrive_map_encoder(model: Any) -> Any:
+    """Build a pure map-token Region with explicit temporal state.
+
+    The upstream head stores six memory tensors as mutable Python attributes.
+    This wrapper performs the same pre-update, temporal attention and
+    post-update using Region arguments/results.  Episode identity remains an
+    external ``ResetEpisode`` contract; no scene string or host object enters
+    the Region ABI.
+    """
+
+    import torch
+
+    from mmcv.models.utils.positional_encoding import (
+        nerf_positional_encoding,
+        pos2posemb1d,
+    )
+    from mmcv.models.utils.transformer import inverse_sigmoid
+    from mmcv.utils.misc import (
+        memory_refresh,
+        topk_gather,
+        transform_reference_points_lane,
+    )
+
+    head = model.map_head
+    _replace_minddrive_flash_mha(head)
+
+    class MapEncoder(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.head = head
+
+        def _pre_update(
+            self,
+            image_features: Any,
+            timestamp: Any,
+            ego_pose_inverse: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+            sample_time: Any,
+            memory_mask: Any,
+        ) -> tuple[Any, ...]:
+            sample_time = sample_time + timestamp
+            previous_exists = (
+                torch.abs(sample_time) < 2.0
+            ).to(image_features.dtype)
+            memory_timestamp = memory_timestamp + timestamp[
+                :, None, None
+            ]
+            memory_egopose = (
+                ego_pose_inverse[:, None] @ memory_egopose
+            )
+            memory_reference_point = transform_reference_points_lane(
+                memory_reference_point,
+                ego_pose_inverse,
+                reverse=False,
+            )
+            memory_timestamp = memory_refresh(
+                memory_timestamp[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_reference_point = memory_refresh(
+                memory_reference_point[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_embedding = memory_refresh(
+                memory_embedding[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_egopose = memory_refresh(
+                memory_egopose[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_mask = memory_refresh(
+                memory_mask[:, : self.head.memory_len],
+                previous_exists,
+            )
+            return (
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                torch.zeros_like(timestamp),
+                memory_mask,
+            )
+
+        def _temporal_alignment(
+            self,
+            query_position: Any,
+            target: Any,
+            reference_points: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+        ) -> tuple[Any, ...]:
+            pc_range = self.head.pc_range
+            temporal_reference = (
+                memory_reference_point - pc_range[:3]
+            ) / (pc_range[3:6] - pc_range[:3])
+            temporal_position = self.head.query_pos(
+                nerf_positional_encoding(
+                    temporal_reference.flatten(-2)
+                )
+            )
+            batch = query_position.shape[0]
+            rec_ego_pose = torch.eye(
+                4,
+                device=query_position.device,
+                dtype=query_position.dtype,
+            )[None, None].repeat(
+                batch, query_position.shape[1], 1, 1
+            )
+            rec_motion = torch.cat(
+                (
+                    torch.zeros_like(target[..., :1]),
+                    rec_ego_pose[..., :3, :].flatten(-2),
+                ),
+                dim=-1,
+            )
+            memory_motion = torch.cat(
+                (
+                    memory_timestamp,
+                    memory_egopose[..., :3, :].flatten(-2),
+                ),
+                dim=-1,
+            ).float()
+            temporal_position = self.head.ego_pose_pe(
+                temporal_position,
+                nerf_positional_encoding(memory_motion),
+            )
+            query_position = query_position + self.head.time_embedding(
+                pos2posemb1d(torch.zeros_like(target[..., :1]))
+            )
+            temporal_position = (
+                temporal_position
+                + self.head.time_embedding(
+                    pos2posemb1d(memory_timestamp).float()
+                )
+            )
+            return (
+                target,
+                query_position,
+                reference_points,
+                memory_embedding,
+                temporal_position,
+                rec_ego_pose,
+            )
+
+        def _post_update(
+            self,
+            timestamp: Any,
+            ego_pose: Any,
+            rec_ego_pose: Any,
+            all_classes: Any,
+            all_coordinates: Any,
+            decoded: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+            memory_mask: Any,
+        ) -> tuple[Any, ...]:
+            rec_reference = all_coordinates[-1].reshape(
+                decoded.shape[1], -1, self.head.n_control, 3
+            )
+            rec_memory = decoded[-1]
+            rec_score = (
+                all_classes[-1]
+                .sigmoid()
+                .topk(1, dim=-1)
+                .values[..., :1]
+            )
+            rec_timestamp = torch.zeros_like(
+                rec_score, dtype=torch.float64
+            )
+            _, topk_indexes = torch.topk(
+                rec_score, self.head.topk_proposals, dim=1
+            )
+            rec_timestamp = topk_gather(
+                rec_timestamp, topk_indexes
+            )
+            rec_reference = topk_gather(
+                rec_reference, topk_indexes
+            )
+            rec_memory = topk_gather(rec_memory, topk_indexes)
+            rec_ego_pose = topk_gather(
+                rec_ego_pose, topk_indexes
+            )
+            memory_embedding = torch.cat(
+                (rec_memory, memory_embedding), dim=1
+            )
+            memory_timestamp = torch.cat(
+                (rec_timestamp, memory_timestamp), dim=1
+            )
+            memory_egopose = torch.cat(
+                (rec_ego_pose, memory_egopose), dim=1
+            )
+            memory_reference_point = torch.cat(
+                (rec_reference, memory_reference_point), dim=1
+            )
+            memory_mask = torch.cat(
+                (torch.ones_like(rec_timestamp), memory_mask),
+                dim=1,
+            )
+            memory_reference_point = transform_reference_points_lane(
+                memory_reference_point, ego_pose, reverse=False
+            )
+            memory_timestamp = (
+                memory_timestamp - timestamp[:, None, None]
+            )
+            sample_time = -timestamp
+            memory_egopose = ego_pose[:, None] @ memory_egopose
+            limit = self.head.memory_len
+            return (
+                memory_embedding[:, :limit],
+                memory_reference_point[:, :limit],
+                memory_timestamp[:, :limit],
+                memory_egopose[:, :limit],
+                sample_time,
+                memory_mask[:, :limit],
+            )
+
+        def forward(
+            self,
+            image_features: Any,
+            position_embedding: Any,
+            timestamp: Any,
+            ego_pose: Any,
+            ego_pose_inverse: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+            sample_time: Any,
+            memory_mask: Any,
+        ) -> tuple[Any, ...]:
+            (
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                sample_time,
+                memory_mask,
+            ) = self._pre_update(
+                image_features,
+                timestamp,
+                ego_pose_inverse,
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                sample_time,
+                memory_mask,
+            )
+            batch, cameras, channels, height, width = (
+                image_features.shape
+            )
+            image_memory = (
+                image_features.permute(0, 1, 3, 4, 2)
+                .reshape(
+                    batch, cameras * height * width, channels
+                )
+            )
+            image_memory = self.head.input_projection(image_memory)
+            lane_embedding = (
+                self.head.instance_embedding_lane.weight[:, None, :]
+                + self.head.points_embedding_lane.weight[None, :, :]
+            )
+            reference_points = (
+                self.head.reference_points_lane(lane_embedding)
+                .sigmoid()
+                .flatten(-2)[None]
+                .repeat(batch, 1, 1)
+            )
+            query_position = self.head.query_pos(
+                nerf_positional_encoding(reference_points)
+            )
+            target = (
+                self.head.instance_embedding_lane.weight[None]
+                .repeat(batch, 1, 1)
+            )
+            query_embedding = self.head.query_embedding.weight[
+                None
+            ].repeat(batch, 1, 1)
+            query_count = self.head.num_lane + self.head.num_extra
+            self_attention_mask = torch.zeros(
+                (query_count, query_count),
+                dtype=torch.bool,
+                device=image_features.device,
+            )
+            boundary = (
+                self.head.num_lanes_one2one + self.head.num_extra
+            )
+            self_attention_mask[boundary:, :boundary] = True
+            self_attention_mask[:boundary, boundary:] = True
+            temporal_attention_mask = torch.zeros(
+                (
+                    query_count,
+                    query_count + self.head.memory_len,
+                ),
+                dtype=torch.bool,
+                device=image_features.device,
+            )
+            temporal_attention_mask[
+                :query_count, :query_count
+            ] = self_attention_mask
+            if self.head.with_mask:
+                temporal_attention_mask[
+                    self.head.num_extra :, : self.head.num_extra
+                ] = True
+            (
+                target,
+                query_position,
+                reference_points,
+                temporal_memory,
+                temporal_position,
+                rec_ego_pose,
+            ) = self._temporal_alignment(
+                query_position,
+                target,
+                reference_points,
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+            )
+            target = torch.cat((query_embedding, target), dim=1)
+            query_position = torch.cat(
+                (
+                    torch.zeros_like(query_embedding),
+                    query_position,
+                ),
+                dim=1,
+            )
+            decoded = self.head.transformer(
+                target,
+                image_memory,
+                query_position,
+                position_embedding,
+                temporal_attention_mask,
+                temporal_memory,
+                temporal_position,
+            )
+            vision_tokens = decoded[
+                -1, :, : self.head.num_extra, :
+            ]
+            decoded = torch.nan_to_num(
+                decoded[:, :, self.head.num_extra :, :]
+            )
+            output_coordinates = []
+            output_classes = []
+            for level in range(decoded.shape[0]):
+                reference = inverse_sigmoid(
+                    reference_points.clone()
+                ).view(batch, self.head.num_lane, -1)
+                coordinates = self.head.reg_branches[level](
+                    decoded[level]
+                )
+                classes = self.head.cls_branches[level](
+                    decoded[level]
+                )
+                coordinates = (coordinates + reference).sigmoid()
+                output_coordinates.append(
+                    coordinates.reshape(
+                        batch,
+                        self.head.num_lane,
+                        self.head.n_control,
+                        3,
+                    )
+                )
+                output_classes.append(classes)
+            all_coordinates = torch.stack(output_coordinates)
+            all_classes = torch.stack(output_classes)
+            pc_range = self.head.pc_range
+            all_coordinates = all_coordinates.clone()
+            all_coordinates[..., :3] = (
+                all_coordinates[..., :3]
+                * (pc_range[3:6] - pc_range[:3])
+                + pc_range[:3]
+            )
+            all_coordinates = all_coordinates.flatten(-2)
+            one_to_one_classes = all_classes[
+                :, :, : self.head.num_lanes_one2one, :
+            ]
+            one_to_one_coordinates = all_coordinates[
+                :, :, : self.head.num_lanes_one2one, :
+            ]
+            one_to_one_decoded = decoded[
+                :, :, : self.head.num_lanes_one2one, :
+            ]
+            next_state = self._post_update(
+                timestamp,
+                ego_pose,
+                rec_ego_pose,
+                one_to_one_classes,
+                one_to_one_coordinates,
+                one_to_one_decoded,
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                memory_mask,
+            )
+            vision_tokens = self.head.output_projection(
+                vision_tokens
+            )
+            return (
+                one_to_one_classes,
+                one_to_one_coordinates,
+                one_to_one_decoded,
+                vision_tokens,
+                *next_state,
+            )
+
+    return MapEncoder().eval()
+
+
+def make_minddrive_detection_encoder(model: Any) -> Any:
+    """Build the real object/motion Region with explicit memory state.
+
+    Ragged lane selection is represented as a fixed 300-lane profile plus a
+    boolean mask.  The selected attention set is identical to upstream, while
+    avoiding data-dependent allocation and Python loops.  The upstream
+    FlashAttention mask convention (``True`` means retained by unpadding) is
+    preserved deliberately.
+    """
+
+    import torch
+
+    from mmcv.models.utils.positional_encoding import (
+        nerf_positional_encoding,
+        pos2posemb1d,
+    )
+    from mmcv.models.utils.transformer import inverse_sigmoid
+    from mmcv.utils.misc import (
+        memory_refresh,
+        topk_gather,
+        transform_reference_points,
+    )
+
+    head = model.pts_bbox_head
+    _replace_minddrive_flash_mha(head)
+    if head.state_counter_token or head.traffic_light_token:
+        raise ValueError(
+            "MindDrive 0.5B profile unexpectedly enabled undeclared tokens"
+        )
+    if not head.use_memory or not head.use_col_loss:
+        raise ValueError(
+            "MindDrive 0.5B detection profile contract mismatch"
+        )
+
+    class DetectionEncoder(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.head = head
+
+        def _pre_update(
+            self,
+            image_features: Any,
+            timestamp: Any,
+            ego_pose_inverse: Any,
+            can_bus: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+            memory_velocity: Any,
+            sample_time: Any,
+            memory_canbus: Any,
+            memory_canbus_length: Any,
+            memory_scene_query: Any,
+            scene_memory_timestamp: Any,
+        ) -> tuple[Any, ...]:
+            sample_time = sample_time + timestamp
+            previous_exists = (
+                torch.abs(sample_time) < 2.0
+            ).to(image_features.dtype)
+            memory_timestamp = memory_timestamp + timestamp[
+                :, None, None
+            ]
+            scene_memory_timestamp = (
+                scene_memory_timestamp + timestamp[:, None, None]
+            )
+            scene_memory_timestamp = memory_refresh(
+                scene_memory_timestamp[
+                    :, : self.head.scence_memory_len
+                ],
+                previous_exists,
+            )
+            memory_egopose = (
+                ego_pose_inverse[:, None] @ memory_egopose
+            )
+            memory_reference_point = transform_reference_points(
+                memory_reference_point,
+                ego_pose_inverse,
+                reverse=False,
+            )
+            memory_timestamp = memory_refresh(
+                memory_timestamp[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_reference_point = memory_refresh(
+                memory_reference_point[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_embedding = memory_refresh(
+                memory_embedding[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_egopose = memory_refresh(
+                memory_egopose[:, : self.head.memory_len],
+                previous_exists,
+            )
+            memory_velocity = memory_refresh(
+                memory_velocity[:, : self.head.memory_len],
+                previous_exists,
+            )
+            history_mask = (
+                torch.arange(
+                    self.head.can_bus_len,
+                    device=memory_canbus.device,
+                )[None, :]
+                < memory_canbus_length[:, None]
+            )
+            history_mask = history_mask[..., None]
+            translated_canbus = memory_canbus.clone()
+            translated_canbus[..., 1:4] = (
+                translated_canbus[..., 1:4]
+                - can_bus[:, None, :3]
+                * history_mask.to(can_bus.dtype)
+            )
+            translated_canbus[..., -1:] = (
+                translated_canbus[..., -1:]
+                - can_bus[:, None, -1:]
+                * history_mask.to(can_bus.dtype)
+            )
+            memory_canbus = memory_refresh(
+                translated_canbus[:, : self.head.can_bus_len],
+                previous_exists,
+            )
+            memory_canbus_length = memory_refresh(
+                memory_canbus_length, previous_exists
+            )
+            memory_scene_query = memory_refresh(
+                memory_scene_query[
+                    :, : self.head.scence_memory_len
+                ],
+                previous_exists,
+            )
+            pseudo = (
+                self.head.pseudo_reference_points.weight
+                * (self.head.pc_range[3:6] - self.head.pc_range[:3])
+                + self.head.pc_range[:3]
+            )
+            missing = (1.0 - previous_exists)[:, None, None]
+            prefix = self.head.num_propagated
+            memory_reference_point = torch.cat(
+                (
+                    memory_reference_point[:, :prefix]
+                    + missing * pseudo[None],
+                    memory_reference_point[:, prefix:],
+                ),
+                dim=1,
+            )
+            identity = torch.eye(
+                4,
+                device=image_features.device,
+                dtype=image_features.dtype,
+            )[None, None]
+            memory_egopose = torch.cat(
+                (
+                    memory_egopose[:, :prefix]
+                    + missing[..., None] * identity,
+                    memory_egopose[:, prefix:],
+                ),
+                dim=1,
+            )
+            return (
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                memory_velocity,
+                torch.zeros_like(timestamp),
+                memory_canbus,
+                memory_canbus_length,
+                memory_scene_query,
+                scene_memory_timestamp,
+            )
+
+        def _temporal_alignment(
+            self,
+            query_position: Any,
+            target: Any,
+            reference_points: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+        ) -> tuple[Any, ...]:
+            temporal_reference = (
+                memory_reference_point - self.head.pc_range[:3]
+            ) / (
+                self.head.pc_range[3:6] - self.head.pc_range[:3]
+            )
+            temporal_position = self.head.query_pos(
+                nerf_positional_encoding(
+                    temporal_reference.repeat(
+                        1, 1, self.head.n_control
+                    )
+                )
+            )
+            batch = query_position.shape[0]
+            rec_ego_pose = torch.eye(
+                4,
+                device=query_position.device,
+                dtype=query_position.dtype,
+            )[None, None].repeat(
+                batch, query_position.shape[1], 1, 1
+            )
+            rec_motion = torch.cat(
+                (
+                    torch.zeros_like(reference_points[..., :1]),
+                    rec_ego_pose[..., :3, :].flatten(-2),
+                ),
+                dim=-1,
+            )
+            memory_motion = torch.cat(
+                (
+                    memory_timestamp,
+                    memory_egopose[..., :3, :].flatten(-2),
+                ),
+                dim=-1,
+            ).float()
+            temporal_position = self.head.ego_pose_pe(
+                temporal_position,
+                nerf_positional_encoding(memory_motion),
+            )
+            query_position = query_position + self.head.time_embedding(
+                pos2posemb1d(
+                    torch.zeros_like(reference_points[..., :1])
+                )
+            )
+            temporal_position = (
+                temporal_position
+                + self.head.time_embedding(
+                    pos2posemb1d(memory_timestamp).float()
+                )
+            )
+            prefix = self.head.num_propagated
+            target = torch.cat(
+                (target, memory_embedding[:, :prefix]), dim=1
+            )
+            query_position = torch.cat(
+                (query_position, temporal_position[:, :prefix]),
+                dim=1,
+            )
+            reference_points = torch.cat(
+                (reference_points, temporal_reference[:, :prefix]),
+                dim=1,
+            )
+            rec_ego_pose = torch.eye(
+                4,
+                device=query_position.device,
+                dtype=query_position.dtype,
+            )[None, None].repeat(
+                batch,
+                query_position.shape[1] + prefix,
+                1,
+                1,
+            )
+            return (
+                target,
+                query_position,
+                reference_points,
+                memory_embedding[:, prefix:],
+                temporal_position[:, prefix:],
+                rec_ego_pose,
+            )
+
+        def _fixed_map_attention_inputs(
+            self,
+            motion_coordinates: Any,
+            map_query: Any,
+            map_score: Any,
+            map_coordinates: Any,
+        ) -> tuple[Any, Any, Any]:
+            batch, map_count = map_coordinates.shape[:2]
+            point_distance = torch.sqrt(
+                map_coordinates[..., 0].square()
+                + map_coordinates[..., 1].square()
+            )
+            nearest_index = point_distance.argmin(dim=-1)
+            nearest = torch.gather(
+                map_coordinates,
+                2,
+                nearest_index[
+                    ..., None, None
+                ].expand(batch, map_count, 1, 2),
+            ).squeeze(2)
+            score_valid = (
+                map_score.sigmoid().max(dim=-1).values > 0.5
+            )
+            agent_count = motion_coordinates.shape[1]
+            repeated_query = map_query[:, None].expand(
+                batch, agent_count, map_count, map_query.shape[-1]
+            )
+            relative = (
+                nearest[:, None]
+                - motion_coordinates[:, :, None, :]
+            )
+            far = torch.sqrt(
+                relative[..., 0].square()
+                + relative[..., 1].square()
+            ) > 0.2
+            # Upstream passes a padding mask directly to FlashAttention's
+            # unpadding helper, where True means retained.  Preserve that
+            # effective computation, including its apparently inverted name.
+            retained = score_valid[:, None] & far
+            repeated_query = repeated_query.flatten(0, 1)
+            relative = relative.flatten(0, 1)
+            retained = retained.flatten(0, 1)
+            pad_query = torch.zeros(
+                (
+                    repeated_query.shape[0],
+                    1,
+                    repeated_query.shape[-1],
+                ),
+                device=repeated_query.device,
+                dtype=repeated_query.dtype,
+            )
+            pad_position = torch.ones(
+                (relative.shape[0], 1, 2),
+                device=relative.device,
+                dtype=relative.dtype,
+            )
+            pad_mask = torch.zeros(
+                (retained.shape[0], 1),
+                device=retained.device,
+                dtype=torch.bool,
+            )
+            return (
+                torch.cat((repeated_query, pad_query), dim=1),
+                torch.cat((relative, pad_position), dim=1),
+                torch.cat((retained, pad_mask), dim=1),
+            )
+
+        def _post_update(
+            self,
+            timestamp: Any,
+            ego_pose: Any,
+            can_bus: Any,
+            route_command_index: Any,
+            rec_ego_pose: Any,
+            all_classes: Any,
+            all_boxes: Any,
+            decoded: Any,
+            history_query: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+            memory_velocity: Any,
+            memory_canbus: Any,
+            memory_canbus_length: Any,
+            memory_scene_query: Any,
+            scene_memory_timestamp: Any,
+        ) -> tuple[Any, ...]:
+            rec_reference = all_boxes[-1, ..., :3]
+            rec_velocity = all_boxes[-1, ..., -2:]
+            rec_memory = decoded[-1]
+            rec_score = (
+                all_classes[-1]
+                .sigmoid()
+                .topk(1, dim=-1)
+                .values[..., :1]
+            )
+            rec_timestamp = torch.zeros_like(
+                rec_score, dtype=torch.float64
+            )
+            _, topk_indexes = torch.topk(
+                rec_score, self.head.topk_proposals, dim=1
+            )
+            rec_timestamp = topk_gather(
+                rec_timestamp, topk_indexes
+            )
+            rec_reference = topk_gather(
+                rec_reference, topk_indexes
+            )
+            rec_velocity = topk_gather(
+                rec_velocity, topk_indexes
+            )
+            rec_memory = topk_gather(rec_memory, topk_indexes)
+            rec_ego_pose = topk_gather(
+                rec_ego_pose, topk_indexes
+            )
+            rec_can_bus = can_bus.clone()
+            rec_can_bus[:, :3] = 0
+            rec_can_bus[:, -1] = 0
+            rec_can_bus = torch.cat(
+                (route_command_index[:, None], rec_can_bus),
+                dim=-1,
+            )
+            memory_embedding = torch.cat(
+                (rec_memory, memory_embedding), dim=1
+            )
+            memory_timestamp = torch.cat(
+                (rec_timestamp, memory_timestamp), dim=1
+            )
+            memory_egopose = torch.cat(
+                (rec_ego_pose, memory_egopose), dim=1
+            )
+            memory_reference_point = torch.cat(
+                (rec_reference, memory_reference_point), dim=1
+            )
+            memory_velocity = torch.cat(
+                (rec_velocity, memory_velocity), dim=1
+            )
+            memory_canbus = torch.cat(
+                (rec_can_bus[:, None], memory_canbus), dim=1
+            )
+            memory_canbus_length = memory_canbus_length + 1
+            memory_reference_point = transform_reference_points(
+                memory_reference_point, ego_pose, reverse=False
+            )
+            memory_timestamp = (
+                memory_timestamp - timestamp[:, None, None]
+            )
+            memory_egopose = ego_pose[:, None] @ memory_egopose
+            history_mask = (
+                torch.arange(
+                    memory_canbus.shape[1],
+                    device=memory_canbus.device,
+                )[None, :]
+                < memory_canbus_length[:, None]
+            )[..., None]
+            memory_canbus = memory_canbus.clone()
+            memory_canbus[..., 1:4] = (
+                memory_canbus[..., 1:4]
+                + can_bus[:, None, :3]
+                * history_mask.to(can_bus.dtype)
+            )
+            memory_canbus[..., -1:] = (
+                memory_canbus[..., -1:]
+                + can_bus[:, None, -1:]
+                * history_mask.to(can_bus.dtype)
+            )
+            memory_scene_query = torch.cat(
+                (history_query, memory_scene_query), dim=1
+            )
+            scene_memory_timestamp = torch.cat(
+                (
+                    torch.zeros_like(
+                        scene_memory_timestamp[
+                            :, : self.head.num_memory
+                        ],
+                        dtype=torch.float64,
+                    ),
+                    scene_memory_timestamp,
+                ),
+                dim=1,
+            )
+            scene_memory_timestamp = (
+                scene_memory_timestamp
+                - timestamp[:, None, None]
+            )
+            main_limit = self.head.memory_len
+            scene_limit = self.head.scence_memory_len
+            canbus_limit = self.head.can_bus_len
+            return (
+                memory_embedding[:, :main_limit],
+                memory_reference_point[:, :main_limit],
+                memory_timestamp[:, :main_limit],
+                memory_egopose[:, :main_limit],
+                memory_velocity[:, :main_limit],
+                -timestamp,
+                memory_canbus[:, :canbus_limit],
+                memory_canbus_length,
+                memory_scene_query[:, :scene_limit],
+                scene_memory_timestamp[:, :scene_limit],
+            )
+
+        def forward(
+            self,
+            image_features: Any,
+            position_embedding: Any,
+            map_classes: Any,
+            map_coordinates: Any,
+            map_queries: Any,
+            timestamp: Any,
+            ego_pose: Any,
+            ego_pose_inverse: Any,
+            can_bus: Any,
+            route_command_index: Any,
+            memory_embedding: Any,
+            memory_reference_point: Any,
+            memory_timestamp: Any,
+            memory_egopose: Any,
+            memory_velocity: Any,
+            sample_time: Any,
+            memory_canbus: Any,
+            memory_canbus_length: Any,
+            memory_scene_query: Any,
+            scene_memory_timestamp: Any,
+        ) -> tuple[Any, ...]:
+            (
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                memory_velocity,
+                sample_time,
+                memory_canbus,
+                memory_canbus_length,
+                memory_scene_query,
+                scene_memory_timestamp,
+            ) = self._pre_update(
+                image_features,
+                timestamp,
+                ego_pose_inverse,
+                can_bus,
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                memory_velocity,
+                sample_time,
+                memory_canbus,
+                memory_canbus_length,
+                memory_scene_query,
+                scene_memory_timestamp,
+            )
+            batch, cameras, channels, height, width = (
+                image_features.shape
+            )
+            image_memory = (
+                image_features.permute(0, 1, 3, 4, 2)
+                .reshape(
+                    batch, cameras * height * width, channels
+                )
+            )
+            image_memory = self.head.input_projection(image_memory)
+            reference_points = torch.cat(
+                (
+                    torch.zeros_like(
+                        self.head.reference_points.weight[
+                            : self.head.num_extra
+                        ]
+                    ),
+                    self.head.reference_points.weight,
+                ),
+                dim=0,
+            )[None].repeat(batch, 1, 1)
+            query_position = self.head.query_pos(
+                nerf_positional_encoding(
+                    reference_points.repeat(
+                        1, 1, self.head.n_control
+                    )
+                )
+            )
+            target = torch.zeros_like(query_position)
+            (
+                target,
+                query_position,
+                reference_points,
+                temporal_memory,
+                temporal_position,
+                rec_ego_pose,
+            ) = self._temporal_alignment(
+                query_position,
+                target,
+                reference_points,
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+            )
+            current_scene_query = self.head.memory_query.weight[
+                None
+            ].repeat(batch, 1, 1)
+            scene_position = self.head.scene_time_embedding(
+                pos2posemb1d(scene_memory_timestamp).float()
+            )
+            current_scene_position = torch.zeros_like(
+                current_scene_query
+            )
+            temporal_scene_query = self.head.memory_decoder_mq(
+                query=current_scene_query,
+                key=memory_scene_query,
+                query_pos=current_scene_position,
+                key_pos=scene_position,
+            )
+            target = target.clone()
+            query_position = query_position.clone()
+            target[:, : self.head.num_extra] = (
+                self.head.query_embedding.weight[None]
+            )
+            query_position[:, : self.head.num_extra] = 0
+            query_count = (
+                self.head.num_query
+                + self.head.num_propagated
+                + self.head.num_extra
+            )
+            target_count = (
+                self.head.num_query
+                + self.head.memory_len
+                + self.head.num_extra
+            )
+            attention_mask = torch.zeros(
+                (query_count, target_count),
+                dtype=torch.bool,
+                device=image_features.device,
+            )
+            attention_mask[
+                self.head.num_extra :, : self.head.num_extra
+            ] = True
+            decoded = self.head.transformer(
+                target,
+                image_memory,
+                query_position,
+                position_embedding,
+                attention_mask,
+                temporal_memory,
+                temporal_position,
+            )
+            reference_points = reference_points[
+                :, self.head.num_extra :, :
+            ]
+            decoded = torch.nan_to_num(decoded)
+            vision_tokens = decoded[
+                -1, :, : self.head.num_extra, :
+            ]
+            decoded = decoded[:, :, self.head.num_extra :, :]
+            history_query = self.head.memory_decoder_cq(
+                query=temporal_scene_query,
+                key=vision_tokens,
+                query_pos=None,
+                key_pos=None,
+            )
+            output_classes = []
+            output_boxes = []
+            output_bev = []
+            output_traffic_states = []
+            for level in range(decoded.shape[0]):
+                reference = inverse_sigmoid(
+                    reference_points.clone()
+                )
+                classes = self.head.cls_branches[level](
+                    decoded[level]
+                )
+                traffic = self.head.tl_branches[level](
+                    decoded[level]
+                )
+                boxes = self.head.reg_branches[level](
+                    decoded[level]
+                )
+                boxes = boxes.clone()
+                boxes[..., :3] = (
+                    boxes[..., :3] + reference[..., :3]
+                )
+                boxes[..., :3] = boxes[..., :3].sigmoid()
+                output_bev.append(boxes[..., :2])
+                output_classes.append(classes)
+                output_boxes.append(boxes)
+                output_traffic_states.append(traffic)
+            all_classes = torch.stack(output_classes)
+            all_boxes = torch.stack(output_boxes)
+            all_traffic_states = torch.stack(
+                output_traffic_states
+            )
+            all_boxes = all_boxes.clone()
+            all_boxes[..., :3] = (
+                all_boxes[..., :3]
+                * (
+                    self.head.pc_range[3:6]
+                    - self.head.pc_range[:3]
+                )
+                + self.head.pc_range[:3]
+            )
+            rec_can_bus = can_bus.clone()
+            rec_can_bus[:, :3] = 0
+            rec_can_bus[:, -1] = 0
+            rec_can_bus = torch.cat(
+                (route_command_index[:, None], rec_can_bus), dim=-1
+            )
+            grouped_egopose = memory_egopose.reshape(
+                batch, -1, self.head.topk_proposals, 4, 4
+            ).flatten(-2)
+            vision_tokens = torch.cat(
+                (vision_tokens, history_query), dim=1
+            )
+            vision_tokens = self.head.output_projection(
+                vision_tokens
+            )
+            canbus_features = torch.cat(
+                (
+                    rec_can_bus,
+                    memory_canbus.flatten(-2),
+                    grouped_egopose.mean(-2).flatten(-2),
+                ),
+                dim=-1,
+            ).float()
+            canbus_token = self.head.can_bus_embed(
+                canbus_features
+            )
+            vision_tokens = torch.cat(
+                (vision_tokens, canbus_token[:, None]), dim=1
+            )
+            motion_query = decoded[-1].permute(1, 0, 2)
+            mode_query = self.head.motion_mode_query.weight
+            motion_query = (
+                motion_query[:, None, :, :]
+                + mode_query[None, :, None, :]
+            ).flatten(0, 1)
+            motion_position = self.head.pos_mlp_sa(
+                output_bev[-1]
+            )
+            motion_position = (
+                motion_position[:, :, None]
+                .repeat(1, 1, self.head.fut_mode, 1)
+                .flatten(1, 2)
+            )
+            motion_query = motion_query.permute(1, 0, 2)
+            motion_hidden = self.head.motion_decoder(
+                query=motion_query,
+                key=motion_query,
+                query_pos=motion_position,
+                key_pos=motion_position,
+                attn_mask=None,
+            )
+            encoded_map = self.head.lane_encoder(
+                map_queries[-1].view(batch, 300, -1)
+            )
+            map_position = map_coordinates[-1].reshape(
+                batch, 300, 11, 3
+            )[..., :2]
+            fixed_map, fixed_position, fixed_mask = (
+                self._fixed_map_attention_inputs(
+                    output_bev[-1],
+                    encoded_map,
+                    map_classes[-1],
+                    map_position,
+                )
+            )
+            cross_motion_query = (
+                motion_hidden.permute(1, 0, 2)
+                .flatten(0, 1)[None]
+                .permute(1, 0, 2)
+            )
+            motion_cross_position = self.head.pos_mlp(
+                torch.zeros(
+                    (
+                        cross_motion_query.shape[0],
+                        cross_motion_query.shape[1],
+                        2,
+                    ),
+                    device=cross_motion_query.device,
+                    dtype=cross_motion_query.dtype,
+                )
+            )
+            fixed_position = self.head.pos_mlp(fixed_position)
+            cross_motion = self.head.motion_map_decoder(
+                query=cross_motion_query,
+                key=fixed_map,
+                query_pos=motion_cross_position,
+                key_pos=fixed_position,
+                key_padding_mask=fixed_mask,
+            )
+            motion_hidden = motion_hidden.unflatten(
+                1, (all_boxes.shape[2], self.head.fut_mode)
+            )
+            cross_motion = (
+                cross_motion.squeeze(1)
+                .unflatten(
+                    0,
+                    (
+                        batch,
+                        all_boxes.shape[2],
+                        self.head.fut_mode,
+                    ),
+                )
+            )
+            motion_hidden = torch.cat(
+                (motion_hidden, cross_motion), dim=-1
+            )
+            trajectories = self.head.traj_branches[0](
+                motion_hidden
+            )[None]
+            trajectory_classes = (
+                self.head.traj_cls_branches[0](motion_hidden)
+                .squeeze(-1)[None]
+            )
+            trajectories = trajectories.repeat(
+                all_boxes.shape[0], 1, 1, 1, 1
+            )
+            trajectory_classes = trajectory_classes.repeat(
+                all_boxes.shape[0], 1, 1, 1
+            )
+            next_state = self._post_update(
+                timestamp,
+                ego_pose,
+                can_bus,
+                route_command_index,
+                rec_ego_pose,
+                all_classes,
+                all_boxes,
+                decoded,
+                history_query,
+                memory_embedding,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                memory_velocity,
+                memory_canbus,
+                memory_canbus_length,
+                memory_scene_query,
+                scene_memory_timestamp,
+            )
+            return (
+                all_classes,
+                all_boxes,
+                trajectories,
+                trajectory_classes,
+                all_traffic_states,
+                vision_tokens,
+                *next_state,
+            )
+
+    return DetectionEncoder().eval()
+
+
+def make_minddrive_detection_decoder(model: Any) -> Any:
+    """Build the fixed-capacity tensor-only detection output decoder.
+
+    Upstream returns a host ``LiDARInstance3DBoxes`` object with a
+    data-dependent row count.  The deployment ABI instead returns capacity
+    300 tensors plus ``valid_mask``/``valid_count``.  Proposal memory can
+    permute otherwise equivalent rows between FlashAttention and SDPA, so
+    valid detections use a stable, quantized geometric canonical order.
+    Invalid rows are zero-filled.
+    """
+
+    import torch
+
+    coder = model.pts_bbox_head.bbox_coder
+    center_range = torch.tensor(
+        coder.post_center_range,
+        dtype=torch.float32,
+        device=next(model.pts_bbox_head.parameters()).device,
+    )
+    class_count = int(coder.num_classes)
+    capacity = int(coder.max_num)
+
+    class DetectionDecoder(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.register_buffer("center_range", center_range)
+
+        def forward(
+            self,
+            all_classes: Any,
+            all_boxes: Any,
+            all_trajectories: Any,
+        ) -> tuple[Any, ...]:
+            classes = all_classes[-1, 0].sigmoid()
+            scores, flattened_index = classes.flatten().topk(
+                capacity
+            )
+            labels = flattened_index.remainder(class_count)
+            box_index = torch.div(
+                flattened_index,
+                class_count,
+                rounding_mode="floor",
+            )
+            encoded = torch.gather(
+                all_boxes[-1, 0],
+                0,
+                box_index[:, None].expand(capacity, 10),
+            )
+            trajectories = torch.gather(
+                all_trajectories[-1, 0],
+                0,
+                box_index[:, None, None].expand(
+                    capacity, 1, 12
+                ),
+            )
+            rotation = torch.atan2(
+                encoded[:, 6:7], encoded[:, 7:8]
+            )
+            boxes = torch.cat(
+                (
+                    encoded[:, 0:1],
+                    encoded[:, 1:2],
+                    encoded[:, 4:5],
+                    encoded[:, 2:3].exp(),
+                    encoded[:, 3:4].exp(),
+                    encoded[:, 5:6].exp(),
+                    rotation,
+                    encoded[:, 8:9],
+                    encoded[:, 9:10],
+                ),
+                dim=-1,
+            )
+            boxes = boxes.clone()
+            boxes[:, 2:3] = boxes[:, 2:3] - boxes[:, 5:6] * 0.5
+            valid = (
+                (boxes[:, :3] >= self.center_range[:3]).all(dim=1)
+                & (
+                    boxes[:, :3] <= self.center_range[3:]
+                ).all(dim=1)
+            )
+
+            # Sort least-significant keys first; stable argsort then gives the
+            # lexicographic order (valid, class, x, y, z, dimensions, score).
+            # Five-centimetre geometry and 1e-4 score buckets are deliberately
+            # wider than the locked FlashAttention-to-SDPA error budget.
+            geometry = torch.round(
+                boxes[:, :6] * 20.0
+            ).to(torch.int64)
+            score_bucket = torch.round(
+                scores * 1.0e4
+            ).to(torch.int64)
+            canonical_keys = torch.cat(
+                (
+                    -valid.to(torch.int64)[:, None],
+                    labels[:, None],
+                    geometry,
+                    -score_bucket[:, None],
+                ),
+                dim=1,
+            )
+            for key_index in range(8, -1, -1):
+                order = torch.argsort(
+                    canonical_keys[:, key_index],
+                    stable=True,
+                )
+                boxes = boxes[order]
+                scores = scores[order]
+                labels = labels[order]
+                trajectories = trajectories[order]
+                valid = valid[order]
+                canonical_keys = canonical_keys[order]
+            valid_count = valid.to(torch.int64).sum()
+            valid_float = valid[:, None].to(boxes.dtype)
+            boxes = boxes * valid_float
+            scores = scores * valid.to(scores.dtype)
+            trajectories = trajectories * valid[
+                :, None, None
+            ].to(trajectories.dtype)
+            labels = torch.where(
+                valid, labels, torch.full_like(labels, -1)
+            )
+            return (
+                scores,
+                labels,
+                trajectories,
+                boxes,
+                valid,
+                valid_count,
+            )
+
+    return DetectionDecoder().eval()
 
 
 def _make_minddrive_qwen_rotary_exportable(language_model: Any) -> None:

@@ -74,13 +74,8 @@ def main() -> int:
         map_location="cpu",
         weights_only=True,
     )
-    vision_tokens = torch.cat(
-        (
-            intermediates["detection_head"][1],
-            intermediates["map_head"][1],
-        ),
-        dim=1,
-    ).to(args.device)
+    detection_tokens = intermediates["detection_head"][1].to(args.device)
+    map_tokens = intermediates["map_head"][1].to(args.device)
     declarations = (
         (
             "decision_expert",
@@ -115,7 +110,9 @@ def main() -> int:
         exported = load_exported_region(artifact)
         prompt = prompt_cpu.to(args.device)
         with torch.inference_mode():
-            candidate = exported.module()(prompt, vision_tokens)
+            candidate = exported.module()(
+                prompt, detection_tokens, map_tokens
+            )
         equivalence = _equivalence(
             reference,
             candidate.cpu(),

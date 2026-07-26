@@ -28,8 +28,13 @@ from vlaforge.validation import normalize_plan_trace_for_runtime
 @dataclass
 class _Calls:
     vision: int = 0
-    first: int = 0
-    stateful: int = 0
+    position: int = 0
+    map: int = 0
+    detection: int = 0
+    decision: int = 0
+    action: int = 0
+    trajectory: int = 0
+    decode: int = 0
 
 
 def _implementations(calls: _Calls) -> dict[str, Any]:
@@ -37,40 +42,74 @@ def _implementations(calls: _Calls) -> dict[str, Any]:
         calls.vision += 1
         return ("vision", camera)
 
-    def branch_values(value: int) -> tuple[object, ...]:
-        outputs = tuple(value * 100 + index for index in range(8))
-        states = tuple(value for _ in MINDDRIVE_STATE_TYPES)
-        return (*outputs, *states, True)
+    def position_encoder(*_arguments: object) -> object:
+        calls.position += 1
+        return "position"
 
-    def first_frame_planner(*_arguments: object) -> tuple[object, ...]:
-        calls.first += 1
-        return branch_values(1)
+    def map_encoder(*arguments: object) -> tuple[object, ...]:
+        calls.map += 1
+        value = int(arguments[-6]) + 1
+        return (value, value, value, value, *(value for _ in range(6)))
 
-    def stateful_planner(*arguments: object) -> tuple[object, ...]:
-        calls.stateful += 1
-        state_values = arguments[-len(MINDDRIVE_STATE_TYPES) :]
-        return branch_values(int(state_values[0]) + 1)
+    def detection_encoder(*arguments: object) -> tuple[object, ...]:
+        calls.detection += 1
+        value = int(arguments[-10]) + 1
+        return (
+            value,
+            value,
+            value,
+            value,
+            value,
+            value,
+            *(value for _ in range(10)),
+        )
+
+    def decision_expert(
+        _prompt: object,
+        detection_tokens: object,
+        _map_tokens: object,
+    ) -> object:
+        calls.decision += 1
+        return detection_tokens
+
+    def action_expert(
+        _prompt: object,
+        detection_tokens: object,
+        _map_tokens: object,
+    ) -> object:
+        calls.action += 1
+        return detection_tokens
+
+    def trajectory_decoder(
+        action_hidden: object,
+        *_arguments: object,
+    ) -> tuple[object, ...]:
+        calls.trajectory += 1
+        value = int(action_hidden) * 100
+        return value, value + 1, value + 8, value + 9
+
+    def detection_decoder(
+        detection_classes: object,
+        *_arguments: object,
+    ) -> tuple[object, ...]:
+        calls.decode += 1
+        value = int(detection_classes) * 100
+        return tuple(value + index for index in range(2, 8))
 
     return {
         "vision_encoder": vision_encoder,
-        "decision_expert": lambda *_arguments: None,
-        "action_expert": lambda *_arguments: None,
-        "trajectory_decoder": lambda *_arguments: (
-            None,
-            None,
-            None,
-            None,
-        ),
-        "first_frame_planner": first_frame_planner,
-        "stateful_planner": stateful_planner,
+        "position_encoder": position_encoder,
+        "map_encoder": map_encoder,
+        "detection_encoder": detection_encoder,
+        "decision_expert": decision_expert,
+        "action_expert": action_expert,
+        "trajectory_decoder": trajectory_decoder,
+        "detection_decoder": detection_decoder,
     }
 
 
 def _initial_state() -> dict[str, object]:
-    return {
-        "state_initialized": False,
-        **{name: 0 for name, _ in MINDDRIVE_STATE_TYPES},
-    }
+    return {name: 0 for name, _ in MINDDRIVE_STATE_TYPES}
 
 
 def _bindings(
@@ -127,16 +166,17 @@ def test_real_minddrive_program_is_small_generic_and_stateful() -> None:
         name for name, _ in MINDDRIVE_OUTPUT_TYPES
     )
     assert tuple(state.name for state in module.states) == (
-        "state_initialized",
         *(name for name, _ in MINDDRIVE_STATE_TYPES),
     )
     assert tuple(region.name for region in module.regions) == (
         "vision_encoder",
+        "position_encoder",
+        "map_encoder",
+        "detection_encoder",
         "decision_expert",
         "action_expert",
         "trajectory_decoder",
-        "first_frame_planner",
-        "stateful_planner",
+        "detection_decoder",
     )
     assert module.invocations[0].metadata["source_revision"] == (
         MINDDRIVE_UPSTREAM_REVISION
@@ -189,7 +229,16 @@ def test_revision_cache_and_stateful_branch_follow_declared_identity() -> None:
     assert first.committed_outputs.output("trajectory") == 100
     assert second.committed_outputs.output("trajectory") == 200
     assert third.committed_outputs.output("trajectory") == 300
-    assert calls == _Calls(vision=2, first=1, stateful=2)
+    assert calls == _Calls(
+        vision=2,
+        position=3,
+        map=3,
+        detection=3,
+        decision=3,
+        action=3,
+        trajectory=3,
+        decode=3,
+    )
     assert (runtime.cache.hits, runtime.cache.misses) == (1, 2)
     assert (
         runtime.state_store.versions("detection_memory_embedding")[-1].version
@@ -304,7 +353,8 @@ def test_reset_episode_and_plan_executor_match_semantic_runtime() -> None:
         _bindings(camera_revision=10, other_revision=20),
     )
     assert reset.committed_outputs.output("trajectory") == 100
-    assert semantic_calls.first == 2
+    assert semantic_calls.map == 4
+    assert semantic_calls.detection == 4
     assert semantic.state_store.episode == 1
     assert (
         semantic.state_store.versions("detection_memory_embedding")[-1].version

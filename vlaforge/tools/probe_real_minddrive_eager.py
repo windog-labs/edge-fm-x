@@ -420,11 +420,21 @@ def main() -> int:
     parser.add_argument("--release-root", type=Path, required=True)
     parser.add_argument("--frame-root", type=Path, required=True)
     parser.add_argument("--frame", default="00400")
+    parser.add_argument(
+        "--warmup-frame",
+        action="append",
+        default=[],
+        help=(
+            "run this frame before --frame without resetting memory; repeat "
+            "the option to reconstruct a longer stateful sequence"
+        ),
+    )
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--output-tensors", type=Path)
     parser.add_argument("--image-features", type=Path)
     parser.add_argument("--preprocessed-inputs", type=Path)
     parser.add_argument("--persistent-state", type=Path)
+    parser.add_argument("--persistent-state-before-run", type=Path)
     parser.add_argument(
         "--intermediates",
         type=Path,
@@ -608,6 +618,19 @@ def main() -> int:
     batch = collate([prepared], samples_per_gpu=1)
     flat_inputs = _flatten_preprocessed_inputs(batch)
     _move_batch_to_device(batch, args.device)
+    warmup_batches = []
+    for warmup_frame in args.warmup_frame:
+        warmup_raw = _build_raw_invocation(
+            frame_root=args.frame_root.resolve(),
+            frame=warmup_frame,
+        )
+        warmup_raw.pop("input_provenance")
+        warmup_prepared = pipeline(warmup_raw)
+        warmup_batch = collate(
+            [warmup_prepared], samples_per_gpu=1
+        )
+        _move_batch_to_device(warmup_batch, args.device)
+        warmup_batches.append(warmup_batch)
 
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
@@ -618,6 +641,12 @@ def main() -> int:
     cuda_after_load = int(torch.cuda.memory_allocated())
 
     _reset_model_state(model)
+    persistent_state_before_run = None
+    if warmup_batches:
+        with torch.inference_mode():
+            for warmup_batch in warmup_batches:
+                model(warmup_batch, return_loss=False)
+        persistent_state_before_run = _extract_persistent_state(model)
     captured_image_features: dict[str, Any] = {}
     captured_intermediates: dict[str, Any] = {}
     original_extract_feat = model.extract_feat
@@ -756,6 +785,7 @@ def main() -> int:
             "input": {
                 "frame_root": str(args.frame_root.resolve()),
                 "frame": args.frame,
+                "warmup_frame": args.warmup_frame,
                 "camera_count": 6,
                 "raw_camera_shape_hwc": [900, 1600, 3],
                 "provenance": input_provenance,
@@ -816,6 +846,24 @@ def main() -> int:
         )
         report["persistent_state_sha256"] = _sha256(
             args.persistent_state
+        )
+    if args.persistent_state_before_run is not None:
+        if persistent_state_before_run is None:
+            raise ValueError(
+                "--persistent-state-before-run requires --warmup-frame"
+            )
+        args.persistent_state_before_run.parent.mkdir(
+            parents=True, exist_ok=True
+        )
+        torch.save(
+            persistent_state_before_run,
+            args.persistent_state_before_run,
+        )
+        report["persistent_state_before_run"] = str(
+            args.persistent_state_before_run.resolve()
+        )
+        report["persistent_state_before_run_sha256"] = _sha256(
+            args.persistent_state_before_run
         )
     if args.intermediates is not None:
         args.intermediates.parent.mkdir(parents=True, exist_ok=True)

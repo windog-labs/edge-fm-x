@@ -95,13 +95,8 @@ def main() -> int:
         map_location="cpu",
         weights_only=True,
     )
-    vision_tokens_cpu = torch.cat(
-        (
-            intermediates["detection_head"][1],
-            intermediates["map_head"][1],
-        ),
-        dim=1,
-    )
+    detection_tokens_cpu = intermediates["detection_head"][1]
+    map_tokens_cpu = intermediates["map_head"][1]
     declarations = (
         (
             "decision_expert",
@@ -161,9 +156,12 @@ def main() -> int:
         gc.collect()
         torch.cuda.empty_cache()
         prompt = prompt_cpu.to(args.device)
-        vision_tokens = vision_tokens_cpu.to(args.device)
+        detection_tokens = detection_tokens_cpu.to(args.device)
+        map_tokens = map_tokens_cpu.to(args.device)
         with torch.inference_mode():
-            eager = implementation(prompt, vision_tokens)
+            eager = implementation(
+                prompt, detection_tokens, map_tokens
+            )
         equivalence = _equivalence(
             reference_cpu,
             eager.cpu(),
@@ -180,7 +178,7 @@ def main() -> int:
         capture = capture_region(
             program.region(name),
             implementation,
-            (prompt, vision_tokens),
+            (prompt, detection_tokens, map_tokens),
             strict=True,
             absolute_tolerance=1.0e-5,
             relative_tolerance=1.0e-5,
@@ -211,7 +209,8 @@ def main() -> int:
         del capture
         del implementation
         del prompt
-        del vision_tokens
+        del detection_tokens
+        del map_tokens
         gc.collect()
         torch.cuda.empty_cache()
 

@@ -80,7 +80,7 @@ memory/performance results
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
-| MindDrive 0.5B | real eager + EVA/Qwen decision/Qwen action/trajectory strict capture（完整模型仍为 L2-prerequisite-only） | 进行中 | 否 | object/map + detection、完整 Semantic IR/Plan 连续 Run、L3、L4 |
+| MindDrive 0.5B | complete real L2：真实六相机 frontend、8 Region、16 authoritative states、10 named outputs、四帧 eager/captured/Semantic IR/Plan parity | 是 | 否 | source-exact vision C++/CUDA provider、real L3、real L4 |
 | AutoVLA | L0 + L1 + real L2 partition + L3-candidate | 是 | 否 | 完整 camera/VLM/decode 与通过门槛的 real L3/L4 |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
@@ -103,13 +103,14 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
    AOTI 结果因中间 Region NRMSE 超过预声明门槛，严格保留为 L3-candidate。
 
 原 Host-CUDA 投稿基线已经完成。2026-07-26 提高后的模型覆盖门禁选择
-MindDrive 0.5B 作为真实驾驶 VLA 主对象；完整权重、严格推理态加载、真实
-六相机 official-pipeline eager reference 已通过；24 层 EVA、真实 Qwen2
-decision/action experts 和显式 RNG 的 probabilistic trajectory decoder
-均已完成 strict capture，并在第二真实帧上通过预先锁定的数值门槛。当前
-尚缺 object/map heads、detection decode、显式 stateful 连续 Run 和完整
-Semantic IR/Plan 数据流，因此完整模型仍严格保持为
-`L2-prerequisite-only`。必须在本机继续形成完整 camera/language/route/ego
-到 trajectory/aux outputs 的 real L2，并在保留强编译 claim 前达到 real
-L3，目标为 L4。OpenVLA real L4、跨 GPU、第二机复现和 Orin 仍属于可选
-增强，不阻塞该本机主线。
+MindDrive 0.5B 作为真实驾驶 VLA 主对象。完整权重、严格推理态加载、真实
+六相机 official-pipeline frontend，以及 vision/position/map/detection、
+Qwen decision/action、trajectory/detection decoder 共 8 个 Region 已接入。
+四个连续真实帧的 eager/captured pipeline 通过预先锁定的 numerical
+contract v2；Semantic IR 与 Plan 的 10 named outputs、normalized trace 和
+16 个 authoritative state version 全等，same/new/missing revision、
+validation abort/retry 和 ResetEpisode 均通过，`core_op_delta=0`。MindDrive
+因此已达到完整 real L2。下一门禁是将 7 个 exported Regions 与 source-exact
+FlashAttention vision plugin 形成 real L3；论文若保留“编译真实自动驾驶
+VLA”强 claim，必须先完成该门禁。目标仍为 real L4。OpenVLA real L4、跨
+GPU、第二机复现和 Orin 属于可选增强，不阻塞本机主线。
