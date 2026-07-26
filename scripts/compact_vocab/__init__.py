@@ -1,1 +1,0 @@
-"""Compact vocab artifact helpers."""

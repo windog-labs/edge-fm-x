@@ -9,7 +9,7 @@ description = "Stateful VLA invocation compiler and no-Python C++ runtime"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-authors = [{ name = "EdgeFM contributors" }]
+authors = [{ name = "VLAForge contributors" }]
 dependencies = []
 
 [project.optional-dependencies]

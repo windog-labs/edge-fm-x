@@ -4,7 +4,7 @@
 
 本文档是 VLAForge 当前唯一的 production 架构与语义定义。
 
-VLAForge/EdgeFM 的调用者是底软。VLAForge 只负责把一次 VLA 模型调用及其
+VLAForge 的调用者是底软。VLAForge 只负责把一次 VLA 模型调用及其
 跨调用状态编译成高性能部署代码，不负责：
 
 - 传感器时间同步、帧率维持、周期调度、timer、sleep 或 rate control；

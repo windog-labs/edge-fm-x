@@ -120,10 +120,25 @@ _MIGRATION_MAP = (
         "production_status": "outside-framework",
     },
     {
-        "old": "EdgeFM custom CUDA operators",
+        "old": "retired custom CUDA engine/operators",
         "new": "verified external AOTI/RegionExecutable artifacts",
-        "production_status": "not-a-VLAForge-build-dependency",
+        "production_status": "removed",
     },
+)
+
+_RETIRED_ROOTS = (
+    ".codex/skills/edge-fm-add-operator",
+    ".codex/skills/edge-fm-benchmark-report",
+    ".codex/skills/edge-fm-cuda-kernel-optimizer",
+    ".codex/skills/edge-fm-orin-docker-build",
+    "cmake",
+    "docker",
+    "examples",
+    "include/edge-fm",
+    "scripts",
+    "src",
+    "tests",
+    "third_party",
 )
 
 
@@ -267,6 +282,20 @@ def _audit_cmake() -> dict[str, Any]:
             root_cmake,
         )
     )
+    root_legacy_references = [
+        literal
+        for literal in (
+            "add_subdirectory(src)",
+            "include/edge-fm",
+            "src/operators",
+            "third_party/",
+            "edge_fm",
+        )
+        if literal in root_cmake
+    ]
+    retired_files = [
+        _relative(path) for path in _tracked_files(_RETIRED_ROOTS)
+    ]
     tracked_cuda_sources = [
         _relative(path)
         for path in _tracked_files(("vlaforge",))
@@ -290,10 +319,12 @@ def _audit_cmake() -> dict[str, Any]:
         invalid_edges
         or tracked_cuda_sources
         or forbidden_build_references
-        or root_drives_vlaforge
+        or not root_drives_vlaforge
+        or root_legacy_references
+        or retired_files
     ):
         raise ValueError(
-            "VLAForge build graph is not isolated from old EdgeFM CUDA code"
+            "the repository root is not a clean VLAForge-only build surface"
         )
     return {
         "cmake_files": [_relative(path) for path in cmake_files],
@@ -302,7 +333,9 @@ def _audit_cmake() -> dict[str, Any]:
         "invalid_edges": [],
         "tracked_cuda_sources": [],
         "forbidden_build_references": [],
-        "root_edgefm_build_drives_vlaforge": False,
+        "root_build_drives_vlaforge": True,
+        "root_legacy_build_references": [],
+        "retired_tracked_files": [],
         "optional_cuda_contract": (
             "C++ AOTI backend links CUDA::cudart and executes external "
             "compiled artifacts; VLAForge declares no CUDA kernel source"
@@ -389,6 +422,8 @@ def audit_repository() -> dict[str, Any]:
             "core_action_queue_absent": True,
             "python_runtime_dependency_absent": True,
             "old_edgefm_cuda_build_dependency_absent": True,
+            "retired_source_tree_absent": True,
+            "root_build_is_vlaforge": True,
         },
     }
 
@@ -415,13 +450,14 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         "| Semantic IR opcode set equals frozen v0.2 set | pass |",
         "| VLAForge build has no `.cu`, `.cuh`, or `.ptx` source | pass |",
         "| No source/subdirectory edge escapes `vlaforge/` | pass |",
-        "| Root EdgeFM build does not implicitly build VLAForge | pass |",
+        "| Repository root builds VLAForge and no retired source tree | pass |",
         "",
         "## Build graph",
         "",
         f"- Audited CMake files: {len(build['cmake_files'])}",
         f"- Declared C/C++ sources: {len(build['declared_sources'])}",
         "- CUDA source files: 0",
+        "- Retired engine/operator source files: 0",
         f"- Contract: {build['optional_cuda_contract']}",
         "",
         "## Old to new migration",

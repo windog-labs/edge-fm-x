@@ -23,7 +23,7 @@ def _module() -> ModuleType:
     return module
 
 
-def test_architecture_surface_is_passive_and_build_isolated() -> None:
+def test_architecture_surface_is_passive_and_root_is_vlaforge_only() -> None:
     audit = _module()
 
     report = audit.audit_repository()
@@ -34,9 +34,9 @@ def test_architecture_surface_is_passive_and_build_isolated() -> None:
     assert report["semantic_ir"]["core_action_queue"] is False
     assert report["build_graph"]["tracked_cuda_sources"] == []
     assert report["build_graph"]["invalid_edges"] == []
-    assert (
-        report["build_graph"]["root_edgefm_build_drives_vlaforge"] is False
-    )
+    assert report["build_graph"]["root_build_drives_vlaforge"] is True
+    assert report["build_graph"]["root_legacy_build_references"] == []
+    assert report["build_graph"]["retired_tracked_files"] == []
 
 
 def test_forbidden_scanner_reports_category_path_and_line(

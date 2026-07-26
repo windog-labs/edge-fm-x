@@ -94,9 +94,9 @@ runner 在无效 `PYTHONHOME/PYTHONPATH` 下执行，并检查 `ldd` 无 Python�
 - SmolVLA-like generated Session：arm64 10/10 build + runner passed；
 - 两个 runner 均无 Python 动态库依赖。
 
-顶层 EdgeFM engine/operator 并非 VLAForge core 的依赖。只有 bundle 明确
-选择 EdgeFM 作为某个 TensorRegion artifact provider 时，才按需构建对应
-backend；VLAForge portability gate 不再全量编译旧 EdgeFM CUDA operators。
+VLAForge 不依赖任何旧 engine/operator 层。Bundle 只通过
+`RegionExecutable` ABI 选择外部 TensorRegion artifact provider；portability
+gate 不编译仓库外模型 kernel，也没有旧 CUDA operator fallback。
 
 ## 当前证据边界
 

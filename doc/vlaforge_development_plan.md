@@ -49,7 +49,7 @@ flowchart TB
 
 两层程序模型：
 
-1. `TensorRegion` 表达可由 torch.export/AOTInductor、TensorRT、EdgeFM 或
+1. `TensorRegion` 表达可由 torch.export/AOTInductor、TensorRT 或
    自定义 C++/CUDA backend 实现的纯 Tensor/Scalar 计算；
 2. Invocation IR 表达 Region 之间真正需要跨调用理解的状态、有限循环、
    分支、缓存合法性和事务输出。
@@ -216,7 +216,7 @@ ROS/Cyber message、`std::any` 或任意宿主对象。客户可以接入：
 - 点云、BEV、agent/map encoder；
 - CAN packing；
 - 自定义 postprocess/validator；
-- TensorRT、AOTI、EdgeFM 或私有 artifact provider。
+- TensorRT、AOTI 或私有 artifact provider。
 
 未知输入不能在已编译 bundle 中动态增加。新增普通输入需改 Adapter 并重新
 编译；预留扩展端口必须在编译期声明。
@@ -257,7 +257,7 @@ opcode 或任意未验证 opcode。
 | `python/vlaforge/codegen/` | generated Session、C ABI、typed wrapper、fixtures |
 | `include/vlaforge/runtime/` + `runtime/` | C/C++ ABI、StateStore、Transaction、Region plugin |
 | `python/vlaforge/adapters/` | 机器人/驾驶模型 Adapter 与 source contract |
-| `tests/` | Semantic/Plan/C++ parity、negative contracts、model matrix |
+| `vlaforge/tests/` | Semantic/Plan/C++ parity、negative contracts、model matrix |
 
 ## 7. 模型覆盖与证据纪律
 
@@ -393,7 +393,7 @@ compile 后 Semantic/Plan 的 output、state、完整 trace 等价；新增 core
 middleware、publish、internal sleep、core action queue 或 Python runtime
 依赖。15 个 Semantic IR op 与冻结 v0.2 集合一致。VLAForge 的 3 个 CMake
 文件声明 20 个 C/C++ sources，没有 `.cu/.cuh/.ptx`、越界 source/subdirectory
-edge 或根 EdgeFM `src/operators` 依赖；可选 CUDA target 只通过
+edge 或已退役的旧 operator 依赖；可选 CUDA target 只通过
 `CUDA::cudart` 执行外部 AOTI artifact。负例测试和论文分析工具中的旧符号
 引用被单独列出，不属于 production surface。报告见
 `doc/reports/vlaforge_architecture_v01/architecture_surface.md`。

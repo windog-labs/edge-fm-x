@@ -1,8 +1,9 @@
 # VLAForge Invocation Compiler v0.2
 
 VLAForge compiles an externally invoked, stateful VLA program into a
-schema-checked, no-Python C++ Session. It is isolated from EdgeFM's
-engine/model/operator hierarchy; EdgeFM is one possible TensorRegion backend.
+schema-checked, no-Python C++ Session. TensorRegion implementations are
+provided by verified external artifacts through the RegionExecutable ABI;
+there is no legacy engine/model/operator hierarchy in this repository.
 
 Canonical design:
 
