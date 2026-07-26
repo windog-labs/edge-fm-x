@@ -39,18 +39,20 @@ VLAForgeTensorView View(at::Tensor& tensor,
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 2 || argc > 5) {
+  if (argc < 2 || argc > 6) {
     std::fprintf(
         stderr,
-        "usage: %s REGION.pt2 [cuda|cpu] [target|-] [negative-mode]\n",
+        "usage: %s ARTIFACT [cuda|cpu] [target|-] [negative-mode] "
+        "[backend-variant|-]\n",
         argv[0]);
     return 2;
   }
 
-  const std::string requested_device = argc == 3 ? argv[2] : "cuda";
+  const std::string requested_device = argc >= 3 ? argv[2] : "cuda";
   const bool use_cuda = requested_device == "cuda";
   const std::string target = argc >= 4 ? argv[3] : "";
   const std::string mode = argc >= 5 ? argv[4] : "normal";
+  const std::string backend_variant = argc >= 6 ? argv[5] : "";
   if (!use_cuda && requested_device != "cpu") {
     std::fprintf(stderr, "device must be cuda or cpu\n");
     return 2;
@@ -102,8 +104,12 @@ int main(int argc, char** argv) {
       0u,
       target.empty() || target == "-" ? nullptr : target.data(),
       target.empty() || target == "-" ? 0u : target.size(),
-      nullptr,
-      0u,
+      backend_variant.empty() || backend_variant == "-"
+          ? nullptr
+          : backend_variant.data(),
+      backend_variant.empty() || backend_variant == "-"
+          ? 0u
+          : backend_variant.size(),
   };
   auto input_view = View(input, kMatrixShape.data(), 2u, device_kind);
   auto gain_view = View(gain, nullptr, 0u, device_kind);

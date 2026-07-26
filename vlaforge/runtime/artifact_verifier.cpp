@@ -153,3 +153,39 @@ Status VerifyArtifactFile(
 }
 
 }  // namespace vlaforge::runtime
+
+extern "C" std::uint32_t vlaforge_verify_artifact_file_abi(
+    const char* bundle_root, std::size_t bundle_root_size,
+    const char* relative_path, std::size_t relative_path_size,
+    const char* expected_sha256, std::size_t expected_sha256_size,
+    std::uint64_t expected_size, const char** resolved_path,
+    const char** error_message) noexcept {
+  thread_local std::string resolved_storage;
+  if (resolved_path == nullptr || error_message == nullptr ||
+      bundle_root == nullptr || relative_path == nullptr ||
+      expected_sha256 == nullptr) {
+    if (resolved_path != nullptr) {
+      *resolved_path = nullptr;
+    }
+    if (error_message != nullptr) {
+      *error_message = "invalid artifact verification ABI request";
+    }
+    return static_cast<std::uint32_t>(
+        vlaforge::runtime::StatusCode::kInvalidArgument);
+  }
+  resolved_storage.clear();
+  const auto status = vlaforge::runtime::VerifyArtifactFile(
+      std::string_view(bundle_root, bundle_root_size),
+      std::string_view(relative_path, relative_path_size),
+      std::string_view(expected_sha256, expected_sha256_size),
+      expected_size, &resolved_storage);
+  if (!status.ok()) {
+    *resolved_path = nullptr;
+    *error_message = status.message;
+    return static_cast<std::uint32_t>(status.code);
+  }
+  *resolved_path = resolved_storage.c_str();
+  *error_message = "ok";
+  return static_cast<std::uint32_t>(
+      vlaforge::runtime::StatusCode::kOk);
+}

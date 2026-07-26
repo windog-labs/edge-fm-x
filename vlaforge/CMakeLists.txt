@@ -62,7 +62,9 @@ if(VLAFORGE_BUILD_AOTI_BACKEND)
         PUBLIC VLAFORGE_ENABLE_CUDA_ARENA=1)
     target_link_libraries(vlaforge_runtime PUBLIC CUDA::cudart)
     add_library(vlaforge_aoti_backend STATIC
+        backends/aoti_callable.cpp
         backends/aoti_region_executable.cpp
+        backends/aoti_sequence_runner.cpp
     )
     target_include_directories(vlaforge_aoti_backend
         PUBLIC

@@ -1,5 +1,12 @@
 """Versioned deployment artifact and compile-bundle contracts."""
 
+from vlaforge.deployment.aoti_sequence import (
+    AOTI_SEQUENCE_SCHEMA,
+    AotiSequenceArtifact,
+    AotiSequenceManifest,
+    AotiSequenceNode,
+    AotiSequenceValue,
+)
 from vlaforge.deployment.contract import (
     CALLABLE_ABI_VERSION,
     ARTIFACT_SCHEMA,
@@ -44,6 +51,11 @@ def build_artifact_compile_bundle(*args, **kwargs):
     return build(*args, **kwargs)
 
 __all__ = [
+    "AOTI_SEQUENCE_SCHEMA",
+    "AotiSequenceArtifact",
+    "AotiSequenceManifest",
+    "AotiSequenceNode",
+    "AotiSequenceValue",
     "ARTIFACT_SCHEMA",
     "BUNDLE_SCHEMA",
     "CALLABLE_ABI_VERSION",
