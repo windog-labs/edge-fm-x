@@ -335,11 +335,16 @@ def evaluate(
         or not audit.get("installed_package_mode")
         or Path(audit["package_import"]).resolve() != package_path
         or Path(audit["runtime_root"]).resolve() != runtime_root.resolve()
-        or audit.get("python_linked")
         or generated.get("artifact_target") != "sm_86"
         or generated.get("source_revision") != current_revision
+        or generated.get("python_linked")
+        or not generated.get("invalid_python_environment_run")
+        or not generated.get("bundle_verified")
         or not generated.get("schema_validated")
         or not generated.get("abi_validated")
+        or paged.get("python_linked")
+        or not paged.get("invalid_python_environment_run")
+        or not paged.get("bundle_verified")
         or set(generated.get("negative_cases", {}))
         != required_negative_cases
         or set(paged.get("negative_cases", {}))
@@ -382,14 +387,7 @@ def evaluate(
             "cuda": audit["cuda_version"],
             "artifact": audit["package"],
             "compile_seconds": audit["compile_seconds"],
-            "direct_cpp": {
-                "maximum_absolute_error": audit["max_abs_error"],
-                "invalid_python_environment": (
-                    audit["invalid_python_environment_run"]
-                ),
-                "links_libpython": audit["python_linked"],
-                "negative_cases": audit["backend_negative_cases"],
-            },
+            "direct_backend_smoke": audit["direct_backend_smoke"],
             "session_resident_bundle": generated,
             "invocation_resident_bundle": paged,
         },

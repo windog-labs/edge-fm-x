@@ -462,6 +462,141 @@ return true;""",
     }
 
 
+def _audit_direct_backend(
+    *,
+    root: Path,
+    source_root: Path,
+    build_dir: Path,
+    package_path: Path,
+    device: str,
+    expected_target: str,
+    expected: list[float],
+) -> dict[str, object]:
+    configure = _run(
+        [
+            "cmake",
+            "-S",
+            str(source_root),
+            "-B",
+            str(build_dir),
+            "-DVLAFORGE_BUILD_AOTI_BACKEND=ON",
+            "-DBUILD_TESTING=ON",
+            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_PREFIX_PATH={torch.utils.cmake_prefix_path}",
+        ]
+    )
+    build = _run(
+        [
+            "cmake",
+            "--build",
+            str(build_dir),
+            "--target",
+            "vlaforge_aoti_region_smoke",
+            "--parallel",
+            "4",
+        ]
+    )
+    runner = build_dir / "tests" / "cpp" / "vlaforge_aoti_region_smoke"
+    clean_environment = dict(os.environ)
+    clean_environment.update(
+        {
+            "PYTHONHOME": "/definitely/not/a/python/home",
+            "PYTHONPATH": "/definitely/not/a/python/path",
+        }
+    )
+    run_start = time.perf_counter()
+    completed = _run(
+        [str(runner), str(package_path), device, expected_target, "normal"],
+        env=clean_environment,
+    )
+    run_seconds = time.perf_counter() - run_start
+    actual = _parse_output(completed.stdout)
+    if len(actual) != len(expected):
+        raise RuntimeError(
+            f"output length mismatch: {len(actual)} != {len(expected)}"
+        )
+    max_abs_error = max(
+        (
+            abs(left - right)
+            for left, right in zip(actual, expected, strict=True)
+        ),
+        default=0.0,
+    )
+    if max_abs_error > 1e-6:
+        raise RuntimeError(f"AOTI numeric mismatch: {max_abs_error}")
+
+    linked = _run(["ldd", str(runner)]).stdout
+    linked_libraries = [
+        line.strip().split()[0].lower()
+        for line in linked.splitlines()
+        if line.strip()
+    ]
+    if any(name.startswith("libpython") for name in linked_libraries):
+        raise RuntimeError("C++ AOTI runner unexpectedly links Python")
+    negative_cases = {}
+    wrong_target = subprocess.run(
+        [str(runner), str(package_path), device, "sm_00", "normal"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=clean_environment,
+    )
+    if (
+        wrong_target.returncode == 0
+        or "target mismatch" not in wrong_target.stderr
+    ):
+        raise RuntimeError("AOTI backend did not reject wrong target")
+    negative_cases["wrong-target"] = "rejected"
+
+    invalid_package = root / "artifacts" / "invalid.pt2"
+    invalid_package.write_bytes(b"not an AOTI package")
+    load_failure = subprocess.run(
+        [str(runner), str(invalid_package), device, expected_target, "normal"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=clean_environment,
+    )
+    if load_failure.returncode == 0 or "load failed" not in load_failure.stderr:
+        raise RuntimeError("AOTI backend did not report load failure")
+    negative_cases["load-failure"] = "rejected"
+
+    for mode, expected_message in (
+        ("missing-input-binding", "run failed"),
+        ("wrong-output-shape", "output metadata mismatch"),
+    ):
+        failed = subprocess.run(
+            [
+                str(runner),
+                str(package_path),
+                device,
+                expected_target,
+                mode,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=clean_environment,
+        )
+        if failed.returncode == 0 or expected_message not in failed.stderr:
+            raise RuntimeError(
+                f"AOTI backend did not reject {mode}: {failed.stderr}"
+            )
+        negative_cases[mode] = "rejected"
+    return {
+        "status": "passed",
+        "run_seconds": run_seconds,
+        "max_abs_error": max_abs_error,
+        "output_elements": len(actual),
+        "cpp_runner": str(runner),
+        "python_linked": False,
+        "invalid_python_environment_run": True,
+        "negative_cases": negative_cases,
+        "configure_tail": configure.stdout.splitlines()[-5:],
+        "build_tail": build.stdout.splitlines()[-5:],
+    }
+
+
 def _audit(
     root: Path,
     device: str = "cuda",
@@ -502,118 +637,28 @@ def _audit(
             f"AOTI package path mismatch: {actual_package} != {package_path}"
         )
 
-    configure = _run(
-        [
-            "cmake",
-            "-S",
-            str(source_root),
-            "-B",
-            str(build_dir),
-            "-DVLAFORGE_BUILD_AOTI_BACKEND=ON",
-            "-DBUILD_TESTING=ON",
-            "-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_PREFIX_PATH={torch.utils.cmake_prefix_path}",
-        ]
-    )
-    build = _run(
-        [
-            "cmake",
-            "--build",
-            str(build_dir),
-            "--target",
-            "vlaforge_aoti_region_smoke",
-            "--parallel",
-            "4",
-        ]
-    )
-    runner = build_dir / "tests" / "cpp" / "vlaforge_aoti_region_smoke"
-    clean_environment = dict(os.environ)
-    clean_environment.update(
-        {
-            "PYTHONHOME": "/definitely/not/a/python/home",
-            "PYTHONPATH": "/definitely/not/a/python/path",
+    expected_target = "sm_86" if device == "cuda" else "cpu"
+    direct_backend = (
+        _audit_direct_backend(
+            root=root,
+            source_root=source_root,
+            build_dir=build_dir,
+            package_path=package_path,
+            device=device,
+            expected_target=expected_target,
+            expected=expected,
+        )
+        if (source_root / "tests/cpp/aoti_region_smoke.cpp").is_file()
+        else {
+            "status": "not_run",
+            "reason": (
+                "installed runtime distribution intentionally excludes "
+                "test-only C++ sources; generated Session exercises the "
+                "production backend"
+            ),
+            "negative_cases": {},
         }
     )
-    run_start = time.perf_counter()
-    expected_target = "sm_86" if device == "cuda" else "cpu"
-    completed = _run(
-        [str(runner), str(package_path), device, expected_target, "normal"],
-        env=clean_environment,
-    )
-    run_seconds = time.perf_counter() - run_start
-    actual = _parse_output(completed.stdout)
-    if len(actual) != len(expected):
-        raise RuntimeError(
-            f"output length mismatch: {len(actual)} != {len(expected)}"
-        )
-    max_abs_error = max(
-        (abs(left - right) for left, right in zip(actual, expected, strict=True)),
-        default=0.0,
-    )
-    if max_abs_error > 1e-6:
-        raise RuntimeError(f"AOTI numeric mismatch: {max_abs_error}")
-
-    linked = _run(["ldd", str(runner)]).stdout
-    linked_libraries = [
-        line.strip().split()[0].lower()
-        for line in linked.splitlines()
-        if line.strip()
-    ]
-    if any(name.startswith("libpython") for name in linked_libraries):
-        raise RuntimeError("C++ AOTI runner unexpectedly links Python")
-    backend_negative_cases = {}
-    wrong_target = subprocess.run(
-        [str(runner), str(package_path), device, "sm_00", "normal"],
-        check=False,
-        capture_output=True,
-        text=True,
-        env=clean_environment,
-    )
-    if (
-        wrong_target.returncode == 0
-        or "target mismatch" not in wrong_target.stderr
-    ):
-        raise RuntimeError("AOTI backend did not reject wrong target")
-    backend_negative_cases["wrong-target"] = "rejected"
-
-    invalid_package = root / "artifacts" / "invalid.pt2"
-    invalid_package.write_bytes(b"not an AOTI package")
-    load_failure = subprocess.run(
-        [str(runner), str(invalid_package), device, expected_target, "normal"],
-        check=False,
-        capture_output=True,
-        text=True,
-        env=clean_environment,
-    )
-    if load_failure.returncode == 0 or "load failed" not in load_failure.stderr:
-        raise RuntimeError("AOTI backend did not report load failure")
-    backend_negative_cases["load-failure"] = "rejected"
-
-    for mode, expected_message in (
-        ("missing-input-binding", "run failed"),
-        ("wrong-output-shape", "output metadata mismatch"),
-    ):
-        failed = subprocess.run(
-            [
-                str(runner),
-                str(package_path),
-                device,
-                expected_target,
-                mode,
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            env=clean_environment,
-        )
-        if (
-            failed.returncode == 0
-            or expected_message not in failed.stderr
-        ):
-            raise RuntimeError(
-                f"AOTI backend did not reject {mode}: {failed.stderr}"
-            )
-        backend_negative_cases[mode] = "rejected"
     package_sha256 = _sha256(package_path)
     generated_session = _audit_generated_session(
         root,
@@ -654,19 +699,22 @@ def _audit(
             "size_bytes": package_path.stat().st_size,
         },
         "compile_seconds": compile_seconds,
-        "run_seconds": run_seconds,
-        "max_abs_error": max_abs_error,
-        "output_elements": len(actual),
-        "cpp_runner": str(runner),
-        "python_linked": False,
-        "invalid_python_environment_run": True,
-        "backend_negative_cases": backend_negative_cases,
+        "direct_backend_smoke": direct_backend,
+        "run_seconds": direct_backend.get("run_seconds"),
+        "max_abs_error": direct_backend.get("max_abs_error"),
+        "output_elements": direct_backend.get("output_elements"),
+        "cpp_runner": direct_backend.get("cpp_runner"),
+        "python_linked": direct_backend.get("python_linked"),
+        "invalid_python_environment_run": direct_backend.get(
+            "invalid_python_environment_run"
+        ),
+        "backend_negative_cases": direct_backend["negative_cases"],
         "generated_session": generated_session,
         "invocation_resident_generated_session": (
             invocation_resident_generated_session
         ),
-        "configure_tail": configure.stdout.splitlines()[-5:],
-        "build_tail": build.stdout.splitlines()[-5:],
+        "configure_tail": direct_backend.get("configure_tail", []),
+        "build_tail": direct_backend.get("build_tail", []),
     }
 
 
