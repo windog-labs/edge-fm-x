@@ -43,8 +43,10 @@ def test_cuda_aoti_region_backend(tmp_path: Path) -> None:
     assert generated["bundle_verified"] is True
     assert generated["python_linked"] is False
     assert set(generated["negative_cases"]) == {
+        "abi-mismatch",
         "corrupt-artifact",
         "missing-artifact",
+        "schema-mismatch",
         "wrong-device",
         "wrong-dtype",
         "wrong-layout",

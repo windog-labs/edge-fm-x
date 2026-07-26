@@ -18,8 +18,13 @@ from pathlib import Path
 import torch
 
 _SOURCE_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_SOURCE_ROOT / "python"))
+_INSTALLED_PACKAGE_MODE = (
+    os.environ.get("VLAFORGE_AUDIT_INSTALLED_PACKAGE") == "1"
+)
+if not _INSTALLED_PACKAGE_MODE:
+    sys.path.insert(0, str(_SOURCE_ROOT / "python"))
 
+import vlaforge  # noqa: E402
 from vlaforge.codegen import CppValidatorDefinition  # noqa: E402
 from vlaforge.deployment import (  # noqa: E402
     ArtifactIdentity,
@@ -217,7 +222,9 @@ int main(int argc, char** argv) {
     values_bound.tensor.device = {VLAFORGE_DEVICE_CPU, 0};
   } else if (mode == "wrong-layout") {
     values_bound.layout = VLAFORGE_LAYOUT_NHWC;
-  } else if (mode != "normal") {
+  } else if (mode != "normal" &&
+             mode != "schema-mismatch" &&
+             mode != "abi-mismatch") {
     std::fprintf(stderr, "unknown negative mode\n");
     return 2;
   }
@@ -232,9 +239,20 @@ int main(int argc, char** argv) {
     return 3;
   }
   const auto* api = vlaforge_model_session_api();
+  VLAForgeSessionApi invalid_api = *api;
+  if (mode == "abi-mismatch") {
+    invalid_api.abi_version += 1u;
+    api = &invalid_api;
+  }
+  std::array<char, VLAFORGE_SCHEMA_DIGEST_HEX_SIZE> wrong_digest{};
+  wrong_digest.fill('0');
+  const char* expected_digest =
+      mode == "schema-mismatch"
+          ? wrong_digest.data()
+          : vlaforge_generated::kSchemaDigest;
   const bool passed =
       Check(vlaforge_session_api_validate(
-                api, vlaforge_generated::kSchemaDigest,
+                api, expected_digest,
                 VLAFORGE_SCHEMA_DIGEST_HEX_SIZE),
             "validate session API") &&
       Check(api->bind_tensor(session, 0u, &values_bound, &stamp),
@@ -267,6 +285,8 @@ def _audit_generated_session(
     graph_sha256: str,
     expected: list[float],
     residency: ArtifactResidency,
+    runtime_root: Path,
+    source_revision: str,
 ) -> dict[str, object]:
     module = _semantic_module()
     artifact_relative = "artifacts/audit_tensor_region.pt2"
@@ -330,14 +350,14 @@ return true;""",
             )
         },
         runner_source=_generated_runner_source(),
-        runtime_root=_SOURCE_ROOT,
+        runtime_root=runtime_root,
         cmake_prefix_path=torch.utils.cmake_prefix_path,
         backend_versions={
             "aoti": f"torch-{torch.__version__}",
             "cuda": str(torch.version.cuda),
         },
         profile="off",
-        source_revision="local:audit-v1",
+        source_revision=source_revision,
         source_dirty=False,
         environment={"TORCH_CUDA_ARCH_LIST": "8.6"},
     )
@@ -366,12 +386,15 @@ return true;""",
     if "libpython" in linked.lower():
         raise RuntimeError("generated Session unexpectedly links Python")
     negative_cases: dict[str, str] = {}
-    for mode in (
-        "wrong-shape",
-        "wrong-dtype",
-        "wrong-device",
-        "wrong-layout",
-    ):
+    expected_failures = {
+        "wrong-shape": "contract mismatch",
+        "wrong-dtype": "contract mismatch",
+        "wrong-device": "contract mismatch",
+        "wrong-layout": "contract mismatch",
+        "schema-mismatch": "session schema digest mismatch",
+        "abi-mismatch": "unsupported session ABI",
+    }
+    for mode, expected_message in expected_failures.items():
         failed = subprocess.run(
             [str(runner), str(bundle_root), mode],
             check=False,
@@ -379,7 +402,7 @@ return true;""",
             text=True,
             env=environment,
         )
-        if failed.returncode == 0 or "contract mismatch" not in failed.stderr:
+        if failed.returncode == 0 or expected_message not in failed.stderr:
             raise RuntimeError(
                 f"generated Session did not reject {mode}: "
                 f"{failed.stderr}"
@@ -428,15 +451,28 @@ return true;""",
         "python_linked": False,
         "invalid_python_environment_run": True,
         "bundle_verified": True,
+        "schema_validated": True,
+        "abi_validated": True,
+        "io_schema_digest": manifest.io_schema_digest,
+        "artifact_target": artifact.capability.target,
+        "artifact_sha256": artifact.artifact_sha256,
+        "backend_variant": artifact.backend_variant,
+        "source_revision": manifest.reproducibility.source_revision,
         "negative_cases": negative_cases,
     }
 
 
-def _audit(root: Path, device: str = "cuda") -> dict[str, object]:
+def _audit(
+    root: Path,
+    device: str = "cuda",
+    *,
+    runtime_root: Path = _SOURCE_ROOT,
+    source_revision: str = "local:audit-v1",
+) -> dict[str, object]:
     if device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA is unavailable")
 
-    source_root = _SOURCE_ROOT
+    source_root = runtime_root
     package_path = root / "artifacts" / "audit_tensor_region.pt2"
     package_path.parent.mkdir(parents=True, exist_ok=True)
     build_dir = root / "build"
@@ -586,6 +622,8 @@ def _audit(root: Path, device: str = "cuda") -> dict[str, object]:
         graph_sha256,
         expected,
         ArtifactResidency.SESSION,
+        runtime_root,
+        source_revision,
     )
     invocation_resident_generated_session = _audit_generated_session(
         root,
@@ -594,6 +632,8 @@ def _audit(root: Path, device: str = "cuda") -> dict[str, object]:
         graph_sha256,
         expected,
         ArtifactResidency.INVOCATION,
+        runtime_root,
+        source_revision,
     )
 
     return {
@@ -601,9 +641,13 @@ def _audit(root: Path, device: str = "cuda") -> dict[str, object]:
         "status": "passed",
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
+        "target": expected_target,
         "device": (
             torch.cuda.get_device_name(0) if device == "cuda" else "cpu"
         ),
+        "package_import": str(Path(vlaforge.__file__).resolve()),
+        "installed_package_mode": _INSTALLED_PACKAGE_MODE,
+        "runtime_root": str(runtime_root.resolve()),
         "package": {
             "path": str(package_path),
             "sha256": package_sha256,
@@ -636,6 +680,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--device", choices=("cuda", "cpu"), default="cuda"
     )
+    parser.add_argument(
+        "--runtime-root",
+        type=Path,
+        default=_SOURCE_ROOT,
+        help="C++ runtime source root; defaults to the source checkout.",
+    )
+    parser.add_argument(
+        "--source-revision",
+        default="local:audit-v1",
+        help="Immutable source revision recorded in generated bundles.",
+    )
     args = parser.parse_args(argv)
 
     context = (
@@ -650,7 +705,12 @@ def main(argv: list[str] | None = None) -> int:
             else Path(selected).resolve()
         )
         root.mkdir(parents=True, exist_ok=True)
-        report = _audit(root, args.device)
+        report = _audit(
+            root,
+            args.device,
+            runtime_root=args.runtime_root.resolve(),
+            source_revision=args.source_revision,
+        )
     text = json.dumps(report, indent=2, sort_keys=True)
     print(text)
     if args.report:
