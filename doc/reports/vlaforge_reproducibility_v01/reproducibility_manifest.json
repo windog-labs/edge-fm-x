@@ -186,6 +186,1406 @@
       "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_osrt_sum.json",
       "sha256": "03e986d67d248bfca550533e12260dfc78efe26a5222faf623251b495011cb5f",
       "size_bytes": 6398
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_00/direct_artifact.json",
+      "sha256": "827dbcbd8ad3c9a0454d97ce96cb3d23cf760cc2e343b865a957765b0cb04085",
+      "size_bytes": 6899
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_00/eager.json",
+      "sha256": "639a6e9cde4e4cb8cff5b03b7cceaca0fe1a4a084540139615ff735fd0a7689c",
+      "size_bytes": 6119
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_00/generated_session.csv",
+      "sha256": "fe7437498d846c4a93ee915c421fa3ad43544965f6e12256a49808351b9802a3",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_00/generated_session.json",
+      "sha256": "3cf88675c889fb7788a122aaf175714d91dbd34923a238f42737cdd2c55063c2",
+      "size_bytes": 3588
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_01/direct_artifact.json",
+      "sha256": "94ad236a0764d059bfa9f0e8310707206bf0594a25ba26662b0efe88e59261fa",
+      "size_bytes": 6908
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_01/eager.json",
+      "sha256": "462a581b5bbaa561afa27f62d0be77d440acf1dd1edbe890b9712a1a11058729",
+      "size_bytes": 6127
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_01/generated_session.csv",
+      "sha256": "b0fc30d028f67c0749f687bd44fe53ea7f5bca62e4893c7f646e8bfecd8d84fc",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_01/generated_session.json",
+      "sha256": "f4ab7f50984600784f4aedd715e91e0c55e5464867efea3c5ec5cb843297d383",
+      "size_bytes": 3596
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_02/direct_artifact.json",
+      "sha256": "d162cc83cfbe7f4881900557da64a967af5bdfa05e7bb4815b95eacf4dd5e20b",
+      "size_bytes": 6907
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_02/eager.json",
+      "sha256": "48aafe610e93944620dac2ec6f4c3aeb91370eb4fd2ef9d9ba4222057c98d04a",
+      "size_bytes": 6126
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_02/generated_session.csv",
+      "sha256": "ed5b3e9897cbb68d5f7636b7cf93bb9252a8d8787f2f62ddf9a241f0b6f41808",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_02/generated_session.json",
+      "sha256": "14a37ce901c6eb2e458e23060e45e1604304d1dccb79abdf4d6cb365987c5e9b",
+      "size_bytes": 3597
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_03/direct_artifact.json",
+      "sha256": "cbad378e77b2fc36cd7942c19307933e5c18dfc089dfbf148b172a83c74cd9e8",
+      "size_bytes": 6908
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_03/eager.json",
+      "sha256": "a603efa788556d7197ff6939de9d3185f2fb37176abb6a204fc3576ad7d4c3a3",
+      "size_bytes": 6127
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_03/generated_session.csv",
+      "sha256": "9d0f727534c4d235dcf81039c6a819bd7c5a90ca4d2443b3a6d5b032efc45b43",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_03/generated_session.json",
+      "sha256": "42eb09df7156893c5a0d5e7ee196e25b26797a265b1f91b02a6821724d4865ea",
+      "size_bytes": 3596
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_04/direct_artifact.json",
+      "sha256": "c85ce979ca2e8aa876ae7ac9dbd86a3e2b9e807e25ad083a7fbb72d2fb7b66ff",
+      "size_bytes": 6909
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_04/eager.json",
+      "sha256": "ac6903d4beb62a74b0cfc7322d877a1e4c2f56752af7c467977a80d138b13155",
+      "size_bytes": 6127
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_04/generated_session.csv",
+      "sha256": "6277108ede26c37dfabde40497fb99b3a4c731a0310806dccda5ec09d3b8629d",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/baseline/repeat_04/generated_session.json",
+      "sha256": "9444069dd42d92d64574af403d8fc740ee5df01d55e83331913a6d44532e7087",
+      "size_bytes": 3595
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_00/direct_artifact.json",
+      "sha256": "60bb4059d380aa78cb128eacc72911dc7c0b8078ec00bd9c2a4ba5c5d4de3d6b",
+      "size_bytes": 6951
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_00/eager.json",
+      "sha256": "0339fffd878b71391e1a1fdb19f3618462b9c13fa52ebf4db4144de57b38a374",
+      "size_bytes": 6112
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_00/generated_session.csv",
+      "sha256": "772aac130be2bc5c439c5a412278ec47e14a54dddcf887667d659ec9e6931358",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_00/generated_session.json",
+      "sha256": "f8beac4b790f6e4c1f636b2984494e9bb5743398edb6a326fe4de8fe62fd2272",
+      "size_bytes": 3625
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_01/direct_artifact.json",
+      "sha256": "df71d52466401bb058dc5ad968c212b0eb07e4363410d3d219f78017983b9643",
+      "size_bytes": 6958
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_01/eager.json",
+      "sha256": "ed44ba6131293da4725b3797c9fba4ffdf4e8c6a413adc86fedd00f9cf348850",
+      "size_bytes": 6111
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_01/generated_session.csv",
+      "sha256": "b4019128dbf54047fea672d95d51e116d0c2ea3eae197baafc51eb45b250a636",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_01/generated_session.json",
+      "sha256": "7124f0772dfb0e23ec468ea3c20044dee0b9313e7806918f3c887424ae5bdd20",
+      "size_bytes": 3624
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_02/direct_artifact.json",
+      "sha256": "6c542c064f8aa2d67ad3979868eae7d58370825eeaae8a5913277c7689679c24",
+      "size_bytes": 6959
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_02/eager.json",
+      "sha256": "3c2de1432d762a622006782667b7025048f6d3b29c201e1c67ba5c3d17470706",
+      "size_bytes": 6113
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_02/generated_session.csv",
+      "sha256": "5de277d5972fecc75dcb2fc8eadfebf5684221c0afbb1fd77740edd20027b971",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_02/generated_session.json",
+      "sha256": "3ac1876aa1f3b2278ae055f75c1f412e4f980dc9c4a3bb9310e7e68b1c38ae09",
+      "size_bytes": 3623
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_03/direct_artifact.json",
+      "sha256": "fbe747a9070d441ecc1967fe2348b1ad5af80446f728b649cb632d1ab3fb204f",
+      "size_bytes": 6950
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_03/eager.json",
+      "sha256": "ae0f8e4c16795a77ee6356e4c46f42321c7d0c2572d3e249f5a20e838ec66e64",
+      "size_bytes": 6106
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_03/generated_session.csv",
+      "sha256": "84e7a120d3e79cb569d82b3fae90ecb63df4d63bed46485e5082106a90dd45ff",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_03/generated_session.json",
+      "sha256": "ad1d7e1729f5200accff935567b9e871a91a864813ef1dfd501252914e8b1117",
+      "size_bytes": 3625
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_04/direct_artifact.json",
+      "sha256": "ab72e29e13e462ccff1fa95514cbfdf4cc1f64a03e22d837e2325b5cdf2b69f5",
+      "size_bytes": 6950
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_04/eager.json",
+      "sha256": "f038f3d6c81a0e98cc2258cdcca15fa3f36507e48eeb1eb956a67956d1a9f1f9",
+      "size_bytes": 6113
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_04/generated_session.csv",
+      "sha256": "7de3bbf37049e093d3de95083bdd3108d1ce720483ab3c73ba21ae9deb78173a",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/context_plus_0p01/repeat_04/generated_session.json",
+      "sha256": "9d1cdd65c463c5dfaa9d69ab7f4ff6dde411d367762d5dfb4491f5c184e51ced",
+      "size_bytes": 3625
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_00/direct_artifact.json",
+      "sha256": "5a0b3c8aa3357f8762fe15acb23a3a2ce6764d99195f49ed065331cf1a6ec817",
+      "size_bytes": 6954
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_00/eager.json",
+      "sha256": "ea5d25b4918c9185b9a74652c5ca43328b5d3b3c9d4851c63abb90073f2d58b3",
+      "size_bytes": 6132
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_00/generated_session.csv",
+      "sha256": "6fc73007aa45992bd27f48623f7a4649c2993de9e4a696a62baa6bb8c5c732cd",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_00/generated_session.json",
+      "sha256": "631c6a72166f6d77c1b9084b10e6d06b97fabbc8662426640927db2580aca6fa",
+      "size_bytes": 3618
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_01/direct_artifact.json",
+      "sha256": "61aed92c5059c4e94f98a087116f28f1c63df1858b2614a2eb15b8da408b15de",
+      "size_bytes": 6954
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_01/eager.json",
+      "sha256": "e31d85d4f92e824aea2fae67fa6b22d0c17eaab4b71f9d2929affe11cd93fd51",
+      "size_bytes": 6140
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_01/generated_session.csv",
+      "sha256": "c6433d4f3b3218c0694c77770d8a26c8e50e3ff6cf702e104b4db9a1b2d27fb5",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_01/generated_session.json",
+      "sha256": "6a354bb979bc9bf52c46638117c17c4ef557d896c2e779839e5c49f35630153a",
+      "size_bytes": 3618
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_02/direct_artifact.json",
+      "sha256": "48dc2d33464fbc9cb25f3a023ae3da1097eb23c50613c1c6043be2a297c26b7b",
+      "size_bytes": 6955
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_02/eager.json",
+      "sha256": "99bb8d5d12a4a7042a39f0dd44a9cf1991221bd42104172e83c5b6e7739f6faf",
+      "size_bytes": 6140
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_02/generated_session.csv",
+      "sha256": "7f8588de1f43452e5ccd60487a79be3d389fbf66d46ebdf7df940d08930e9965",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_02/generated_session.json",
+      "sha256": "270e4e769bfa768f3cee6356311610225fe369b1541c8feaf9571e8d43f08f0f",
+      "size_bytes": 3618
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_03/direct_artifact.json",
+      "sha256": "573591969c7cd31691b348cf3b355a368ad3d931d401c95ed8c67e1be3b1753e",
+      "size_bytes": 6955
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_03/eager.json",
+      "sha256": "86748a1b6d4a5ae1db3a3632fcbbbc2354b48e1ec711323e181bdc966178ca77",
+      "size_bytes": 6139
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_03/generated_session.csv",
+      "sha256": "c9d9e05a93e3c1169f2568e53346e5d451a64045d0145616d5a80930d00922ad",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_03/generated_session.json",
+      "sha256": "65f0f4aaa3aed3b59eef56068c0d0e41b83b46e6c89f03a4319dab05944a0409",
+      "size_bytes": 3619
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_04/direct_artifact.json",
+      "sha256": "1317f643e17e2a4d069683b8ca0c642ef3658db12dd8d3506fd3424fd4585a9a",
+      "size_bytes": 6946
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_04/eager.json",
+      "sha256": "445bc96aecdeb27610251993c08cbe060f36ff52133914ea4224b26987088a40",
+      "size_bytes": 6140
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_04/generated_session.csv",
+      "sha256": "7da68093877d000564afe2db74faf00a4c2c23aa61ba287d6a239da3ee63d829",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/noise_plus_1pct/repeat_04/generated_session.json",
+      "sha256": "1238dc70d8be423403cc105ab8b0a259301658af1f0820ea793225da92ada6eb",
+      "size_bytes": 3618
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_00/direct_artifact.json",
+      "sha256": "5245e0cf697d1d1a6a9e7230a0897b77ce0c2d6426ebea48f0314c22d01c2262",
+      "size_bytes": 6937
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_00/eager.json",
+      "sha256": "e6f8ffd3a37200826d4b6a1064ae7add5438d50c0058fce1ad7334f9f94f0610",
+      "size_bytes": 6124
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_00/generated_session.csv",
+      "sha256": "6cc7da1a14b4513b34c071160b26517b0cbe0cde17960d980eae45ebfab3d270",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_00/generated_session.json",
+      "sha256": "a6e5e7868d508f452b3d9e52b23cbdb39613af3825df1c307e74a958149af972",
+      "size_bytes": 3632
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_01/direct_artifact.json",
+      "sha256": "45e7448a6b4c150bd8edb0a44c40f4bc2c430a6d918605a92286aa876190c150",
+      "size_bytes": 6936
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_01/eager.json",
+      "sha256": "df5a7d281793097c66dbdfab4835e4eca875cce20945c80f0f467b806c4f7529",
+      "size_bytes": 6123
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_01/generated_session.csv",
+      "sha256": "ea42d8bf5b2a082e8e457a936aa3825a1853fff54d253322d08324ec24776ede",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_01/generated_session.json",
+      "sha256": "d4439f489aa4163595f02cd8fedad56f6dbff2d3af015112c061d424f36f4006",
+      "size_bytes": 3628
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_02/direct_artifact.json",
+      "sha256": "db5f7449dc79edbe62598ec8804c6a307fbcbdcd7464a0766616ec3d123074e1",
+      "size_bytes": 6937
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_02/eager.json",
+      "sha256": "cd0693f10d738bf312183c547bee1c988d315395ec371f25535a27a069b0e952",
+      "size_bytes": 6122
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_02/generated_session.csv",
+      "sha256": "33266db7ccd4112ad033a89ca033e823a8fd42d15d1844f81be30c00d6a97e9a",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_02/generated_session.json",
+      "sha256": "53aa227fbedcf5933e19ce7ca99d7a82b7b626c2ea50b8a90162b641a2a6f068",
+      "size_bytes": 3639
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_03/direct_artifact.json",
+      "sha256": "c36b3bf5fa9f28e144fe8d93e9fdba03f63a271929450c6d064addcf7d46d506",
+      "size_bytes": 6929
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_03/eager.json",
+      "sha256": "af48d79e95300787bbff2c99d497157dfebd56811dff198057c62c14de2176d6",
+      "size_bytes": 6123
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_03/generated_session.csv",
+      "sha256": "a9baf1912aca899dc873574c2cbdb60751d2d190deb43fd3af9633f743242827",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_03/generated_session.json",
+      "sha256": "336ee425384da565b9016a5ea0ce49f3a3f244279ebada08379f5ca10fccc1c0",
+      "size_bytes": 3639
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_04/direct_artifact.json",
+      "sha256": "76961befb5e649614fd47481e3e2fc4f3ab2f37f14e1a1a29497aa3104e237af",
+      "size_bytes": 6937
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_04/eager.json",
+      "sha256": "8041461cc0ac6741eb851a39d0d81b093a56077c1d5957c748865a22f126824d",
+      "size_bytes": 6116
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_04/generated_session.csv",
+      "sha256": "a0e41447e5efcba2d6137337f67baf64a14d87e13147c9e7da3521be11c3f871",
+      "size_bytes": 1307
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_minus_1pct/repeat_04/generated_session.json",
+      "sha256": "ee80ec8687a4888f97cbd66f58d7088b2e9e94c2440dd22339c267a5f2f02282",
+      "size_bytes": 3639
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_00/direct_artifact.json",
+      "sha256": "0b8adb76db1d90b240f72d3b82076781f6e4bb6326eb4145edda22cc92df6533",
+      "size_bytes": 6966
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_00/eager.json",
+      "sha256": "9c7b553c7996d40c3fb6becc234166ab124a6bf19734ccbe1346e28044601dc8",
+      "size_bytes": 6145
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_00/generated_session.csv",
+      "sha256": "cd3e7def49e898e6da4ebc6646c99b6a05d0a9de8c3838f76eaf726b6913d633",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_00/generated_session.json",
+      "sha256": "b6aac95a603bbb5ac90351f63b17e295a63960e3314100974bb93f2dda1e8b4b",
+      "size_bytes": 3628
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_01/direct_artifact.json",
+      "sha256": "2b9465d557cacadeab1c8c8b2ba484de3e5a946ef7d0bf0350d8142fba54d95e",
+      "size_bytes": 6967
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_01/eager.json",
+      "sha256": "d2cf1361411ec1073bdcd7f967c861da1d11a09d2ab5eedd3896a7624ee3f788",
+      "size_bytes": 6153
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_01/generated_session.csv",
+      "sha256": "5412aa3e9a6467d36d0e58717f445dbe2cc4362980c3b7907eaeb0e780e4d515",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_01/generated_session.json",
+      "sha256": "815c33477d210e4ce351a2560a1e06e553859174e24a82ca6022149e8ff9af17",
+      "size_bytes": 3637
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_02/direct_artifact.json",
+      "sha256": "03b78ff70419d63a34014bff5b18bf8330c47a61fa8921514b5ba4cdf05bb959",
+      "size_bytes": 6965
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_02/eager.json",
+      "sha256": "5cc68b08bb1457b7553cce0b45378b25d56ac9affd40df4f8c697cef5d39f1c8",
+      "size_bytes": 6154
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_02/generated_session.csv",
+      "sha256": "19426eb33c65d3a3ebf8b3e3b38ec9ae7b4390bc7eb6867c1364d640e162f227",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_02/generated_session.json",
+      "sha256": "f7244509170d5e7da9675c1c0f856107f81fdf422faee34ac34d23b1cacb2647",
+      "size_bytes": 3628
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_03/direct_artifact.json",
+      "sha256": "9fc58d5e2862ae4fd92e512bc8d11f0b19a696bd6135b7bdb20057deb309c7cf",
+      "size_bytes": 6967
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_03/eager.json",
+      "sha256": "90ccb6343af92cf5b8cbb6c25ef75296010b50e3f8776988562a7c5c0a0cea57",
+      "size_bytes": 6152
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_03/generated_session.csv",
+      "sha256": "06961e08f355f320a8c9509dbe27218e72846d982810744933b2608ce1a298a2",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_03/generated_session.json",
+      "sha256": "ca3359b69243c5774d1eb0240c6e5c31ce12a903c2c9f022ac01fec2bff22c80",
+      "size_bytes": 3636
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_04/direct_artifact.json",
+      "sha256": "9b6491c1805ec4e6313d7d9962fe5150693f836534511b023a5b2b92f28917d4",
+      "size_bytes": 6966
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_04/eager.json",
+      "sha256": "40e4127ee87de5713b694695cd9b75ae95717d7e740774c172743e3910c29ce3",
+      "size_bytes": 6153
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_04/generated_session.csv",
+      "sha256": "8cea974ebee9ef3e68b66bd56e752c6af69bb16a422a9bb18b7f10bd1a094f7d",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/diffusiondrive/observation_plus_1pct/repeat_04/generated_session.json",
+      "sha256": "c6c8c80cb64bc16106f7007a62a872ed3f05cc9b42b3e56e7f3fbba8f2f20121",
+      "size_bytes": 3636
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_00/direct_artifact.json",
+      "sha256": "71b75b8bdb6a9377cf1ece87df5f259e82260e277b0b2d55d251e4c9ee5f0c62",
+      "size_bytes": 6657
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_00/eager.json",
+      "sha256": "693a4fff10cfb755e0ce5305c1a4ba27fd487ee0a44e190794d603832e0a60ec",
+      "size_bytes": 6327
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_00/generated_session.csv",
+      "sha256": "9b9cab52ec66ed3fe9db2711711e29a63345b1d058a60a80399dbffb0960021a",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_00/generated_session.json",
+      "sha256": "bd5d841bdbc3b57d40ba36e5fa74e2f0b8f7440327d45b4c64d99397466caeca",
+      "size_bytes": 3550
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_01/direct_artifact.json",
+      "sha256": "88aec6b8e1834ff83d5a86636c525289209de720c4234a7e39e963b3e5228de3",
+      "size_bytes": 6659
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_01/eager.json",
+      "sha256": "6e1ba4697ab14cae262ceece952aff015bb84bda28598b498b013d8f4b5027e4",
+      "size_bytes": 6327
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_01/generated_session.csv",
+      "sha256": "b8aca1c372b47aa4033fe39ab95d1ac2c6c1755bfa98e98cf6e6778c803da7bd",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_01/generated_session.json",
+      "sha256": "287e9b660c855c3c90023533b6a72d1ccb5a3a2282bc3144a015f6cd20464e55",
+      "size_bytes": 3556
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_02/direct_artifact.json",
+      "sha256": "3125a31cd81e26a9ad02aff7c250205fb881b0e4daab000b1b5ec7883dcccf91",
+      "size_bytes": 6659
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_02/eager.json",
+      "sha256": "da798567011cb2ab8021639a8722f7a4f18d9678b91c677f12ad2b0be4afef6b",
+      "size_bytes": 6321
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_02/generated_session.csv",
+      "sha256": "7b973eefc68d3d2169ed58849aae276d4ef87da4678eb61534d195e65373b193",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_02/generated_session.json",
+      "sha256": "654aeee0e54b058d9534c77f87e6ea90a91fa02f48af3067fea0d481171799f6",
+      "size_bytes": 3557
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_03/direct_artifact.json",
+      "sha256": "9ce3e9098d9ec8b70d1e7c6cb5a431e3adefcc18d2e7c37135c6e4a48b19b14a",
+      "size_bytes": 6658
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_03/eager.json",
+      "sha256": "059053234b621dde600c959b90681dd250e206500b8fa0827b416fb45c0f7c26",
+      "size_bytes": 6327
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_03/generated_session.csv",
+      "sha256": "cbb9d22c90bf67d7e81893c1d10d5b892a08041e410cde88a9d2476d478664f0",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_03/generated_session.json",
+      "sha256": "da6a26495ef216a5717e7665269a4f85c2acf864bf91a980bba768e32b15da88",
+      "size_bytes": 3556
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_04/direct_artifact.json",
+      "sha256": "180677cbb285868f5a8120b20fba6719a28ee664d3d3d1959bedebe404425da6",
+      "size_bytes": 6649
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_04/eager.json",
+      "sha256": "fbfc0d0e7e379181af4c51913fd5be60d3a766063814f4fa6a671addc593c09c",
+      "size_bytes": 6319
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_04/generated_session.csv",
+      "sha256": "d405ed0368bec903c82748ee51350624fe4df17c8c28e57b77866afe68371e7a",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/baseline/repeat_04/generated_session.json",
+      "sha256": "ac86589bb368104b7d3fcdc0360b8d0dd291f44b7b314d64c7b5c2f94e8f23f8",
+      "size_bytes": 3556
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_00/direct_artifact.json",
+      "sha256": "d5a8d787a6046d38ab7bd05740f2a91092da39ceac3aa92758539995ff3e51e5",
+      "size_bytes": 6637
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_00/eager.json",
+      "sha256": "4cacc6d4e991cc44b951500f7e84063f2a21d42931d5f9adade931f731770820",
+      "size_bytes": 6313
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_00/generated_session.csv",
+      "sha256": "a5304586071a261326496f31f111523d005b2bff1a7a3658b3f377aa9fbad17d",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_00/generated_session.json",
+      "sha256": "ca13d34f7a9893216bd89c8276a85342536b53b5f3688926b1dc9436e945d27f",
+      "size_bytes": 3583
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_01/direct_artifact.json",
+      "sha256": "5e5a13c6860107b57747472d627a8862fe06f2d435269714b4f7cc9ac813f383",
+      "size_bytes": 6646
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_01/eager.json",
+      "sha256": "d5e582d285c150dd861e1fa1f3db2ae4ab77bcb8b690f98a9805b27af292d41e",
+      "size_bytes": 6314
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_01/generated_session.csv",
+      "sha256": "03a699cb7e9c61faaff8fe36f48be87785779999a9be1804825173778a618eff",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_01/generated_session.json",
+      "sha256": "165ba663d6c0db98570baa69d9f4f0eeff5c787abc71718781281524ae00098e",
+      "size_bytes": 3577
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_02/direct_artifact.json",
+      "sha256": "73a5d40038d1e6fe30b00d93ea0f8f7986d2dd20e6fb55d994c225e18fe5fa2c",
+      "size_bytes": 6644
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_02/eager.json",
+      "sha256": "13e1cae19e96a953a9c9b5d3be11fe50e0a8f7654cda5071dae51a5c92e09091",
+      "size_bytes": 6315
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_02/generated_session.csv",
+      "sha256": "44dae817ea2e9774e37b13c9a99b05204ce7fae26d2c7f0c9d1c7208930e44b1",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_02/generated_session.json",
+      "sha256": "04e4a0f4aeff1f5cc069024397db3b05bb736bf665d4f723929d799ad38b8df8",
+      "size_bytes": 3582
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_03/direct_artifact.json",
+      "sha256": "756b97f539340302d8e95dabf3b276de77a6ceca0e94a621ceb0dd8d14875117",
+      "size_bytes": 6645
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_03/eager.json",
+      "sha256": "213439b1de30c6b446a6922404ec1b6e9712715bb51245fec8edbb5292650e9f",
+      "size_bytes": 6313
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_03/generated_session.csv",
+      "sha256": "0a8f1db9d5e3e3cdb316fcf60697f2f33e656e72217342bc1e8003c63f6917b7",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_03/generated_session.json",
+      "sha256": "62cdfa1402be5d4080d6db2acd72838a5a339b0fbd3c09c2e04e56cf6a59a6a4",
+      "size_bytes": 3583
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_04/direct_artifact.json",
+      "sha256": "05ed41ccc904b80651470f8a534ca5c93cf1c549261a3e4341cc500ec2988fcd",
+      "size_bytes": 6638
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_04/eager.json",
+      "sha256": "629ac1c81dea822e1fcb8146a05d49997209687b8a78664fe83a9f5c81472df7",
+      "size_bytes": 6308
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_04/generated_session.csv",
+      "sha256": "a9474fe33de9644421d9086f43334e677698739d4d260bbe62ce2eab930c10b6",
+      "size_bytes": 1337
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/context_plus_0p01/repeat_04/generated_session.json",
+      "sha256": "cea75157a97cdeb9db7324f59b8bf76c573c858315160e228f79931edb7e733e",
+      "size_bytes": 3584
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_00/direct_artifact.json",
+      "sha256": "ffc075eaef4a6bf3933853c40f611b7de9ec298299ec4ed2e93fccb5b253d89a",
+      "size_bytes": 6672
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_00/eager.json",
+      "sha256": "a340461e099ec93ae5f9ee2dfe861c540cd1ecc8f09c0078eea98de8398dfd2c",
+      "size_bytes": 6340
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_00/generated_session.csv",
+      "sha256": "a5189de2e46a1b364332997ae046df2c0597b30d3de4b522ed9e15468aa42017",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_00/generated_session.json",
+      "sha256": "d62ae1875d34e75939768c7c210d9edef7ba46b17058e00991c0cb972cc9a6b1",
+      "size_bytes": 3577
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_01/direct_artifact.json",
+      "sha256": "b6eb02e1aca5e2f3c3e6f52982dacbdc15b9f878b2bd1188c1751d967c058b00",
+      "size_bytes": 6663
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_01/eager.json",
+      "sha256": "a77cfde03a1367bf3bf798824cf2e6cf86823f547b09646702d36b00cdfb996c",
+      "size_bytes": 6333
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_01/generated_session.csv",
+      "sha256": "509d952205493abcc7b1769dde1f45e8d661ac76b33470ae6908ff00105f8b55",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_01/generated_session.json",
+      "sha256": "cd34a1f985a36ab8babd88a9c863450885e2ae20ea352c47e6a594970f2318da",
+      "size_bytes": 3576
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_02/direct_artifact.json",
+      "sha256": "2d4a903adf63cf63e619a19709877946a542d63ddab25b8fcc080dd266d0e823",
+      "size_bytes": 6665
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_02/eager.json",
+      "sha256": "27d31ad3e4cabdd51e9467b48bfb237ae5dc20dc840e282b8383b03e823ee122",
+      "size_bytes": 6340
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_02/generated_session.csv",
+      "sha256": "157e24534afe925b090f326ac334e63760bcc8101dc92aadddf81bf569df83f8",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_02/generated_session.json",
+      "sha256": "d7f77e02c8a6980f832dfeac32393925b432e06593622ee6e3900bcc6bd6006f",
+      "size_bytes": 3579
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_03/direct_artifact.json",
+      "sha256": "8acf87db8ea200abd62b375ebdc9c74f53ef8085f0181a4c26f38ee6baf2904e",
+      "size_bytes": 6662
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_03/eager.json",
+      "sha256": "ab34d2e91079ee7518c22453fa6e43ef1a77d7aeb3d1285c3319b4e1ea49e9ea",
+      "size_bytes": 6333
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_03/generated_session.csv",
+      "sha256": "0509a9d7728b62217cf12dc06de5cbb2ecfac54ef4ab4e026f9098c820622529",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_03/generated_session.json",
+      "sha256": "3dff9f2b9e9488033a59321ded1bed58baf6d49b65eecef71ca6cb9e1ed61fa3",
+      "size_bytes": 3577
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_04/direct_artifact.json",
+      "sha256": "fa4166bac081187dda0bc435c2e572ec8a207cef7b8fc8af2c71cd3673b50da9",
+      "size_bytes": 6670
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_04/eager.json",
+      "sha256": "62cbfbedb0e4d7afccd48cdf230bb9b7ad6ec1cfb7dd5751444856e2aa020ef5",
+      "size_bytes": 6340
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_04/generated_session.csv",
+      "sha256": "9930d969144e9724effc18cad4d49482844da33d992d45898dbaed627125afaf",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/noise_plus_1pct/repeat_04/generated_session.json",
+      "sha256": "f8eacbbe32528cd2e5749e5eda32e7d4756f83ce6491370492d83a4394a389bd",
+      "size_bytes": 3570
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_00/direct_artifact.json",
+      "sha256": "e9a8040ac282ef9630ff1e210ada8c3b2e3d04411eb61192de2b08c75a6524b0",
+      "size_bytes": 6686
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_00/eager.json",
+      "sha256": "41a423e4ca5aef8a083f8a0f38a46ea43f7cf25121b1086c48b370aca16bbc4f",
+      "size_bytes": 6355
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_00/generated_session.csv",
+      "sha256": "6d2f6a048538b3bbf6d5236bf29e8bb299e6c13d7d434079286651cf54dada3c",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_00/generated_session.json",
+      "sha256": "6f61e8d28fd9b98b2578544121acf06588720e61704a6ca28af08bbfeacc055f",
+      "size_bytes": 3598
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_01/direct_artifact.json",
+      "sha256": "dbe129ea3135854fea710e43d82744368f5d96787db4e2411c9daa608c7abe58",
+      "size_bytes": 6686
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_01/eager.json",
+      "sha256": "50698910569e9d818251a6a2085e688dfa5737049234f15c4087ead3776e5b31",
+      "size_bytes": 6354
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_01/generated_session.csv",
+      "sha256": "2aa0b1c2e2a6a6877df1950d231b9251e8ea7a704e2cf30a83f82c416dc7782a",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_01/generated_session.json",
+      "sha256": "791f1b8f1eb1b91a811f792afe1b518eb8273d3e67a21a95d9b6a325547ba679",
+      "size_bytes": 3590
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_02/direct_artifact.json",
+      "sha256": "e03eb77bcba4a9536e9332b40c0cb0d1af88899c22ec69531568158f36e717ff",
+      "size_bytes": 6685
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_02/eager.json",
+      "sha256": "16437a547e9eecbd9133248bf46982ebbb524916a7478306b06ee4a1443c9d0c",
+      "size_bytes": 6355
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_02/generated_session.csv",
+      "sha256": "f93aaf9c2de96142bff9920ff5d4d6d50989481e9ec7ba7e5d90b9706d4b50b6",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_02/generated_session.json",
+      "sha256": "b815d4330bb4eb691f7d191e4372eb634de71b66383a63faa77172ef57047949",
+      "size_bytes": 3590
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_03/direct_artifact.json",
+      "sha256": "95c50d053110230978203c8d09d575d4cb83b18ec1dd3b92ff2c3853eb7040a8",
+      "size_bytes": 6685
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_03/eager.json",
+      "sha256": "d24438579473a9cbd96148d3c1e8720406ddf79b81c31942a845e3eb4603453c",
+      "size_bytes": 6355
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_03/generated_session.csv",
+      "sha256": "bcbcbad9558d9f851473638ca925b62b2fd28e45a999cbf8696feaaf15de1be8",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_03/generated_session.json",
+      "sha256": "c7a3244a03aefc95991bb678e22efa40ada890b2aa5f1cb16a309ae8cfa27807",
+      "size_bytes": 3589
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_04/direct_artifact.json",
+      "sha256": "39e2c4237fa6279f96af2ce9ad7b0c589c1dca7710e221d51d7090d133419977",
+      "size_bytes": 6687
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_04/eager.json",
+      "sha256": "b304eea21a5bd6d698dfb9a9f4fd53b8d14cd75c3daa161d90cf71088824c544",
+      "size_bytes": 6347
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_04/generated_session.csv",
+      "sha256": "3a0e4a9c6ceff4fc2863f240e0d0069ec94601d96becdcb116908634202600c0",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_minus_1pct/repeat_04/generated_session.json",
+      "sha256": "dc6caff5d7e0481fafa431e76d0e4c2f7c46b12a5c11f94e479252c8837fb331",
+      "size_bytes": 3596
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_00/direct_artifact.json",
+      "sha256": "fb2f6b8a988b77251d830a670795289c3b41045c70362c50374cf902cf615f4d",
+      "size_bytes": 6684
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_00/eager.json",
+      "sha256": "57c24c05cc6753ab6a02bd313d2a6cc36a022beb371afeef4f36650ab1883e71",
+      "size_bytes": 6351
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_00/generated_session.csv",
+      "sha256": "657039bbb98ba79975b5835feba5af3c0ef1a863d1b2c0d51b98d62a0a78b437",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_00/generated_session.json",
+      "sha256": "1f84452be13bf78a2dd314fba10ecfc0ca482ff36f6610dff023fbf0ef6aab09",
+      "size_bytes": 3593
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_01/direct_artifact.json",
+      "sha256": "507a16e15a2c617c2c2f4987affdd0b10a0e418878cccc9ca23da7db35748568",
+      "size_bytes": 6684
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_01/eager.json",
+      "sha256": "b66ba1721235394474d3b7df6b96f2f52ef7c6fb4668cf579010572ce93427f5",
+      "size_bytes": 6351
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_01/generated_session.csv",
+      "sha256": "e2cf8134fc5560dd5e990dff66f2b9a5e04e4e2648ca316e707f1158e7adf012",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_01/generated_session.json",
+      "sha256": "afed2e64bf3907c05879243922c1bf20e2f44ae67aaf9e28366eee1e148247c1",
+      "size_bytes": 3596
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_02/direct_artifact.json",
+      "sha256": "9ac51a74fda184a82b25c04776f1c4bcef4021d93ada98230061385bef86a0fe",
+      "size_bytes": 6684
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_02/eager.json",
+      "sha256": "a79354d736bf4568d39b71b7e7c2da0305e21009e430cd5a9efb7f2f8686e12e",
+      "size_bytes": 6351
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_02/generated_session.csv",
+      "sha256": "c7927df21c1d059223b159fe1155012db8704c114769e1cbf5674c735ecc55b7",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_02/generated_session.json",
+      "sha256": "2a7e8ae3ffeaf0a8de9612b3ba50258d8bd1cd40c469059457f9008f46b4dc6c",
+      "size_bytes": 3594
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_03/direct_artifact.json",
+      "sha256": "64f9a4cda54b4fa364c68046f7f7e027d010b604ac750074569c31548b7adcb4",
+      "size_bytes": 6684
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_03/eager.json",
+      "sha256": "4738089371fde3db42804c6ac392950e1bc4895726648e65a818e92a7802559d",
+      "size_bytes": 6352
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_03/generated_session.csv",
+      "sha256": "df283a0ebc892533470e2db2c236520c3c0744ad2953e07814e839162b9245e5",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_03/generated_session.json",
+      "sha256": "39089a87cd744b0f1b37d2aff8f0ea5ee23c1bd5dee0abadb7eba370befed7f7",
+      "size_bytes": 3588
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_04/direct_artifact.json",
+      "sha256": "40df2490512c462545619ecb8fe41814944ae1ce49febb30541956ded9649e5e",
+      "size_bytes": 6683
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_04/eager.json",
+      "sha256": "7da34a179e50e84f3bacb92c1286686ecdda6b26ae061e6a983c33fb3bc98130",
+      "size_bytes": 6351
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_04/generated_session.csv",
+      "sha256": "01bb0f639a20d6f96e299d4cc85ab6ee70552e9daa3fbb470e2873c16720d080",
+      "size_bytes": 1367
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/raw/smolvla/observation_plus_1pct/repeat_04/generated_session.json",
+      "sha256": "2e84094bcd87ee5b748285506c87b2374b1dc1b2382a92a01a7b75afc15ba94c",
+      "size_bytes": 3589
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_00/report.csv",
+      "sha256": "87ae0428573cb7470cf7579abff952924ae53b1fa8bc481b0bb80748132c524c",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_00/report.json",
+      "sha256": "1294f81d433e7937d2083f83b4b0df41a3d024bba207c93621ecb8955f70adc7",
+      "size_bytes": 3580
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_01/report.csv",
+      "sha256": "08e26600c45b723f1e126272db23dd740cf7e6e84dce9f0a289aea052fba1669",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_01/report.json",
+      "sha256": "26f5196a398ba9d0dc80e9103a516245713718f467761e858f094585c79f8d13",
+      "size_bytes": 3582
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_02/report.csv",
+      "sha256": "7c0f45f42763dbd733bbabdf051a15fadeda010fb6ccfea4a0e28533c0e7257b",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_02/report.json",
+      "sha256": "507efd9ec431091d776c8c58d76fbe3d554dbbc44b23a70344b9e7058c0d7cf7",
+      "size_bytes": 3582
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_03/report.csv",
+      "sha256": "6d99c950929ff13c6851b72abe9509fcc5b7a5bae9aa1174dbd650c8fa33e375",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_03/report.json",
+      "sha256": "a23693042b116cfae1a6e77c637accb2ad316c645f6c4ff8f2c5402812fa760b",
+      "size_bytes": 3581
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_04/report.csv",
+      "sha256": "cdee4367bef0e8dab90370af4da48c6ec1b18ea0b9b96ac41c62c802a7f2a033",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/full/repeat_04/report.json",
+      "sha256": "2762291f4e8ceb397c1aea04084bfedf5d9a478883e6b6b83d4590ca48a98bad",
+      "size_bytes": 3581
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_00/report.csv",
+      "sha256": "8a258b9eec7d1954872136894ae935a426b320c47a00e41058a99e44371c6c72",
+      "size_bytes": 4347
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_00/report.json",
+      "sha256": "0a775ddba548be5d1c4f99b36d62c9d858f5e9b80bfc3a8d38d8ff7e59750d2e",
+      "size_bytes": 3593
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_01/report.csv",
+      "sha256": "0bb2748ddcc140ce58321e3d99fb00c4536ddcae39f768c9563c211ff1558b8f",
+      "size_bytes": 4347
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_01/report.json",
+      "sha256": "01201b6224a03050a990ff1a227ea9a2bb8290ffe47b2e5c12f25c64bd5e60e2",
+      "size_bytes": 3594
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_02/report.csv",
+      "sha256": "f7ce0a1cf133bdf80e8afc22b62d534954a68c4051386074cd188538f9ce18d3",
+      "size_bytes": 4347
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_02/report.json",
+      "sha256": "faee03c612a33c99b1e4f978dc5fa3e7a6d35457a4dd5ffbd0a16ca3e02b403b",
+      "size_bytes": 3593
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_03/report.csv",
+      "sha256": "7ec6d55db58339281a2ae98817246d3aa7b91934c11665994b123f47ec79eadb",
+      "size_bytes": 4347
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_03/report.json",
+      "sha256": "df4d899854b2d8fa23a94455d27d36ded27eeab6facd0cbcaeac3c85510e69b8",
+      "size_bytes": 3594
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_04/report.csv",
+      "sha256": "65c781bec5ea1ba12e06c5dc294db47421be3b626dae27ed32686655663a797c",
+      "size_bytes": 4347
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/missing/repeat_04/report.json",
+      "sha256": "7711eb70788e6baccb8908aa330d5de3d8a3a95543000a933e6c2e969eaf9a46",
+      "size_bytes": 3595
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_00/report.csv",
+      "sha256": "df096e02da751f6b41e6932e03d36144290c9be99defd785df2889fa3219cd81",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_00/report.json",
+      "sha256": "53b02a4726bc52bddbd7fae1d3ede18b1817691f3fea58eb1e84603b890b9b1e",
+      "size_bytes": 3578
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_01/report.csv",
+      "sha256": "a742e250941e5d2aaff35e6d5ab64dab70315cb98c4eabe3686b408fa9f036d9",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_01/report.json",
+      "sha256": "1ca122922af1aec52ba801f382beb111cfb1a9e3f759e434611d51c9e4f0babc",
+      "size_bytes": 3577
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_02/report.csv",
+      "sha256": "df8b4acea4687d20c9b7286f1a98c3996ce83703ed0ed45a1ce6b012db50c60c",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_02/report.json",
+      "sha256": "2e83149240910c813316ac6024a9cd1ce1fef78ebb66d402fe3acd7bd55c2022",
+      "size_bytes": 3577
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_03/report.csv",
+      "sha256": "5c15963b57cefacdd25e97415bf6a18f8763789c02c86baf1070ca4ca191c332",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_03/report.json",
+      "sha256": "48afc901ccbfe0f9505433f5d6f8616c82efd4a79760eb9b63c929f84154f6d1",
+      "size_bytes": 3577
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_04/report.csv",
+      "sha256": "d7d0c5f0909c5a1c428e4a32f312e0fe49d0c84983f14b3d1be2316b9ce1923a",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/new/repeat_04/report.json",
+      "sha256": "098873fd2b8a57d58f4aa713878bf5fdf8c619a4046140fb2def9a8cbe19c56a",
+      "size_bytes": 3578
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_00/report.csv",
+      "sha256": "344bc377e2ec4e506447048cb0fd40d201005e8081986d5c5c86aa23fa7af112",
+      "size_bytes": 4147
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_00/report.json",
+      "sha256": "8562f37efd2afc66961e3dde7376783c3e90d26b848a09111f12a3febeed6b3e",
+      "size_bytes": 3575
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_01/report.csv",
+      "sha256": "4d3ade837065c4dc2cae0760d959f1d4c156ab7ceb46ea6338590c9bbd83ac8a",
+      "size_bytes": 4147
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_01/report.json",
+      "sha256": "7b314e26eff326d74b298f78cb225ed6a6836f01c00bcc60df72fbefdc53f29c",
+      "size_bytes": 3565
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_02/report.csv",
+      "sha256": "43613743bb72e058f919db308ed077c4f6ec5bf9a49b9da7b026e8dc5a72ffd0",
+      "size_bytes": 4147
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_02/report.json",
+      "sha256": "3b9ed81e3c2476256351a77eb5617762ddbb8aeb0bef2f604cd8e872bf47d063",
+      "size_bytes": 3577
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_03/report.csv",
+      "sha256": "1ca3ab7f40f8864bad899892af6a7d5b560597c04a8375222adb8b56dbea13f2",
+      "size_bytes": 4147
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_03/report.json",
+      "sha256": "94126b34b36a1888540711fad6a07ff3f8343d1a1cbaca1793103a1a651ce2f2",
+      "size_bytes": 3576
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_04/report.csv",
+      "sha256": "7673ad9ff6650445f13a323d683425a5be26119ec2e9291c2fa3602c76ae2c63",
+      "size_bytes": 4147
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/diffusiondrive/same/repeat_04/report.json",
+      "sha256": "9839515ba6404a1edacaddca2c9d336648d6d8e7eec633b60d48c6bd145e68e2",
+      "size_bytes": 3576
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_00/report.csv",
+      "sha256": "e880d189eaa7401230c4ab48ce202bce67bb43b5ee8ff8893e61a95bddb62566",
+      "size_bytes": 4447
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_00/report.json",
+      "sha256": "18e599c4d72de8447a8a4c86c048e9fda3fddeb8571d6c43abceefa296d877b9",
+      "size_bytes": 3547
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_01/report.csv",
+      "sha256": "2cb91468112cf5d01533ae83a16d1859bb0783cb12a79277d5b1fe33e15e9066",
+      "size_bytes": 4447
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_01/report.json",
+      "sha256": "5f38a8887e9cbe945f62ecc1415fa825f36802850127f653356e8906dffaf141",
+      "size_bytes": 3547
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_02/report.csv",
+      "sha256": "4a9e3944ad124a0501406bd9292e5a2b51981b4128f773cae8ff35b1197ab6f1",
+      "size_bytes": 4447
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_02/report.json",
+      "sha256": "97be8b76059d3c8374ae9b87a32f0fe58a81bd8591200b836eb2757da474fdc6",
+      "size_bytes": 3547
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_03/report.csv",
+      "sha256": "7acd01eff5c5bdeb655bf331d4da59f76371177efbd1a7fcaaaaa5e5230e66c6",
+      "size_bytes": 4447
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_03/report.json",
+      "sha256": "5d3a5762e38b1d5963dadfcdf449050e3f04324a8d8b129ed64944e79988dac4",
+      "size_bytes": 3547
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_04/report.csv",
+      "sha256": "71a49acc60532c7c78e96dbf4ada9cb735f4b33b192947bbfa044f9f7a7529d1",
+      "size_bytes": 4447
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/full/repeat_04/report.json",
+      "sha256": "9cbd43ede4060d68f50ddf71f69ebefc23d9d1f65eb3a203753fced889e05ef2",
+      "size_bytes": 3545
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_00/report.csv",
+      "sha256": "a619c813bdaf0eaf9272013a8a7c756b74d5c5ab0415d22369aeaf337e9b281c",
+      "size_bytes": 4151
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_00/report.json",
+      "sha256": "741669aa32e71e2c4b859a340469de2b206bddd7bfc98e1ba9428c5c7941a961",
+      "size_bytes": 3548
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_01/report.csv",
+      "sha256": "7b0779f7ca4c38bb589350ab27330235a9b5456c3d579ca551bd159057e22bad",
+      "size_bytes": 4151
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_01/report.json",
+      "sha256": "6e369f1e067f0f3fd2fcef4f657721b5b7f75b822eb52b947c30ddab9aa3f059",
+      "size_bytes": 3548
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_02/report.csv",
+      "sha256": "e7e60aa81e667e0c4e90a87656818a1f25c781fdce79684ff3b62fd201a4df9e",
+      "size_bytes": 4151
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_02/report.json",
+      "sha256": "8b64bd6afd6c1da9ad0073e3748c66e4a1b2ef0074e03b7d41442b1a5274bf1d",
+      "size_bytes": 3547
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_03/report.csv",
+      "sha256": "816ace11bcd5357b5bbbbdd6352ab54427656469c61606015b5529fadae81231",
+      "size_bytes": 4151
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_03/report.json",
+      "sha256": "6232e68a0597fa24cc12dcf9824530af6b0442e3485d5bd6127d2e60ed054dc8",
+      "size_bytes": 3548
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_04/report.csv",
+      "sha256": "d741f422635f4274484950db359afa2d9f183d88f73a630739a6ac443898653c",
+      "size_bytes": 4151
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/missing/repeat_04/report.json",
+      "sha256": "98cb2c6f2077c9cfdca3a539922666754b3af818294c53d0f5bd22882358f4f4",
+      "size_bytes": 3547
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_00/report.csv",
+      "sha256": "acfac077a80a23d7d26f98932e1849a6b0990187488b27f3c84cf6b41390c57e",
+      "size_bytes": 4051
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_00/report.json",
+      "sha256": "340bc5a1c3ceef52b511b94c7e33d02d3f154eebb0c76796c803d23e69bbec0c",
+      "size_bytes": 3532
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_01/report.csv",
+      "sha256": "9ad63a604c686637fa68c33e046f679ada44730dd266ba62cfb6a82da44c4f76",
+      "size_bytes": 4051
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_01/report.json",
+      "sha256": "206d8c1caf0830fe6483342146d5ddad712d58f96628f5550c9b14807fb6c195",
+      "size_bytes": 3531
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_02/report.csv",
+      "sha256": "93985fe036b8d6c14e831110b74324bbd0bd932c5178ba88844e8a4a7eb45c98",
+      "size_bytes": 4051
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_02/report.json",
+      "sha256": "4549dc3914c9b41f1e5105575d5f5c5ad2a7f57af2a34cc90d727d8191d56f11",
+      "size_bytes": 3529
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_03/report.csv",
+      "sha256": "2ef99443eabab0cedf23627c8d8f25e18747494c4279f1c64838b953ab09e22a",
+      "size_bytes": 4052
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_03/report.json",
+      "sha256": "a70a39863ae6c555399961f1d8d6857d266485569dc3257b4f2b2fd32de82c48",
+      "size_bytes": 3532
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_04/report.csv",
+      "sha256": "be23d84bd2281fee8c40a212ea432115cc9ddfc0af1d66df402da2afafb69f2a",
+      "size_bytes": 4051
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/new/repeat_04/report.json",
+      "sha256": "fc3b6ad65bc4577b5aabad34ed212c15488134dbed528d24d01a5bba8ef4693e",
+      "size_bytes": 3532
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_00/report.csv",
+      "sha256": "e83499372852b06111f095b8e2a437d889cf8f91e61343cd9d7356f41c5c9dbf",
+      "size_bytes": 4051
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_00/report.json",
+      "sha256": "d698122969bd5bed14b29980a4f4b84988aa7d13e7f99a98155ebbd7ae0288cc",
+      "size_bytes": 3536
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_01/report.csv",
+      "sha256": "a2f8814dfb996cda6f3c6bd38f9436a658da8c7ac0a79cfc2f9e804ac73a7e3e",
+      "size_bytes": 4052
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_01/report.json",
+      "sha256": "3966facd27b1fee04c1a35ec3ef078139b910968836a28d382f65bd38906a1e7",
+      "size_bytes": 3535
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_02/report.csv",
+      "sha256": "6783ca1b6ae454717d9d82a54163e489fdb915cc2bf63b2953855f929880793d",
+      "size_bytes": 4052
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_02/report.json",
+      "sha256": "912bef45f26e94c1210f6d3e6c79e39bd78cf1544a37956463a39d3d24151011",
+      "size_bytes": 3534
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_03/report.csv",
+      "sha256": "9faf752da558c3aa00e7367d39c8c0cadfd725b7277c6d6ccb56cac95704ad34",
+      "size_bytes": 4053
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_03/report.json",
+      "sha256": "dca3e17c70a25d3dd3e80e4deafab43f55945db3bc70b6e44748b806f1f71921",
+      "size_bytes": 3524
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_04/report.csv",
+      "sha256": "a4d98e5375a8770b94a0368ff6a9325e12150747f5234af7cab70d3b90bcaa5b",
+      "size_bytes": 4051
+    },
+    {
+      "path": "doc/reports/vlaforge_ablations_v01/raw/smolvla/same/repeat_04/report.json",
+      "sha256": "308b6b4f59c86a9a1b90942407ed6364c5e3dbcbd3c0d602cd08f00b2c9d41cd",
+      "size_bytes": 3535
     }
   ],
   "environment": {
@@ -277,6 +1677,45 @@
     }
   ],
   "external_path_references": [
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.source_evidence.formal_cuda_matrix",
+          "report": "doc/reports/vlaforge_ablations_v01/paper_ablations.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.source_evidence.diffusiondrive_l4",
+          "report": "doc/reports/vlaforge_ablations_v01/paper_ablations.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_evidence.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.source_evidence.real_cuda_soak",
+          "report": "doc/reports/vlaforge_ablations_v01/paper_ablations.json"
+        }
+      ]
+    },
     {
       "covered_by_archive_root": null,
       "exists": true,
@@ -742,6 +2181,32 @@
         {
           "json_pointer": "$.raw_evidence.nsight_summaries.smolvla.osrt_sum.path",
           "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.source_evidence.smolvla_l4",
+          "report": "doc/reports/vlaforge_ablations_v01/paper_ablations.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_reproducibility_v01/reproducibility_manifest.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.source_evidence.installed_wheel",
+          "report": "doc/reports/vlaforge_ablations_v01/paper_ablations.json"
         }
       ]
     },
@@ -1380,6 +2845,19 @@
         {
           "json_pointer": "$.upstream.source_files[0].path",
           "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-lerobot-8fff0fde/src",
+      "referenced_by": [
+        {
+          "json_pointer": "$.environment.pythonpath[0]",
+          "report": "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json"
         }
       ]
     },
@@ -2951,6 +4429,14 @@
       "path": "/tmp/vlaforge-smolvla-env/bin/python",
       "referenced_by": [
         {
+          "json_pointer": "$.environment.python",
+          "report": "doc/reports/vlaforge_ablations_v01/paper_ablations.json"
+        },
+        {
+          "json_pointer": "$.environment.python",
+          "report": "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json"
+        },
+        {
           "json_pointer": "$.reproduction.command[0]",
           "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
         },
@@ -3386,9 +4872,19 @@
   ],
   "formal_reports": [
     {
+      "path": "doc/reports/vlaforge_ablations_v01/paper_ablations.json",
+      "sha256": "2a98af20fa334bfedbbd5dce7d7828adf5be02c9dac71cc40c32b6fc026b33ba",
+      "size_bytes": 44526
+    },
+    {
       "path": "doc/reports/vlaforge_architecture_v01/architecture_surface.json",
       "sha256": "0468e3eb3d1f785af910d0ba9b76961fc94aaa51f8ad66e2cc186a3f694ac5d0",
       "size_bytes": 17558
+    },
+    {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
+      "sha256": "fc7a476c9bc9130e9c2550fc869dc87d220ab95a9ddd85230773cf7b6819a3cb",
+      "size_bytes": 152407
     },
     {
       "path": "doc/reports/vlaforge_heldout_v01/heldout_audit.json",
@@ -3444,11 +4940,11 @@
   "installed_wheel_artifact_evaluation": {
     "artifact_evaluation": {
       "artifact": {
-        "path": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/artifact-audit/artifacts/audit_tensor_region.pt2",
-        "sha256": "5a0a411e685d4d836852e5b60ee23d5e9218c127573f81ee0b176a57f4a47b98",
-        "size_bytes": 422670
+        "path": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/artifacts/audit_tensor_region.pt2",
+        "sha256": "3526d7cb7d65b2c39b606b7bd061a6561f59e2e668fcd59c5936086a80c8c13c",
+        "size_bytes": 428046
       },
-      "compile_seconds": 7.7992920470424,
+      "compile_seconds": 5.2950173281133175,
       "cuda": "12.8",
       "direct_backend_smoke": {
         "negative_cases": {},
@@ -3458,11 +4954,11 @@
       "invocation_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "invocation",
-        "artifact_sha256": "5a0a411e685d4d836852e5b60ee23d5e9218c127573f81ee0b176a57f4a47b98",
+        "artifact_sha256": "3526d7cb7d65b2c39b606b7bd061a6561f59e2e668fcd59c5936086a80c8c13c",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "0daaa0565bdf6474d7d9f8677ae9088c82865971ab452c00e74a0616460fbfe6",
-        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/artifact-audit/compile-bundle-invocation/bundle.json",
+        "bundle_digest": "697decdc3549c14961b525385b1da9bee64ab3b7ac1b56b623014e1820a55fd2",
+        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-invocation/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -3479,19 +4975,19 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
+        "runner": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "40e1e9b72a1d14b9e199cea3864721545352a903",
+        "source_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
         "status": "passed"
       },
       "session_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "session",
-        "artifact_sha256": "5a0a411e685d4d836852e5b60ee23d5e9218c127573f81ee0b176a57f4a47b98",
+        "artifact_sha256": "3526d7cb7d65b2c39b606b7bd061a6561f59e2e668fcd59c5936086a80c8c13c",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "0b7a144614a323efd326993353660e36cc19a0e74d8206715faab8ed999b25a5",
-        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/artifact-audit/compile-bundle-session/bundle.json",
+        "bundle_digest": "81d648be456cfb6eec94a7b1ae81a02ab8b60a869bc842eb19b9f12546ed6753",
+        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-session/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -3508,9 +5004,9 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
+        "runner": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "40e1e9b72a1d14b9e199cea3864721545352a903",
+        "source_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
         "status": "passed"
       },
       "target": "sm_86",
@@ -3538,11 +5034,11 @@
           "--no-deps",
           "--no-build-isolation",
           "--wheel-dir",
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/wheels",
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/wheels",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge"
         ],
         "cwd": "/home/zhangzimo/Repos/private/edge-fm-x",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/logs/build-wheel.log",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/build-wheel.log",
         "name": "build-wheel"
       },
       {
@@ -3551,51 +5047,51 @@
           "-m",
           "venv",
           "--system-site-packages",
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/venv"
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/logs/create-venv.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/create-venv.log",
         "name": "create-venv"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/venv/bin/python",
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/bin/python",
           "-m",
           "pip",
           "install",
           "--no-deps",
           "--force-reinstall",
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/logs/install-wheel.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/install-wheel.log",
         "name": "install-wheel"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/venv/bin/python",
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/bin/python",
           "-c",
           "import json,sys,vlaforge;print(json.dumps({'prefix':sys.prefix,'package':vlaforge.__file__}))"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/logs/probe-installed-package.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/probe-installed-package.log",
         "name": "probe-installed-package"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/venv/bin/python",
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/bin/python",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
           "--work-dir",
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/artifact-audit",
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit",
           "--report",
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/installed-wheel-aoti-audit.json",
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/installed-wheel-aoti-audit.json",
           "--runtime-root",
-          "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/venv/share/vlaforge",
+          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/share/vlaforge",
           "--source-revision",
-          "40e1e9b72a1d14b9e199cea3864721545352a903"
+          "f831c814d7bbe434b2246ba3788c7e00f6b27d49"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/logs/installed-wheel-sm86-audit.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/installed-wheel-sm86-audit.log",
         "name": "installed-wheel-sm86-audit"
       }
     ],
@@ -3613,15 +5109,15 @@
     "isolation": {
       "installed_from_wheel_only": true,
       "non_git_cwd": true,
-      "package_import": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
-      "runtime_root": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean/venv/share/vlaforge",
+      "package_import": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
+      "runtime_root": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/share/vlaforge",
       "source_pythonpath_removed": true,
       "venv_system_site_packages": true
     },
     "passed": true,
     "repository": {
       "baseline_revision": "f0fc1be",
-      "evaluated_revision": "40e1e9b72a1d14b9e199cea3864721545352a903",
+      "evaluated_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
       "source_dirty": false
     },
     "reproduction": {
@@ -3641,18 +5137,18 @@
     "wheel": {
       "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
       "runtime_source_entries": 24,
-      "sha256": "c757836d9c85ccb8bc70de3afc69246271d9ae5415b534d966ad00f2a8544d7e",
+      "sha256": "66c535eea2c9cff002014dcbdffa4a38cab0defebbc28d9bcc218973961ef6d5",
       "size_bytes": 228303
     },
     "work_dir": {
       "large_files_committed": false,
-      "path": "/tmp/vlaforge-wheel-artifact-eval-40e1e9b-clean",
-      "size_bytes": 110223502
+      "path": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean",
+      "size_bytes": 110239634
     }
   },
   "passed": true,
   "repository": {
-    "audited_revision": "40e1e9b72a1d14b9e199cea3864721545352a903",
+    "audited_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
     "baseline_revision": "f0fc1be",
     "frozen_core_matches": true,
     "frozen_core_revision": "766e27bdfb34c3311dda7d444862b7f95d05c7b8",
@@ -3784,10 +5280,10 @@
   "schema": "vlaforge.reproducibility_manifest/1",
   "status": "passed",
   "summary": {
-    "absolute_reference_count": 234,
-    "committed_raw_file_count": 36,
-    "external_reference_count": 196,
-    "formal_report_count": 11,
+    "absolute_reference_count": 240,
+    "committed_raw_file_count": 316,
+    "external_reference_count": 197,
+    "formal_report_count": 13,
     "missing_external_reference_count": 1,
     "must_archive_missing_count": 0,
     "must_archive_root_count": 8,
