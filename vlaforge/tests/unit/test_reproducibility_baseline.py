@@ -82,3 +82,13 @@ def test_reproducibility_markdown_discloses_external_archives() -> None:
     assert "required" in markdown
     assert "does not contain Orin evidence" in markdown
     assert "not real-model support evidence" in markdown
+
+
+def test_formal_status_accepts_legacy_pass_and_explicit_blocker() -> None:
+    audit = _module()
+    assert audit._formal_status_is_acceptable({"status": "passed"})
+    assert audit._formal_status_is_acceptable({"passed": True})
+    assert audit._formal_status_is_acceptable(
+        {"status": "resource_blocked", "passed": False}
+    )
+    assert not audit._formal_status_is_acceptable({"status": "failed"})

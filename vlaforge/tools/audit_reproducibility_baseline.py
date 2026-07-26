@@ -309,6 +309,14 @@ def _formal_reports() -> list[Path]:
     return sorted(paths)
 
 
+def _formal_status_is_acceptable(report: Mapping[str, Any]) -> bool:
+    return (
+        report.get("status")
+        in {"passed", "blocked", "resource_blocked"}
+        or report.get("passed") is True
+    )
+
+
 def audit(
     artifact_evaluation_path: Path,
     *,
@@ -359,7 +367,7 @@ def audit(
     if not required_reports.issubset({path.name for path in formal_paths}):
         raise ValueError("formal report inventory is incomplete")
     if any(
-        report.get("status") not in {"passed", "blocked"}
+        not _formal_status_is_acceptable(report)
         for _, report in reports
     ):
         raise ValueError("formal report has an unexpected status")
