@@ -1,0 +1,375 @@
+{
+  "captures": [
+    {
+      "effect_audit": {
+        "diagnostics": [],
+        "explicit_rng": false,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_decoder_mlp.capture.json",
+      "export_seconds": 0.663219460984692,
+      "graph_sha256": "ac5005d42d5d640357ff8b0845d6e850048b3acb8038eed3e6cab3637dd6f3c5",
+      "maximum_export_error": 0.0,
+      "name": "autovla_decoder_mlp",
+      "program": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_decoder_mlp.pt2e",
+      "program_sha256": "cf6257a3d42989d433484c83dc1f6b451fa97564bb7e09a5978301d8f6d302a3",
+      "program_size_bytes": 135339405
+    },
+    {
+      "effect_audit": {
+        "diagnostics": [],
+        "explicit_rng": false,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_action_projection.capture.json",
+      "export_seconds": 0.048726710956543684,
+      "graph_sha256": "e84855ffcfa7cb0b8aa5794f1d7b5052c13a6081e4bc434f5b856bcb74d61a33",
+      "maximum_export_error": 0.0,
+      "name": "autovla_action_projection",
+      "program": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_action_projection.pt2e",
+      "program_sha256": "edd32df5ce9b23d154690299e697db3cd2e433bebcc1f361267e309b8e4097d6",
+      "program_size_bytes": 8456417
+    },
+    {
+      "effect_audit": {
+        "diagnostics": [],
+        "explicit_rng": false,
+        "external_io": false,
+        "hidden_mutation": false,
+        "hidden_rng": false,
+        "lifted_states": [],
+        "passed": true
+      },
+      "evidence": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_trajectory_decode.capture.json",
+      "export_seconds": 0.38602523203007877,
+      "graph_sha256": "e15d2522244085e07066f7b8f82b5ad766345fdd5986f9adabdd677b75031855",
+      "maximum_export_error": 0.0,
+      "name": "autovla_trajectory_decode",
+      "program": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_trajectory_decode.pt2e",
+      "program_sha256": "209b189ac5e8010a91ea7d0d23dfc15c026afd3c318be432c860f7bbad01847d",
+      "program_size_bytes": 868292
+    }
+  ],
+  "checkpoint": {
+    "expected_size_bytes": 16292664780,
+    "filename": "AutoVLA_PDMS_89.ckpt",
+    "last_decoder_layer": 35,
+    "license": "UCLA Academic Software License; research use",
+    "path": "/tmp/vlaforge-autovla-checkpoint-a7d7ba3/AutoVLA_PDMS_89.ckpt",
+    "repository": "https://huggingface.co/Zewei-Zhou/AutoVLA",
+    "resolved_keys": {
+      "down_proj": "autovla.vlm.model.layers.35.mlp.down_proj.weight",
+      "final_norm": "autovla.vlm.model.norm.weight",
+      "gate_proj": "autovla.vlm.model.layers.35.mlp.gate_proj.weight",
+      "post_attention_norm": "autovla.vlm.model.layers.35.post_attention_layernorm.weight",
+      "projection": "autovla.vlm.lm_head.weight",
+      "up_proj": "autovla.vlm.model.layers.35.mlp.up_proj.weight"
+    },
+    "revision": "a7d7ba3ed7529b248d2694c2defa31b35208340f",
+    "selected_tensor_shapes": {
+      "action_projection": [
+        2048,
+        2048
+      ],
+      "down_proj": [
+        2048,
+        11008
+      ],
+      "final_norm": [
+        2048
+      ],
+      "gate_proj": [
+        11008,
+        2048
+      ],
+      "post_attention_norm": [
+        2048
+      ],
+      "up_proj": [
+        11008,
+        2048
+      ]
+    },
+    "sha256": "58246773393da45678a3f35d354fd969eed6833ecc8ee596edc5e283d1a87473",
+    "size_bytes": 16292664780
+  },
+  "codebook": {
+    "action_start_id": 151665,
+    "path": "/tmp/vlaforge-autovla-minimal-ba34eed/codebook_cache/agent_vocab.pkl",
+    "sha256": "e6bf8eff32497eaefca66f488dda1edefe97ed2696d1d23c01839dc27422408e",
+    "shape": [
+      2048,
+      6,
+      4,
+      2
+    ]
+  },
+  "correctness": {
+    "action_tokens_in_range": true,
+    "eager_vs_semantic_ir": {
+      "action_tokens": {
+        "dtype": "torch.int64",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          10
+        ]
+      },
+      "trajectory": {
+        "dtype": "torch.float32",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          10,
+          3
+        ]
+      }
+    },
+    "eager_vs_strict_export": {
+      "action_logits": {
+        "dtype": "torch.float32",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          10,
+          2048
+        ]
+      },
+      "action_tokens": {
+        "dtype": "torch.int64",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          10
+        ]
+      },
+      "decoded_hidden": {
+        "dtype": "torch.bfloat16",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          1,
+          10,
+          2048
+        ]
+      },
+      "trajectory": {
+        "dtype": "torch.float32",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          10,
+          3
+        ]
+      }
+    },
+    "same_revision_outputs_stable": true,
+    "semantic_ir_vs_plan": {
+      "action_tokens": {
+        "dtype": "torch.int64",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          10
+        ]
+      },
+      "trajectory": {
+        "dtype": "torch.float32",
+        "exact": true,
+        "maximum_absolute_error": 0.0,
+        "mean_absolute_error": 0.0,
+        "normalized_root_mean_square_error": 0.0,
+        "shape": [
+          10,
+          3
+        ]
+      }
+    },
+    "semantic_plan_trace_exact": true,
+    "trajectory_finite": true
+  },
+  "environment": {
+    "cuda": "12.8",
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python": "3.13.12",
+    "torch": "2.10.0+cu128"
+  },
+  "evidence_kind": "real-checkpoint-weight-backed-partition-capture",
+  "evidence_level": "L2-partitioned-real-checkpoint-frontend",
+  "exact_reuse": {
+    "expected": "one hit and two misses",
+    "plan": {
+      "events": 3,
+      "hits": 1,
+      "misses": 2
+    },
+    "run_revisions": [
+      100,
+      100,
+      101
+    ],
+    "semantic": {
+      "events": 3,
+      "hits": 1,
+      "misses": 2
+    }
+  },
+  "input_contract": {
+    "post_attention_hidden": {
+      "device": "cuda:0",
+      "dtype": "torch.bfloat16",
+      "identity": "InputRevision; no timing or synchronization semantics",
+      "ownership": "external borrowed-until-Run-returns",
+      "shape": [
+        1,
+        10,
+        2048
+      ]
+    }
+  },
+  "model": "AutoVLA PDMS 89",
+  "output_contract": {
+    "action_tokens": [
+      10
+    ],
+    "external_publish": false,
+    "group": "planning",
+    "trajectory": [
+      10,
+      3
+    ],
+    "transactional": true
+  },
+  "passed": true,
+  "qwen": {
+    "config_path": "/tmp/vlaforge-qwen2.5-vl-3b-config/config.json",
+    "config_sha256": "7ed3eed5be6924cc800e8a5e53fc405c1aab1aaf36bad65c33403b36c56827f5",
+    "repository": "https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct",
+    "revision": "66285546d2b821cf421d4f5eb2576359d3770cd3"
+  },
+  "repository": {
+    "revision": "f750e544f04c76e45fecb6ab06d98ca9e89c3c62",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command": [
+      "/home/zhangzimo/miniconda3/bin/python",
+      "vlaforge/tools/audit_real_autovla_frontend.py",
+      "--source-root",
+      "/tmp/vlaforge-autovla-minimal-ba34eed",
+      "--checkpoint",
+      "/tmp/vlaforge-autovla-checkpoint-a7d7ba3/AutoVLA_PDMS_89.ckpt",
+      "--codebook",
+      "/tmp/vlaforge-autovla-minimal-ba34eed/codebook_cache/agent_vocab.pkl",
+      "--qwen-config",
+      "/tmp/vlaforge-qwen2.5-vl-3b-config/config.json",
+      "--export-dir",
+      "/tmp/vlaforge-autovla-l2-f750e54/exports",
+      "--report",
+      "<report.json>",
+      "--device",
+      "cuda:0"
+    ],
+    "environment": {
+      "CUDA_VISIBLE_DEVICES": "<unset>",
+      "PYTHONPATH": "vlaforge/python"
+    }
+  },
+  "schema": "vlaforge.autovla_real_frontend/1",
+  "scope": {
+    "captured": [
+      "final Qwen post-attention RMSNorm+MLP residual block",
+      "final RMSNorm and real action-vocabulary projection rows",
+      "released 2048-entry vehicle codebook and ten-step rollout",
+      "InputRevision exact reuse",
+      "transactional trajectory and action-token outputs"
+    ],
+    "claim": "This is a real-weight frontend partition, not full end-to-end AutoVLA support and not a generated C++ artifact result.",
+    "excluded": [
+      "camera decoding and synchronization",
+      "prompt/processor construction",
+      "vision encoder and language-model prefill/attention",
+      "full autoregressive token-generation loop",
+      "fast/slow natural-language CoT routing"
+    ]
+  },
+  "semantic_ir": {
+    "authoritative_state_bytes": 0,
+    "bounded_decode_steps": 10,
+    "cache_input_ids": [
+      0
+    ],
+    "cache_region": "autovla_decoder_mlp",
+    "cache_state_ids": [],
+    "core_op_delta": 0,
+    "derived_cache": "autovla_decoder_mlp output",
+    "io_schema_digest": "c25b7dc49a514ee26acd7d64adc8131325db7036e5190c246c865cac62441133",
+    "regions": [
+      "autovla_decoder_mlp",
+      "autovla_action_projection",
+      "autovla_trajectory_decode"
+    ],
+    "static_arena_bytes": 123200
+  },
+  "status": "passed",
+  "timing_and_memory": {
+    "capture_total_seconds": 1.7904239620547742,
+    "checkpoint_load_seconds": 10.392724342877045,
+    "eager_partition_seconds": 0.2229344081133604,
+    "peak_cuda_allocated_bytes": 533944320,
+    "peak_host_rss_bytes": 1473228800
+  },
+  "upstream": {
+    "code_license": "UCLA Academic Software License",
+    "repository": "https://github.com/ucla-mobility/AutoVLA",
+    "revision": "ba34eed74ce6729e7986592d0e66cbaca397b4fa",
+    "source_files": [
+      {
+        "expected_sha256": "e34becaf49a06fd89c17579a58753a547efa13f5f9d5711738a4e904eeaa4424",
+        "matches_pinned_revision": true,
+        "path": "/tmp/vlaforge-autovla-minimal-ba34eed/models/autovla.py",
+        "relative_path": "models/autovla.py",
+        "sha256": "e34becaf49a06fd89c17579a58753a547efa13f5f9d5711738a4e904eeaa4424"
+      },
+      {
+        "expected_sha256": "eb668739af6a9b245a3f32bbf7701f69f8c6662d35c652874e85dc63b836dcf2",
+        "matches_pinned_revision": true,
+        "path": "/tmp/vlaforge-autovla-minimal-ba34eed/models/action_tokenizer.py",
+        "relative_path": "models/action_tokenizer.py",
+        "sha256": "eb668739af6a9b245a3f32bbf7701f69f8c6662d35c652874e85dc63b836dcf2"
+      },
+      {
+        "expected_sha256": "32a7bac3ad99723fcc754b58d29af56e56028c056eda3901b5cf571c189dd3ef",
+        "matches_pinned_revision": true,
+        "path": "/tmp/vlaforge-autovla-minimal-ba34eed/config/eval/qwen2.5-vl-3B-nusc-sft-eval.yaml",
+        "relative_path": "config/eval/qwen2.5-vl-3B-nusc-sft-eval.yaml",
+        "sha256": "32a7bac3ad99723fcc754b58d29af56e56028c056eda3901b5cf571c189dd3ef"
+      }
+    ]
+  }
+}
