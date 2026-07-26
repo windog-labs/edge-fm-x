@@ -24,12 +24,12 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | ID | Paper claim | Required evidence | Current evidence | Status | Boundary |
 |---|---|---|---|---|---|
 | C1 | VLAForge represents a caller-driven stateful model invocation with a 15-op VLA-specific core | frozen schema/opcode audit, verifier tests, architecture scanner | `vlaforge_heldout_v01/heldout_audit.json`, `vlaforge_architecture_v01/architecture_surface.json` | passed | not a tensor algebra, scheduler, or middleware IR |
-| C2 | Authoritative state and derived cache have different lifetime/failure contracts | state/cache memory records, commit/abort tests, real stateful model | SmolVLA real L4, `paper_ablations.json` | passed | derived cache may be dropped; authoritative state may not |
+| C2 | Authoritative state and derived cache have different lifetime/failure contracts | state/cache memory records, commit/abort tests, real stateful model | SmolVLA and MindDrive real L4, `paper_ablations.json` | passed | derived cache may be dropped; authoritative state may not |
 | C3 | `InputRevision` safely controls exact cross-Run reuse | same/new/missing/reset traces and cache-only performance control | 40-task exact-reuse ablation | passed | caller must assign truthful revisions; missing is safe-by-default |
-| C4 | State and named outputs commit transactionally | validation failure, version sequence, prior-output preservation, retry | SmolVLA and DiffusionDrive real L4 failure/retry | passed | vehicle safety and fallback policy remain external |
+| C4 | State and named outputs commit transactionally | validation failure, version sequence, prior-output preservation, retry | SmolVLA, DiffusionDrive, and 16-state/10-output MindDrive real L4 failure/retry | passed | vehicle safety and fallback policy remain external |
 | C5 | Generated C++ adds low orchestration overhead over identical direct artifacts | five workloads, five independent processes, direct-vs-generated exact output | 150-task CUDA matrix | passed | approximately 0.5% on two models and one RTX 3060 only |
 | C6 | Generated deployment is no-Python and contract verified | clean wheel, non-Git cwd, invalid Python env, `ldd`, negative schema/hash/target cases | reproducibility report and deployment-boundary ablation | passed | does not imply a Python-free compile toolchain |
-| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving artifacts, held-out real model with core delta zero | SmolVLA L4, OpenVLA L3, MindDrive complete driving-VLA L3, DiffusionDrive planner L4 | passed | MindDrive is full six-camera-to-trajectory; DiffusionDrive is not a language VLA |
+| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving artifacts, held-out real model with core delta zero | SmolVLA L4, OpenVLA L3, MindDrive complete driving-VLA L4, DiffusionDrive planner L4 | passed | MindDrive is full six-camera-to-trajectory; DiffusionDrive is not a language VLA |
 | C8 | Memory is statically bounded and stable | Plan certificate, memory-class split, 10k soak | static-arena ablation and real L4 soaks | passed | packing savings are small; claim boundedness, not compression |
 
 ## Performance evidence
@@ -45,16 +45,16 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 
 ## Correctness and failure evidence
 
-| Property | SmolVLA | DiffusionDrive | Held-out |
-|---|---|---|---|
-| real eager/frontend | L2 | L2 | AutoVLA L2 partition, exact |
-| compiled artifact | L3 | L3 | AutoVLA L3 candidate not promoted |
-| generated C++ | L4 | L4 | not required |
-| same/new/missing revision | passed | passed | same/new passed; missing remains core/real-L4 evidence |
-| episode reset | passed | passed | stateless partition |
-| authoritative state commit/abort | queue/cursor versions passed | stateless, N/A | stateless partition |
-| transactional named outputs | action output | six planning outputs | trajectory + action tokens passed |
-| no-Python Session | passed | passed | not required at held-out L2 |
+| Property | SmolVLA | DiffusionDrive | MindDrive | Held-out AutoVLA |
+|---|---|---|---|---|
+| real eager/frontend | L2 | L2 | complete L2 | L2 partition, exact |
+| compiled artifact | L3 | L3 | complete held-out L3 | L3 candidate not promoted |
+| generated C++ | L4 | L4 | L4 | not required |
+| same/new/missing revision | passed | passed | same/new passed; missing covered by core and other L4 paths | same/new passed |
+| episode reset | passed | passed | passed for 16 states | stateless partition |
+| authoritative state commit/abort | queue/cursor versions passed | stateless, N/A | 128 commits + one abort passed | stateless partition |
+| transactional named outputs | action output | six planning outputs | ten trajectory/detection/motion outputs | trajectory + action tokens passed |
+| no-Python Session | passed | passed | typed/generic passed | not required at held-out L2 |
 
 ## Generalization evidence
 
@@ -69,7 +69,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | driving trajectory | trajectory fixture | one trajectory; no state | L1 fixture | 0 |
 | driving autoregressive | AutoVLA | trajectory + tokens | real L2 partition | 0 |
 | driving diffusion | DiffusionDrive | candidates/scores/trajectory/aux | real L4 | 0 |
-| stateful multimodal driving VLA | MindDrive 0.5B | trajectory/path/commands/detection/motion + 16 states | real L3 | 0 |
+| stateful multimodal driving VLA | MindDrive 0.5B | trajectory/path/commands/detection/motion + 16 states | real L4 | 0 |
 | external-feature hybrid | DriveVLM-Dual-like | trajectory/prediction/map/VQA | L1 fixture + C++ plugin fixture | 0 |
 
 ## Artifact/reproduction gates

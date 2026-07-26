@@ -111,11 +111,12 @@ artifact L3 与 generated no-Python C++ Session L4。OpenVLA-7B 已通过
 - Invocation IR/Plan/C++ substrate 已贯通；
 - 模型范式 fixture 已证明 core expressiveness；
 - clean no-Python C/C++ ABI 已验证；
-- 固定 `SmolVLA-Base` 与 DiffusionDrive checkpoint 已达到 real
-  Host-CUDA L4；
+- 固定 `SmolVLA-Base`、DiffusionDrive 与 MindDrive 0.5B checkpoint 已达到
+  real Host-CUDA L4；
 - OpenVLA-7B 已达到 real Host-CUDA L3；
-- robot/flow、robot/autoregressive 和 driving/diffusion 三种真实模型范式
-  已达到 L3，新增 core op 均为 0。
+- robot/flow、robot/autoregressive、driving/diffusion 和
+  driving/stateful-multimodal 四种真实模型范式已达到 L3，新增 core op
+  均为 0。
 
 当前不能声称：
 
@@ -177,9 +178,11 @@ policy 尝试 weight paging，不把模型专属路由写入 core。
 ## 当前完成边界与可选增强
 
 本机必选工作已经完成：SmolVLA/DiffusionDrive real L4 的 Host-CUDA
-latency、memory、profile、四类正式消融和 10k Run 长稳均有正式报告；冻结
-core 后的 Octo、GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；
-AutoVLA 又完成发布 checkpoint 的真实 L2 decoder partition。
+latency、memory、profile、四类正式消融和 10k Run 长稳均有正式报告；
+MindDrive 0.5B 的 8 logical/66 physical artifact、16-state、10-output
+generated no-Python C++ real L4 correctness 已闭合；冻结 core 后的 Octo、
+GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；AutoVLA 又完成
+发布 checkpoint 的真实 L2 decoder partition。
 
 以下只属于可选增强，不保持当前论文 Goal 未完成：
 
@@ -193,14 +196,16 @@ AutoVLA 又完成发布 checkpoint 的真实 L2 decoder partition。
    的编译；Orin 台架就绪后执行 smoke，并可选补充真实模型 SM87
    parity/latency/power/thermal。
 
-## 2026-07-26 Final Host-CUDA release audit
+## 2026-07-27 Host-CUDA release audit
 
-- offline Python suite：238 passed，10 个 opt-in gate skipped；
+- offline Python suite：263 passed，11 个 opt-in gate skipped；
 - real SmolVLA checkpoint gate：1 passed；
 - real SmolVLA L4 opt-in gate：1 passed；
 - real OpenVLA-7B 4-bit gate：1 passed；
 - real OpenVLA-7B partitioned artifact L3：36/36 Regions 与两次完整
   pipeline passed；
+- real MindDrive 0.5B generated L4：66 physical artifacts、10 outputs、
+  typed/generic/compiled-reference exact、trace/failure/reset passed；
 - clean C++ Release build：passed；
 - CPU CTest：7/7 passed；CUDA/AOTI CTest：8/8 passed；
 - CPU 与 AOTI CMake install/export consumer：passed；

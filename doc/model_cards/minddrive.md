@@ -6,10 +6,10 @@
 | Code license | Apache-2.0 |
 | Dataset boundary | Bench2Drive data is CC BY-NC-ND 4.0 |
 | Checkpoint repository | `poleyzdk/Minddrive@5cf1eafc7f6d1028006f2d97d083d8e9aa4c0b12` |
-| 当前证据 | **完整 real L3**：real L2 的六相机/8 logical Region/16 authoritative StateSlot/10 named outputs 链路保持；64 个真实 `sm_86` AOTI physical Regions 在新五帧 held-out 上通过端到端 compiled parity |
+| 当前证据 | **完整 real L4**：real L2/L3 保持；8 logical Regions 由 66 个真实 `sm_86` AOTI artifacts 执行，生成的 no-Python C++ Session 在五帧序列上通过 typed/generic API、事务、cache、reset 与 10 named outputs exact parity |
 | Adapter | 13 个静态 InputPort、8 个 TensorRegion、16 个 StateSlot、1 个 transactional output group；无 sensor/timer/middleware 语义 |
 | Core op 增量 | **0** |
-| 当前缺口 | real L4 verified bundle/no-Python C++、正式性能/内存矩阵 |
+| 当前缺口 | MindDrive 专属正式 cold/first/warm、RSS/CUDA memory 与性能矩阵；不影响 real L4 correctness 等级 |
 
 ## 固定发布物
 
@@ -191,6 +191,52 @@ contiguous physical ABI、真实 `.so` SHA256 和非硬链接不可变性。
 因此 MindDrive 已达到完整 `real-L3-compiled-held-out-end-to-end`；它不是
 compile-only、部分 decoder 或 fixture 证据。
 
+## 真实 generated no-Python C++ L4
+
+L4 保持 8 个逻辑 TensorRegion，不向 Semantic IR 增加模型专属 op。物理
+backend 将 vision/map 两个逻辑 Region 表达为静态
+`vlaforge.aoti_sequence/1`：
+
+- vision sequence：52 个 artifact、74 个 node、123 个静态 value；
+- map sequence：8 个 artifact、8 个 node、39 个静态 value；
+- 其余 position/detection/decision/action/trajectory/detection-decode：
+  6 个 direct raw AOTI `.so`；
+- 合计 66 个真实 physical artifacts，全部由 bundle SHA256 清单覆盖。
+
+Sequence 只是一种受验证的 TensorRegion backend artifact，不是新的 core
+IR 控制语义。边值采用 canonical dense ABI；若 AOTI 返回 padded/strided
+view，provider 在物理边界显式物化 contiguous tensor。临时值按最后一次
+使用释放，避免 24 层 vision 中间量全部常驻。16 个大状态通过 runtime
+zero initializer 建立，不在生成源码中嵌入巨大字面量。
+
+clean-worktree bundle 从 commit
+`b9372682abd9af484a046014be6305dd2ae1ee45` 构建，记录
+`source_dirty=false`：
+
+| 发布物 | SHA256 |
+|---|---|
+| `l4/bundle/bundle.json` | `fa7a2ef0109c6598a31166f29ce1406e5557ca3b730188fe3d51310f93c78c5b` |
+| `l4/bundle/bin/vlaforge_generated_runner` | `b48174f1c1def6c02df2c92180fe51ae07040838e9955d8e5b079145ea10390b` |
+| `l4/evidence/minddrive-real-l4.json` | `20cef99bef75ee60a5d43bd62b731d25451640b1f694be9dfe3c339eba885a6e` |
+
+runner 使用 LibTorch 2.4.1+cu118，在 RTX 3060 `sm_86` 上运行；传入无效
+`PYTHONHOME/PYTHONPATH` 仍成功，`ldd` 无 `libpython`。模型专属强类型
+wrapper 与通用 C ABI 的 10 个最终输出逐 bit 相等，并与真实 compiled
+reference 逐 bit 相等。
+
+typed trace 覆盖一个 same-revision cache hit、8 个 cache miss、8 个成功
+事务、1 个 validation abort、1 次 episode reset，以及 16 states × 8
+成功 Run = 128 次 state commit：
+
+```text
+TRACE_SUMMARY,1,8,128,8,1,8,1
+```
+
+NaN trajectory failure 不推进状态或替换 output group；随后新 revision
+retry 正常提交。L4 参考采用已通过 frozen contract-v3 的真实 SDPA/AOTI
+compiled path，作用是验证部署等价与事务边界；它不被描述成新增的模型
+泛化样本。
+
 ## 资源记录
 
 官方完整 eager 的已记录峰值：
@@ -204,13 +250,16 @@ inference-only/no-grad 调用契约后，单次调试峰值约 5.68 GB。该数�
 诊断，不替代后续按论文 workload 采集的 cold/first/warm、RSS、CUDA
 allocated/reserved 正式统计。
 
-## 下一证据等级
+## 后续可选证据
 
-1. 将 64-Region manifest 转换为 verified Compile Bundle；
-2. 为 FlashAttention 和 AOTI physical scheduling 建立 no-Python C++ provider；
-3. 生成 typed/generic ABI 和
-   no-Python C++ Session，完成 cache/transaction/reset/failure/retry；
-4. 将 MindDrive 加入正式性能矩阵、消融、论文表格与 claim-evidence map。
+1. 采集 MindDrive 专属 fresh-process cold load、first/warm Run、Host RSS 与
+   CUDA memory；由于调用包含多个 cache/事务探针，不能把上述总 wall time
+   当成单次 latency；
+2. 将 MindDrive 加入扩展性能/消融图表，但不改变当前 L4 correctness
+   结论；
+3. 在第二台 GPU 或 Orin 上复现 artifact；它们属于跨硬件增强，不是当前
+   Host-CUDA L4 的完成条件。
 
-论文现在可以声称 VLAForge 已在 RTX 3060 上编译真实自动驾驶 VLA；
-在上述 no-Python C++ Session 完成前仍不能声称 MindDrive L4。
+论文现在可以声称 VLAForge 已在 RTX 3060 上将真实、持久状态化的自动驾驶
+VLA 编译为 verified no-Python C++ Session；不能据此声称跨 GPU、Orin
+性能、实时闭环或功耗。

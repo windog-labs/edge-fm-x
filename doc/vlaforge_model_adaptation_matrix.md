@@ -80,7 +80,7 @@ memory/performance results
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
-| MindDrive 0.5B | complete real L3：真实六相机 frontend、8 logical/64 physical Regions、16 authoritative states、10 named outputs、五帧 compiled held-out parity | 是 | 否 | verified bundle、no-Python C++ real L4、正式性能矩阵 |
+| MindDrive 0.5B | complete real L2 + real L3 + real L4：真实六相机 frontend、8 logical/66 physical Regions、16 authoritative states、10 named outputs、五帧 compiled parity | 是 | real checkpoint | 正式 MindDrive 性能/内存矩阵（可选增强） |
 | AutoVLA | L0 + L1 + real L2 partition + L3-candidate | 是 | 否 | 完整 camera/VLM/decode 与通过门槛的 real L3/L4 |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
@@ -95,7 +95,8 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
 1. 稳定 generic InputPort、bounded profile、transactional output group 和 plugin ABI；
 2. 完成四类 driving fixture 与 OpenVLA/SmolVLA/π0 fixture 迁移；
 3. 完成通用 C ABI、typed wrapper 和 clean C++ parity；
-4. SmolVLA、DiffusionDrive real L4 与 OpenVLA 分 Region real L3 已完成；
+4. SmolVLA、DiffusionDrive、MindDrive real L4 与 OpenVLA 分 Region real
+   L3 已完成；
 5. Host-CUDA 五 workload 统计矩阵、正式消融、10k Run 长稳和 profile 已完成；
 6. 冻结 core 后完成 Octo、GR00T N1.7、AutoVLA held-out L0/L1 审计，
    三者 core-op 增量均为 0；
@@ -114,6 +115,9 @@ validation abort/retry 和 ResetEpisode 均通过，`core_op_delta=0`。MindDriv
 `sm_86` AOTI Regions；统一 manifest 对全部 capture/compile/physical ABI/
 artifact identity 做精确绑定。contract v3 在新帧 `00404` 执行前冻结，
 连续五帧的 task outputs 与 authoritative states 全部通过，MindDrive 因此
-达到完整 real L3，`core_op_delta=0`。下一门禁是 verified bundle 与
-generated no-Python C++ real L4。OpenVLA real L4、跨 GPU、第二机复现和
-Orin 属于可选增强，不阻塞本机主线。
+达到完整 real L3。随后两个静态 AOTI sequences 加六个 direct artifacts
+组成 66-artifact verified bundle；generated runner 在 invalid-Python
+环境下通过 typed/generic exact parity、same/new revision、16-state
+commit、validation abort/retry 与 reset，达到完整 real L4，
+`core_op_delta=0`。OpenVLA real L4、跨 GPU、第二机复现和 Orin 属于可选
+增强，不阻塞本机主线。

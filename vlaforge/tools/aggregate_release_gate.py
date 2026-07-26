@@ -212,6 +212,10 @@ def aggregate(gate_root: Path) -> dict[str, Any]:
         ),
         "OpenVLA": _json(real_root / "openvla_artifact_l3.json"),
         "performance": _json(real_root / "real_cuda_evidence.json"),
+        "MindDrive": _json(
+            _REPOSITORY_ROOT
+            / "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json"
+        ),
     }
     if (
         not architecture.get("passed")
@@ -223,6 +227,9 @@ def aggregate(gate_root: Path) -> dict[str, Any]:
         or real_evidence["SmolVLA"].get("evidence_level") != "L4"
         or real_evidence["DiffusionDrive"].get("evidence_level") != "L4"
         or real_evidence["OpenVLA"].get("evidence_level") != "L3"
+        or not str(real_evidence["MindDrive"].get("evidence_level", "")).startswith(
+            "real-L4"
+        )
     ):
         raise ValueError("required architecture/model evidence is not passing")
 
@@ -310,6 +317,7 @@ def aggregate(gate_root: Path) -> dict[str, Any]:
                 "SmolVLA": "L4",
                 "DiffusionDrive": "L4",
                 "OpenVLA": "L3",
+                "MindDrive": "L4",
             },
             "host_cuda_performance": "passed",
         },

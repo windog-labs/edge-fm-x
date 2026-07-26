@@ -1,7 +1,7 @@
 # VLAForge: Stateful Invocation Whole-Program Compilation for
 # Vision-Language-Action Deployment
 
-> Full paper draft, revision 0.1, 2026-07-26.
+> Full paper draft, revision 0.2, 2026-07-27.
 >
 > This document is the paper-facing English draft. Exact source data live under
 > `doc/reports/`; values in this draft must not be updated by hand without
@@ -35,11 +35,15 @@ DiffusionDrive, while preserving exact direct-artifact outputs. Safe repeated
 input identity yields a 5.35x DiffusionDrive speedup; new or missing revisions
 restore full computation. Failure injection confirms that invalid outputs do
 not advance authoritative state or replace committed outputs, and 10,000-Run
-soaks show zero CUDA-memory drift. A held-out real AutoVLA decoder partition
-reuses the same frozen core with zero new operations and exact eager/export/
-Semantic/Plan trajectory and token outputs. The core therefore covers robot
-action chunks and flow matching, autoregressive VLM and driving trajectory
-tokens, and driving diffusion with candidates, scores, and auxiliary outputs.
+soaks show zero CUDA-memory drift. A real MindDrive 0.5B deployment further
+uses the frozen core for six-camera input, 16 authoritative states, and 10
+trajectory/detection/motion outputs: a verified 66-artifact bundle runs through
+both typed C++ and generic C APIs without Python, is bit-exact to its compiled
+reference, and preserves commit/abort/reset semantics. A held-out real AutoVLA
+decoder partition reuses the same core with zero new operations and exact
+eager/export/Semantic/Plan trajectory and token outputs. The core therefore
+covers robot action chunks and flow matching, autoregressive VLM and driving
+trajectory tokens, driving diffusion, and a stateful multimodal driving VLA.
 VLAForge does not claim new model kernels or real-time control scheduling; it
 compiles the stateful model-invocation contract above existing tensor backends.
 
@@ -116,8 +120,9 @@ This paper makes the following contributions:
    execution; state and named outputs commit transactionally.
 4. **Frozen-core evidence across VLA paradigms.** The same core expresses real
    robot flow/chunk and driving diffusion artifacts, real OpenVLA partitioned
-   artifacts, a held-out real AutoVLA decoder partition, plus deterministic
-   robot and driving fixtures. Held-out adapters add zero core operations.
+   artifacts, a complete stateful MindDrive generated Session, a held-out real
+   AutoVLA decoder partition, plus deterministic robot and driving fixtures.
+   Held-out adapters add zero core operations.
 5. **Paper-grade correctness and overhead evidence.** A 150-process-task CUDA
    matrix, four formal ablations, clean-wheel artifact evaluation, failure and
    retry injection, and 10,000-Run soaks quantify performance and semantic
@@ -349,9 +354,11 @@ We ask:
 
 ### 5.2 Hardware and software
 
-Experiments use one NVIDIA GeForce RTX 3060 (12 GiB, compute capability 8.6),
-CUDA 12.8, PyTorch 2.10.0+cu128, and Linux 6.8. This is Host-CUDA evidence, not
-an Orin, cross-GPU, power, thermal, or embedded-real-time claim.
+Experiments use one NVIDIA GeForce RTX 3060 (12 GiB, compute capability 8.6)
+and Linux 6.8. Performance experiments use CUDA 12.8 and PyTorch
+2.10.0+cu128. MindDrive deployment correctness uses LibTorch 2.4.1+cu118 on
+the same CUDA 12.8 driver host. This is Host-CUDA evidence, not an Orin,
+cross-GPU, power, thermal, or embedded-real-time claim.
 
 ### 5.3 Real models and evidence levels
 
@@ -360,6 +367,7 @@ an Orin, cross-GPU, power, thermal, or embedded-real-time claim.
 | SmolVLA | VLM prefix + flow action expert + chunk queue | real L4 | 0 |
 | DiffusionDrive | condition encoder + two-step $K$-candidate diffusion | real L4 | 0 |
 | OpenVLA | autoregressive VLM action tokens | real L3 | 0 |
+| MindDrive 0.5B | six-camera VLM planner + 16-state map/detection memory | real L4 | 0 |
 | AutoVLA | driving autoregressive trajectory tokens | held-out real L2 decoder partition | 0 |
 
 We use the following evidence labels: L0 source/contract mapping; L1
@@ -392,6 +400,10 @@ All 50 workload/path output-parity cells pass. SmolVLA direct AOTI and generated
 C++ produce the same complete `[1,50,6]` action chunk. DiffusionDrive matches
 all candidate trajectories, scores, selected trajectory, BEV semantic map,
 agent states, and agent labels. Typed C++ and generic C ABI outputs are equal.
+MindDrive separately passes exact generated-vs-compiled and typed-vs-generic
+parity for trajectory, path, two commands, detection scores/labels/boxes,
+motion trajectories, valid mask, and valid count across its five-frame
+stateful sequence.
 
 The compiled artifacts use explicit model-specific numerical contracts relative
 to eager BF16 execution; generated C++ is byte-exact to direct invocation of
@@ -533,6 +545,18 @@ and logits NRMSE values, however, were $6.65\times10^{-3}$ and
 $4.54\times10^{-3}$, above the predeclared $10^{-3}$ Region threshold.
 Accordingly we retain the result as L3-candidate and make only the L2 claim.
 
+MindDrive supplies the complete stateful driving path. Its 8 logical Regions
+are implemented by two verified static AOTI sequences and six direct raw AOTI
+artifacts, for 66 physical artifacts total. The generated Session exposes 13
+tensor inputs and 10 named outputs and initializes 16 authoritative state
+slots. With invalid `PYTHONHOME/PYTHONPATH`, both the model-specific typed C++
+wrapper and generic C ABI return all outputs bit-exact to the real compiled
+reference and to each other. An execution audit records one exact cache hit,
+eight misses, 128 state commits, eight transaction/output commits, one
+validation abort followed by a successful retry, and one episode reset. The
+Adapter adds no core operation. This is deployment-correctness evidence, not a
+third performance matrix.
+
 ## 7. Discussion
 
 ### 7.1 What VLAForge improves
@@ -643,6 +667,8 @@ The artifact contains:
 - raw JSON/CSV for the 150-task performance matrix;
 - raw JSON/CSV for 40 exact-reuse tasks and three other formal ablations;
 - the held-out AutoVLA real L2 report and non-promoted L3-candidate audit;
+- the MindDrive real L3 held-out index and clean-worktree real L4 generated
+  bundle/report;
 - checkpoint, source, export, artifact, bundle, and runner hashes;
 - generated C/C++ schema and ABI negative tests;
 - Python, CPU CTest, CUDA CTest, live CUDA AOTI, and no-Python gates.

@@ -1,0 +1,75 @@
+{
+  "archive": {
+    "bundle_root": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+    "evidence_root": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence",
+    "root": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726",
+    "status": "durable_external_archive"
+  },
+  "bundle": {
+    "bundle_json_sha256": "fa7a2ef0109c6598a31166f29ce1406e5557ca3b730188fe3d51310f93c78c5b",
+    "logical_region_artifacts": 8,
+    "physical_artifacts": 66,
+    "runner_sha256": "b48174f1c1def6c02df2c92180fe51ae07040838e9955d8e5b079145ea10390b",
+    "source_dirty": false,
+    "source_revision": "b9372682abd9af484a046014be6305dd2ae1ee45",
+    "verified_profile": true
+  },
+  "environment": {
+    "cuda_runtime": "11.8",
+    "device": "NVIDIA GeForce RTX 3060",
+    "target": "sm_86",
+    "torch": "2.4.1+cu118"
+  },
+  "evidence_level": "real-L4-generated-no-Python-C++",
+  "model": {
+    "authoritative_state_slots": 16,
+    "core_op_delta": 0,
+    "logical_regions": 8,
+    "name": "MindDrive Qwen2-0.5B",
+    "named_outputs": 10,
+    "upstream_commit": "1a4085dab1c20895a0c8d2b67b4f8e65712fa8de"
+  },
+  "output_parity": {
+    "all_ten_outputs_typed_vs_compiled_reference_exact": true,
+    "all_ten_outputs_typed_vs_generic_exact": true
+  },
+  "passed": true,
+  "physical_composition": {
+    "direct_aoti_artifacts": 6,
+    "map_sequence": {
+      "artifacts": 8,
+      "nodes": 8,
+      "values": 39
+    },
+    "sequence_schema": "vlaforge.aoti_sequence/1",
+    "vision_sequence": {
+      "artifacts": 52,
+      "nodes": 74,
+      "values": 123
+    }
+  },
+  "report": {
+    "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/minddrive-real-l4.json",
+    "schema": "vlaforge.minddrive_real_l4/1",
+    "sha256": "20cef99bef75ee60a5d43bd62b731d25451640b1f694be9dfe3c339eba885a6e",
+    "status": "passed"
+  },
+  "runtime_boundary": {
+    "generic_c_abi": "passed",
+    "invalid_python_environment": true,
+    "links_libpython": false,
+    "typed_cpp_wrapper": "passed"
+  },
+  "schema": "vlaforge.minddrive_l4_evidence_index/1",
+  "status": "passed",
+  "transactional_trace": {
+    "cache_hits": 1,
+    "cache_misses": 8,
+    "episode_resets": 1,
+    "output_group_commits": 8,
+    "state_commits": 128,
+    "transaction_aborts": 1,
+    "transaction_commits": 8,
+    "validation_failure_retry": "passed"
+  }
+}

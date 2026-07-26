@@ -28,6 +28,7 @@ _FORMAL_REPORT_GLOBS = (
     "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json",
     "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
     "doc/reports/vlaforge_heldout_v01/*.json",
+    "doc/reports/vlaforge_minddrive_v01/*.json",
     "doc/reports/vlaforge_release_v01/*.json",
     "doc/reports/vlaforge_real_v03/*.json",
 )
@@ -37,6 +38,7 @@ _PAPER_ARTIFACTS = (
     "doc/vlaforge_claim_evidence_map.md",
     "doc/model_cards/README.md",
     "doc/model_cards/autovla.md",
+    "doc/model_cards/minddrive.md",
     "doc/figures/vlaforge_paper/architecture.svg",
     "doc/figures/vlaforge_paper/performance.svg",
     "doc/figures/vlaforge_paper/ablations.svg",
@@ -110,6 +112,15 @@ _ARCHIVE_ROOTS = (
         "optional conservative AOTI L3-candidate artifacts",
     ),
     (
+        "minddrive_complete_l2_l3_l4",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726",
+        True,
+        (
+            "complete MindDrive checkpoint, frontend captures, AOTI "
+            "artifacts, verified bundle, and generated L4 evidence"
+        ),
+    ),
+    (
         "nsight_binary_profiles",
         "/tmp/vlaforge-nsight-v2",
         False,
@@ -181,7 +192,16 @@ def _absolute_references(
     references: dict[str, list[dict[str, str]]] = {}
     for report_path, report in reports:
         for pointer, value in _walk_strings(report):
-            if not value.startswith(("/tmp/", str(_REPOSITORY_ROOT) + "/")):
+            known_external_roots = tuple(
+                path for _, path, _, _ in _ARCHIVE_ROOTS
+            )
+            if not (
+                value.startswith(("/tmp/", str(_REPOSITORY_ROOT) + "/"))
+                or any(
+                    value == root or value.startswith(root + "/")
+                    for root in known_external_roots
+                )
+            ):
                 continue
             references.setdefault(value, []).append(
                 {
@@ -403,6 +423,8 @@ def audit(
         "diffusiondrive_artifact_l4.json",
         "openvla_artifact_l3.json",
         "real_cuda_evidence.json",
+        "minddrive_l3.json",
+        "minddrive_l4.json",
     }
     if not required_reports.issubset({path.name for path in formal_paths}):
         raise ValueError("formal report inventory is incomplete")

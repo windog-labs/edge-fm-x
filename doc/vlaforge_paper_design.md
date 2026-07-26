@@ -191,11 +191,12 @@ IR 已经存在。
 5. held-out model 证明适配主要发生在 Adapter/Region；
 6. trace/failure injection 证明语义忠实。
 
-当前仓库已完成真实 SmolVLA/DiffusionDrive L4、OpenVLA L3、正式五
-workload/五进程矩阵、四类消融、failure/retry、clean-wheel/no-Python
-部署边界，以及冻结核心后的 AutoVLA 真实 L2 decoder partition。AutoVLA
-没有增加 core op；eager/export/Semantic/Plan trajectory 与 tokens exact，
-revision hit/miss 正确。因此：
+当前仓库已完成真实 SmolVLA/DiffusionDrive/MindDrive L4、OpenVLA L3、
+正式五 workload/五进程矩阵、四类消融、failure/retry、
+clean-wheel/no-Python 部署边界，以及冻结核心后的 AutoVLA 真实 L2
+decoder partition。MindDrive 的完整六相机到 10 named outputs 路径包含
+16 个 authoritative states；AutoVLA 没有增加 core op；两者都保持
+`core_op_delta=0`。因此：
 
 > 当前 Host-CUDA 论文贡献已从设计闭环到真实模型与失败语义证据；论文可以
 > 按“Stateful Invocation Whole-Program Compilation for VLA Deployment”
@@ -421,6 +422,11 @@ Generality：
   L4：20 条 candidates、scores、selected trajectory 和三个 aux outputs
   对 direct artifact byte-exact，并覆盖 stateless revision cache、事务失败、
   reset 与 typed/generic ABI，新增 core op 为 0；
+- MindDrive 0.5B 真实 8 logical/66 physical artifact verified bundle 与
+  generated no-Python C++ L4：13 个 tensor inputs、16 个 authoritative
+  states 和 10 个 trajectory/detection/motion outputs；typed/generic/
+  compiled-reference bit-exact，trace 覆盖 revision hit/miss、128 state
+  commits、validation abort/retry 与 episode reset，新增 core op 为 0；
 - SmolVLA 与 DiffusionDrive 的 Host-CUDA eager/direct-artifact/generated-C++
   正式矩阵：每模型五个确定性 content workload、每单元五个独立进程、
   每进程 5 次 warmup 与 30 次稳态采样，合计 150 个独立进程任务；
@@ -516,8 +522,8 @@ publish、core action queue、Python runtime 或旧 EdgeFM CUDA kernel。
 若只完成 fixture-L4 和 source audit，应定位为 design/prototype，不应声称完整
 real-model deployment compiler。
 
-当前 Host-CUDA 结果已满足上述 go 条件：三个真实模型达到 L3，其中 robot
-SmolVLA 与 driving DiffusionDrive 达到真实 L4；held-out core op delta=0；
+当前 Host-CUDA 结果已满足上述 go 条件：SmolVLA、DiffusionDrive 与
+MindDrive 达到真实 L4，OpenVLA 达到真实 L3；held-out core op delta=0；
 性能、消融、failure injection、trace、clean build、wheel install 和
 no-Python 证据齐全。Orin 只能作为后续平台扩展实验，不能回填到当前 claim。
 

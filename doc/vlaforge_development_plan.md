@@ -306,7 +306,7 @@ opcode 或任意未验证 opcode。
 | P7 | robot/driving executable fixtures、fixture C++ parity | 完成 |
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
-| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 的 clean bundle/C++ build 通过但执行受 AOTI package loader 资源行为阻塞 |
+| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive、MindDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 的 clean bundle/C++ build 通过但执行受 AOTI package loader 资源行为阻塞 |
 | P11 | Host CUDA 性能、消融、长稳 | 完成：两真实 L4 模型的 eager/direct/generated 对照、revision/cache 消融、10k Run soak、NSYS/NCU |
 | P12 | frozen-core held-out robot/driving 泛化 | 完成：Octo、GR00T N1.7、AutoVLA pinned-source L0 + executable L1，core op delta=0 |
 | P13 | JetPack arm64 与 TensorRT backend portability | standalone runtime、TensorRT Region backend、安装后 SDK consumer、generated TensorRT Session 与上板 smoke 均已编译；真机执行待环境 |
@@ -314,7 +314,7 @@ opcode 或任意未验证 opcode。
 | P15 | 5 workloads × 5 independent processes 统计实验 | 完成：150 fresh-process tasks、4,500 steady samples、30 cells、50 parity cells |
 | P16 | 一个真实 held-out 模型至少 L2 | 完成：AutoVLA real L2 decoder partition，core op delta=0；L3 candidate 未晋级 |
 | P17 | 论文初稿、表格与 artifact-evaluation 指南 | 完成：论文、三张可复现图、claim map、final gate、manifest 与 completion audit |
-| P18 | 完整真实驾驶 VLA L2–L4 | **real L3 已完成**：MindDrive 0.5B 的完整 real L2 保持；64 个 `sm_86` AOTI physical Regions、统一 capture/ABI/artifact manifest 和新五帧 held-out compiled parity 全通过，core op delta=0；real L4 进行中 |
+| P18 | 完整真实驾驶 VLA L2–L4 | **完成 real L4**：MindDrive 0.5B 的完整 real L2/L3 保持；8 logical/66 physical artifacts、16 authoritative states、10 named outputs 的 verified no-Python C++ Session 通过 typed/generic exact parity、cache、transaction、reset 与 failure/retry，core op delta=0 |
 
 ## 9. 测试与验收
 
@@ -417,8 +417,13 @@ manifest 绑定 capture、compile report、contiguous physical ABI 和 `.so`
 identity。原 `00403` compiled 失败被保留为 development calibration；
 contract v3 在执行新获取的 `00404` 前冻结。连续五帧上的 trajectory/path、
 command、detection set、validity、map/detection authoritative states 和
-全部中间 task contracts 均通过，因此 real L3 已闭合。当前 P18 剩余门禁是
-verified Compile Bundle 与 generated no-Python C++ Session 的 real L4。
+全部中间 task contracts 均通过，因此 real L3 已闭合。L4 将 vision/map
+表示为两个静态 AOTI sequence（60 个物理 child artifacts），并连接 6 个
+direct raw AOTI Regions；总计 66 个物理执行对象。clean-worktree verified
+bundle 的 generated runner 在 invalid-Python 环境下通过 typed wrapper 与
+generic C ABI，10 outputs 对 compiled reference 以及两个 API 间均 bit-exact。
+trace 记录 `1 hit / 8 miss / 128 state commits / 8 transaction commits /
+1 abort / 8 output commits / 1 reset`，因此 P18 real L4 已闭合。
 
 最终 architecture/build-surface negative audit 也已固化为自动测试：
 49 个 production source files 中不存在 tick/clock/deadline/period/jitter、
@@ -472,16 +477,18 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
 3. **已完成**：MindDrive 0.5B 完整 real L2；真实六相机到 10 named outputs
    的 8 Region/16 state 连续四帧链路、cache/transaction/reset 和
    Semantic/Plan parity 全通过，新增 core op=0；
-4. **已完成 L3，进行中 L4**：MindDrive 64 个真实 AOTI physical Regions、
-   完整 artifact manifest 和新五帧 held-out compiled parity 已通过；
-   下一步生成 verified bundle/no-Python Session；
-5. **待重跑**：MindDrive 达到相应等级后，加入 fresh-process
-   cold/first/warm、RSS/CUDA memory、revision cache、四类消融和论文图表；
+4. **已完成 L4**：MindDrive 8 logical/66 physical artifacts 的 clean
+   verified bundle 与 generated no-Python Session 已通过；typed/generic
+   10-output exact parity、revision cache、16-state transaction、validation
+   abort/retry 和 ResetEpisode 均闭合；
+5. **可选增强**：将 MindDrive 加入 fresh-process cold/first/warm、
+   RSS/CUDA memory、扩展性能矩阵和模型专属消融；当前 real L4 correctness
+   与投稿结论不依赖这些附加性能数据；
 6. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3
    conservative candidate 按预声明阈值未晋级；
-7. **已完成基线，待 MindDrive 后刷新**：最终
-   Python/CPU-CUDA CTest/live AOTI/clean-wheel gate、
-   reproducibility manifest 和机械 completion audit；
+7. **进行中刷新**：在 MindDrive L4 提交后重跑最终
+   Python/CPU-CUDA CTest/live AOTI/clean-wheel gate、reproducibility
+   manifest 和机械 completion audit；
 8. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
    探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
 9. **已完成可离线部分**：JetPack r36.4 ARM64 Docker 中完成 TensorRT 10
