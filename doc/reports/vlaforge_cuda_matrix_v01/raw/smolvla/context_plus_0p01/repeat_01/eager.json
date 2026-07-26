@@ -1,0 +1,243 @@
+{
+  "classification": "Host-CUDA model-path benchmark; no Orin claim and no model-kernel optimization attribution",
+  "environment": {
+    "cuda": "12.8",
+    "driver": "595.58.03",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python": "3.13.12",
+    "torch": "2.10.0+cu128"
+  },
+  "initialization_seconds": 6.788266371935606,
+  "latency": {
+    "count": 30,
+    "maximum_ns": 112885512,
+    "mean_ns": 112428116.66666667,
+    "minimum_ns": 111910328,
+    "p50_ns": 112391349,
+    "p90_ns": 112725929,
+    "p99_ns": 112885512,
+    "throughput_runs_per_second": 8.894572191090395
+  },
+  "memory": {
+    "cuda_used_drift_bytes": 0,
+    "rss_drift_kib": 0,
+    "torch_allocated_drift_bytes": 6656,
+    "torch_reserved_drift_bytes": 0,
+    "warmup_cuda_residency_bytes": 88080384,
+    "warmup_rss_residency_kib": 271652
+  },
+  "model": "smolvla",
+  "model_path": {
+    "checkpoint": {
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base/model.safetensors",
+      "sha256": "7cd549ac2351fb069c0ddb3c34ad2d09cfc92b56a15dccdfc2e41467aaca01eb",
+      "size_bytes": 906712520
+    },
+    "execution_contract": "eager explicit-noise full action chunk",
+    "transformers": "4.57.3",
+    "upstream_revision": "8fff0fde7c79f23a93d845d1a50e985de01f8b8a",
+    "vlm_path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLM2-500M-Video-Instruct"
+  },
+  "path": "eager",
+  "reproduction": {
+    "command": [
+      "/tmp/vlaforge-smolvla-env/bin/python",
+      "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_real_model_paths.py",
+      "--model",
+      "smolvla",
+      "--path",
+      "eager",
+      "--input-root",
+      "/tmp/vlaforge-paper-workloads-570b66e/smolvla/03_context_plus_0p01",
+      "--output",
+      "/tmp/vlaforge-paper-matrix-f7bcd4f-run/raw/smolvla/context_plus_0p01/repeat_01/eager/report.json",
+      "--warmup",
+      "5",
+      "--samples",
+      "30",
+      "--checkpoint",
+      "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base",
+      "--vlm-path",
+      "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLM2-500M-Video-Instruct",
+      "--upstream-revision",
+      "8fff0fde7c79f23a93d845d1a50e985de01f8b8a"
+    ],
+    "source_dirty": false,
+    "source_revision": "f7bcd4f56b99056ab83d39e3b76324cd1fff72c6"
+  },
+  "runtime": {
+    "checksum": -6.779399067163467,
+    "cuda_used_end_bytes": 1615593472,
+    "cuda_used_initialized_bytes": 1527513088,
+    "cuda_used_start_bytes": 1615593472,
+    "first_run_ns": 369463905,
+    "first_run_output_probe": -0.2259799689054489,
+    "maximum_rss_kib": 3941648,
+    "rss_end_kib": 2118452,
+    "rss_initialized_kib": 1846800,
+    "rss_start_kib": 2118452,
+    "torch_allocated_end_bytes": 936610304,
+    "torch_allocated_peak_bytes": 963743232,
+    "torch_allocated_start_bytes": 936603648,
+    "torch_reserved_end_bytes": 1000341504,
+    "torch_reserved_peak_bytes": 1000341504,
+    "torch_reserved_start_bytes": 1000341504
+  },
+  "samples": 30,
+  "samples_raw": [
+    {
+      "index": 0,
+      "latency_ns": 112408024,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 1,
+      "latency_ns": 112363623,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 2,
+      "latency_ns": 112277917,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 3,
+      "latency_ns": 112553083,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 4,
+      "latency_ns": 112162325,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 5,
+      "latency_ns": 112341185,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 6,
+      "latency_ns": 112232922,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 7,
+      "latency_ns": 112638460,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 8,
+      "latency_ns": 112567932,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 9,
+      "latency_ns": 112725929,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 10,
+      "latency_ns": 112272186,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 11,
+      "latency_ns": 112633522,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 12,
+      "latency_ns": 112031181,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 13,
+      "latency_ns": 112600207,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 14,
+      "latency_ns": 112507864,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 15,
+      "latency_ns": 112476411,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 16,
+      "latency_ns": 112311415,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 17,
+      "latency_ns": 112302851,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 18,
+      "latency_ns": 112601559,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 19,
+      "latency_ns": 112758940,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 20,
+      "latency_ns": 111910328,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 21,
+      "latency_ns": 112177976,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 22,
+      "latency_ns": 111941126,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 23,
+      "latency_ns": 112853646,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 24,
+      "latency_ns": 112381955,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 25,
+      "latency_ns": 112391349,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 26,
+      "latency_ns": 112372124,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 27,
+      "latency_ns": 112557533,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 28,
+      "latency_ns": 112604415,
+      "output_probe": -0.2259799689054489
+    },
+    {
+      "index": 29,
+      "latency_ns": 112885512,
+      "output_probe": -0.2259799689054489
+    }
+  ],
+  "schema": "vlaforge.real_model_path_benchmark/1",
+  "status": "passed",
+  "warmup": 5
+}

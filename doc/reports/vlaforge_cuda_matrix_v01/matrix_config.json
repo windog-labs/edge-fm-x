@@ -1,0 +1,26 @@
+{
+  "models": {
+    "diffusiondrive": {
+      "bundle_root": "/tmp/vlaforge-diffusiondrive-l4-clean/bundle",
+      "checkpoint": "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+      "l3_root": "/tmp/vlaforge-diffusiondrive-l3-clean",
+      "source_root": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725",
+      "upstream_revision": "9b52ed0ec06b073d82d6f392ab084c7b301c8681",
+      "workloads": "/tmp/vlaforge-paper-workloads-570b66e/diffusiondrive/workloads.json"
+    },
+    "smolvla": {
+      "bundle_root": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
+      "checkpoint": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base",
+      "l3_root": "/tmp/vlaforge-smolvla-l3.hr4TVE",
+      "support_root": "/tmp/vlaforge-smolvla-l4.oYi5dQ",
+      "upstream_revision": "8fff0fde7c79f23a93d845d1a50e985de01f8b8a",
+      "vlm_path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLM2-500M-Video-Instruct",
+      "workloads": "/tmp/vlaforge-paper-workloads-570b66e/smolvla/workloads.json"
+    }
+  },
+  "python": "/tmp/vlaforge-smolvla-env/bin/python",
+  "pythonpath": [
+    "/tmp/vlaforge-lerobot-8fff0fde/src"
+  ],
+  "schema": "vlaforge.cuda_paper_matrix_config/1"
+}

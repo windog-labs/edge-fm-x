@@ -1,0 +1,167 @@
+{
+  "claim_boundary": "content-only deterministic workload profiles; not additional model coverage or data-distribution evidence",
+  "invariants": {
+    "deterministic": true,
+    "profile_count": 5,
+    "same_bytes_across_execution_paths": true,
+    "static_shape_dtype_unchanged": true
+  },
+  "model": "diffusiondrive",
+  "profiles": [
+    {
+      "input_sha256": {
+        "camera_feature": "99944f971a4dee3faffc8c1af0f52cc593516725bef0609edc3750940786d440",
+        "lidar_feature": "7c1f0087d158382aa7372c043f1785cd09c903f742cf989910184171e16e80fb",
+        "noise": "999c40889f61f6527517b322205ca3f95fec1ee1afa776e474fb92c72fdb14d2",
+        "status_feature": "e1c53cc804b0b35d7d9e2d8961f27f871ce3e39b8730fc41f572194201b86347"
+      },
+      "manifest_sha256": "854aaf98d0cc3180693df37ffed5ad2c93cd9ee17fa840d2660552943ba6dc89",
+      "name": "baseline",
+      "profile_id": 0,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/diffusiondrive/00_baseline",
+      "transform": {
+        "group": null,
+        "inputs": [],
+        "offset": 0.0,
+        "scale": 1.0
+      }
+    },
+    {
+      "input_sha256": {
+        "camera_feature": "168148f954f0d87bf0af0c46efefbd9a0c1dc9c1b9197fb1a437994d7dfe470a",
+        "lidar_feature": "af8ee6961be3cec03857d449c8000d3db86a1123345a0b85ef493a832f37eb09",
+        "noise": "999c40889f61f6527517b322205ca3f95fec1ee1afa776e474fb92c72fdb14d2",
+        "status_feature": "e1c53cc804b0b35d7d9e2d8961f27f871ce3e39b8730fc41f572194201b86347"
+      },
+      "manifest_sha256": "2469917be09d87a772699f10b36821c56614e17dd2db585f4b22514a5eea8793",
+      "name": "observation_minus_1pct",
+      "profile_id": 1,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/diffusiondrive/01_observation_minus_1pct",
+      "transform": {
+        "group": "observation",
+        "inputs": [
+          "camera_feature",
+          "lidar_feature"
+        ],
+        "offset": 0.0,
+        "scale": 0.99
+      }
+    },
+    {
+      "input_sha256": {
+        "camera_feature": "8c5ece217a920049435453b95d385d9d01253447b8cc3573bf0d2f2823ec297e",
+        "lidar_feature": "40abaa2cbf5047d829f2895dbaf16357a85879413579529b02c8cce967497923",
+        "noise": "999c40889f61f6527517b322205ca3f95fec1ee1afa776e474fb92c72fdb14d2",
+        "status_feature": "e1c53cc804b0b35d7d9e2d8961f27f871ce3e39b8730fc41f572194201b86347"
+      },
+      "manifest_sha256": "96f92499275d20c4d2d4568fe5c5e9845d51ab7c990254f7a677ca6fcea30108",
+      "name": "observation_plus_1pct",
+      "profile_id": 2,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/diffusiondrive/02_observation_plus_1pct",
+      "transform": {
+        "group": "observation",
+        "inputs": [
+          "camera_feature",
+          "lidar_feature"
+        ],
+        "offset": 0.0,
+        "scale": 1.01
+      }
+    },
+    {
+      "input_sha256": {
+        "camera_feature": "99944f971a4dee3faffc8c1af0f52cc593516725bef0609edc3750940786d440",
+        "lidar_feature": "7c1f0087d158382aa7372c043f1785cd09c903f742cf989910184171e16e80fb",
+        "noise": "999c40889f61f6527517b322205ca3f95fec1ee1afa776e474fb92c72fdb14d2",
+        "status_feature": "05df1e6359c87d26c50981c3f4efea59aed5f66b507597bfd53543f6c2ae226a"
+      },
+      "manifest_sha256": "670e398c9bd32fc2b25005283919a43226a20fb5e260c37a15435bdfe5b90ba3",
+      "name": "context_plus_0p01",
+      "profile_id": 3,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/diffusiondrive/03_context_plus_0p01",
+      "transform": {
+        "group": "context",
+        "inputs": [
+          "status_feature"
+        ],
+        "offset": 0.01,
+        "scale": 1.0
+      }
+    },
+    {
+      "input_sha256": {
+        "camera_feature": "99944f971a4dee3faffc8c1af0f52cc593516725bef0609edc3750940786d440",
+        "lidar_feature": "7c1f0087d158382aa7372c043f1785cd09c903f742cf989910184171e16e80fb",
+        "noise": "b8e1b848bb98341a594b56d4cdd0caaced5bb6d49c1240e2ce7a56e033f80aa4",
+        "status_feature": "e1c53cc804b0b35d7d9e2d8961f27f871ce3e39b8730fc41f572194201b86347"
+      },
+      "manifest_sha256": "ad83febf696b60ce5df23ee9de52a2490823791be78fd184961f9b89bfa98517",
+      "name": "noise_plus_1pct",
+      "profile_id": 4,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/diffusiondrive/04_noise_plus_1pct",
+      "transform": {
+        "group": "noise",
+        "inputs": [
+          "noise"
+        ],
+        "offset": 0.0,
+        "scale": 1.01
+      }
+    }
+  ],
+  "schema": "vlaforge.cuda_benchmark_workloads/1",
+  "source": {
+    "inputs": {
+      "camera_feature": {
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/camera_feature.bin",
+        "sha256": "99944f971a4dee3faffc8c1af0f52cc593516725bef0609edc3750940786d440",
+        "shape": [
+          1,
+          3,
+          256,
+          1024
+        ],
+        "size_bytes": 3145728
+      },
+      "lidar_feature": {
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/lidar_feature.bin",
+        "sha256": "7c1f0087d158382aa7372c043f1785cd09c903f742cf989910184171e16e80fb",
+        "shape": [
+          1,
+          1,
+          256,
+          256
+        ],
+        "size_bytes": 262144
+      },
+      "noise": {
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/noise.bin",
+        "sha256": "999c40889f61f6527517b322205ca3f95fec1ee1afa776e474fb92c72fdb14d2",
+        "shape": [
+          1,
+          20,
+          8,
+          2
+        ],
+        "size_bytes": 1280
+      },
+      "status_feature": {
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/status_feature.bin",
+        "sha256": "e1c53cc804b0b35d7d9e2d8961f27f871ce3e39b8730fc41f572194201b86347",
+        "shape": [
+          1,
+          8
+        ],
+        "size_bytes": 32
+      }
+    },
+    "manifest": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/inputs.json",
+    "manifest_sha256": "b6722a8ba8906f07a7d32bf6924b63c5fcc05a8ea07ee1ed11d80b4e8614a139",
+    "root": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs"
+  },
+  "status": "passed"
+}

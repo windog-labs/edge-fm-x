@@ -427,18 +427,22 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
 
 ## 10. 剩余开发顺序
 
-1. 对 SmolVLA、DiffusionDrive 完成至少五组确定性 workload、每组至少五个
-   独立进程的 eager/direct-AOTI/generated-Session 统计实验，报告标准差与
-   95% bootstrap CI；
-2. 把 exact reuse、static arena、transaction failure 和部署边界整理为四组
+1. **已完成**：SmolVLA、DiffusionDrive 的五组确定性 workload、每组五个
+   独立进程、eager/direct-AOTI/generated-Session 统计实验；150 个任务和
+   50 个输出一致性单元全部通过，并报告标准差、process-cluster bootstrap
+   95% CI、fresh-process initialization、first Run、warm Run 与 memory。
+   证据见 `doc/reports/vlaforge_cuda_matrix_v01/`；
+2. **当前优先级**：把 exact reuse、static arena、transaction failure 和部署边界整理为四组
    可投稿消融，原始 JSON/CSV 与汇总分离；
 3. 在 AutoVLA、GR00T N1.7、Octo 中只选一个可行对象推进真实 L2，争取 L3，
    新增 core op 目标仍为 0；
 4. 形成论文初稿和 artifact-evaluation 指南；
 5. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
    探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
-6. Orin 环境就绪后再执行模型专属 SM87 artifact 和真机验证。Orin 不属于
-   当前论文增强 Goal。
+6. Orin 环境就绪后可选执行模型专属 SM87 artifact 和 latency/power/thermal
+   验证。它与第二台机器独立复现、更多真实模型一样，只是跨平台增强，不属于
+   当前 Host-CUDA 论文 Goal 的完成条件；真车/传感器闭环和 middleware
+   集成不属于本编译器目标。
 
 ## 11. 风险控制
 

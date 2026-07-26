@@ -1,0 +1,177 @@
+{
+  "claim_boundary": "content-only deterministic workload profiles; not additional model coverage or data-distribution evidence",
+  "invariants": {
+    "deterministic": true,
+    "profile_count": 5,
+    "same_bytes_across_execution_paths": true,
+    "static_shape_dtype_unchanged": true
+  },
+  "model": "smolvla",
+  "profiles": [
+    {
+      "input_sha256": {
+        "image": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+        "mask": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+        "noise": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+        "state": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+        "tokens": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f"
+      },
+      "manifest_sha256": "86a08942c633d5b4c661e1141173b90d93507540712d990d4609be12d74d2d06",
+      "name": "baseline",
+      "profile_id": 0,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/smolvla/00_baseline",
+      "transform": {
+        "group": null,
+        "inputs": [],
+        "offset": 0.0,
+        "scale": 1.0
+      }
+    },
+    {
+      "input_sha256": {
+        "image": "ea95a24a00ccc3b6fda243f725a774d5df29facb09d25290168a6f08c0efda09",
+        "mask": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+        "noise": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+        "state": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+        "tokens": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f"
+      },
+      "manifest_sha256": "4e3853caf1c0542b6ac4791e1a0f8facc005d922190fdd0b5057f1da9bde8d13",
+      "name": "observation_minus_1pct",
+      "profile_id": 1,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/smolvla/01_observation_minus_1pct",
+      "transform": {
+        "group": "observation",
+        "inputs": [
+          "image"
+        ],
+        "offset": 0.0,
+        "scale": 0.99
+      }
+    },
+    {
+      "input_sha256": {
+        "image": "e925ea05ccb0a76faf619fc3e2bdc5b3c252616cd783cae0cb97ff51ccc8f3d2",
+        "mask": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+        "noise": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+        "state": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+        "tokens": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f"
+      },
+      "manifest_sha256": "c4b3e668089a226704b7ab93074dfa37bd1e4859c03389fd246c47fd359f850b",
+      "name": "observation_plus_1pct",
+      "profile_id": 2,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/smolvla/02_observation_plus_1pct",
+      "transform": {
+        "group": "observation",
+        "inputs": [
+          "image"
+        ],
+        "offset": 0.0,
+        "scale": 1.01
+      }
+    },
+    {
+      "input_sha256": {
+        "image": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+        "mask": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+        "noise": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+        "state": "c27e7e345f3ccbb83f6686913abb126c116a48d6fb698c3e3e40efec7ffb7882",
+        "tokens": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f"
+      },
+      "manifest_sha256": "6244e02aff1fa4d2d395a7dab2d0c0aec91d21e2f72390ee3ede9b07d37bab8b",
+      "name": "context_plus_0p01",
+      "profile_id": 3,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/smolvla/03_context_plus_0p01",
+      "transform": {
+        "group": "context",
+        "inputs": [
+          "state"
+        ],
+        "offset": 0.01,
+        "scale": 1.0
+      }
+    },
+    {
+      "input_sha256": {
+        "image": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+        "mask": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+        "noise": "609de3ea8475b18d6a8138df52ba87e52cbc2d2c06499481a5892c43df670789",
+        "state": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+        "tokens": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f"
+      },
+      "manifest_sha256": "4472fb1d459166f2275ee5599d0944817d21e7cbebefb0c575696234a7d74404",
+      "name": "noise_plus_1pct",
+      "profile_id": 4,
+      "root": "/tmp/vlaforge-paper-workloads-570b66e/smolvla/04_noise_plus_1pct",
+      "transform": {
+        "group": "noise",
+        "inputs": [
+          "noise"
+        ],
+        "offset": 0.0,
+        "scale": 1.01
+      }
+    }
+  ],
+  "schema": "vlaforge.cuda_benchmark_workloads/1",
+  "source": {
+    "inputs": {
+      "image": {
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/image.bin",
+        "sha256": "4574393b6bf88ee80a991ff8c29425567a3f8860ea26f844351e8c4a02a478c5",
+        "shape": [
+          1,
+          3,
+          256,
+          256
+        ],
+        "size_bytes": 786432
+      },
+      "mask": {
+        "dtype": "bool",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/mask.bin",
+        "sha256": "4093065dd06f114ab9012bc33908a9def3c32865843f33eee3b8b1059789efc0",
+        "shape": [
+          1,
+          48
+        ],
+        "size_bytes": 48
+      },
+      "noise": {
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/noise.bin",
+        "sha256": "a93bbc211339c831fcbc342787089a727d89f80e870202c069bfed919be5ef18",
+        "shape": [
+          1,
+          50,
+          32
+        ],
+        "size_bytes": 6400
+      },
+      "state": {
+        "dtype": "float32",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/state.bin",
+        "sha256": "e6f7bd49ac361692234bc0b1df363a0b497f4ca23e4b14a9ec110c11f27bdc81",
+        "shape": [
+          1,
+          6
+        ],
+        "size_bytes": 24
+      },
+      "tokens": {
+        "dtype": "int64",
+        "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/tokens.bin",
+        "sha256": "97f4363b425df4de685a19e2f6b7e9cbbf4851f20ca46dd7ea72a4bf1c28772f",
+        "shape": [
+          1,
+          48
+        ],
+        "size_bytes": 384
+      }
+    },
+    "manifest": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/inputs.json",
+    "manifest_sha256": "d0b83cf1a5e967778c9d0d7fe84de5c019c29a66f29e7309e9ed24f7ed1b2e83",
+    "root": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs"
+  },
+  "status": "passed"
+}

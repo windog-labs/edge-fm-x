@@ -414,9 +414,14 @@ Generality：
   对 direct artifact byte-exact，并覆盖 stateless revision cache、事务失败、
   reset 与 typed/generic ABI，新增 core op 为 0；
 - SmolVLA 与 DiffusionDrive 的 Host-CUDA eager/direct-artifact/generated-C++
-  正式对照：generated 相对 direct 的 overhead 分别为 `+0.14%/+0.84%`，
-  相对 eager 为 `2.498x/1.187x`；该对照不把 AOTI kernel 收益写成
-  VLAForge 贡献；
+  正式矩阵：每模型五个确定性 content workload、每单元五个独立进程、
+  每进程 5 次 warmup 与 30 次稳态采样，合计 150 个独立进程任务；
+  generated 相对 direct 的 workload-level overhead 为
+  `+0.43%–+0.63% / +0.15%–+0.71%`，相对 eager 的加速为
+  `2.436x–2.491x / 1.159x–1.168x`；30 个统计单元均报告
+  process-cluster bootstrap 95% CI、first Run、fresh-process
+  initialization 和 memory，50 个输出一致性单元全部通过。该对照不把
+  AOTI kernel 收益写成 VLAForge 贡献；
 - DiffusionDrive same-revision exact condition cache 为 `5.533x`；
   new/missing revision 均完整失效。SmolVLA action-chunk 业务 Run 平均
   `0.689 ms`，queue/cursor 仍只属于 Adapter；
@@ -455,7 +460,9 @@ Generality：
 
 - OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
   已记录，不能把成功 build 写成 L4 execution；
-- Orin 真机 latency/power/closed-loop 后置，不进入当前 Host-CUDA claim。
+- Orin 真机 latency/power/thermal 后置，只作为可选跨平台增强，不进入当前
+  Host-CUDA claim。真车、传感器闭环、ROS/Cyber、周期调度、动作发布和车辆
+  安全层不属于 VLAForge 编译器的完成条件。
 
 小型 CUDA AOTI audit 只证明 production artifact substrate 已经真实执行，
 不能计入模型覆盖表中的 real-model L3/L4。SmolVLA 的 L3 是独立的固定
@@ -493,3 +500,9 @@ real-model deployment compiler。
 SmolVLA 与 driving DiffusionDrive 达到真实 L4；held-out core op delta=0；
 性能、消融、failure injection、trace、clean build、wheel install 和
 no-Python 证据齐全。Orin 只能作为后续平台扩展实验，不能回填到当前 claim。
+
+2026-07-26 的 paper-grade CUDA matrix 进一步把早期单 workload 性能结果升级
+为 5 workload × 5 independent process × 3 path 的正式统计证据。原始
+JSON/CSV、聚合表和机器可读 SHA256 清单见
+`doc/reports/vlaforge_cuda_matrix_v01/`。该结果仅证明 RTX 3060
+(`sm_86`)/CUDA 12.8 Host-CUDA，不外推跨 GPU、Orin 或真实车辆性能。

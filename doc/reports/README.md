@@ -11,8 +11,13 @@ Current v0.2 evidence:
 - `vlaforge_reproducibility_v01/`: installed-wheel `sm_86` artifact
   evaluation, environment manifest, committed-evidence hashes, reproduction
   commands, and the external large-artifact archive inventory;
+- `vlaforge_cuda_matrix_v01/`: paper-grade RTX 3060/CUDA 12.8 matrix with
+  two real models, five deterministic workloads, five independent processes,
+  eager/direct-AOTI/generated-C++ paths, clustered 95% confidence intervals,
+  first-Run/fresh-process/memory data, raw JSON/CSV, and output parity;
 - `vlaforge_orin_validation.md`: JetPack arm64 VLAForge runtime and generated
-  Session portability evidence. Real Orin GPU execution remains pending.
+  Session portability evidence. Real Orin GPU execution is an optional
+  cross-platform extension, not a Host-CUDA paper completion condition.
 
 Current architecture and evidence status:
 

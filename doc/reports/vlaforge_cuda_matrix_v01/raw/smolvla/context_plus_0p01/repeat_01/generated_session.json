@@ -1,0 +1,112 @@
+{
+  "bundle": {
+    "artifact_bytes": 819673392,
+    "digest": "9801d7292ea418ffc567aa84faf8c09f1e5c5bcf7da9f815db714cf43bfdbfa5",
+    "io_schema_digest": "5afb44dec96ea1d51c1e0971817f3c331a1c31dcc998a2b5b2755789184d0b77",
+    "root": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
+    "source_dirty": false,
+    "source_revision": "0cf3d12e8bbbef08e96ce423872505876f9391f5"
+  },
+  "classification": "Host-CUDA generated Session benchmark; no Orin claim and no model-kernel optimization attribution",
+  "environment": {
+    "cuda": "12.8",
+    "driver": "595.58.03",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python_orchestrator": "3.13.12",
+    "torch": "2.10.0+cu128"
+  },
+  "latency": {
+    "count": 30,
+    "maximum_ns": 48634733,
+    "mean_ns": 45706972.0,
+    "minimum_ns": 45153914,
+    "p50_ns": 45364491,
+    "p90_ns": 46497478,
+    "p99_ns": 48634733,
+    "throughput_runs_per_second": 21.878500286564595
+  },
+  "memory": {
+    "cuda_used_drift_bytes": 0,
+    "rss_drift_kib": 8,
+    "static_arena": {
+      "baseline_allocations": 62,
+      "baseline_bytes": 2331712,
+      "compiled_allocations": 62,
+      "compiled_bytes": 2329792,
+      "enabled": true,
+      "saved_bytes": 1920
+    },
+    "warmup_cuda_residency_bytes": 83886080,
+    "warmup_rss_residency_kib": 412648
+  },
+  "mode": "full",
+  "model": "smolvla",
+  "path": "generated_no_python_cpp_session",
+  "reproduction": {
+    "command": [
+      "/tmp/vlaforge-paper-matrix-f7bcd4f-run/binaries/smolvla/bin/vlaforge_generated_benchmark",
+      "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
+      "/tmp/vlaforge-paper-workloads-570b66e/smolvla/03_context_plus_0p01",
+      "5",
+      "30",
+      "full"
+    ],
+    "orchestrator": [
+      "/tmp/vlaforge-smolvla-env/bin/python",
+      "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_generated_l4.py",
+      "--model",
+      "smolvla",
+      "--bundle-root",
+      "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
+      "--input-root",
+      "/tmp/vlaforge-paper-workloads-570b66e/smolvla/03_context_plus_0p01",
+      "--output-root",
+      "/tmp/vlaforge-paper-matrix-f7bcd4f-run/raw/smolvla/context_plus_0p01/repeat_01/generated_session",
+      "--binary-root",
+      "/tmp/vlaforge-paper-matrix-f7bcd4f-run/binaries/smolvla",
+      "--warmup",
+      "5",
+      "--samples",
+      "30",
+      "--mode",
+      "full",
+      "--reuse-binary"
+    ]
+  },
+  "runner": {
+    "build_seconds": 0.0,
+    "invalid_python_environment": true,
+    "links_libpython": false,
+    "path": "/tmp/vlaforge-paper-matrix-f7bcd4f-run/binaries/smolvla/bin/vlaforge_generated_benchmark",
+    "sha256": "29fd952a5b76fbbd0169086f7737f92a32ead6f07274dd9a91d71a7f09d03cae",
+    "wall_seconds": 3.3247703190427274
+  },
+  "runtime": {
+    "cache_hits": 0,
+    "cache_misses": 30,
+    "checksum": -6.945932060480118,
+    "cuda_used_end_bytes": 1481375744,
+    "cuda_used_initialized_bytes": 1397489664,
+    "cuda_used_peak_sampled_bytes": 1481375744,
+    "cuda_used_start_bytes": 1481375744,
+    "first_run_ns": 254445906,
+    "initialization_ns": 890819712,
+    "maximum_rss_kib": 1690784,
+    "output_commits": 30,
+    "regions": 780,
+    "resets": 30,
+    "rss_end_kib": 1691644,
+    "rss_initialized_kib": 1278988,
+    "rss_start_kib": 1691636,
+    "state_0_version": 1,
+    "state_1_version": 1,
+    "state_commits": 60,
+    "transaction_aborts": 0,
+    "transaction_commits": 30
+  },
+  "samples": 30,
+  "schema": "vlaforge.generated_l4_benchmark/1",
+  "status": "passed",
+  "warmup": 5
+}
