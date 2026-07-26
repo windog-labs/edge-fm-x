@@ -9,6 +9,14 @@ from typing import Mapping
 
 
 @dataclass(frozen=True, slots=True)
+class ZeroStateInitializer:
+    """Request runtime zero initialization without embedding tensor literals."""
+
+
+ZERO_STATE = ZeroStateInitializer()
+
+
+@dataclass(frozen=True, slots=True)
 class CppRegionDefinition:
     region_name: str
     body: str

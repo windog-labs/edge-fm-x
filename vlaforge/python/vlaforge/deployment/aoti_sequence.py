@@ -3,7 +3,9 @@
 An AOTI sequence is a backend artifact, not a Semantic IR extension.  It
 allows one logical TensorRegion to be physically partitioned into a bounded
 dataflow of raw/package AOTI callables while keeping the model-facing Region
-contract unchanged.
+contract unchanged. Sequence edges use a canonical dense tensor ABI; the
+runtime explicitly materializes a contiguous tensor when a physical AOTI
+callable returns a padded or strided view.
 """
 
 from __future__ import annotations
@@ -216,6 +218,23 @@ class AotiSequenceManifest:
         if missing_outputs:
             raise ValueError(
                 f"sequence does not produce external outputs {missing_outputs}"
+            )
+        used_values = {
+            value_id for node in self.nodes for value_id in node.inputs
+        }
+        unused_temporaries = [
+            item.value_id
+            for item in self.values
+            if item.role == "temporary"
+            and (
+                item.value_id not in defined
+                or item.value_id not in used_values
+            )
+        ]
+        if unused_temporaries:
+            raise ValueError(
+                f"sequence contains unused temporary values "
+                f"{unused_temporaries}"
             )
 
     @property

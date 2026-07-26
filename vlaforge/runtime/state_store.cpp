@@ -102,6 +102,32 @@ Status StateStore::Initialize(std::uint32_t state_id, const void* data,
   return Status::Ok();
 }
 
+Status StateStore::InitializeZero(std::uint32_t state_id) noexcept {
+  const auto* descriptor = Descriptor(state_id);
+  if (descriptor == nullptr) {
+    return Status::Error(StatusCode::kInvalidArgument, state_id,
+                         "invalid zero state initializer");
+  }
+  if (initialized_[state_id]) {
+    return Status::Error(StatusCode::kAlreadyExists, state_id,
+                         "state is already initialized");
+  }
+  std::fill_n(
+      InitialData(state_id), descriptor->value_size, std::byte{0});
+  const auto status = CopyBytes(
+      SlotData(*descriptor, 0), arena_.device(),
+      InitialData(state_id), {VLAFORGE_DEVICE_CPU, 0},
+      descriptor->value_size, state_id);
+  if (!status.ok()) {
+    return status;
+  }
+  auto& metadata = metadata_[MetadataIndex(state_id, 0)];
+  metadata = SlotMetadata{true, 0, episode_};
+  initialized_[state_id] = true;
+  next_versions_[state_id] = 1;
+  return Status::Ok();
+}
+
 Status StateStore::Begin(Transaction* transaction,
                          std::uint32_t task_id) noexcept {
   if (transaction == nullptr) {

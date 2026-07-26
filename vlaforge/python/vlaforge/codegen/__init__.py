@@ -24,6 +24,8 @@ from vlaforge.codegen.model import (
     CppRegionDefinition,
     CppValidatorDefinition,
     GeneratedSources,
+    ZERO_STATE,
+    ZeroStateInitializer,
 )
 
 __all__ = [
@@ -32,6 +34,8 @@ __all__ = [
     "CppRegionDefinition",
     "CppValidatorDefinition",
     "GeneratedSources",
+    "ZERO_STATE",
+    "ZeroStateInitializer",
     "generate_compiled_cpp_session",
     "generate_cpp_session",
     "driving_diffusion_regions",

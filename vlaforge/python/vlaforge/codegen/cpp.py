@@ -12,6 +12,7 @@ from vlaforge.codegen.model import (
     CppRegionDefinition,
     CppValidatorDefinition,
     GeneratedSources,
+    ZeroStateInitializer,
 )
 from vlaforge.ir.program import InputPort, Module
 from vlaforge.ir.serializer import io_schema_digest, module_digest
@@ -796,13 +797,24 @@ vlaforge::runtime::Status ReadBool(
             )
             verify.append(
                 f"""  {{
-    auto verify_status = vlaforge::runtime::VerifyArtifactFile(
-        bundle_root, kArtifactPath{index}, kArtifactShaHex{index},
-        {artifact.artifact_size_bytes}u, &region_paths_[{index}u]);
-    if (!verify_status.ok()) {{
+    const char* resolved_path = nullptr;
+    const char* verify_message = nullptr;
+    const auto verify_code = vlaforge_verify_artifact_file_abi(
+        bundle_root, std::strlen(bundle_root),
+        kArtifactPath{index}, sizeof(kArtifactPath{index}) - 1u,
+        kArtifactShaHex{index}, sizeof(kArtifactShaHex{index}) - 1u,
+        {artifact.artifact_size_bytes}u, &resolved_path, &verify_message);
+    if (verify_code != static_cast<std::uint32_t>(
+                           vlaforge::runtime::StatusCode::kOk) ||
+        resolved_path == nullptr) {{
       DestroyRegions();
-      return verify_status;
+      return vlaforge::runtime::Status::Error(
+          static_cast<vlaforge::runtime::StatusCode>(verify_code),
+          {index}u,
+          verify_message != nullptr ? verify_message
+                                    : "artifact verification failed");
     }}
+    region_paths_[{index}u] = resolved_path;
     const auto* api = {backend_api};
     auto c_status = vlaforge_region_executable_value_api_validate(api);
     if (c_status.code != VLAFORGE_STATUS_OK) {{
@@ -1917,6 +1929,16 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             if state.name not in self.initial_state:
                 continue
             value = self.initial_state[state.name]
+            if isinstance(value, ZeroStateInitializer):
+                lines.extend(
+                    (
+                        "  if (initialization_status_.ok()) {",
+                        "    initialization_status_ = "
+                        f"state_store_.InitializeZero({state_id}u);",
+                        "  }",
+                    )
+                )
+                continue
             if isinstance(state.payload, TensorType):
                 ctype = _cpp_scalar(state.payload.dtype)
                 values = ", ".join(

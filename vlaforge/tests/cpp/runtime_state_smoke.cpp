@@ -75,5 +75,13 @@ int main() {
       Value(snapshot) != 7) {
     return 6;
   }
+  StaticArena zero_arena(64, 64);
+  StateStore zero_store(zero_arena, &descriptor, 1u);
+  if (!Check(zero_store.initialization_status(), "construct zero") ||
+      !Check(zero_store.InitializeZero(0u), "initialize zero") ||
+      !Check(zero_store.ReadLatest(0u, 12u, &snapshot), "read zero") ||
+      snapshot.logical_version != 0u || Value(snapshot) != 0) {
+    return 7;
+  }
   return 0;
 }

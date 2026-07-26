@@ -52,6 +52,7 @@ class StateStore final {
                     std::size_t size_bytes,
                     VLAForgeDevice source_device = {
                         VLAFORGE_DEVICE_CPU, 0}) noexcept;
+  Status InitializeZero(std::uint32_t state_id) noexcept;
   Status Begin(Transaction* transaction,
                std::uint32_t task_id = 0) noexcept;
   Status ReadLatest(std::uint32_t state_id, std::uint32_t task_id,

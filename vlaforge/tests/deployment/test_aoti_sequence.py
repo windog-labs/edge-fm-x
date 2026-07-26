@@ -94,6 +94,18 @@ def test_aoti_sequence_rejects_non_dense_external_bindings() -> None:
         replace(manifest, values=tuple(values))
 
 
+def test_aoti_sequence_rejects_unused_temporary() -> None:
+    manifest = _manifest()
+    values = (
+        *manifest.values,
+        AotiSequenceValue(
+            3, "unused", "temporary", None, "f32", (4, 4)
+        ),
+    )
+    with pytest.raises(ValueError, match="unused temporary"):
+        replace(manifest, values=values)
+
+
 def test_aoti_sequence_rejects_artifact_path_escape() -> None:
     with pytest.raises(ValueError, match="normalized and relative"):
         AotiSequenceArtifact(0, "bad", "../bad.so", "3" * 64, 1)

@@ -8,7 +8,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Mapping
 
 from vlaforge.codegen import (
@@ -357,6 +357,7 @@ def build_artifact_compile_bundle(
     initial_state: Mapping[str, object] | None = None,
     default_device: str = "cpu",
     state_device: str = "cpu",
+    auxiliary_files: Mapping[str, str | Path] | None = None,
 ) -> CompileBundleManifest:
     """Build a self-verifying bundle backed by real compiled Region artifacts."""
 
@@ -456,6 +457,42 @@ def build_artifact_compile_bundle(
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
 
+    auxiliary_records = []
+    occupied_paths = {
+        PurePosixPath(contract.artifact_path) for contract in contracts.values()
+    }
+    for relative_text, source_text in sorted(
+        (auxiliary_files or {}).items()
+    ):
+        relative = PurePosixPath(relative_text)
+        if (
+            relative.is_absolute()
+            or ".." in relative.parts
+            or str(relative) != relative_text
+            or not relative.parts
+            or relative.parts[0] in {"bin", "generated", "metadata"}
+            or relative_text == "bundle.json"
+            or relative in occupied_paths
+        ):
+            raise ValueError(
+                f"invalid or colliding auxiliary artifact path: "
+                f"{relative_text}"
+            )
+        source = Path(source_text).resolve()
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        destination = root / relative_text
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        auxiliary_records.append(
+            FileRecord.from_file(
+                root,
+                relative_text,
+                "region_artifact_auxiliary",
+            )
+        )
+        occupied_paths.add(relative)
+
     runtime = Path(runtime_root).resolve()
     prefix = Path(cmake_prefix_path).resolve()
     configure_command = (
@@ -547,6 +584,7 @@ def build_artifact_compile_bundle(
                 "session_binary",
                 executable=True,
             ),
+            *auxiliary_records,
         ),
         toolchain_versions=(
             VersionEntry("cmake", _first_version_line(["cmake", "--version"])),

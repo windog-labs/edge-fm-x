@@ -15,6 +15,7 @@ from vlaforge.codegen import (
     CodegenUnsupportedError,
     CppArtifactRegionDefinition,
     CppValidatorDefinition,
+    ZERO_STATE,
     driving_diffusion_regions,
     driving_diffusion_runner_source,
     driving_diffusion_validators,
@@ -56,6 +57,27 @@ def _sources():
         runner_source=openvla_fixture_runner_source(),
     )
     return fixture, plan, sources
+
+
+def test_codegen_zero_state_initializer_avoids_embedded_tensor_literals():
+    fixture = build_smolvla_fixture()
+    plan = physicalize_plan(lower_to_plan(fixture.module))
+    sources = generate_cpp_session(
+        plan,
+        fixture.module,
+        regions=smolvla_fixture_regions(),
+        validators=smolvla_fixture_validators(),
+        runner_source=smolvla_fixture_runner_source(),
+        initial_state={
+            state.name: ZERO_STATE for state in fixture.module.states
+        },
+    )
+
+    session_source = sources.as_dict()["session_generated.cpp"]
+    assert session_source.count("state_store_.InitializeZero(") == len(
+        fixture.module.states
+    )
+    assert "initial_state_0[]" not in session_source
 
 
 def test_codegen_is_deterministic_and_has_v02_apis():
@@ -116,7 +138,7 @@ def test_codegen_emits_bundle_loaded_aoti_regions() -> None:
     source = sources["session_generated.cpp"]
     cmake = sources["CMakeLists.txt"]
     assert "vlaforge_model_session_create_from_bundle" in header + source
-    assert "VerifyArtifactFile" in source
+    assert "vlaforge_verify_artifact_file_abi" in source
     assert "vlaforge_aoti_region_executable_value_api" in source
     assert "api->load" in source
     assert "api->run" in source

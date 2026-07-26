@@ -170,6 +170,7 @@ struct AotiSequenceRunner::Impl {
   std::vector<ArtifactSpec> artifact_specs;
   std::vector<std::unique_ptr<AotiCallable>> artifacts;
   std::vector<NodeSpec> nodes;
+  std::vector<std::size_t> value_use_counts;
   std::size_t input_count = 0u;
   std::size_t output_count = 0u;
 };
@@ -329,6 +330,7 @@ void AotiSequenceRunner::Load(
     throw std::runtime_error("AOTI sequence has no nodes");
   }
   impl_->nodes.reserve(node_count);
+  impl_->value_use_counts.assign(value_count, 0u);
   std::vector<bool> defined(value_count, false);
   for (std::size_t index = 0u; index < value_count; ++index) {
     defined[index] = impl_->values[index].role == ValueRole::kInput;
@@ -357,6 +359,7 @@ void AotiSequenceRunner::Load(
         throw std::runtime_error(
             "AOTI sequence node reads an undefined value");
       }
+      ++impl_->value_use_counts[value_id];
       node.inputs.push_back(value_id);
     }
     const auto output_count =
@@ -395,6 +398,11 @@ void AotiSequenceRunner::Load(
       throw std::runtime_error(
           "AOTI sequence does not produce every external output");
     }
+    if (impl_->values[index].role == ValueRole::kTemporary &&
+        (!defined[index] || impl_->value_use_counts[index] == 0u)) {
+      throw std::runtime_error(
+          "AOTI sequence contains an unused temporary value");
+    }
   }
 
   impl_->artifacts.reserve(artifact_count);
@@ -421,6 +429,7 @@ std::vector<at::Tensor> AotiSequenceRunner::Run(
     throw std::runtime_error("AOTI sequence input count mismatch");
   }
   std::vector<at::Tensor> values(impl_->values.size());
+  auto remaining_uses = impl_->value_use_counts;
   for (std::size_t value_id = 0u; value_id < impl_->values.size();
        ++value_id) {
     const auto& spec = impl_->values[value_id];
@@ -437,7 +446,9 @@ std::vector<at::Tensor> AotiSequenceRunner::Run(
     values[value_id] = inputs[binding];
   }
 
-  for (const auto& node : impl_->nodes) {
+  for (std::size_t node_index = 0u; node_index < impl_->nodes.size();
+       ++node_index) {
+    const auto& node = impl_->nodes[node_index];
     std::vector<at::Tensor> arguments;
     arguments.reserve(node.inputs.size());
     for (const auto value_id : node.inputs) {
@@ -454,13 +465,35 @@ std::vector<at::Tensor> AotiSequenceRunner::Run(
     }
     for (std::size_t index = 0u; index < outputs.size(); ++index) {
       const auto value_id = node.outputs[index];
+      // Sequence values have a canonical dense ABI.  AOTI is allowed to
+      // return a padded/view tensor even when the captured logical value is
+      // dense, so materialize that boundary explicitly before it becomes a
+      // loop-carried or downstream Region value.
+      if (outputs[index].defined() && !outputs[index].is_contiguous()) {
+        outputs[index] = outputs[index].contiguous();
+      }
       if (!TensorMatches(
               outputs[index], impl_->values[value_id],
               impl_->device_kind, impl_->device_ordinal)) {
         throw std::runtime_error(
-            "AOTI sequence physical output metadata mismatch");
+            "AOTI sequence physical output metadata mismatch at node " +
+            std::to_string(node_index) + ", artifact " +
+            std::to_string(node.artifact_id) + ", output " +
+            std::to_string(index) + ", value " +
+            std::to_string(value_id));
       }
       values[value_id] = std::move(outputs[index]);
+    }
+    for (const auto value_id : node.inputs) {
+      if (remaining_uses[value_id] == 0u) {
+        throw std::runtime_error(
+            "AOTI sequence value liveness underflow");
+      }
+      --remaining_uses[value_id];
+      if (remaining_uses[value_id] == 0u &&
+          impl_->values[value_id].role == ValueRole::kTemporary) {
+        values[value_id] = at::Tensor();
+      }
     }
   }
 
