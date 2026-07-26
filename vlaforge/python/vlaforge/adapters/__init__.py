@@ -1,6 +1,7 @@
 """Model adapters isolated from the model-independent Invocation IR."""
 
 from vlaforge.adapters.common import AdapterFixture, FixtureRun
+from vlaforge.adapters.autovla_real import build_real_autovla_program
 from vlaforge.adapters.driving import (
     DRIVING_FIXTURES,
     build_driving_ar_fixture,
@@ -47,6 +48,7 @@ __all__ = [
     "build_driving_ar_fixture",
     "build_driving_diffusion_fixture",
     "build_driving_trajectory_fixture",
+    "build_real_autovla_program",
     "build_real_diffusiondrive_program",
     "build_groot_n1_like_fixture",
     "build_hybrid_external_feature_fixture",
