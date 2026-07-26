@@ -19,7 +19,7 @@
     "final_release_gate": {
       "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_release_v01/release_gate.json",
       "schema": "vlaforge.host_cuda_release_gate/1",
-      "sha256": "672eae358ec9ce254e4c52b4d98855e1bd99c2217f46e575e54135ae7914d585",
+      "sha256": "c488e0fd2c4366d25d4f3ef2f909de052a4ff4ff409c1b48b78322adda2b26f4",
       "status": "passed"
     },
     "formal_ablations": {
@@ -54,7 +54,7 @@
       "legacy_cuda_kernels_compiled": false,
       "live_cuda_aoti": true,
       "passed": true,
-      "python_passed": 238
+      "python_passed": 263
     },
     "formal_ablations": {
       "formal_ablations": [

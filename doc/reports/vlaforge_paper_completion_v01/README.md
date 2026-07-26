@@ -9,7 +9,7 @@ Status: **submission-ready**.
 | 5-workload × 5-process CUDA matrix | passed |
 | Four formal contribution ablations | passed |
 | Held-out real model | AutoVLA PDMS 89, `L2-partitioned-real-checkpoint-frontend`, core op delta 0 |
-| Final Python/C++/CUDA gate | 238 Python tests; CPU 7/7; CUDA 8/8; live AOTI passed |
+| Final Python/C++/CUDA gate | 263 Python tests; CPU 7/7; CUDA 8/8; live AOTI passed |
 | Clean installed-wheel no-Python artifact | passed |
 | Paper, figures, Model Card, claim map, artifact README | passed |
 
