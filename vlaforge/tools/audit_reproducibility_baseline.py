@@ -23,7 +23,9 @@ from typing import Any, Iterable, Mapping
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _SCHEMA = "vlaforge.reproducibility_manifest/1"
 _FORMAL_REPORT_GLOBS = (
+    "doc/reports/vlaforge_ablations_v01/paper_ablations.json",
     "doc/reports/vlaforge_architecture_v01/*.json",
+    "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
     "doc/reports/vlaforge_heldout_v01/*.json",
     "doc/reports/vlaforge_release_v01/*.json",
     "doc/reports/vlaforge_real_v03/*.json",
@@ -357,6 +359,8 @@ def audit(
     reports = [(path, _json(path)) for path in formal_paths]
     required_reports = {
         "architecture_surface.json",
+        "cuda_paper_matrix.json",
+        "paper_ablations.json",
         "heldout_audit.json",
         "release_gate.json",
         "smolvla_artifact_l4.json",
@@ -375,13 +379,18 @@ def audit(
     references = _absolute_references(reports)
     commands = _reproduction_commands(reports)
     archives = _archive_inventory()
-    committed_raw_root = (
+    committed_raw_roots = (
         _REPOSITORY_ROOT
-        / "doc/reports/vlaforge_real_v03/real_cuda_raw"
+        / "doc/reports/vlaforge_real_v03/real_cuda_raw",
+        _REPOSITORY_ROOT
+        / "doc/reports/vlaforge_cuda_matrix_v01/raw",
+        _REPOSITORY_ROOT
+        / "doc/reports/vlaforge_ablations_v01/raw",
     )
     committed_raw = [
         _file_record(path)
-        for path in sorted(committed_raw_root.rglob("*"))
+        for root in committed_raw_roots
+        for path in sorted(root.rglob("*"))
         if path.is_file()
     ]
     frozen = next(

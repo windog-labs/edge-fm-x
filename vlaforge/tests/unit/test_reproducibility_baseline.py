@@ -92,3 +92,10 @@ def test_formal_status_accepts_legacy_pass_and_explicit_blocker() -> None:
         {"status": "resource_blocked", "passed": False}
     )
     assert not audit._formal_status_is_acceptable({"status": "failed"})
+
+
+def test_formal_inventory_includes_matrix_and_paper_ablations() -> None:
+    audit = _module()
+    names = {path.name for path in audit._formal_reports()}
+    assert "cuda_paper_matrix.json" in names
+    assert "paper_ablations.json" in names
