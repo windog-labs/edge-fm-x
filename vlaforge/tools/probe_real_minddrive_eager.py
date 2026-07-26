@@ -120,7 +120,12 @@ def _build_raw_invocation(
     import cv2
     import numpy as np
 
-    annotation = _load_gzip_json(frame_root / "anno" / f"{frame}.json.gz")
+    annotation_path = frame_root / "anno" / f"{frame}.json.gz"
+    if not annotation_path.is_file():
+        annotation_path = (
+            frame_root / "appended_anno" / f"{frame}.json.gz"
+        )
+    annotation = _load_gzip_json(annotation_path)
     measurement = _load_gzip_json(
         frame_root / "measurements" / f"{frame}.json.gz"
     )
@@ -206,6 +211,7 @@ def _build_raw_invocation(
         "ori_shape": stacked_shape,
         "pad_shape": stacked_shape,
         "input_provenance": {
+            "annotation": str(annotation_path.resolve()),
             "annotation_speed": float(annotation["speed"]),
             "raw_route_command": raw_command,
             "route_command_index": command,
@@ -393,6 +399,7 @@ def main() -> int:
     parser.add_argument("--frame", default="00400")
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--output-tensors", type=Path)
+    parser.add_argument("--image-features", type=Path)
     parser.add_argument("--preprocessed-inputs", type=Path)
     parser.add_argument("--persistent-state", type=Path)
     parser.add_argument("--device", default="cuda:0")
@@ -586,9 +593,21 @@ def main() -> int:
     cuda_after_load = int(torch.cuda.memory_allocated())
 
     _reset_model_state(model)
+    captured_image_features: dict[str, Any] = {}
+    original_extract_feat = model.extract_feat
+
+    def capture_image_features(image: Any) -> Any:
+        features = original_extract_feat(image)
+        captured_image_features["value"] = features.detach().cpu()
+        return features
+
+    model.extract_feat = capture_image_features
     eager_started = time.perf_counter()
-    with torch.inference_mode():
-        output = model(batch, return_loss=False)
+    try:
+        with torch.inference_mode():
+            output = model(batch, return_loss=False)
+    finally:
+        model.extract_feat = original_extract_feat
     torch.cuda.synchronize()
     eager_seconds = time.perf_counter() - eager_started
     if not isinstance(output, list) or len(output) != 1:
@@ -643,6 +662,19 @@ def main() -> int:
         )
         report["output_tensors"] = str(args.output_tensors.resolve())
         report["output_tensors_sha256"] = _sha256(args.output_tensors)
+    if args.image_features is not None:
+        if "value" not in captured_image_features:
+            raise ValueError("MindDrive eager run captured no image features")
+        args.image_features.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {"image_features": captured_image_features["value"]},
+            args.image_features,
+        )
+        report["image_features"] = {
+            **_tensor_record(captured_image_features["value"]),
+            "path": str(args.image_features.resolve()),
+            "sha256": _sha256(args.image_features),
+        }
     if args.preprocessed_inputs is not None:
         report["preprocessed_inputs"] = str(
             args.preprocessed_inputs.resolve()

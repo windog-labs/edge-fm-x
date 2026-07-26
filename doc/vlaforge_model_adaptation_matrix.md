@@ -80,7 +80,7 @@ memory/performance results
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
-| MindDrive 0.5B | real eager（L2-prerequisite-only） | 进行中 | 否 | Semantic IR/Plan 连续 Run、L3、L4 |
+| MindDrive 0.5B | real eager + EVA strict capture（完整模型仍为 L2-prerequisite-only） | 进行中 | 否 | 下游 VLM/planner capture、完整 Semantic IR/Plan 连续 Run、L3、L4 |
 | AutoVLA | L0 + L1 + real L2 partition + L3-candidate | 是 | 否 | 完整 camera/VLM/decode 与通过门槛的 real L3/L4 |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
@@ -104,8 +104,9 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
 
 原 Host-CUDA 投稿基线已经完成。2026-07-26 提高后的模型覆盖门禁选择
 MindDrive 0.5B 作为真实驾驶 VLA 主对象；完整权重、严格推理态加载、真实
-六相机 official-pipeline eager reference 已通过，但严格保持为
-`L2-prerequisite-only`。必须在本机继续形成完整
+六相机 official-pipeline eager reference 已通过；24 层 EVA 视觉 Region
+已完成 real strict capture，并在第二真实帧上通过锁定的 backend 数值门槛，
+但完整模型仍严格保持为 `L2-prerequisite-only`。必须在本机继续形成完整
 camera/language/route/ego 到 trajectory 的 real L2，并在保留强编译 claim
 前达到 real L3，目标为 L4。OpenVLA real L4、跨 GPU、第二机复现和 Orin
 仍属于可选增强，不阻塞该本机主线。

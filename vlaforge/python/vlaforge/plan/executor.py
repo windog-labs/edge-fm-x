@@ -370,6 +370,9 @@ class PlanExecutor:
             executed = True
             if bool(region.metadata.get("memoize", False)):
                 key = self._cache_key(task, region_name)
+                cache_revisions, cache_snapshots = self._cache_identity(
+                    region_name
+                )
                 lookup = self.cache.lookup(key)
                 if lookup.hit:
                     result = lookup.value
@@ -385,10 +388,8 @@ class PlanExecutor:
                     {
                         "region": region_name,
                         "hit": lookup.hit,
-                        "input_revisions": self._active_revisions,
-                        "state_snapshots": tuple(
-                            sorted(self._active_snapshots.items())
-                        ),
+                        "input_revisions": cache_revisions,
+                        "state_snapshots": cache_snapshots,
                     },
                 )
             else:
@@ -591,6 +592,7 @@ class PlanExecutor:
         task: Task,
         region_name: str,
     ) -> tuple[object, ...]:
+        revisions, snapshots = self._cache_identity(region_name)
         artifact = (
             None
             if task.artifact_id is None
@@ -611,9 +613,40 @@ class PlanExecutor:
             region_name,
             artifact_identity,
             self.state_store.episode,
-            self._active_revisions,
-            tuple(sorted(self._active_snapshots.items())),
+            revisions,
+            snapshots,
         )
+
+    def _cache_identity(
+        self, region_name: str
+    ) -> tuple[
+        tuple[tuple[str, int], ...],
+        tuple[tuple[str, tuple[int, int]], ...],
+    ]:
+        metadata = self.module.region(region_name).metadata
+        selected_inputs = metadata.get("cache_input_ports")
+        selected_states = metadata.get("cache_state_slots")
+        input_names = (
+            None
+            if selected_inputs is None
+            else {str(name) for name in selected_inputs}
+        )
+        state_names = (
+            None
+            if selected_states is None
+            else {str(name) for name in selected_states}
+        )
+        revisions = tuple(
+            item
+            for item in self._active_revisions
+            if input_names is None or item[0] in input_names
+        )
+        snapshots = tuple(
+            item
+            for item in sorted(self._active_snapshots.items())
+            if state_names is None or item[0] in state_names
+        )
+        return revisions, snapshots
 
     def _record(
         self,

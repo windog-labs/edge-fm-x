@@ -18,6 +18,7 @@ from vlaforge.adapters.model_contracts import (
     UpstreamModelContract,
     model_contract,
 )
+from vlaforge.adapters.minddrive_real import build_real_minddrive_program
 from vlaforge.adapters.openvla_real import (
     build_real_openvla_action_program,
 )
@@ -52,6 +53,7 @@ __all__ = [
     "build_real_diffusiondrive_program",
     "build_groot_n1_like_fixture",
     "build_hybrid_external_feature_fixture",
+    "build_real_minddrive_program",
     "build_octo_like_fixture",
     "build_openvla_fixture",
     "build_pi0_fixture",

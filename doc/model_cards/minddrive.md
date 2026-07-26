@@ -6,9 +6,9 @@
 | Code license | Apache-2.0 |
 | Dataset boundary | Bench2Drive data is CC BY-NC-ND 4.0 |
 | Checkpoint repository | `poleyzdk/Minddrive@5cf1eafc7f6d1028006f2d97d083d8e9aa4c0b12` |
-| 当前证据 | real-checkpoint upstream eager reference（L2-prerequisite-only）；尚未声明 L2 |
-| Adapter | offline eager probe 已实现；Semantic IR real adapter 进行中 |
-| Core op 增量 | 0（目标；真实 capture 后重新审计） |
+| 当前证据 | real-checkpoint upstream eager reference + real EVA strict capture；完整模型仍为 L2-prerequisite-only |
+| Adapter | offline eager、完整 Semantic IR/Plan contract、real EVA capture 已实现；下游 VLM/planner capture 进行中 |
+| Core op 增量 | 0（Semantic IR/Plan 与首个 real Region 已审计） |
 
 ## 固定发布物
 
@@ -30,11 +30,13 @@ resize/normalize 到六路 640×640。外部还提供 camera calibration、ego p
 speed/can-bus、route command 和语言 prompt。VLAForge 只接收这些准备好的
 Tensor/Scalar 输入，不接管 CARLA、时间同步、route planner 或 PID 控制。
 
-已固定一个真实 Bench2Drive 六相机帧和对应 measurement/annotation：
+已固定连续两个真实 Bench2Drive 六相机帧和对应
+measurement/annotation：
 
 - dataset `Telkwevr/Bench2Drive-Speed-sample@c84ffbc2b7f3bda9b4acb7fab6971b3599092f42`；
 - route `Accident+Follow_Town12_Road392_Route112425_Weather14_01-07-09-36-50`；
-- frame `00400`；
+- frame `00400` 作为 backend calibration，frame `00401` 作为锁定门槛后的
+  held-out validation；
 - 六张 RGB 图均为 1600×900；记录包含 speed、command、ego position、
   heading、acceleration 和 angular velocity；
 - 文件位于
@@ -62,6 +64,39 @@ Tensor/Scalar 输入，不接管 CARLA、时间同步、route planner 或 PID �
 `eager_fp32.json` 明确标记为 `L2-prerequisite-only`：它尚未证明 capture、
 Semantic IR、Plan、事务、cache 或连续 Run parity。
 
+## 首个真实 TensorRegion
+
+`vision_encoder` 保留严格加载的 24 层 EVA-ViT 和全部 checkpoint
+parameters。上游 evaluation GridMask 是恒等映射但会先执行 Python RNG；
+Adapter 将其静态消除。上游 FlashAttention 2 直接调用无 dispatcher schema
+的 PyCapsule，无法进入 `torch.export`；Adapter 因此使用同 FP16 Q/K/V、
+scale、dropout=0、non-causal 语义的 ATen SDPA backend。该替换不涉及旧
+EdgeFM kernel。
+
+数值门槛在 frame `00401` 运行前锁定为：feature max-abs `<=0.5`，以官方
+feature absolute maximum 归一化的 RMSE `<=1e-3`。结果为：
+
+| sample | max abs | NRMSE | 结果 |
+|---|---:|---:|---|
+| `00400` calibration | 0.48854065 | 8.8676e-6 | 通过 |
+| `00401` held-out | 0.46158600 | 8.3323e-6 | 通过 |
+
+frame `00400` strict `torch.export` effect audit 通过，capture eager/export
+max-abs 为 0；同一 exported program 在 frame `00401` 直接执行并通过不变
+门槛。持久证据位于 `capture/vision`：
+
+- graph digest
+  `a39d9e3ced87f87e4e87a61b2e0042199286442d520cedc5f51743c5cc816ccd`；
+- `vision_encoder.pt2e` SHA256
+  `68b453e0d03435c8f8f062644991e56dfff2d713e3091474b44a6449f15cb5df`；
+- static ABI `[1,6,3,640,640] f32 -> [1,6,1024,40,40] f32`；
+- 24 个 shared rotary-buffer registration aliases 被复制为等值常量，
+  仅规范化 module ownership，不改变计算。
+
+这证明真实 frontend 的首个 Region 可严格捕获，但尚不等于完整 MindDrive
+L2；object/map、Qwen decision/action experts 和 trajectory decode 仍需
+形成同等级证据。
+
 ## 上游完整推理链
 
 1. EVA-ViT 编码六路相机；
@@ -77,9 +112,10 @@ PID 和 `VehicleControl` 属于外层系统，不进入 VLAForge。离线 L2 从
 `Minddrive.forward_test/simple_test` 开始，保留 camera、prompt、ego/route
 到 trajectory 的完整模型路径。
 
-## 计划 Region
+## Region 状态
 
-- `vision_encoder`：六相机 EVA-ViT；
+- `vision_encoder`：六相机 EVA-ViT，real strict capture + held-out
+  exported execution 已通过；
 - `object_map_encoder`：position/object/map tokens；
 - `decision_expert`：Qwen prefill/meta-action；
 - `action_expert`：trajectory feature；
@@ -91,6 +127,8 @@ transactional outputs；不新增 core opcode。
 ## 当前缺口
 
 - real L2 Semantic IR/Plan parity；
+- object/map、Qwen decision/action expert 与 trajectory decode 的真实
+  TensorRegion capture；
 - 连续两次 Run 的显式 persistent state、ResetEpisode、revision cache
   和 failure/abort 语义；
 - real L3 AOTI artifacts；

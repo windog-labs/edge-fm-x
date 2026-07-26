@@ -209,8 +209,13 @@ def capture_region(
             devices=input_device_map,
             alignments=input_alignments,
         )
-        eager_output = module(*example_args)
-        exported_output = exported.module()(*example_args)
+        # TensorRegion capture validates inference semantics.  Keeping
+        # autograd graphs for both executions can more than double activation
+        # residency and prevents otherwise valid large Regions from fitting
+        # the target device.
+        with torch.no_grad():
+            eager_output = module(*example_args)
+            exported_output = exported.module()(*example_args)
         eager_values = _as_output_tuple(eager_output)
         exported_values = _as_output_tuple(exported_output)
         if len(eager_values) != len(region.outputs):
