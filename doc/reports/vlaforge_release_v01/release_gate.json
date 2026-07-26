@@ -74,7 +74,7 @@
     }
   },
   "repository": {
-    "revision": "b7e7233e232f6baae89bea0194c27b8773fdb19d",
+    "revision": "eb337a544edb0f3f19978d665a9b8e5828e58f98",
     "source_dirty": false,
     "tracked_status": []
   },
@@ -85,8 +85,8 @@
     "cuda_aoti_opt_in_passed": 1,
     "cuda_ctest_passed": 8,
     "no_python_runner": true,
-    "python_opt_in_skipped": 9,
-    "python_passed": 215,
+    "python_opt_in_skipped": 10,
+    "python_passed": 238,
     "release_gate_passed": true,
     "wheel_install_bundle_passed": true
   },
@@ -112,7 +112,7 @@
       "errors": 0,
       "failures": 0,
       "passed": 1,
-      "seconds": 48.81,
+      "seconds": 50.947,
       "skipped": 0,
       "test_names": [
         "test_cuda_aoti_region_backend"
@@ -140,9 +140,9 @@
     "python": {
       "errors": 0,
       "failures": 0,
-      "passed": 215,
-      "seconds": 7.226,
-      "skipped": 9,
+      "passed": 238,
+      "seconds": 7.35,
+      "skipped": 10,
       "test_names": [
         "test_dependency_graph_tracks_state_and_ssa_edges",
         "test_liveness_covers_loop_and_commit_values",
@@ -248,6 +248,12 @@
         "test_openvla_partition_contract_is_complete_and_unique",
         "test_openvla_fixed_kv_profile_covers_bounded_decode",
         "test_openvla_partition_is_backend_refinement_not_new_core_ir",
+        "test_real_autovla_partitioned_frontend_capture",
+        "test_artifact_metrics_distinguish_exact_tokens_and_float_error",
+        "test_real_autovla_program_uses_frozen_generic_core",
+        "test_weight_key_resolution_accepts_lightning_prefix_and_tied_head",
+        "test_weight_key_resolution_rejects_undersized_vocabulary",
+        "test_synthetic_modules_match_source_rollout_equations",
         "test_real_diffusiondrive_frontend_capture",
         "test_real_diffusiondrive_artifact_parity",
         "test_real_diffusiondrive_generated_cuda_session",
@@ -294,12 +300,20 @@
         "test_exact_cache_rejects_unknown_or_duplicate_dependencies",
         "test_loop_analysis_distinguishes_preheader_and_loop_carried",
         "test_transform_results_are_deterministic",
-        "test_architecture_surface_is_passive_and_build_isolated",
+        "test_architecture_surface_is_passive_and_root_is_vlaforge_only",
         "test_forbidden_scanner_reports_category_path_and_line",
         "test_inspect_verify_run_and_diff",
         "test_codegen_cli_is_reproducible",
         "test_compile_bundle_cli_builds_and_verifies_no_python",
         "test_stateful_smolvla_codegen_cli",
+        "test_materializes_five_deterministic_static_profiles",
+        "test_schedule_has_four_modes_and_five_processes",
+        "test_static_arena_uses_certificate_control_and_soak",
+        "test_transactions_require_abort_preservation_and_retry",
+        "test_cluster_bootstrap_is_deterministic",
+        "test_cluster_bootstrap_is_process_aware_and_deterministic",
+        "test_schedule_has_five_processes_for_every_path_and_workload",
+        "test_config_records_explicit_pythonpath",
         "test_literal_matches_record_first_line_and_missing_literals",
         "test_heldout_fixtures_compile_and_match_verified_plan[Octo-build_octo_like_fixture-DiffusionPolicy]",
         "test_heldout_fixtures_compile_and_match_verified_plan[GR00T N1.7-build_groot_n1_like_fixture-MultiEmbodimentDiT]",
@@ -332,9 +346,16 @@
         "test_bootstrap_summary_is_deterministic_and_retains_samples",
         "test_declared_backend_tensor_bytes_are_separate_and_recursive",
         "test_reports_disclose_reused_measurements",
+        "test_submission_gate_excludes_optional_hardware_and_vehicle_work",
+        "test_submission_gate_rejects_fixture_only_heldout",
+        "test_paper_figure_renderer_is_deterministic",
         "test_speedup_is_baseline_over_optimized",
         "test_latency_summary_uses_nearest_rank_percentiles",
         "test_junit_summary_supports_testsuites_and_skips",
+        "test_absolute_reference_and_command_inventory",
+        "test_reproducibility_markdown_discloses_external_archives",
+        "test_formal_status_accepts_legacy_pass_and_explicit_blocker",
+        "test_formal_inventory_includes_matrix_ablations_and_autovla",
         "test_type_round_trip[ir_type0]",
         "test_type_round_trip[ir_type1]",
         "test_type_round_trip[ir_type2]",
@@ -350,6 +371,9 @@
         "test_parser_rejects_missing_header",
         "test_parser_rejects_header_payload_version_mismatch",
         "test_duplicate_declaration_names_are_rejected",
+        "test_wheel_runtime_inventory_and_directory_size",
+        "test_artifact_evaluation_markdown_has_claim_boundaries",
+        "test_cuda_aoti_audit_exercises_schema_and_abi_rejection",
         "test_valid_fixture_has_no_diagnostics[build_smolvla_fixture]",
         "test_valid_fixture_has_no_diagnostics[build_openvla_fixture]",
         "test_valid_fixture_has_no_diagnostics[build_driving_trajectory_fixture]",
@@ -369,7 +393,7 @@
         "test_output_group_membership_is_verified",
         "test_unknown_extension_opcode_is_rejected"
       ],
-      "tests": 224
+      "tests": 248
     }
   },
   "wheel": {
@@ -394,7 +418,7 @@
       "source_revision": "package:vlaforge-0.2.0.dev0"
     },
     "runtime_source_entries": 24,
-    "sha256": "36217c41e698f20dddcf202ea4aca2e3ca60c52e7d82f91e3ee0f2eb518e51d7",
-    "size_bytes": 228287
+    "sha256": "c17d741e6961f28c082f61cfcc23279c5832b1a25def65ad793428623446978a",
+    "size_bytes": 235264
   }
 }
