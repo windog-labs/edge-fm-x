@@ -23,6 +23,10 @@ Current v0.2 evidence:
   zero new core ops, plus a non-promoted conservative AOTI L3 candidate whose
   final tokens/trajectory pass but intermediate NRMSE exceeds the predeclared
   threshold;
+- `vlaforge_minddrive_v01/`: complete MindDrive 0.5B real L3 index for the
+  clean five-frame held-out run, 64-artifact manifest, representative
+  all-output/state metrics, durable archive hashes, and the explicit
+  generated-C++ L4 promotion boundary;
 - `vlaforge_paper_completion_v01/`: mechanical submission audit over the
   required Host-CUDA matrix, ablations, held-out L2, final release gate, paper
   materials and explicit optional/non-blocking evidence;

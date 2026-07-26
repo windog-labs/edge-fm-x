@@ -1,0 +1,76 @@
+{
+  "archive": {
+    "root": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726",
+    "status": "durable_external_archive"
+  },
+  "artifact_manifest": {
+    "artifact_set_sha256": "772aef7b066aff8a2068cb0cc78742ad0f486ebb21dd3df5171c7872ea71192b",
+    "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/aoti24_all_contiguous_v6/artifact_manifest.json",
+    "region_count": 64,
+    "schema": "vlaforge.minddrive_aoti_artifact_manifest/1",
+    "sha256": "bbffa9b5ccb4abbd15b22c9f948765d76512e7a8501f9dc431893f411436c6f4"
+  },
+  "evidence_level": "real-L3-compiled-held-out-end-to-end",
+  "execution": {
+    "provider": "aoti24",
+    "target": "NVIDIA RTX 3060 sm_86",
+    "vision_abi": "aoti24-contiguous-physical-regions+compiled-flash-cuda"
+  },
+  "heldout_report": {
+    "json_path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/heldout_l3_aoti24_v6_contract_v3_00400_00401_00402_00403_00404_clean_99f0192.json",
+    "json_sha256": "5c79fee857ffa182ec7c98643764f38e0f8e58a6ddd5ac0aeef0fdaba62200e6",
+    "passed": true,
+    "tensor_path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/heldout_l3_aoti24_v6_contract_v3_00400_00401_00402_00403_00404_clean_99f0192.pt",
+    "tensor_sha256": "479703872f4b91e44ce944a3d76f5664f33c2ae6518189d9e1a5bf41dafd81bd"
+  },
+  "model": {
+    "authoritative_state_slots": 16,
+    "logical_regions": 8,
+    "name": "MindDrive 0.5B",
+    "named_outputs": 10,
+    "physical_artifacts": 64,
+    "upstream_commit": "1a4085dab1c20895a0c8d2b67b4f8e65712fa8de"
+  },
+  "numerical_contract_version": 3,
+  "promotion_boundary": {
+    "achieved": "real L3",
+    "missing": "verified Compile Bundle plus generated no-Python C++ Session",
+    "not_claimed": "real L4"
+  },
+  "representative_metrics": {
+    "action_hidden_maximum_absolute_error": 0.0028333663940429688,
+    "decision_logits_maximum_absolute_error": 0.0005140304565429688,
+    "detection_assignment_maximum_distance_meters": 0.016849904296671134,
+    "detection_center_distance_p95_meters": 0.003322149394080043,
+    "detection_tokens_maximum_absolute_error": 0.0015150904655456543,
+    "map_assignment_maximum_distance_meters": 0.15171164420368086,
+    "path_command_exact": true,
+    "speed_command_exact": true,
+    "trajectory_maximum_absolute_error": 0.0006412267684936523,
+    "trajectory_normalized_root_mean_square_error": 1.848069442980683e-05
+  },
+  "repository": {
+    "branch": "codex/vlaforge-paper-artifact",
+    "clean_worktree_precondition": true,
+    "commit": "99f0192da2df4704614b3c4eebe086aaec35c4c5"
+  },
+  "schema": "vlaforge.minddrive_l3_evidence_index/1",
+  "sequence": [
+    "frame_00400",
+    "frame_00401",
+    "frame_00402",
+    "frame_00403",
+    "frame_00404"
+  ],
+  "state_semantics": "zero-reset-read-latest-stage-write-commit-per-invocation",
+  "tests": {
+    "full_python": {
+      "command": "PYTHONPATH=vlaforge/python pytest -q vlaforge/tests",
+      "passed": 255,
+      "skipped_opt_in": 10
+    },
+    "minddrive_targeted": {
+      "passed": 15
+    }
+  }
+}
