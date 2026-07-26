@@ -6,8 +6,8 @@
 | Code license | Apache-2.0 |
 | Dataset boundary | Bench2Drive data is CC BY-NC-ND 4.0 |
 | Checkpoint repository | `poleyzdk/Minddrive@5cf1eafc7f6d1028006f2d97d083d8e9aa4c0b12` |
-| 当前证据 | pinned source/checkpoint contract L0-selected；真实权重仍在下载，未声明 L2 |
-| Adapter | 专属 real adapter 尚未实现 |
+| 当前证据 | real-checkpoint upstream eager reference（L2-prerequisite-only）；尚未声明 L2 |
+| Adapter | offline eager probe 已实现；Semantic IR real adapter 进行中 |
 | Core op 增量 | 0（目标；真实 capture 后重新审计） |
 
 ## 固定发布物
@@ -20,8 +20,8 @@
 | `llava-qwen2-0.5b/model.safetensors` | 1,892,090,688 | `6fc9882475867279ee66e505ded47b5d722fc09b0d34bc7684a26080d662825f` |
 | `llava-qwen2-0.5b-eva02_petr_proj.pth` | 1,307,562,253 | `1feabeea917d46678514eb9160a2108733569608126daa2eb481431c6f94d38e` |
 
-其余 15.88 MiB 是固定 revision 下的 tokenizer/config 文件。文件 hash 是
-Hugging Face LFS object hash；下载完成后还必须做本地全文件 SHA256 复核。
+其余 15.88 MiB 是固定 revision 下的 tokenizer/config 文件。全部 11 个
+文件已下载到 durable archive 并完成本地全文件 SHA256 复核。
 
 ## 真实输入与模型边界
 
@@ -41,6 +41,26 @@ Tensor/Scalar 输入，不接管 CARLA、时间同步、route planner 或 PID �
   `/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/real_input`。
 
 该数据只用于离线输入重建与数值 parity，不重新分发进 Git。
+
+## 已通过的真实 eager 基线
+
+在隔离的 Python 3.10、PyTorch 2.4.1+cu118、flash-attn 2.6.3 与
+本地编译 `sm_86` MMCV CUDA extension 环境中，已完成：
+
+- 官方 config 和 `build_model` 路径；
+- checkpoint 2,431 keys 到 1,895 个推理态 keys 的精确投影，
+  `strict=True` 无 missing key，536 个额外 key 均属于已审计的 RL
+  critic 或 non-persistent rotary buffer；
+- 官方六相机/VQA preprocessing 和完整
+  `Minddrive.forward_test/simple_test`；
+- 八个 named outputs 和 16 个跨 Run persistent-state tensors 的导出；
+- RTX 3060 FP32 单次 eager forward 成功，峰值 allocated CUDA memory
+  4,123,524,096 bytes，峰值 reserved CUDA memory 5,442,109,440 bytes。
+
+耐久化证据位于
+`/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/frontend`。
+`eager_fp32.json` 明确标记为 `L2-prerequisite-only`：它尚未证明 capture、
+Semantic IR、Plan、事务、cache 或连续 Run parity。
 
 ## 上游完整推理链
 
@@ -70,10 +90,9 @@ transactional outputs；不新增 core opcode。
 
 ## 当前缺口
 
-- 完整权重本地下载与 SHA256 复核；
-- 上游依赖隔离和 strict checkpoint load；
-- 真实六相机 eager reference；
 - real L2 Semantic IR/Plan parity；
+- 连续两次 Run 的显式 persistent state、ResetEpisode、revision cache
+  和 failure/abort 语义；
 - real L3 AOTI artifacts；
 - real L4 no-Python C++ Session；
 - 实测 memory/performance。

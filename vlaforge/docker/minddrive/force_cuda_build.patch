@@ -1,0 +1,63 @@
+diff --git a/mmcv/models/utils/attention.py b/mmcv/models/utils/attention.py
+index 3e4fe57..66d589f 100644
+--- a/mmcv/models/utils/attention.py
++++ b/mmcv/models/utils/attention.py
+@@ -85,7 +85,7 @@ class FlashAttention(nn.Module):
+             cu_seqlens_q = torch.arange(0, (batch_size + 1) * seqlen_q, step=seqlen_q, dtype=torch.int32,
+                                     device=q.device)
+             x = rearrange(kv, 'b s two h d -> b s (two h d)')
+-            x_unpad, indices, cu_seqlens_k, max_sk, _ = unpad_input(x, key_padding_mask)
++            x_unpad, indices, cu_seqlens_k, max_sk = unpad_input(x, key_padding_mask)
+             x_unpad = rearrange(x_unpad, 'nnz (two h d) -> nnz two h d', two=2, h=nheads)
+             output_unpad = flash_attn_varlen_kvpacked_func(
+                 q, x_unpad, cu_seqlens_q, cu_seqlens_k, max_sq, max_sk,
+diff --git a/mmcv/runner/iter_based_runner.py b/mmcv/runner/iter_based_runner.py
+index b74405a..9cdf925 100644
+--- a/mmcv/runner/iter_based_runner.py
++++ b/mmcv/runner/iter_based_runner.py
+@@ -23,14 +23,10 @@ import cv2
+ import os
+ from tabulate import tabulate
+ 
+-from team_code.carla_env.carla_env_scenario import CarlaScenarioEnv, TickRuntimeError
+-
+ from mmcv.parallel.collate import collate as mm_collate_to_batch_form
+ import copy
+-from rl_projects.leaderboard.utils.result_writer import ResultOutputProvider
+ import pickle
+ import torch.nn.functional as F
+-from rl_projects.utils.carla_utils import kill_existing_carla, launch_carla
+ hostname = socket.gethostname()
+ def tensor_to_device(data, device):
+     if isinstance(data, torch.Tensor):
+@@ -408,6 +404,8 @@ class RLIterBasedRunner(BaseRunner):
+ 
+     @torch.no_grad()
+     def rollout(self, args=None, **kwargs):
++        from team_code.carla_env.carla_env_scenario import CarlaScenarioEnv
++
+         self.model.eval()
+         self.mode = 'rollout'
+         self.call_hook('before_val_iter')
+diff --git a/setup.py b/setup.py
+index 53b0d8d..cc3ecea 100755
+--- a/setup.py
++++ b/setup.py
+@@ -20,7 +20,7 @@ def make_cuda_ext(name,
+     define_macros = []
+     extra_compile_args = {'cxx': [] + extra_args}
+ 
+-    if torch.cuda.is_available():
++    if torch.cuda.is_available() or os.getenv('FORCE_CUDA') == '1':
+         define_macros += [('WITH_CUDA', None)]
+         extension = CUDAExtension
+         extra_compile_args['nvcc'] = extra_args + [
+@@ -144,7 +144,7 @@ def get_extensions():
+ 
+         include_dirs = []
+ 
+-        if torch.cuda.is_available():
++        if torch.cuda.is_available() or os.getenv('FORCE_CUDA') == '1':
+             define_macros += [('MMCV_WITH_CUDA', None)]
+             cuda_args = os.getenv('MMCV_CUDA_ARGS')
+             extra_compile_args['nvcc'] = [cuda_args] if cuda_args else []
