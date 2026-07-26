@@ -174,18 +174,25 @@ revision `7ea773e`，core op delta 为 0。详细证据见
 Region weights，不适合 12GB GPU；下一步只通过 generic artifact residency
 policy 尝试 weight paging，不把模型专属路由写入 core。
 
-## 下一步
+## 当前完成边界与可选增强
 
-1. 尝试 OpenVLA weight-paged generated no-Python C++ L4；如果资源代价不合理，
-   保持 real L3 并记录 blocker；
-2. 为 SmolVLA 与 DiffusionDrive real L4 补齐 Host CUDA
-   latency/memory/profile、消融与 10k+ Run 长稳；
-3. 冻结 core 后完成 robot/driving held-out；
-4. Orin 台架就绪后运行模型专属 SM87 artifact、性能和长稳测试。
+本机必选工作已经完成：SmolVLA/DiffusionDrive real L4 的 Host-CUDA
+latency、memory、profile、四类正式消融和 10k Run 长稳均有正式报告；冻结
+core 后的 Octo、GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；
+AutoVLA 又完成发布 checkpoint 的真实 L2 decoder partition。
 
-## 2026-07-25 Release audit
+以下只属于可选增强，不保持当前论文 Goal 未完成：
 
-- offline Python suite：194 passed，8 个 opt-in gate skipped；
+1. 以稳定 extracted-library/cubin provider 替代当前 PyTorch package-loader，
+   再尝试 OpenVLA generated no-Python C++ L4；现有资源 blocker 已正式记录；
+2. 扩展 AutoVLA 到 camera/prompt/VLM prefill 和完整 autoregressive decode，
+   并在不放宽预声明数值门槛的前提下争取 real L3/L4；
+3. 增加第二机或其他 GPU 的独立复现；
+4. Orin 台架就绪后补充 SM87 latency/power/thermal，作为跨平台增强。
+
+## 2026-07-26 Final Host-CUDA release audit
+
+- offline Python suite：238 passed，10 个 opt-in gate skipped；
 - real SmolVLA checkpoint gate：1 passed；
 - real SmolVLA L4 opt-in gate：1 passed；
 - real OpenVLA-7B 4-bit gate：1 passed；
@@ -199,3 +206,8 @@ policy 尝试 weight paging，不把模型专属路由写入 core。
 - arm64 standalone runtime：18/18 build、6/6 CTest、install/export passed；
 - arm64 OpenVLA-like/SmolVLA-like generated Session：build/run passed；
 - `git diff --check`：passed。
+
+机械完成审计见
+`doc/reports/vlaforge_paper_completion_v01/paper_completion.json`，当前为
+`submission_ready=true`。该状态只覆盖 RTX 3060 `sm_86` / CUDA 12.8，
+不外推为跨 GPU 或 Orin 性能结论。

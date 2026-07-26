@@ -23,7 +23,7 @@ fixture、真实模型 capture 和完整 C++ 部署混为一谈。
 |---|---|---|---|
 | RT-1-like | source-faithful fixture | history tensor+mask、离散 token、detokenize | L1 |
 | RT-2-like | contract mapping | VLM autoregressive action token | L0/L1 |
-| OpenVLA | 真实开源对象 | prefill exact cache、bounded decode、无 queue | L4 |
+| OpenVLA | 真实开源对象 | prefill exact cache、bounded decode、无 queue | real L3；L4 可选 |
 | ACT-like | ChunkedAction template | queue/cursor 是 Adapter state，不是 core | L1 |
 | Octo/Diffusion Policy-like | Octo 优先 | optional modality、bounded denoise、action chunk | L2–L4 |
 | π0/SmolVLA-like | SmolVLA 真实优先 | prefix、flow loop、continuous chunk、cache | L4 |
@@ -80,7 +80,7 @@ memory/performance results
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
-| AutoVLA | L0 + L1 | 是 | 否 | real fast/slow parity |
+| AutoVLA | L0 + L1 + real L2 partition + L3-candidate | 是 | 否 | 完整 camera/VLM/decode 与通过门槛的 real L3/L4 |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
 | OpenDriveVLA | L0 + structural L1 | multitask structure | 否 | gated checkpoint/L2–L4 |
@@ -95,7 +95,12 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
 2. 完成四类 driving fixture 与 OpenVLA/SmolVLA/π0 fixture 迁移；
 3. 完成通用 C ABI、typed wrapper 和 clean C++ parity；
 4. SmolVLA、DiffusionDrive real L4 与 OpenVLA 分 Region real L3 已完成；
-   下一优先级是评估 OpenVLA weight-paged real L4，并补齐 Host-CUDA
-   性能、消融和长稳；
-5. 评估 Octo/GR00T 与 AutoVLA/ReCogDrive 中各一个真实对象；
-6. 冻结 core 后统计 held-out model 的 core-op 增量和 Adapter 成本。
+5. Host-CUDA 五 workload 统计矩阵、正式消融、10k Run 长稳和 profile 已完成；
+6. 冻结 core 后完成 Octo、GR00T N1.7、AutoVLA held-out L0/L1 审计，
+   三者 core-op 增量均为 0；
+7. AutoVLA 发布 checkpoint 的真实 decoder 分区已达到 L2；conservative
+   AOTI 结果因中间 Region NRMSE 超过预声明门槛，严格保留为 L3-candidate。
+
+当前 RTX 3060/CUDA 12.8 投稿范围已经完成。OpenVLA real L4、完整端到端
+AutoVLA、Octo/GR00T 的更多真实 checkpoint 层级、跨 GPU、第二机复现和
+Orin 只属于可选增强，不是当前 Host-CUDA completion gate。
