@@ -98,12 +98,15 @@ def test_formal_status_accepts_legacy_pass_and_explicit_blocker() -> None:
 
 def test_formal_inventory_includes_matrix_ablations_and_real_models() -> None:
     audit = _module()
-    names = {path.name for path in audit._formal_reports()}
+    paths = audit._formal_reports()
+    names = {path.name for path in paths}
     assert "cuda_paper_matrix.json" in names
     assert "paper_ablations.json" in names
     assert "autovla_frontend_l2.json" in names
     assert "minddrive_l3.json" in names
     assert "minddrive_l4.json" in names
+    for path in paths:
+        assert audit._formal_status_is_acceptable(audit._json(path)), path
 
 
 def test_archive_size_dereferences_compatibility_symlink(

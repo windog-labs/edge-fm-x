@@ -57,6 +57,7 @@
     "upstream_commit": "1a4085dab1c20895a0c8d2b67b4f8e65712fa8de"
   },
   "numerical_contract_version": 3,
+  "passed": true,
   "promotion_boundary": {
     "achieved": "real L3",
     "missing": "verified Compile Bundle plus generated no-Python C++ Session",
@@ -88,6 +89,7 @@
     "frame_00404"
   ],
   "state_semantics": "zero-reset-read-latest-stage-write-commit-per-invocation",
+  "status": "passed",
   "tests": {
     "full_python": {
       "command": "PYTHONPATH=vlaforge/python pytest -q vlaforge/tests",
