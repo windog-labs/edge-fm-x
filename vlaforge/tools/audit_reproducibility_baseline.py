@@ -44,70 +44,117 @@ _PAPER_ARTIFACTS = (
     "doc/figures/vlaforge_paper/ablations.svg",
     "doc/figures/vlaforge_paper/figures_manifest.json",
 )
+_PAPER_ARCHIVE_ROOT = Path(
+    "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726"
+)
 _ARCHIVE_ROOTS = (
     (
         "smolvla_l3_capture_artifacts",
-        "/tmp/vlaforge-smolvla-l3.hr4TVE",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-smolvla-l3.hr4TVE"
+        ),
         True,
         "real SmolVLA export and AOTI artifact reproduction",
     ),
     (
         "smolvla_l4_support",
-        "/tmp/vlaforge-smolvla-l4.oYi5dQ",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-smolvla-l4.oYi5dQ"
+        ),
         True,
         "real SmolVLA generated-session support inputs and artifacts",
     ),
     (
         "smolvla_l4_aligned_bundle",
-        "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-smolvla-l4-aligned-0cf3d12"
+        ),
         True,
         "final aligned SmolVLA Compile Bundle",
     ),
     (
         "diffusiondrive_checkpoint",
-        "/tmp/vlaforge-diffusiondrive-ckpt",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-diffusiondrive-ckpt"
+        ),
         True,
         "pinned DiffusionDrive checkpoint",
     ),
     (
         "diffusiondrive_l3",
-        "/tmp/vlaforge-diffusiondrive-l3-clean",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-diffusiondrive-l3-clean"
+        ),
         True,
         "real DiffusionDrive exports and AOTI artifacts",
     ),
     (
         "diffusiondrive_l4",
-        "/tmp/vlaforge-diffusiondrive-l4-clean",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-diffusiondrive-l4-clean"
+        ),
         True,
         "real DiffusionDrive Compile Bundle and deterministic inputs",
     ),
     (
         "openvla_l3_capture",
-        "/tmp/vlaforge-openvla-l3-capture",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-openvla-l3-capture"
+        ),
         True,
         "real OpenVLA source exports and deterministic inputs",
     ),
     (
         "openvla_l3_artifacts",
-        "/tmp/vlaforge-openvla-l3-artifacts",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-openvla-l3-artifacts"
+        ),
         True,
         "36 normalized OpenVLA exports and sm_86 AOTI packages",
     ),
     (
         "autovla_checkpoint",
-        "/tmp/vlaforge-autovla-checkpoint-a7d7ba3",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-autovla-checkpoint-a7d7ba3"
+        ),
         True,
         "pinned 16.29 GB AutoVLA PDMS 89 checkpoint",
     ),
     (
         "autovla_l2_frontend",
-        "/tmp/vlaforge-autovla-l2-f750e54",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "required"
+            / "vlaforge-autovla-l2-f750e54"
+        ),
         True,
         "real AutoVLA partitioned L2 exports and capture evidence",
     ),
     (
         "autovla_l3_candidate",
-        "/tmp/vlaforge-autovla-l3-conservative-f750e54",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "optional"
+            / "vlaforge-autovla-l3-conservative-f750e54"
+        ),
         False,
         "optional conservative AOTI L3-candidate artifacts",
     ),
@@ -122,7 +169,11 @@ _ARCHIVE_ROOTS = (
     ),
     (
         "nsight_binary_profiles",
-        "/tmp/vlaforge-nsight-v2",
+        str(
+            _PAPER_ARCHIVE_ROOT
+            / "optional"
+            / "vlaforge-nsight-v2"
+        ),
         False,
         (
             "optional timeline reinspection; parsed NSYS/NCU summaries and "

@@ -120,3 +120,9 @@ def test_archive_size_dereferences_compatibility_symlink(
     compatibility_path.symlink_to(archive, target_is_directory=True)
 
     assert audit._du_bytes(compatibility_path) == audit._du_bytes(archive)
+
+
+def test_authoritative_archive_roots_are_durable_home_paths() -> None:
+    audit = _module()
+    for _, path, _, _ in audit._ARCHIVE_ROOTS:
+        assert path.startswith("/home/zhangzimo/Archives/")
