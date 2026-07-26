@@ -38,7 +38,10 @@ where = ["python"]
   "runtime/*.c",
   "runtime/*.cpp",
 ]
-"share/vlaforge/backends" = ["backends/*.cpp"]
+"share/vlaforge/backends" = [
+  "backends/*.cpp",
+  "backends/*.h",
+]
 "share/vlaforge/include/vlaforge/runtime" = [
   "include/vlaforge/runtime/*.h",
 ]

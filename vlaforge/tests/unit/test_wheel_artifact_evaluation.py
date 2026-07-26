@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from types import ModuleType
@@ -34,6 +36,36 @@ def test_wheel_runtime_inventory_and_directory_size(tmp_path: Path) -> None:
         "vlaforge-0.2.data/data/share/vlaforge/runtime/session.cpp",
     ]
     assert evaluation._directory_size(tmp_path) >= wheel.stat().st_size
+
+
+def test_built_wheel_contains_private_aoti_backend_header(
+    tmp_path: Path,
+) -> None:
+    project = Path(__file__).resolve().parents[2]
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            str(project),
+            "--no-deps",
+            "--no-build-isolation",
+            "--wheel-dir",
+            str(tmp_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    wheel = next(tmp_path.glob("vlaforge-*.whl"))
+    entries = _module("evaluate_wheel_artifact.py")._wheel_runtime_entries(
+        wheel
+    )
+    assert any(
+        entry.endswith("/share/vlaforge/backends/aoti_callable.h")
+        for entry in entries
+    )
 
 
 def test_artifact_evaluation_markdown_has_claim_boundaries() -> None:

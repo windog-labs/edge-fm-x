@@ -281,6 +281,7 @@ def evaluate(
     for required in (
         "CMakeLists.txt",
         "runtime/state_store.cpp",
+        "backends/aoti_callable.h",
         "backends/aoti_region_executable.cpp",
         "include/vlaforge/runtime/session.h",
     ):
