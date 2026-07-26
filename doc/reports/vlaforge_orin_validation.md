@@ -1,10 +1,11 @@
 # VLAForge Jetson Orin Validation
 
-Date: 2026-07-25
+Date: 2026-07-26
 
-Status: standalone VLAForge runtime and generated Session portability passed in
-an emulated JetPack arm64 container. Real Orin GPU execution, latency, power,
-and closed-loop behavior remain pending.
+Status: standalone VLAForge runtime, TensorRT RegionExecutable backend, installed
+SDK consumer, generated TensorRT Session, and the on-device backend smoke have
+all compiled for ARM64 in an emulated JetPack container. Real Orin GPU
+execution, latency, memory, power, and thermal behavior remain pending.
 
 ## Architecture boundary
 
@@ -30,10 +31,11 @@ This report keeps four levels separate:
 1. x86 host Semantic IR/Plan/generated-C++ correctness;
 2. emulated arm64 JetPack compile and CPU execution portability;
 3. model-specific arm64 CUDA/TensorRT/AOT artifact execution;
-4. real Orin latency, memory, power, and closed-loop behavior.
+4. real Orin latency, memory, power, thermal, and long-run behavior.
 
-This run establishes level 2 only. It does not imply that an x86 `.pt2`,
-TorchScript, CUDA, or TensorRT artifact ran on Orin.
+This run establishes level 2 plus driverless compilation of the level-3
+TensorRT substrate. It does not imply that a TensorRT engine was deserialized
+or executed on Orin.
 
 ## Frozen environment
 
@@ -155,15 +157,76 @@ state across Runs and episode reset through the current Adapter template.
 
 These are `fixture-L4` portability results, not real-checkpoint L4 evidence.
 
+## TensorRT backend prebuild
+
+The new backend is a VLAForge v0.2 `RegionExecutableValueApi`
+implementation, not a resurrection of the retired EdgeFM CUDA operator tree.
+Generated C++ selects it per Region with
+`CppArtifactRegionDefinition(backend="tensorrt")`; AOTI and TensorRT Regions
+may coexist without changing the core IR.
+
+The frozen Docker command is:
+
+```bash
+vlaforge/scripts/orin/build_backend.sh \
+  --output "$HOME/VLAForge/orin-backend"
+```
+
+Observed in `nvcr.io/nvidia/l4t-jetpack:r36.4.0`:
+
+```text
+architecture: AArch64
+TensorRT: 10.3.0.30-1+cuda12.5
+target contract: sm_87
+runtime CTest: 7/7 passed
+TensorRT backend: compiled
+installed SDK consumer: compiled and linked
+generated TensorRT Session: compiled and linked
+on-device identity-engine smoke: compiled
+Python dynamic dependency: absent
+real GPU execution: not attempted
+```
+
+The backend performs CUDA device/SM checks, TensorRT-major variant checks,
+artifact verification through the generated Session, static or bounded dynamic
+shape checks, dtype/device/layout/alignment checks, and caller-owned borrowed
+binding. It accepts only linear TensorRT I/O tensors and never performs a
+silent copy or layout conversion.
+
+The driverless container omits the real Tegra driver/DLA libraries. The build
+therefore permits unresolved symbols only in indirect TensorRT shared-library
+dependencies when
+`VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY=ON`; normal device builds keep the
+strict linker behavior.
+
+The package contains an AArch64 smoke that creates an identity engine on the
+real device and exercises deserialize/bind/`enqueueV3`/synchronize/output
+verification:
+
+```bash
+cd delivery
+bin/run_backend_smoke_on_orin.sh
+```
+
+After model-specific SM87 engines are packaged into a generated bundle:
+
+```bash
+bin/run_bundle_on_orin.sh --dry-run /path/to/model-bundle
+bin/run_bundle_on_orin.sh /path/to/model-bundle
+```
+
+The exact build and on-device handoff are documented in
+`vlaforge/docker/orin/README.md`.
+
 ## Remaining Orin work
 
 When the real bench and target-specific artifacts are available:
 
-1. build the selected model Region artifacts for JetPack/SM87;
-2. bind them through the RegionExecutable ABI;
+1. run the delivered identity-engine backend smoke;
+2. build the selected model Region engines for TensorRT 10/JetPack/SM87;
 3. run real-checkpoint Session parity on Orin;
-4. measure latency, peak memory, cache benefit, power, and long-run stability;
-5. perform closed-loop integration only in the external bottom-software stack.
+4. optionally measure latency, peak memory, cache benefit, power, thermal, and
+   long-run stability.
 
 No sensor synchronization, periodic scheduler, topic subscription, or action
 publication is part of this runtime.

@@ -19,8 +19,8 @@ The production surface contains only passive, caller-driven model invocation sem
 
 ## Build graph
 
-- Audited CMake files: 3
-- Declared C/C++ sources: 20
+- Audited CMake files: 4
+- Declared C/C++ sources: 24
 - CUDA source files: 0
 - Retired engine/operator source files: 0
 - Contract: C++ AOTI backend links CUDA::cudart and executes external compiled artifacts; VLAForge declares no CUDA kernel source

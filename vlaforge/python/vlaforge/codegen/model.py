@@ -38,7 +38,7 @@ class CppArtifactRegionDefinition:
         candidate = PurePosixPath(self.artifact_path)
         if (
             not self.region_name
-            or self.backend != "aoti"
+            or self.backend not in {"aoti", "tensorrt"}
             or not self.artifact_path
             or candidate.is_absolute()
             or ".." in candidate.parts
@@ -49,6 +49,19 @@ class CppArtifactRegionDefinition:
             or self.callable_abi_version != 2
         ):
             raise ValueError("invalid C++ artifact Region definition")
+        if self.backend == "tensorrt" and (
+            not self.target.startswith("sm_") or self.device == "cpu"
+        ):
+            raise ValueError(
+                "TensorRT artifact Regions require a CUDA SM target/device"
+            )
+        if self.backend == "tensorrt" and (
+            self.backend_variant is None
+            or not self.backend_variant.startswith("tensorrt-")
+        ):
+            raise ValueError(
+                "TensorRT artifact Regions require a TensorRT backend variant"
+            )
         for name, value in (
             ("artifact SHA-256", self.artifact_sha256),
             ("I/O schema digest", self.io_schema_digest),

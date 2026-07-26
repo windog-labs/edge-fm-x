@@ -115,7 +115,9 @@ def generate_cpp_session(
     files = {
         "CMakeLists.txt": _cmake_source(
             runner_source is not None,
-            artifact_backend=bool(compiled_regions),
+            artifact_backends=frozenset(
+                item.backend for item in compiled_regions.values()
+            ),
         ),
         "memory_constants.h": emit_memory_constants(
             plan, namespace=namespace
@@ -441,12 +443,22 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
 """
 
     def source(self) -> str:
-        artifact_headers = (
-            """#include "vlaforge/backends/aoti_region_executable.h"
-#include "vlaforge/runtime/artifact_verifier.h" """
-            if self.artifact_mode
-            else ""
-        )
+        artifact_headers = []
+        artifact_backends = {
+            item.backend for item in self.artifact_regions.values()
+        }
+        if "aoti" in artifact_backends:
+            artifact_headers.append(
+                '#include "vlaforge/backends/aoti_region_executable.h"'
+            )
+        if "tensorrt" in artifact_backends:
+            artifact_headers.append(
+                '#include "vlaforge/backends/tensorrt_region_executable.h"'
+            )
+        if self.artifact_mode:
+            artifact_headers.append(
+                '#include "vlaforge/runtime/artifact_verifier.h"'
+            )
         return "\n".join(
             (
                 '#include "session_generated.h"',
@@ -461,7 +473,7 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
                 "#include <cstring>",
                 "#include <new>",
                 "",
-                artifact_headers,
+                "\n".join(artifact_headers),
                 "",
                 self._local_executable(),
                 "",
@@ -760,6 +772,16 @@ vlaforge::runtime::Status ReadBool(
         load_cases = []
         for index, region in enumerate(self.module.regions):
             artifact = self.artifact_regions[region.name]
+            backend_label = {
+                "aoti": "AOTI",
+                "tensorrt": "TensorRT",
+            }[artifact.backend]
+            backend_api = {
+                "aoti": "vlaforge_aoti_region_executable_value_api()",
+                "tensorrt": (
+                    "vlaforge_tensorrt_region_executable_value_api()"
+                ),
+            }[artifact.backend]
             kind = _device(artifact.device)
             ordinal = _device_ordinal(artifact.device)
             variant_pointer = (
@@ -781,13 +803,13 @@ vlaforge::runtime::Status ReadBool(
       DestroyRegions();
       return verify_status;
     }}
-    const auto* api = vlaforge_aoti_region_executable_value_api();
+    const auto* api = {backend_api};
     auto c_status = vlaforge_region_executable_value_api_validate(api);
     if (c_status.code != VLAFORGE_STATUS_OK) {{
       DestroyRegions();
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
-          "AOTI Region value ABI validation failed");
+          "{backend_label} Region value ABI validation failed");
     }}
     region_apis_[{index}u] = api;
     if (!kArtifactInvocationResident{index}) {{
@@ -808,7 +830,7 @@ vlaforge::runtime::Status ReadBool(
       if (api == nullptr || region_paths_[{index}u].empty()) {{
         return vlaforge::runtime::Status::Error(
             vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
-            "AOTI Region artifact is not verified");
+            "{backend_label} Region artifact is not verified");
       }}
     const VLAForgeRegionCreateOptions options{{
         sizeof(VLAForgeRegionCreateOptions),
@@ -820,7 +842,7 @@ vlaforge::runtime::Status ReadBool(
         DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kInternal, {index}u,
-          "AOTI Region creation failed");
+          "{backend_label} Region creation failed");
     }}
     const VLAForgeArtifactDescriptor descriptor{{
         sizeof(VLAForgeArtifactDescriptor),
@@ -835,7 +857,7 @@ vlaforge::runtime::Status ReadBool(
         DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
-          "AOTI Region load failed");
+          "{backend_label} Region load failed");
     }}
     VLAForgeWorkspaceRequirement requirement{{}};
     c_status = api->query_workspace(region_executables_[{index}u],
@@ -845,7 +867,7 @@ vlaforge::runtime::Status ReadBool(
         DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
-          "AOTI Region workspace contract mismatch");
+          "{backend_label} Region workspace contract mismatch");
     }}
     c_status = api->bind_workspace(region_executables_[{index}u],
                                    nullptr, 0u);
@@ -853,7 +875,7 @@ vlaforge::runtime::Status ReadBool(
         DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
-          "AOTI Region workspace binding failed");
+          "{backend_label} Region workspace binding failed");
     }}
       return vlaforge::runtime::Status::Ok();
     }}"""
@@ -2213,21 +2235,40 @@ def _indent_lines(lines: list[str], spaces: int) -> list[str]:
     return [prefix + line if line else "" for line in lines]
 
 
-def _cmake_source(has_runner: bool, *, artifact_backend: bool = False) -> str:
+def _cmake_source(
+    has_runner: bool,
+    *,
+    artifact_backends: frozenset[str] = frozenset(),
+) -> str:
     runner = """
 add_executable(vlaforge_generated_runner runner.cpp)
 target_link_libraries(vlaforge_generated_runner PRIVATE
     vlaforge_generated_session)
 """ if has_runner else ""
-    backend_option = (
-        'set(VLAFORGE_BUILD_AOTI_BACKEND ON CACHE BOOL "" FORCE)'
-        if artifact_backend
-        else ""
+    unknown_backends = artifact_backends - {"aoti", "tensorrt"}
+    if unknown_backends:
+        raise CodegenUnsupportedError(
+            f"unsupported C++ artifact backends: {sorted(unknown_backends)}"
+        )
+    backend_options = []
+    backend_finds = []
+    backend_libraries = []
+    if "aoti" in artifact_backends:
+        backend_options.append(
+            'set(VLAFORGE_BUILD_AOTI_BACKEND ON CACHE BOOL "" FORCE)'
+        )
+        backend_finds.append("find_package(Torch REQUIRED CONFIG)")
+        backend_libraries.append("vlaforge_aoti_backend")
+    if "tensorrt" in artifact_backends:
+        backend_options.append(
+            'set(VLAFORGE_BUILD_TENSORRT_BACKEND ON CACHE BOOL "" FORCE)'
+        )
+        backend_libraries.append("vlaforge_tensorrt_backend")
+    backend_option = "\n".join(backend_options)
+    backend_find = "\n".join(backend_finds)
+    backend_library = "".join(
+        f" {library}" for library in backend_libraries
     )
-    backend_find = (
-        "find_package(Torch REQUIRED CONFIG)" if artifact_backend else ""
-    )
-    backend_library = " vlaforge_aoti_backend" if artifact_backend else ""
     return f"""cmake_minimum_required(VERSION 3.18)
 project(vlaforge_generated_session LANGUAGES C CXX)
 

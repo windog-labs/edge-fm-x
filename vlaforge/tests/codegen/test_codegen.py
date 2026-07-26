@@ -151,6 +151,73 @@ def test_codegen_emits_bundle_loaded_aoti_regions() -> None:
         )
 
 
+def test_codegen_emits_bundle_loaded_tensorrt_regions() -> None:
+    fixture = build_driving_trajectory_fixture()
+    compilation = compile_module(
+        fixture.module,
+        profile=CompilerProfile.OFF,
+        default_device="cuda:0",
+    )
+    definitions = {
+        region.name: CppArtifactRegionDefinition(
+            region_name=region.name,
+            backend="tensorrt",
+            artifact_path=f"artifacts/{region.name}.engine",
+            artifact_sha256=f"{index + 1:064x}",
+            artifact_size_bytes=2048 + index,
+            io_schema_digest=compilation.plan.io_schema_digest,
+            target="sm_87",
+            device="cuda:0",
+            backend_variant="tensorrt-10.3-cu126",
+        )
+        for index, region in enumerate(compilation.module.regions)
+    }
+    sources = generate_cpp_session(
+        compilation.plan,
+        compilation.module,
+        artifact_regions=definitions,
+        validators={
+            "finite_trajectory": CppValidatorDefinition(
+                "finite_trajectory",
+                "return data != nullptr && size_bytes > 0u;",
+            )
+        },
+    ).as_dict()
+
+    source = sources["session_generated.cpp"]
+    cmake = sources["CMakeLists.txt"]
+    assert "tensorrt_region_executable.h" in source
+    assert "vlaforge_tensorrt_region_executable_value_api" in source
+    assert "TensorRT Region load failed" in source
+    assert "aoti_region_executable.h" not in source
+    assert "VLAFORGE_BUILD_TENSORRT_BACKEND ON" in cmake
+    assert "vlaforge_tensorrt_backend" in cmake
+    assert "VLAFORGE_BUILD_AOTI_BACKEND ON" not in cmake
+
+    with pytest.raises(ValueError, match="CUDA SM target/device"):
+        CppArtifactRegionDefinition(
+            region_name="invalid",
+            backend="tensorrt",
+            artifact_path="artifacts/invalid.engine",
+            artifact_sha256="f" * 64,
+            artifact_size_bytes=1,
+            io_schema_digest="e" * 64,
+            target="cpu",
+            device="cpu",
+        )
+    with pytest.raises(ValueError, match="TensorRT backend variant"):
+        CppArtifactRegionDefinition(
+            region_name="invalid",
+            backend="tensorrt",
+            artifact_path="artifacts/invalid.engine",
+            artifact_sha256="f" * 64,
+            artifact_size_bytes=1,
+            io_schema_digest="e" * 64,
+            target="sm_87",
+            device="cuda:0",
+        )
+
+
 def test_generated_runner_is_clean_and_matches_python(tmp_path: Path):
     fixture, _, sources = _sources()
     source_dir = tmp_path / "source"

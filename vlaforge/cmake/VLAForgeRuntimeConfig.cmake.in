@@ -9,5 +9,26 @@ endif()
 if("@VLAFORGE_CONFIG_HAS_TORCH@" STREQUAL "ON")
   find_dependency(Torch CONFIG)
 endif()
+if("@VLAFORGE_CONFIG_HAS_TENSORRT@" STREQUAL "ON")
+  find_path(VLAFORGE_TENSORRT_INCLUDE_DIR
+    NAMES NvInfer.h
+    PATH_SUFFIXES aarch64-linux-gnu x86_64-linux-gnu)
+  find_library(VLAFORGE_TENSORRT_LIBRARY
+    NAMES nvinfer
+    PATH_SUFFIXES aarch64-linux-gnu x86_64-linux-gnu)
+  if(NOT VLAFORGE_TENSORRT_INCLUDE_DIR OR
+     NOT VLAFORGE_TENSORRT_LIBRARY)
+    set(VLAForgeRuntime_FOUND FALSE)
+    set(VLAForgeRuntime_NOT_FOUND_MESSAGE
+      "VLAForge TensorRT backend requires NvInfer.h and libnvinfer")
+    return()
+  endif()
+  if(NOT TARGET TensorRT::nvinfer)
+    add_library(TensorRT::nvinfer UNKNOWN IMPORTED)
+    set_target_properties(TensorRT::nvinfer PROPERTIES
+      IMPORTED_LOCATION "${VLAFORGE_TENSORRT_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${VLAFORGE_TENSORRT_INCLUDE_DIR}")
+  endif()
+endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/VLAForgeRuntimeTargets.cmake")

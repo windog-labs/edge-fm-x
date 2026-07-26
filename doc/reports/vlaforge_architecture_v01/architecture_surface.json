@@ -3,7 +3,8 @@
     "cmake_files": [
       "vlaforge/CMakeLists.txt",
       "vlaforge/tests/cpp/CMakeLists.txt",
-      "vlaforge/tests/install_consumer/CMakeLists.txt"
+      "vlaforge/tests/install_consumer/CMakeLists.txt",
+      "vlaforge/tests/tensorrt_install_consumer/CMakeLists.txt"
     ],
     "declared_sources": [
       {
@@ -45,6 +46,11 @@
         "cmake": "vlaforge/CMakeLists.txt",
         "source": "vlaforge/backends/aoti_region_executable.cpp",
         "target": "vlaforge_aoti_backend"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/backends/tensorrt_region_executable.cpp",
+        "target": "vlaforge_tensorrt_backend"
       },
       {
         "cmake": "vlaforge/CMakeLists.txt",
@@ -102,9 +108,24 @@
         "target": "vlaforge_torchscript_region_smoke"
       },
       {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/tensorrt_region_contract_smoke.cpp",
+        "target": "vlaforge_tensorrt_region_contract_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/tensorrt_region_on_device_smoke.cpp",
+        "target": "vlaforge_tensorrt_region_on_device_smoke"
+      },
+      {
         "cmake": "vlaforge/tests/install_consumer/CMakeLists.txt",
         "source": "vlaforge/tests/install_consumer/main.cpp",
         "target": "vlaforge_install_consumer"
+      },
+      {
+        "cmake": "vlaforge/tests/tensorrt_install_consumer/CMakeLists.txt",
+        "source": "vlaforge/tests/tensorrt_install_consumer/main.cpp",
+        "target": "vlaforge_tensorrt_install_consumer"
       }
     ],
     "forbidden_build_references": [],
@@ -278,15 +299,19 @@
   ],
   "passed": true,
   "production_surface": {
-    "file_count": 47,
+    "file_count": 49,
     "files": [
       {
         "path": "vlaforge/CMakeLists.txt",
-        "sha256": "42797ea4c24d6a36919eca9d67da61486b0869c575396d1589914629d11a7337"
+        "sha256": "81196256ca7cb39b7e7a4ddf96c3a361ca22f8ca85b8edd5649163f4710ffc73"
       },
       {
         "path": "vlaforge/backends/aoti_region_executable.cpp",
         "sha256": "083cdbfd567b1df917f0d05265389065c28d0d075f736739442f0d08ab0f3c01"
+      },
+      {
+        "path": "vlaforge/backends/tensorrt_region_executable.cpp",
+        "sha256": "2f6d4a80673d344203e4c0b9bba65399e0c6d79c5f94acfa550fe5f9fdd50156"
       },
       {
         "path": "vlaforge/backends/torchscript_region_executable.cpp",
@@ -295,6 +320,10 @@
       {
         "path": "vlaforge/include/vlaforge/backends/aoti_region_executable.h",
         "sha256": "112ded7f8e90f39517cb4c7bb6f1277e5daa42afa55dc9ca4bd86c09d8a29030"
+      },
+      {
+        "path": "vlaforge/include/vlaforge/backends/tensorrt_region_executable.h",
+        "sha256": "cc445e4a320152fea5cf5c21e9c564a1b32f8b13d56b7070c3f55c020d65fb42"
       },
       {
         "path": "vlaforge/include/vlaforge/backends/torchscript_region_executable.h",
@@ -350,7 +379,7 @@
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/cpp.py",
-        "sha256": "f20c86d40f4cc5565b0df406b74053281556210242d31a2d246bd8eb1165b01d"
+        "sha256": "c69744ab6c629cf8ae9bfe6375f11b94a1341e0696cce33c26d7b80ef035249b"
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/fixtures.py",
@@ -358,7 +387,7 @@
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/model.py",
-        "sha256": "e48991332303151482fc655bd605022c91adabb8d439810a2619821bf41f8174"
+        "sha256": "8061c3a490c1ff3dec13feb42a5d04a6b344e13f1cc93bf54cf5d63a0255a8cc"
       },
       {
         "path": "vlaforge/python/vlaforge/compiler.py",
@@ -484,9 +513,33 @@
     ]
   },
   "repository": {
-    "revision": "80d1882b931b562ce38798d23348e412b293ad46",
-    "source_dirty": false,
-    "tracked_status": []
+    "revision": "dadf4f218d59eac018e5c29d667f59995b696580",
+    "source_dirty": true,
+    "tracked_status": [
+      "M  doc/reports/vlaforge_orin_validation.md",
+      "M  doc/vlaforge_cpp_aot_progress.md",
+      "M  doc/vlaforge_development_plan.md",
+      "M  vlaforge/.gitignore",
+      "M  vlaforge/CMakeLists.txt",
+      "A  vlaforge/backends/tensorrt_region_executable.cpp",
+      "M  vlaforge/cmake/VLAForgeRuntimeConfig.cmake.in",
+      "A  vlaforge/docker/orin/Dockerfile",
+      "A  vlaforge/docker/orin/README.md",
+      "A  vlaforge/include/vlaforge/backends/tensorrt_region_executable.h",
+      "M  vlaforge/python/vlaforge/codegen/cpp.py",
+      "M  vlaforge/python/vlaforge/codegen/model.py",
+      "A  vlaforge/scripts/orin/build_backend.sh",
+      "A  vlaforge/scripts/orin/cross_compile_bundle.sh",
+      "A  vlaforge/scripts/orin/run_backend_smoke_on_orin.sh",
+      "A  vlaforge/scripts/orin/run_bundle_on_orin.sh",
+      "M  vlaforge/tests/codegen/test_codegen.py",
+      "M  vlaforge/tests/cpp/CMakeLists.txt",
+      "A  vlaforge/tests/cpp/tensorrt_region_contract_smoke.cpp",
+      "A  vlaforge/tests/cpp/tensorrt_region_on_device_smoke.cpp",
+      "A  vlaforge/tests/tensorrt_install_consumer/CMakeLists.txt",
+      "A  vlaforge/tests/tensorrt_install_consumer/main.cpp",
+      "A  vlaforge/tools/materialize_orin_tensorrt_fixture.py"
+    ]
   },
   "schema": "vlaforge.architecture_surface_audit/1",
   "semantic_ir": {

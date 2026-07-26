@@ -188,7 +188,10 @@ AutoVLA 又完成发布 checkpoint 的真实 L2 decoder partition。
 2. 扩展 AutoVLA 到 camera/prompt/VLM prefill 和完整 autoregressive decode，
    并在不放宽预声明数值门槛的前提下争取 real L3/L4；
 3. 增加第二机或其他 GPU 的独立复现；
-4. Orin 台架就绪后补充 SM87 latency/power/thermal，作为跨平台增强。
+4. JetPack r36.4 ARM64 Docker 已完成 TensorRT Region backend、installed
+   SDK consumer、generated TensorRT Session 和 identity-engine 上板 smoke
+   的编译；Orin 台架就绪后执行 smoke，并可选补充真实模型 SM87
+   parity/latency/power/thermal。
 
 ## 2026-07-26 Final Host-CUDA release audit
 

@@ -66,3 +66,34 @@ if(TARGET vlaforge_torchscript_backend)
             -Wall -Wextra -Wpedantic -Werror)
     endif()
 endif()
+
+if(TARGET vlaforge_tensorrt_backend)
+    add_executable(vlaforge_tensorrt_region_contract_smoke
+        tensorrt_region_contract_smoke.cpp)
+    target_link_libraries(vlaforge_tensorrt_region_contract_smoke PRIVATE
+        vlaforge_tensorrt_backend)
+    if(MSVC)
+        target_compile_options(vlaforge_tensorrt_region_contract_smoke
+            PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_tensorrt_region_contract_smoke
+            PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_executable(vlaforge_tensorrt_region_on_device_smoke
+        tensorrt_region_on_device_smoke.cpp)
+    target_link_libraries(vlaforge_tensorrt_region_on_device_smoke PRIVATE
+        vlaforge_tensorrt_backend)
+    if(MSVC)
+        target_compile_options(vlaforge_tensorrt_region_on_device_smoke
+            PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_tensorrt_region_on_device_smoke
+            PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    if(NOT VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY)
+        add_test(NAME vlaforge_tensorrt_region_contract_smoke
+            COMMAND vlaforge_tensorrt_region_contract_smoke)
+        add_test(NAME vlaforge_tensorrt_region_on_device_smoke
+            COMMAND vlaforge_tensorrt_region_on_device_smoke)
+    endif()
+endif()

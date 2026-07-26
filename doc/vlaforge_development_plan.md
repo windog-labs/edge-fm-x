@@ -309,7 +309,7 @@ opcode 或任意未验证 opcode。
 | P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 的 clean bundle/C++ build 通过但执行受 AOTI package loader 资源行为阻塞 |
 | P11 | Host CUDA 性能、消融、长稳 | 完成：两真实 L4 模型的 eager/direct/generated 对照、revision/cache 消融、10k Run soak、NSYS/NCU |
 | P12 | frozen-core held-out robot/driving 泛化 | 完成：Octo、GR00T N1.7、AutoVLA pinned-source L0 + executable L1，core op delta=0 |
-| P13 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
+| P13 | JetPack arm64 与 TensorRT backend portability | standalone runtime、TensorRT Region backend、安装后 SDK consumer、generated TensorRT Session 与上板 smoke 均已编译；真机执行待环境 |
 | P14 | 论文 artifact 可复现基线 | 完成：clean wheel、非 Git cwd、installed runtime、真实 `sm_86` AOTI、Bundle、invalid-Python C++ 与外部证据 inventory |
 | P15 | 5 workloads × 5 independent processes 统计实验 | 完成：150 fresh-process tasks、4,500 steady samples、30 cells、50 parity cells |
 | P16 | 一个真实 held-out 模型至少 L2 | 完成：AutoVLA real L2 decoder partition，core op delta=0；L3 candidate 未晋级 |
@@ -401,12 +401,13 @@ token exact、trajectory max abs `1.91e-6` 不用于事后放宽门槛。证据�
 `doc/reports/vlaforge_autovla_v01/`。
 
 最终 architecture/build-surface negative audit 也已固化为自动测试：
-47 个 production source files 中不存在 tick/clock/deadline/period/jitter、
+49 个 production source files 中不存在 tick/clock/deadline/period/jitter、
 middleware、publish、internal sleep、core action queue 或 Python runtime
-依赖。15 个 Semantic IR op 与冻结 v0.2 集合一致。VLAForge 的 3 个 CMake
-文件声明 20 个 C/C++ sources，没有 `.cu/.cuh/.ptx`、越界 source/subdirectory
+依赖。15 个 Semantic IR op 与冻结 v0.2 集合一致。VLAForge 的 4 个 CMake
+文件声明 24 个 C/C++ sources，没有 `.cu/.cuh/.ptx`、越界 source/subdirectory
 edge 或已退役的旧 operator 依赖；可选 CUDA target 只通过
-`CUDA::cudart` 执行外部 AOTI artifact。负例测试和论文分析工具中的旧符号
+`CUDA::cudart` 调用外部 AOTI/TensorRT artifact，不包含 VLAForge 自定义
+CUDA kernel。负例测试和论文分析工具中的旧符号
 引用被单独列出，不属于 production surface。报告见
 `doc/reports/vlaforge_architecture_v01/architecture_surface.md`。
 
@@ -454,10 +455,12 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    reproducibility manifest 和机械 completion audit；
 5. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
    探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
-6. Orin 环境就绪后可选执行模型专属 SM87 artifact 和 latency/power/thermal
-   验证。它与第二台机器独立复现、更多真实模型一样，只是跨平台增强，不属于
-   当前 Host-CUDA 论文 Goal 的完成条件；真车/传感器闭环和 middleware
-   集成不属于本编译器目标。
+6. **已完成可离线部分**：JetPack r36.4 ARM64 Docker 中完成 TensorRT 10
+   Region backend、安装后 SDK consumer、backend-aware generated Session
+   和上板 identity-engine smoke 的编译。Orin 环境就绪后只需先运行 smoke，
+   再补模型专属 SM87 engine、真实 parity；latency/power/thermal 属于可选
+   跨平台增强。第二台机器与更多真实模型同样不属于当前 Host-CUDA 论文
+   Goal；真车/传感器闭环和 middleware 集成不属于本编译器目标。
 
 ## 11. 风险控制
 

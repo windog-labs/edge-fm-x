@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 3.18)
+project(vlaforge_tensorrt_install_consumer LANGUAGES CXX)
+
+find_package(VLAForgeRuntime REQUIRED CONFIG)
+
+add_executable(vlaforge_tensorrt_install_consumer main.cpp)
+target_link_libraries(vlaforge_tensorrt_install_consumer PRIVATE
+    VLAForge::vlaforge_tensorrt_backend)
+target_compile_features(vlaforge_tensorrt_install_consumer PRIVATE cxx_std_17)

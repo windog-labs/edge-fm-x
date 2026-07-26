@@ -17,6 +17,11 @@ option(VLAFORGE_BUILD_AOTI_BACKEND
        "Build the optional CPU/CUDA AOTInductor RegionExecutable backend" OFF)
 option(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND
        "Build the optional CPU TorchScript RegionExecutable backend" OFF)
+option(VLAFORGE_BUILD_TENSORRT_BACKEND
+       "Build the optional CUDA TensorRT RegionExecutable backend" OFF)
+option(VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY
+       "Do not register TensorRT runtime tests in a driverless L4T container"
+       OFF)
 
 add_library(vlaforge_runtime STATIC
     runtime/artifact_verifier.cpp
@@ -78,6 +83,58 @@ if(VLAFORGE_BUILD_AOTI_BACKEND)
     endif()
 endif()
 
+if(VLAFORGE_BUILD_TENSORRT_BACKEND)
+    find_package(CUDAToolkit REQUIRED)
+    find_path(VLAFORGE_TENSORRT_INCLUDE_DIR
+        NAMES NvInfer.h
+        PATH_SUFFIXES aarch64-linux-gnu x86_64-linux-gnu)
+    find_library(VLAFORGE_TENSORRT_LIBRARY
+        NAMES nvinfer
+        PATH_SUFFIXES aarch64-linux-gnu x86_64-linux-gnu)
+    if(NOT VLAFORGE_TENSORRT_INCLUDE_DIR OR
+       NOT VLAFORGE_TENSORRT_LIBRARY)
+        message(FATAL_ERROR
+            "VLAFORGE_BUILD_TENSORRT_BACKEND requires TensorRT headers "
+            "and libnvinfer")
+    endif()
+    if(NOT TARGET TensorRT::nvinfer)
+        add_library(TensorRT::nvinfer UNKNOWN IMPORTED)
+        set_target_properties(TensorRT::nvinfer PROPERTIES
+            IMPORTED_LOCATION "${VLAFORGE_TENSORRT_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES
+                "${VLAFORGE_TENSORRT_INCLUDE_DIR}")
+    endif()
+    target_compile_definitions(vlaforge_runtime
+        PUBLIC VLAFORGE_ENABLE_CUDA_ARENA=1)
+    target_link_libraries(vlaforge_runtime PUBLIC CUDA::cudart)
+    add_library(vlaforge_tensorrt_backend STATIC
+        backends/tensorrt_region_executable.cpp
+    )
+    target_include_directories(vlaforge_tensorrt_backend
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+    )
+    target_link_libraries(vlaforge_tensorrt_backend
+        PUBLIC vlaforge_runtime TensorRT::nvinfer CUDA::cudart
+    )
+    # L4T development containers intentionally omit several board driver
+    # libraries that satisfy indirect TensorRT/DLA symbols on the real Orin.
+    # Permit unresolved symbols in those shared dependencies while still
+    # requiring every VLAForge object symbol to resolve at link time.
+    if(UNIX AND NOT APPLE AND
+       VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY)
+        target_link_options(vlaforge_tensorrt_backend INTERFACE
+            "LINKER:--allow-shlib-undefined")
+    endif()
+    if(MSVC)
+        target_compile_options(vlaforge_tensorrt_backend PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_tensorrt_backend PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
+
 if(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND)
     add_library(vlaforge_torchscript_backend STATIC
         backends/torchscript_region_executable.cpp
@@ -121,8 +178,19 @@ if(TARGET vlaforge_torchscript_backend)
         ARCHIVE DESTINATION lib
     )
 endif()
+if(TARGET vlaforge_tensorrt_backend)
+    install(TARGETS vlaforge_tensorrt_backend
+        EXPORT VLAForgeRuntimeTargets
+        ARCHIVE DESTINATION lib
+    )
+endif()
 install(DIRECTORY include/ DESTINATION include)
-set(VLAFORGE_CONFIG_HAS_CUDA ${VLAFORGE_BUILD_AOTI_BACKEND})
+if(VLAFORGE_BUILD_AOTI_BACKEND OR VLAFORGE_BUILD_TENSORRT_BACKEND)
+    set(VLAFORGE_CONFIG_HAS_CUDA ON)
+else()
+    set(VLAFORGE_CONFIG_HAS_CUDA OFF)
+endif()
+set(VLAFORGE_CONFIG_HAS_TENSORRT ${VLAFORGE_BUILD_TENSORRT_BACKEND})
 if(VLAFORGE_BUILD_AOTI_BACKEND OR VLAFORGE_BUILD_TORCHSCRIPT_BACKEND)
     set(VLAFORGE_CONFIG_HAS_TORCH ON)
 else()
