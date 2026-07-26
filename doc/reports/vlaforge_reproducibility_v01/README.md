@@ -5,11 +5,11 @@ Status: **passed**.
 ## Frozen baseline
 
 - Baseline revision: `f0fc1be`
-- Audited revision: `9aeb0ef4f8d3f0fe3c5d0bc9f51f2f3b5dcdc355`
+- Audited revision: `72756fccfbbcd64c9a99aa32c78846f827a9a40b`
 - Frozen core SHA256: `cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`
 - Frozen core still matches: yes
 - Installed-wheel CUDA target: `sm_86`
-- Installed-wheel package import: `/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv/lib/python3.13/site-packages/vlaforge/__init__.py`
+- Installed-wheel package import: `/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv/lib/python3.13/site-packages/vlaforge/__init__.py`
 
 ## Durable evidence in Git
 
