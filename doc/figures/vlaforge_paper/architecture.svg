@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#627180"/></marker>
+</defs>
+<rect x="0.0" y="0.0" width="1280.0" height="640.0" rx="0.0" fill="#FFFFFF" stroke="none" stroke-width="1.0"/>
+<text x="60.0" y="60.0" font-family="Inter,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="start" fill="#17212B">VLAForge compiles one passive, stateful model invocation</text>
+<text x="60.0" y="88.0" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#627180">Bottom software owns sensors, synchronization, scheduling, and publish</text>
+<rect x="60.0" y="150.0" width="190.0" height="115.0" rx="12.0" fill="#F2C14E" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="155.0" y="195.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#17212B">Typed push inputs</text>
+<text x="155.0" y="225.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="middle" fill="#627180">Tensor/Scalar + revision</text>
+<rect x="300.0" y="150.0" width="190.0" height="115.0" rx="12.0" fill="#E7EEF6" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="395.0" y="195.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#17212B">Semantic IR</text>
+<text x="395.0" y="225.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="middle" fill="#627180">15 verified VLA ops</text>
+<rect x="540.0" y="150.0" width="190.0" height="115.0" rx="12.0" fill="#E7EEF6" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="635.0" y="195.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#17212B">Scheduled Plan</text>
+<text x="635.0" y="225.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="middle" fill="#627180">legality + static memory</text>
+<rect x="780.0" y="150.0" width="190.0" height="115.0" rx="12.0" fill="#E7EEF6" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="875.0" y="195.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#17212B">Compile Bundle</text>
+<text x="875.0" y="225.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="middle" fill="#627180">schema + artifact hashes</text>
+<rect x="1020.0" y="150.0" width="200.0" height="115.0" rx="12.0" fill="#DCEFD9" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="1120.0" y="195.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#17212B">C++ Session</text>
+<text x="1120.0" y="225.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="middle" fill="#627180">Bind / Run / ReadOutput</text>
+<line x1="255.0" y1="207.0" x2="292.0" y2="207.0" stroke="#627180" stroke-width="2.0" marker-end="url(#arrow)"/>
+<line x1="495.0" y1="207.0" x2="532.0" y2="207.0" stroke="#627180" stroke-width="2.0" marker-end="url(#arrow)"/>
+<line x1="735.0" y1="207.0" x2="772.0" y2="207.0" stroke="#627180" stroke-width="2.0" marker-end="url(#arrow)"/>
+<line x1="975.0" y1="207.0" x2="1012.0" y2="207.0" stroke="#627180" stroke-width="2.0" marker-end="url(#arrow)"/>
+<text x="60.0" y="350.0" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700" text-anchor="start" fill="#17212B">Verified invocation semantics</text>
+<rect x="60.0" y="385.0" width="205.0" height="100.0" rx="10.0" fill="#F2C14E" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="162.5" y="425.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#17212B">InputRevision</text>
+<text x="162.5" y="453.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="middle" fill="#17212B">exact logical identity</text>
+<rect x="295.0" y="385.0" width="205.0" height="100.0" rx="10.0" fill="#9C6ADE" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="397.5" y="425.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#17212B">Authoritative state</text>
+<text x="397.5" y="453.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="middle" fill="#17212B">version only on commit</text>
+<rect x="530.0" y="385.0" width="205.0" height="100.0" rx="10.0" fill="#4C9FBE" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="632.5" y="425.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#17212B">Derived cache</text>
+<text x="632.5" y="453.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="middle" fill="#17212B">recomputable, exact key</text>
+<rect x="765.0" y="385.0" width="205.0" height="100.0" rx="10.0" fill="#8CD0C3" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="867.5" y="425.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#17212B">Bounded control</text>
+<text x="867.5" y="453.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="middle" fill="#17212B">structured if / for</text>
+<rect x="1000.0" y="385.0" width="205.0" height="100.0" rx="10.0" fill="#F0A6A6" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="1102.5" y="425.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="middle" fill="#17212B">Named outputs</text>
+<text x="1102.5" y="453.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="middle" fill="#17212B">validated atomic group</text>
+<text x="640.0" y="545.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="600" text-anchor="middle" fill="#17212B">Pure TensorRegions bind existing AOTI / cuDNN / CUTLASS / Triton / C++ plugins</text>
+<text x="640.0" y="580.0" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="middle" fill="#627180">VLAForge owns orchestration semantics, not model CUDA kernels</text>
+</svg>

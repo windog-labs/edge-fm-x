@@ -90,6 +90,13 @@ The runtime is passive. It exposes `Bind`, `Run`, and `ReadOutput`; it does not
 own sensor acquisition, time synchronization, periodic scheduling, dropped
 frames, ROS/Cyber topics, action publication, or a vehicle safety layer.
 
+![VLAForge architecture](figures/vlaforge_paper/architecture.svg)
+
+**Figure 1.** VLAForge compiles one passive stateful model invocation. Tensor
+backends implement pure Regions; the compiler owns cross-Region identity,
+state/cache, bounded control, output transaction, and the verified deployment
+boundary.
+
 This paper makes the following contributions:
 
 1. **A compact VLA invocation IR.** We jointly represent typed stamped inputs,
@@ -409,6 +416,11 @@ exact. The eager-to-generated speedups (2.44--2.49x for SmolVLA and
 1.16--1.17x for DiffusionDrive) are attributed to upstream AOTInductor
 compilation, not VLAForge-owned CUDA kernels.
 
+![Full-compute latency](figures/vlaforge_paper/performance.svg)
+
+**Figure 2.** Full-compute baseline latency. Error bars are 95% bootstrap
+confidence intervals over independent-process clusters.
+
 ### 6.3 Initialization, first Run, and memory
 
 | Model/path | Fresh-process init. (ms) | First Run (ms) | Peak RSS (MiB) | Peak CUDA (MiB) |
@@ -470,6 +482,13 @@ successful retry commits two state updates. Stateless DiffusionDrive commits no
 state. The retry trace records one cache hit and one miss for each model,
 showing that recomputable cache and authoritative state follow separate failure
 contracts.
+
+![Contribution ablations](figures/vlaforge_paper/ablations.svg)
+
+**Figure 3.** Exact InputRevision reuse and static-memory classification. The
+same-revision DiffusionDrive path is explicitly a cache-hit result, not
+full-compute latency. Arena packing provides small byte savings; boundedness
+and class separation are the supported memory claims.
 
 ### 6.7 Deployment boundary
 

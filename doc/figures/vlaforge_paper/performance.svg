@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700">
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#627180"/></marker>
+</defs>
+<rect x="0.0" y="0.0" width="1280.0" height="700.0" rx="0.0" fill="#FFFFFF" stroke="none" stroke-width="1.0"/>
+<text x="60.0" y="55.0" font-family="Inter,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="start" fill="#17212B">Full-compute steady latency on RTX 3060</text>
+<text x="60.0" y="84.0" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#627180">Baseline workload; 5 independent processes × 30 samples; lower is better</text>
+<text x="90.0" y="116.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="start" fill="#627180">Latency (ms)</text>
+<line x1="90.0" y1="560.0" x2="1210.0" y2="560.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="76.0" y="565.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="end" fill="#627180">0</text>
+<line x1="90.0" y1="488.3" x2="1210.0" y2="488.3" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="76.0" y="493.3" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="end" fill="#627180">20</text>
+<line x1="90.0" y1="416.7" x2="1210.0" y2="416.7" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="76.0" y="421.7" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="end" fill="#627180">40</text>
+<line x1="90.0" y1="345.0" x2="1210.0" y2="345.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="76.0" y="350.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="end" fill="#627180">60</text>
+<line x1="90.0" y1="273.3" x2="1210.0" y2="273.3" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="76.0" y="278.3" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="end" fill="#627180">80</text>
+<line x1="90.0" y1="201.7" x2="1210.0" y2="201.7" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="76.0" y="206.7" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="end" fill="#627180">100</text>
+<line x1="90.0" y1="130.0" x2="1210.0" y2="130.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="76.0" y="135.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="end" fill="#627180">120</text>
+<rect x="210.0" y="154.4" width="92.0" height="405.6" rx="5.0" fill="#D95F59" stroke="none" stroke-width="1.0"/>
+<text x="256.0" y="140.4" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">113.20</text>
+<line x1="256.0" y1="149.7" x2="256.0" y2="158.8" stroke="#17212B" stroke-width="1.5"/>
+<line x1="249.0" y1="149.7" x2="263.0" y2="149.7" stroke="#17212B" stroke-width="1.5"/>
+<line x1="249.0" y1="158.8" x2="263.0" y2="158.8" stroke="#17212B" stroke-width="1.5"/>
+<rect x="320.0" y="397.1" width="92.0" height="162.9" rx="5.0" fill="#4C78A8" stroke="none" stroke-width="1.0"/>
+<text x="366.0" y="383.1" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">45.47</text>
+<line x1="366.0" y1="396.9" x2="366.0" y2="397.4" stroke="#17212B" stroke-width="1.5"/>
+<line x1="359.0" y1="396.9" x2="373.0" y2="396.9" stroke="#17212B" stroke-width="1.5"/>
+<line x1="359.0" y1="397.4" x2="373.0" y2="397.4" stroke="#17212B" stroke-width="1.5"/>
+<rect x="430.0" y="396.1" width="92.0" height="163.9" rx="5.0" fill="#59A14F" stroke="none" stroke-width="1.0"/>
+<text x="476.0" y="382.1" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">45.75</text>
+<line x1="476.0" y1="395.6" x2="476.0" y2="396.5" stroke="#17212B" stroke-width="1.5"/>
+<line x1="469.0" y1="395.6" x2="483.0" y2="395.6" stroke="#17212B" stroke-width="1.5"/>
+<line x1="469.0" y1="396.5" x2="483.0" y2="396.5" stroke="#17212B" stroke-width="1.5"/>
+<text x="370.0" y="602.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#17212B">SmolVLA</text>
+<rect x="790.0" y="490.3" width="92.0" height="69.7" rx="5.0" fill="#D95F59" stroke="none" stroke-width="1.0"/>
+<text x="836.0" y="476.3" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">19.45</text>
+<line x1="836.0" y1="490.2" x2="836.0" y2="490.4" stroke="#17212B" stroke-width="1.5"/>
+<line x1="829.0" y1="490.2" x2="843.0" y2="490.2" stroke="#17212B" stroke-width="1.5"/>
+<line x1="829.0" y1="490.4" x2="843.0" y2="490.4" stroke="#17212B" stroke-width="1.5"/>
+<rect x="900.0" y="500.3" width="92.0" height="59.7" rx="5.0" fill="#4C78A8" stroke="none" stroke-width="1.0"/>
+<text x="946.0" y="486.3" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">16.66</text>
+<line x1="946.0" y1="500.2" x2="946.0" y2="500.4" stroke="#17212B" stroke-width="1.5"/>
+<line x1="939.0" y1="500.2" x2="953.0" y2="500.2" stroke="#17212B" stroke-width="1.5"/>
+<line x1="939.0" y1="500.4" x2="953.0" y2="500.4" stroke="#17212B" stroke-width="1.5"/>
+<rect x="1010.0" y="500.2" width="92.0" height="59.8" rx="5.0" fill="#59A14F" stroke="none" stroke-width="1.0"/>
+<text x="1056.0" y="486.2" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">16.69</text>
+<line x1="1056.0" y1="499.9" x2="1056.0" y2="500.5" stroke="#17212B" stroke-width="1.5"/>
+<line x1="1049.0" y1="499.9" x2="1063.0" y2="499.9" stroke="#17212B" stroke-width="1.5"/>
+<line x1="1049.0" y1="500.5" x2="1063.0" y2="500.5" stroke="#17212B" stroke-width="1.5"/>
+<text x="950.0" y="602.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="middle" fill="#17212B">DiffusionDrive</text>
+<rect x="335.0" y="634.0" width="18.0" height="18.0" rx="3.0" fill="#D95F59" stroke="none" stroke-width="1.0"/>
+<text x="363.0" y="650.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="start" fill="#17212B">PyTorch eager</text>
+<rect x="565.0" y="634.0" width="18.0" height="18.0" rx="3.0" fill="#4C78A8" stroke="none" stroke-width="1.0"/>
+<text x="593.0" y="650.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="start" fill="#17212B">Direct AOTI</text>
+<rect x="795.0" y="634.0" width="18.0" height="18.0" rx="3.0" fill="#59A14F" stroke="none" stroke-width="1.0"/>
+<text x="823.0" y="650.0" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="400" text-anchor="start" fill="#17212B">Generated C++</text>
+</svg>

@@ -1,0 +1,41 @@
+{
+  "deterministic": true,
+  "figures": [
+    {
+      "name": "architecture.svg",
+      "sha256": "e74788d9f47cc3a09c1289fd949100b8921a45f49b6dc53d396c4a7e74f5aba1",
+      "size_bytes": 6212
+    },
+    {
+      "name": "performance.svg",
+      "sha256": "7dee22e3f592fff40a5663c4527ddeaa3db0794b0c47c2929de2fbb42ca02277",
+      "size_bytes": 6775
+    },
+    {
+      "name": "ablations.svg",
+      "sha256": "daf4677013c2657df011a72e2dd517d68f34ab98c413996ba54cc0910765abe1",
+      "size_bytes": 7236
+    }
+  ],
+  "reproduction": [
+    "python",
+    "vlaforge/tools/render_vlaforge_paper_figures.py",
+    "--matrix",
+    "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
+    "--ablations",
+    "doc/reports/vlaforge_ablations_v01/paper_ablations.json",
+    "--output-dir",
+    "<output-dir>"
+  ],
+  "schema": "vlaforge.paper_figures/1",
+  "sources": {
+    "ablations": {
+      "path": "doc/reports/vlaforge_ablations_v01/paper_ablations.json",
+      "sha256": "2a98af20fa334bfedbbd5dce7d7828adf5be02c9dac71cc40c32b6fc026b33ba"
+    },
+    "matrix": {
+      "path": "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
+      "sha256": "fc7a476c9bc9130e9c2550fc869dc87d220ab95a9ddd85230773cf7b6819a3cb"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700">
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#627180"/></marker>
+</defs>
+<rect x="0.0" y="0.0" width="1280.0" height="700.0" rx="0.0" fill="#FFFFFF" stroke="none" stroke-width="1.0"/>
+<text x="60.0" y="55.0" font-family="Inter,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="start" fill="#17212B">Contribution ablations</text>
+<text x="60.0" y="84.0" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="400" text-anchor="start" fill="#627180">Exact reuse is a real-model cache-only control; memory emphasizes boundedness</text>
+<text x="80.0" y="125.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="start" fill="#17212B">A. Exact reuse latency</text>
+<text x="80.0" y="145.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="600" text-anchor="start" fill="#627180">Latency (ms)</text>
+<line x1="80.0" y1="540.0" x2="650.0" y2="540.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="68.0" y="545.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="end" fill="#627180">0</text>
+<line x1="80.0" y1="475.0" x2="650.0" y2="475.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="68.0" y="480.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="end" fill="#627180">3</text>
+<line x1="80.0" y1="410.0" x2="650.0" y2="410.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="68.0" y="415.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="end" fill="#627180">6</text>
+<line x1="80.0" y1="345.0" x2="650.0" y2="345.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="68.0" y="350.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="end" fill="#627180">9</text>
+<line x1="80.0" y1="280.0" x2="650.0" y2="280.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="68.0" y="285.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="end" fill="#627180">12</text>
+<line x1="80.0" y1="215.0" x2="650.0" y2="215.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="68.0" y="220.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="end" fill="#627180">15</text>
+<line x1="80.0" y1="150.0" x2="650.0" y2="150.0" stroke="#D8E0E7" stroke-width="1.0"/>
+<text x="68.0" y="155.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="end" fill="#627180">18</text>
+<rect x="125.0" y="184.6" width="82.0" height="355.4" rx="5.0" fill="#627180" stroke="none" stroke-width="1.0"/>
+<text x="166.0" y="172.6" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">16.40</text>
+<text x="166.0" y="568.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#17212B">Cache off</text>
+<rect x="260.0" y="473.6" width="82.0" height="66.4" rx="5.0" fill="#4C9FBE" stroke="none" stroke-width="1.0"/>
+<text x="301.0" y="461.6" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">3.06</text>
+<text x="301.0" y="568.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#17212B">Same revision</text>
+<rect x="395.0" y="184.7" width="82.0" height="355.3" rx="5.0" fill="#627180" stroke="none" stroke-width="1.0"/>
+<text x="436.0" y="172.7" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">16.40</text>
+<text x="436.0" y="568.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#17212B">New revision</text>
+<rect x="530.0" y="184.9" width="82.0" height="355.1" rx="5.0" fill="#627180" stroke="none" stroke-width="1.0"/>
+<text x="571.0" y="172.9" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#17212B">16.39</text>
+<text x="571.0" y="568.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="middle" fill="#17212B">No revision</text>
+<text x="365.0" y="610.0" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#4C9FBE">Same revision: 500/500 hits, 5.35× speedup</text>
+<text x="720.0" y="125.0" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" text-anchor="start" fill="#17212B">B. Static memory classes</text>
+<text x="720.0" y="167.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="start" fill="#17212B">SmolVLA</text>
+<rect x="720.0" y="185.0" width="3.0" height="45.0" rx="0.0" fill="#9C6ADE" stroke="none" stroke-width="1.0"/>
+<rect x="723.0" y="185.0" width="417.2" height="45.0" rx="0.0" fill="#4C9FBE" stroke="none" stroke-width="1.0"/>
+<rect x="1140.2" y="185.0" width="2.3" height="45.0" rx="0.0" fill="#D8E0E7" stroke="none" stroke-width="1.0"/>
+<text x="720.0" y="260.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" fill="#627180">packed 2,329,792 B; saved 1,920 B (0.082%)</text>
+<text x="720.0" y="285.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="start" fill="#17212B">10,000 Runs; CUDA drift 0 B</text>
+<text x="720.0" y="342.0" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700" text-anchor="start" fill="#17212B">DiffusionDrive</text>
+<rect x="720.0" y="360.0" width="419.2" height="45.0" rx="0.0" fill="#4C9FBE" stroke="none" stroke-width="1.0"/>
+<rect x="1139.2" y="360.0" width="0.8" height="45.0" rx="0.0" fill="#D8E0E7" stroke="none" stroke-width="1.0"/>
+<text x="720.0" y="435.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" fill="#627180">packed 5,155,392 B; saved 2,624 B (0.051%)</text>
+<text x="720.0" y="460.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="600" text-anchor="start" fill="#17212B">10,000 Runs; CUDA drift 0 B</text>
+<rect x="720.0" y="565.0" width="18.0" height="18.0" rx="3.0" fill="#9C6ADE" stroke="none" stroke-width="1.0"/>
+<text x="747.0" y="579.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" fill="#17212B">authoritative state</text>
+<rect x="880.0" y="565.0" width="18.0" height="18.0" rx="3.0" fill="#4C9FBE" stroke="none" stroke-width="1.0"/>
+<text x="907.0" y="579.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" fill="#17212B">derived cache</text>
+<rect x="1040.0" y="565.0" width="18.0" height="18.0" rx="3.0" fill="#D8E0E7" stroke="none" stroke-width="1.0"/>
+<text x="1067.0" y="579.0" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="400" text-anchor="start" fill="#17212B">other static</text>
+<text x="720.0" y="640.0" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" text-anchor="start" fill="#627180">Packing savings are small; the claim is verified boundedness and class separation.</text>
+</svg>
