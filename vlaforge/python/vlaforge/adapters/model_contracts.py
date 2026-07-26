@@ -146,6 +146,44 @@ MODEL_CONTRACTS = (
         ),
     ),
     UpstreamModelContract(
+        "MindDrive 0.5B",
+        "driving/meta-action-vla",
+        "https://github.com/xiaomi-mlab/MindDrive",
+        "1a4085dab1c20895a0c8d2b67b4f8e65712fa8de",
+        "Apache-2.0 code; Bench2Drive data CC BY-NC-ND 4.0",
+        (
+            "poleyzdk/Minddrive@"
+            "5cf1eafc7f6d1028006f2d97d083d8e9aa4c0b12; "
+            "minddrive_rltrain.pth "
+            "sha256:39c86eddeaf57b15b9aeb54beb9f6985"
+            "39f6ee1e83529724b1bfc8c5e11b4ba0; "
+            "llava-qwen2-0.5b/model.safetensors "
+            "sha256:6fc9882475867279ee66e505ded47b5d7"
+            "22fc09b0d34bc7684a26080d662825f; "
+            "llava-qwen2-0.5b-eva02_petr_proj.pth "
+            "sha256:1feabeea917d46678514eb9160a210873"
+            "3569608126daa2eb481431c6f94d38e"
+        ),
+        (
+            "mmcv/models/detectors/minddrive.py:"
+            "Minddrive.forward_test",
+            "mmcv/models/detectors/minddrive.py:"
+            "Minddrive.simple_test_pts",
+            "mmcv/utils/llava_qwen.py:"
+            "LlavaQwen2ForCausalLM.inference_action_distribution",
+            "team_code/minddrive_b2d_agent.py:"
+            "MinddriveAgent.run_step",
+        ),
+        None,
+        "L0-selected",
+        (
+            "real offline checkpoint load",
+            "full six-camera frontend parity",
+            "compiled artifact parity",
+            "no-Python C++ parity",
+        ),
+    ),
+    UpstreamModelContract(
         "AutoVLA",
         "driving/autoregressive-vla",
         "https://github.com/ucla-mobility/AutoVLA",

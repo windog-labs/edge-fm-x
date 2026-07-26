@@ -80,6 +80,7 @@ memory/performance results
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
+| MindDrive 0.5B | L0-selected | 否 | 否 | 完整六相机/语言/route/ego L2–L4 |
 | AutoVLA | L0 + L1 + real L2 partition + L3-candidate | 是 | 否 | 完整 camera/VLM/decode 与通过门槛的 real L3/L4 |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
@@ -101,6 +102,8 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
 7. AutoVLA 发布 checkpoint 的真实 decoder 分区已达到 L2；conservative
    AOTI 结果因中间 Region NRMSE 超过预声明门槛，严格保留为 L3-candidate。
 
-当前 RTX 3060/CUDA 12.8 投稿范围已经完成。OpenVLA real L4、完整端到端
-AutoVLA、Octo/GR00T 的更多真实 checkpoint 层级、跨 GPU、第二机复现和
-Orin 只属于可选增强，不是当前 Host-CUDA completion gate。
+原 Host-CUDA 投稿基线已经完成。2026-07-26 提高后的模型覆盖门禁选择
+MindDrive 0.5B 作为真实驾驶 VLA 主对象；必须在本机继续形成完整
+camera/language/route/ego 到 trajectory 的 real L2，并在保留强编译 claim
+前达到 real L3，目标为 L4。OpenVLA real L4、跨 GPU、第二机复现和 Orin
+仍属于可选增强，不阻塞该本机主线。

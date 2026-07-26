@@ -1,0 +1,96 @@
+{
+  "schema": "vlaforge.driving_vla_candidate_selection/1",
+  "date": "2026-07-26",
+  "host": {
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "cuda": "12.8",
+    "gpu_memory_bytes": 12884901888,
+    "host_memory_gib": 31,
+    "host_tensorrt_runtime": false
+  },
+  "selected": "MindDrive 0.5B",
+  "selection_reason": [
+    "official public 0.5B autonomous-driving VLA checkpoint",
+    "complete six-camera, language, route, ego-to-trajectory source path",
+    "public Apache-2.0 code and ungated checkpoint",
+    "published artifact sizes fit the host disk and have a viable partitioned 12GB-GPU path"
+  ],
+  "candidates": [
+    {
+      "name": "MindDrive 0.5B",
+      "repository": "https://github.com/xiaomi-mlab/MindDrive",
+      "upstream_revision": "1a4085dab1c20895a0c8d2b67b4f8e65712fa8de",
+      "code_license": "Apache-2.0",
+      "data_license": "CC BY-NC-ND 4.0",
+      "checkpoint_repository": "poleyzdk/Minddrive",
+      "checkpoint_revision": "5cf1eafc7f6d1028006f2d97d083d8e9aa4c0b12",
+      "gated": false,
+      "required_download_bytes": 9808889451,
+      "primary_files": [
+        {
+          "path": "minddrive_rltrain.pth",
+          "size_bytes": 6593355869,
+          "sha256": "39c86eddeaf57b15b9aeb54beb9f698539f6ee1e83529724b1bfc8c5e11b4ba0"
+        },
+        {
+          "path": "llava-qwen2-0.5b/model.safetensors",
+          "size_bytes": 1892090688,
+          "sha256": "6fc9882475867279ee66e505ded47b5d722fc09b0d34bc7684a26080d662825f"
+        },
+        {
+          "path": "llava-qwen2-0.5b-eva02_petr_proj.pth",
+          "size_bytes": 1307562253,
+          "sha256": "1feabeea917d46678514eb9160a2108733569608126daa2eb481431c6f94d38e"
+        }
+      ],
+      "source_path_complete": true,
+      "offline_without_carla": true,
+      "current_evidence": "L0-selected",
+      "next_gate": "strict checkpoint load and real six-camera eager reference"
+    },
+    {
+      "name": "OpenDriveVLA 0.5B",
+      "repository": "https://github.com/DriveVLA/OpenDriveVLA",
+      "upstream_revision": "10e8095bc618d508cb70cca37b6956ac4db6e9f3",
+      "code_license": "Apache-2.0",
+      "checkpoint_repository": "OpenDriveVLA/OpenDriveVLA-0.5B",
+      "checkpoint_revision": "5b219caae79ae65b7068fc9cf442220b75f07dff",
+      "checkpoint_size_bytes": 1466080342,
+      "gated": true,
+      "access_on_host": false,
+      "blocker": "No local Hugging Face token or accepted gated-repository terms; no bypass attempted."
+    },
+    {
+      "name": "ReCogDrive 2B",
+      "repository": "https://github.com/xiaomi-research/recogdrive",
+      "upstream_revision": "d54404796de7a44ca418b96057e3f8c3de3e8c0d",
+      "code_license": "Apache-2.0",
+      "checkpoint_repository": "owl10/ReCogDrive-2B-IL",
+      "checkpoint_revision": "0fa96f2159d5bc0f816ecd3818f00541db9db6ff",
+      "planner_checkpoint_size_bytes": 412357272,
+      "gated": false,
+      "blocker": "Published file is the diffusion-planner checkpoint and still requires the separate 2B VLM/base frontend; higher memory and dependency cost than the selected public 0.5B candidate."
+    },
+    {
+      "name": "AutoVLA 3B",
+      "repository": "https://github.com/ucla-mobility/AutoVLA",
+      "upstream_revision": "ba34eed74ce6729e7986592d0e66cbaca397b4fa",
+      "checkpoint_repository": "Zewei-Zhou/AutoVLA",
+      "checkpoint_revision": "a7d7ba3ed7529b248d2694c2defa31b35208340f",
+      "checkpoint_size_bytes": 16292664780,
+      "current_evidence": "real-L2-decoder-partition",
+      "fallback_reason": "Existing local checkpoint, but the complete 3B frontend is less resource-efficient than MindDrive 0.5B."
+    }
+  ],
+  "real_input": {
+    "dataset_repository": "Telkwevr/Bench2Drive-Speed-sample",
+    "dataset_revision": "c84ffbc2b7f3bda9b4acb7fab6971b3599092f42",
+    "license": "CC BY-NC-ND 4.0",
+    "route": "Accident+Follow_Town12_Road392_Route112425_Weather14_01-07-09-36-50",
+    "frame": "00400",
+    "camera_count": 6,
+    "raw_camera_shape": [900, 1600, 3],
+    "archive_root": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/real_input"
+  },
+  "claim": "This report selects a candidate and provides L0 provenance only. It is not real L2, L3, or L4 evidence."
+}
