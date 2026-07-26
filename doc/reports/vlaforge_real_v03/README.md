@@ -204,6 +204,28 @@ runner executed with invalid `PYTHONHOME/PYTHONPATH` and linked no
 `libpython`. Full hashes and test inventories are in
 `../vlaforge_release_v01/release_gate.{json,md}`.
 
+## Installed-wheel artifact evaluation
+
+The follow-up artifact evaluation built revision `849a7df` into a wheel,
+installed it into a clean venv, removed the source `PYTHONPATH`, and switched
+to a non-Git working directory. It imported VLAForge from `site-packages` and
+used only the wheel's `share/vlaforge` C++ runtime source.
+
+A real synthetic `sm_86` CUDA AOTI package was compiled and embedded into both
+session-resident and invocation-resident Compile Bundles. Both generated C++
+Sessions matched the eager reference within `4.35e-9`, ran with invalid Python
+environment variables, linked no `libpython`, and rejected schema/ABI,
+shape/dtype/device/layout, missing-artifact, and corrupted-artifact cases.
+This is a production artifact-substrate test, not real-model evidence.
+
+The accompanying reproducibility manifest hashes all current formal reports
+and committed raw summaries, extracts their reproduction commands, and
+inventories every `/tmp` reference. Eight real-model checkpoint,
+capture/artifact, input and bundle roots require external archival; they
+currently total 114.41 GiB. See
+`../vlaforge_reproducibility_v01/README.md` and
+`reproducibility_manifest.json`.
+
 ## OpenVLA-7B real L3
 
 The pinned `openvla/openvla-7b` checkpoint at Hugging Face revision

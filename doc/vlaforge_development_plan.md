@@ -1,7 +1,7 @@
 # VLAForge v0.2 开发计划：Stateful Invocation 到无 Python C++ 部署
 
 > 状态：当前权威实施计划
-> 更新时间：2026-07-25
+> 更新时间：2026-07-26
 > 分支：`codex/vlaforge-paper-artifact`
 > 硬件边界：Host/C++ 工作先完成；Orin 编译、真机性能和闭环验证后置
 
@@ -309,6 +309,10 @@ opcode 或任意未验证 opcode。
 | P11 | Host CUDA 性能、消融、长稳 | 完成：两真实 L4 模型的 eager/direct/generated 对照、revision/cache 消融、10k Run soak、NSYS/NCU |
 | P12 | frozen-core held-out robot/driving 泛化 | 完成：Octo、GR00T N1.7、AutoVLA pinned-source L0 + executable L1，core op delta=0 |
 | P13 | JetPack arm64 portability、真机 latency/power/closed-loop | standalone runtime 与 generated Session 已通过；真机待执行 |
+| P14 | 论文 artifact 可复现基线 | 完成：clean wheel、非 Git cwd、installed runtime、真实 `sm_86` AOTI、Bundle、invalid-Python C++ 与外部证据 inventory |
+| P15 | 5 workloads × 5 independent processes 统计实验 | 进行中 |
+| P16 | 一个真实 held-out 模型至少 L2 | 待 AutoVLA/GR00T/Octo 资源审计后选择一个 |
+| P17 | 论文初稿、表格与 artifact-evaluation 指南 | 待 P15/P16 收口 |
 
 ## 9. 测试与验收
 
@@ -400,6 +404,17 @@ entries；从非 Git cwd 安装后可生成和验证 Compile Bundle。生成 run
 `PYTHONHOME/PYTHONPATH` 下运行，`ldd` 无 `libpython`。正式汇总见
 `doc/reports/vlaforge_release_v01/release_gate.md`。
 
+2026-07-26 的 P14 进一步从全新 `venv` 安装 wheel，移除 source
+`PYTHONPATH`，并在非 Git cwd 使用 wheel 的 `share/vlaforge` runtime
+编译真实 `sm_86` CUDA AOTI artifact。session-resident 与
+invocation-resident 两种 Compile Bundle 均通过数值、schema、C ABI、artifact
+hash、shape/dtype/device/layout 和 invalid-Python/no-libpython 审计。该对象是
+synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可读 manifest
+还扫描了 11 份正式 JSON 报告、36 个 committed raw summaries 和 234 个绝对
+路径引用，并确认八个必须外部归档的真实模型目录当前全部存在，总计
+114.41 GiB；另有 0.05 GiB NSYS/NCU 二进制 profile 可选归档。正式证据见
+`doc/reports/vlaforge_reproducibility_v01/`。
+
 论文 release gate 另要求：
 
 - 至少一个 manipulation、一个 AR VLA、一个 diffusion/flow VLA 和一个
@@ -412,13 +427,18 @@ entries；从非 Git cwd 安装后可生成和验证 Compile Bundle。生成 run
 
 ## 10. 剩余开发顺序
 
-1. OpenVLA L4 的后续重试只在 backend/artifact provider 层实现稳定
-   shared-library/cubin mapping 与 per-invocation CUDA weight residency 分离，
-   不得扩 core IR，也不得阻塞 held-out；
-2. Orin 环境就绪后执行模型专属 SM87 artifact 和真机验证；standalone
-   runtime/generated Session 的 JetPack arm64 portability 已通过。
-
-以上两项均不属于当前 Host-CUDA 论文实现的完成条件。
+1. 对 SmolVLA、DiffusionDrive 完成至少五组确定性 workload、每组至少五个
+   独立进程的 eager/direct-AOTI/generated-Session 统计实验，报告标准差与
+   95% bootstrap CI；
+2. 把 exact reuse、static arena、transaction failure 和部署边界整理为四组
+   可投稿消融，原始 JSON/CSV 与汇总分离；
+3. 在 AutoVLA、GR00T N1.7、Octo 中只选一个可行对象推进真实 L2，争取 L3，
+   新增 core op 目标仍为 0；
+4. 形成论文初稿和 artifact-evaluation 指南；
+5. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
+   探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
+6. Orin 环境就绪后再执行模型专属 SM87 artifact 和真机验证。Orin 不属于
+   当前论文增强 Goal。
 
 ## 11. 风险控制
 

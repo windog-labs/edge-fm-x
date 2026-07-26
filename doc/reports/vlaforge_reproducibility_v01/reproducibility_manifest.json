@@ -1,0 +1,3798 @@
+{
+  "claim_boundary": {
+    "binary_nsight_profiles_committed": false,
+    "host_cuda": true,
+    "large_checkpoints_or_artifacts_committed": false,
+    "orin": false,
+    "parsed_nsight_summaries_committed": true
+  },
+  "committed_raw_evidence": [
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_full_100.csv",
+      "sha256": "e84b0ae39bd4d46e5dc2d87f2d5bbaca3723f273161bb658a5d72f6bfa0a9e0c",
+      "size_bytes": 4247
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_full_100.json",
+      "sha256": "6844b8654dabac259620dec404170f6d6579918fa8c4b194ec3a501895be04b7",
+      "size_bytes": 3353
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_missing_500.csv",
+      "sha256": "a5aac33312a28376200279f097a0466e78b30e97da158bd20af0601ce0a80c9e",
+      "size_bytes": 21947
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_missing_500.json",
+      "sha256": "b5bb11244e32c5f69064fcbd7744fb09296c4546e276c0ccde9bae258a347ca3",
+      "size_bytes": 3372
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_new_500.csv",
+      "sha256": "8a3ac66c63e8d2e4535e9c0225b67406f822f18e1fc4653616927ede5398a273",
+      "size_bytes": 21447
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_new_500.json",
+      "sha256": "0f6a6c2380a477503e5a0e2de158803340cb90d825029ab5bb3ec462bb8e21b7",
+      "size_bytes": 3361
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_10000.csv",
+      "sha256": "0d2a4c757b24d5ddca9c0b84651485b1ef140b49a14026181f389b3cb75020dc",
+      "size_bytes": 428947
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_10000.json",
+      "sha256": "fb8c7e50191380d8a7bba8f3e3502dfe08eae2b5b4c98592fafae3796fe1ffae",
+      "size_bytes": 3375
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_500.csv",
+      "sha256": "a8ca38b338aaf069fb7f557be40051a5a80094584338ba8f8b6ebd62dca61096",
+      "size_bytes": 20947
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_500.json",
+      "sha256": "ce1c8182f32b3956e372e2cf6ace31f96c240cb69b41e3419af644c808e8f0a9",
+      "size_bytes": 3357
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_full_100.csv",
+      "sha256": "f1f1cba2281c89427bc2fc49de66e392c45454f178a3465dbd69e9573a579445",
+      "size_bytes": 4447
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_full_100.json",
+      "sha256": "5efdd13f4d094ff02b113d285d4053549341933823dc87a041450ca1560064f1",
+      "size_bytes": 3312
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_missing_500.csv",
+      "sha256": "7248ad96d4ad8130ab0e3b8d8793bc7a5eb01f68f10eaf0a42a64e61ac1eaad2",
+      "size_bytes": 20971
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_missing_500.json",
+      "sha256": "856ace937d12a76c25148cdf59235f2446e645b823c41644e258720ac44c9ed8",
+      "size_bytes": 3317
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_new_500.csv",
+      "sha256": "bc7b3227c85eec0cfc30946bc3f8d15b0385b26c76c9cad2eeb3c0a9f71f360a",
+      "size_bytes": 20471
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_new_500.json",
+      "sha256": "72f0ed5fb3d74e35444c1d6f616286a7cc4a93dc10e9ef2c3f75ba962153c2bb",
+      "size_bytes": 3305
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_10000.csv",
+      "sha256": "235c4eb18dc98eef3732f184a662c36bd6fff8e04750c219063626b464c36b37",
+      "size_bytes": 419402
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_10000.json",
+      "sha256": "cff136d8fa06eb3b07e66455867ebc199ad426440a2a210ed008af12768a488a",
+      "size_bytes": 3327
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_500.csv",
+      "sha256": "273fc69ef923daafb96141bdb1d6d0199e3d36b1bacbed61bc0314b4d4b39a9b",
+      "size_bytes": 20468
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_500.json",
+      "sha256": "16dbf1e9b08baf5bd9baccad3180ef0e76955614154a6aa908dd38ef6c9fa9e4",
+      "size_bytes": 3306
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/diffusiondrive_direct_artifact.json",
+      "sha256": "897aad2ab26c8fde6dcbb37fdccf9de8e4c96ce778994664093e1597f158320d",
+      "size_bytes": 13987
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/diffusiondrive_eager.json",
+      "sha256": "1ea3159bd8de57f25a02f24b7db7000b5e2df6df0f9da2a3caeb1158adac6405",
+      "size_bytes": 13197
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/smolvla_direct_artifact.json",
+      "sha256": "cd6d5bd37e0c148811c97dadfe380cfc9c9a0affa8be4b619cc047c74430de2a",
+      "size_bytes": 13873
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/smolvla_eager.json",
+      "sha256": "18eea484d6378e8079c0c4c6c286e2f91337c42a261b7022b9f3a32cc8095c49",
+      "size_bytes": 13531
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_cuda_api_sum.json",
+      "sha256": "c29221be04e672ab160744ac62d6f232e62bbab9ada4410c9277be03c792c964",
+      "size_bytes": 6636
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_cuda_gpu_kern_sum.json",
+      "sha256": "d8fe7c48283c3c0bc68ddea8ddc1d86bb20d25a9b6c0d82043e295021ad4ab21",
+      "size_bytes": 49444
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_cuda_gpu_mem_time_sum.json",
+      "sha256": "6391dbc052835c39465b79eb44403ee5b64dcd6dfd936fd55674f500a6c3d27b",
+      "size_bytes": 972
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_ncu.stdout",
+      "sha256": "5ab14d97a0fd08c104c2407302e0411bf2de71ed6613a66c42da4d90ee8e3e21",
+      "size_bytes": 2232
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_nsys.stdout",
+      "sha256": "73e9bf3000baf353ead42aaf1eba4d6468d49b18e8785e55bf19f4fcbafd3a67",
+      "size_bytes": 1615
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_osrt_sum.json",
+      "sha256": "af43121f030bae72cc855297c36c6eacbdb3422feb1ad25b16a2bf808ca587c2",
+      "size_bytes": 5902
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_cuda_api_sum.json",
+      "sha256": "6719eb23e3ebc3c7f8d4b9a162e8f55b7d90d3340d4b14d43506d34cb32ed86c",
+      "size_bytes": 6398
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_cuda_gpu_kern_sum.json",
+      "sha256": "6726a66bca314377a8623fdd1b2975138dc28b7ba338502685e9f9d76811bb2d",
+      "size_bytes": 24568
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_cuda_gpu_mem_time_sum.json",
+      "sha256": "928f1b6738758b2331766699a3cd7176e610c2628246e784a98d7310443b7ee3",
+      "size_bytes": 977
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_ncu.stdout",
+      "sha256": "cbb591d7597ad3306e92733b1358bda149598c2290809dd3db862f4818c4accc",
+      "size_bytes": 2209
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_nsys.stdout",
+      "sha256": "dfdc62cbf948c8d9104626adac15b8c6d924cb44d01b8894501444330fc778a7",
+      "size_bytes": 2256
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_osrt_sum.json",
+      "sha256": "03e986d67d248bfca550533e12260dfc78efe26a5222faf623251b495011cb5f",
+      "size_bytes": 6398
+    }
+  ],
+  "environment": {
+    "cmake": "cmake version 3.22.1",
+    "compiler": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "cuda_available": true,
+    "gpu": "NVIDIA GeForce RTX 3060, 8.6, 595.58.03, 12288 MiB, 170.00 W",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "machine": "x86_64",
+    "ncu": "Version 2025.1.0.0 (build 35237751) (public-release)",
+    "nsys": "NVIDIA Nsight Systems version 2024.6.2.225-246235244400v0",
+    "nvcc": "Build cuda_12.8.r12.8/compiler.35404655_0",
+    "python": "3.13.12",
+    "torch": "2.10.0+cu128",
+    "torch_cuda": "12.8"
+  },
+  "external_archive_roots": [
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "smolvla_l3_capture_artifacts",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE",
+      "reason": "real SmolVLA export and AOTI artifact reproduction",
+      "size_bytes": 2641019430
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "smolvla_l4_support",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ",
+      "reason": "real SmolVLA generated-session support inputs and artifacts",
+      "size_bytes": 4104150792
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "smolvla_l4_aligned_bundle",
+      "path": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12",
+      "reason": "final aligned SmolVLA Compile Bundle",
+      "size_bytes": 820230856
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "diffusiondrive_checkpoint",
+      "path": "/tmp/vlaforge-diffusiondrive-ckpt",
+      "reason": "pinned DiffusionDrive checkpoint",
+      "size_bytes": 729534584
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "diffusiondrive_l3",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean",
+      "reason": "real DiffusionDrive exports and AOTI artifacts",
+      "size_bytes": 791443499
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "diffusiondrive_l4",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean",
+      "reason": "real DiffusionDrive Compile Bundle and deterministic inputs",
+      "size_bytes": 253648555
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "openvla_l3_capture",
+      "path": "/tmp/vlaforge-openvla-l3-capture",
+      "reason": "real OpenVLA source exports and deterministic inputs",
+      "size_bytes": 28497129835
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "openvla_l3_artifacts",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts",
+      "reason": "36 normalized OpenVLA exports and sm_86 AOTI packages",
+      "size_bytes": 85013056624
+    },
+    {
+      "exists": true,
+      "must_archive": false,
+      "name": "nsight_binary_profiles",
+      "path": "/tmp/vlaforge-nsight-v2",
+      "reason": "optional timeline reinspection; parsed NSYS/NCU summaries and profile hashes are committed",
+      "size_bytes": 49640814
+    }
+  ],
+  "external_path_references": [
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_full_100.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.full.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_full_100.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.full.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_missing_500.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.missing.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_missing_500.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.missing.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_new_500.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.new.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_new_500.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.new.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_10000.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.soak.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_10000.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.soak.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_500.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.same.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/diffusiondrive_same_500.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_generated.same.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_full_100.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.full.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_full_100.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.full.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_missing_500.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.missing.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_missing_500.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.missing.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_new_500.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.new.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_new_500.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.new.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_10000.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.soak.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_10000.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.soak.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_500.csv",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.same.samples_csv.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/generated/smolvla_same_500.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_generated.same.summary.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/diffusiondrive_direct_artifact.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_model_paths.direct_artifact.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/diffusiondrive_eager.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.diffusiondrive_model_paths.eager.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/smolvla_direct_artifact.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_model_paths.direct_artifact.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/model_paths/smolvla_eager.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.smolvla_model_paths.eager.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_cuda_api_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.diffusiondrive.cuda_api_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_cuda_gpu_kern_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.diffusiondrive.cuda_gpu_kern_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_cuda_gpu_mem_time_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.diffusiondrive.cuda_gpu_mem_time_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_ncu.stdout",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_runner_output.diffusiondrive.ncu_stdout.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_nsys.stdout",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_runner_output.diffusiondrive.nsys_stdout.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/diffusiondrive_osrt_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.diffusiondrive.osrt_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_cuda_api_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.smolvla.cuda_api_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_cuda_gpu_kern_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.smolvla.cuda_gpu_kern_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_cuda_gpu_mem_time_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.smolvla.cuda_gpu_mem_time_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_ncu.stdout",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_runner_output.smolvla.ncu_stdout.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_nsys.stdout",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_runner_output.smolvla.nsys_stdout.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_real_v03/real_cuda_raw/nsight/smolvla_osrt_sum.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_evidence.nsight_summaries.smolvla.osrt_sum.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base/model.safetensors",
+      "referenced_by": [
+        {
+          "json_pointer": "$.checkpoint.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[9]",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLM2-500M-Video-Instruct",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[11]",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_checkpoint",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+      "referenced_by": [
+        {
+          "json_pointer": "$.checkpoint.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[5]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        },
+        {
+          "json_pointer": "$.checkpoint.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[9]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        },
+        {
+          "json_pointer": "$.checkpoint.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[5]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[7]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/condition_encoder.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[0].evidence",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/condition_encoder.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[0].program",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/decode_planner_outputs.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[4].evidence",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/decode_planner_outputs.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[4].program",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/denoise_planner_step.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[3].evidence",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/denoise_planner_step.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[3].program",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/initialize_planner_state.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[1].evidence",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/initialize_planner_state.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[1].program",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/make_denoise_timestep.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[2].evidence",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l2-report/exports/make_denoise_timestep.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[2].program",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[3]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifact-l3.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.l3_chain.artifact_report",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[9]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/condition_encoder.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[0].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/decode_planner_outputs.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[4].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/denoise_planner_step.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[3].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/initialize_planner_state.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[1].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts/make_denoise_timestep.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[2].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[7]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/condition_encoder.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.exported_programs[0].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/decode_planner_outputs.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.exported_programs[4].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/denoise_planner_step.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.exported_programs[3].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/initialize_planner_state.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.exported_programs[1].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/exports/make_denoise_timestep.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.exported_programs[2].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l3",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l3-clean/frontend.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.frontend_report.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[11]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        },
+        {
+          "json_pointer": "$.l3_chain.frontend_report",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/bundle",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[7]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/bundle/bin/vlaforge_generated_runner",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.runner",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/bundle/bundle.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.manifest",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[5]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/diffusiondrive_real_l4.ir.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.semantic_ir.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/diffusiondrive_real_l4_runner.ldd",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.linked_dependencies",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/diffusiondrive_real_l4_runner.stdout",
+      "referenced_by": [
+        {
+          "json_pointer": "$.execution.stdout",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/camera_feature.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.camera_feature.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/inputs.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.manifest",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/lidar_feature.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.lidar_feature.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/noise.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.noise.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "diffusiondrive_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-l4-clean/support/inputs/status_feature.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.status_feature.path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[3]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[3]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/modules/blocks.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.upstream.source_files[2].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/modules/conditional_unet1d.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.upstream.source_files[3].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/transfuser_backbone.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.upstream.source_files[1].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725/navsim/agents/diffusiondrive/transfuser_model_v2.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.upstream.source_files[0].path",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "nsight_binary_profiles",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-nsight-v2/diffusiondrive_basic.ncu-rep",
+      "referenced_by": [
+        {
+          "json_pointer": "$.nsight.diffusiondrive.ncu.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "nsight_binary_profiles",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-nsight-v2/diffusiondrive_full.nsys-rep",
+      "referenced_by": [
+        {
+          "json_pointer": "$.nsight.diffusiondrive.nsys.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "nsight_binary_profiles",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-nsight-v2/smolvla_basic.ncu-rep",
+      "referenced_by": [
+        {
+          "json_pointer": "$.nsight.smolvla.ncu.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "nsight_binary_profiles",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-nsight-v2/smolvla_full.nsys-rep",
+      "referenced_by": [
+        {
+          "json_pointer": "$.nsight.smolvla.nsys.path",
+          "report": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[7]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_00_01.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[18].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_02_03.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[19].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_04_05.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[20].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_06_07.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[21].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_08_09.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[22].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_10_11.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[23].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_12_13.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[24].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_14_15.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[25].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_16_17.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[26].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_18_19.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[27].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_20_21.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[28].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_22_23.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[29].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_24_25.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[30].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_26_27.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[31].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_28_29.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[32].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_layers_30_31.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[33].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/decode_token_embedding.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[17].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/detokenize_action.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[35].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_00_01.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[1].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_02_03.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[2].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_04_05.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[3].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_06_07.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[4].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_08_09.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[5].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_10_11.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[6].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_12_13.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[7].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_14_15.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[8].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_16_17.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[9].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_18_19.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[10].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_20_21.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[11].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_22_23.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[12].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_24_25.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[13].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_26_27.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[14].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_28_29.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[15].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prefill_layers_30_31.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[16].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/prepare_multimodal_prefix.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[0].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/artifacts/token_logits_head.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[34].package_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/extracted_artifacts",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.stable_extracted_runner.root",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_00_01.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[18].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_02_03.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[19].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_04_05.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[20].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_06_07.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[21].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_08_09.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[22].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_10_11.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[23].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_12_13.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[24].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_14_15.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[25].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_16_17.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[26].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_18_19.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[27].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_20_21.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[28].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_22_23.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[29].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_24_25.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[30].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_26_27.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[31].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_28_29.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[32].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_layers_30_31.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[33].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/decode_token_embedding.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[17].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/detokenize_action.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[35].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_00_01.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[1].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_02_03.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[2].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_04_05.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[3].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_06_07.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[4].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_08_09.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[5].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_10_11.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[6].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_12_13.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[7].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_14_15.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[8].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_16_17.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[9].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_18_19.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[10].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_20_21.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[11].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_22_23.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[12].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_24_25.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[13].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_26_27.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[14].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_28_29.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[15].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prefill_layers_30_31.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[16].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/prepare_multimodal_prefix.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[0].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-artifacts/normalized_exports/token_logits_head.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[34].normalized_export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-openvla-l3-capture",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[5]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.source_capture.path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_00_01.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[18].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_02_03.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[19].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_04_05.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[20].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_06_07.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[21].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_08_09.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[22].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_10_11.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[23].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_12_13.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[24].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_14_15.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[25].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_16_17.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[26].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_18_19.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[27].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_20_21.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[28].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_22_23.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[29].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_24_25.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[30].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_26_27.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[31].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_28_29.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[32].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_layers_30_31.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[33].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/decode_token_embedding.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[17].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/detokenize_action.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[35].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_00_01.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[1].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_02_03.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[2].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_04_05.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[3].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_06_07.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[4].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_08_09.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[5].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_10_11.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[6].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_12_13.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[7].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_14_15.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[8].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_16_17.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[9].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_18_19.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[10].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_20_21.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[11].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_22_23.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[12].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_24_25.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[13].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_26_27.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[14].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_28_29.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[15].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prefill_layers_30_31.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[16].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/prepare_multimodal_prefix.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[0].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l3_capture",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-openvla-l3-capture/source_exports/token_logits_head.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.compile.regions[34].export_path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-openvla-l4-evidence/bundle",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[13]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-openvla-l4-evidence/inputs",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[15]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": false,
+      "inside_repository": false,
+      "kind": "missing",
+      "path": "/tmp/vlaforge-openvla-l4-evidence/report.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[17]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-openvla-l4-support",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[11]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-env/bin/python",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[0]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[0]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[0]",
+          "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[2]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[19]",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE",
+      "referenced_by": [
+        {
+          "json_pointer": "$.l3_chain.root",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[3]",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE/artifacts/prepare_prefix.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[0].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE/artifacts/solver_step.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[2].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE/artifacts/trim_action_chunk.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[3].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE/exports/prepare_prefix.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[0].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE/exports/solver_step.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[2].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE/exports/trim_action_chunk.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[3].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE/smolvla-l3.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.l3_chain.report",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_aligned_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[7]",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_aligned_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle/bin/vlaforge_generated_runner",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.runner",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_aligned_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle/bundle.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.manifest",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[5]",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/make_timestep.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[1].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_advance.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[6].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_is_empty.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[4].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_select.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[5].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/artifacts/queue_zero.pt2",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[7].artifact",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/make_timestep.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[1].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_advance.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[6].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_is_empty.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[4].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_select.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[5].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/exports/queue_zero.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifacts[7].capture",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/image.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.image.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/inputs.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.manifest",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/mask.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.mask.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/noise.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.noise.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/state.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.state.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/inputs/tokens.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.deterministic_inputs.values.tokens.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4.ir.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.semantic_ir.path",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4_runner.ldd",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.linked_dependencies",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "smolvla_l4_support",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ/smolvla_real_l4_runner.stdout",
+      "referenced_by": [
+        {
+          "json_pointer": "$.execution.stdout",
+          "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    }
+  ],
+  "formal_reports": [
+    {
+      "path": "doc/reports/vlaforge_architecture_v01/architecture_surface.json",
+      "sha256": "a6f02faa62aaee6c25279f6176d627d9aa55f05fa9ba93b00369dc65d018b171",
+      "size_bytes": 17433
+    },
+    {
+      "path": "doc/reports/vlaforge_heldout_v01/heldout_audit.json",
+      "sha256": "8a9f9822cb82b4c2b2d2663491fa6caad9e376aa627711552ec04f7bfce706d4",
+      "size_bytes": 39343
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json",
+      "sha256": "164dd294813e1814d72ada3edf95ab16eaed444778566807d6d3e4bcd5fb49cb",
+      "size_bytes": 19925
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json",
+      "sha256": "d71d9e3f03e82f4a6ce3107c8d7814b9f4949c6f369e917a0090bdcccea83b9e",
+      "size_bytes": 9568
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json",
+      "sha256": "783108957d959534a00f9731a3a1129726bd64d2e2829e460528dc5ff3f2dff6",
+      "size_bytes": 11766
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json",
+      "sha256": "6579008f77d7dc760d3d21259cab754388f719c4234f2d78744c126796ec12c3",
+      "size_bytes": 119607
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json",
+      "sha256": "d70acfda0097a5dd02d461fd31474876b21e729f512db0459dc4acece98e851c",
+      "size_bytes": 4444
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/real_cuda_evidence.json",
+      "sha256": "70677a5c3bc6a52cd87ea0b05c6226b88ab11c079722eb98bbe81c367f0daaa9",
+      "size_bytes": 31260
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/smolvla_artifact_l3.json",
+      "sha256": "bcaecf02beb09c07ae0b915d5b9fba3337dda892e754533029273afd6665a5e8",
+      "size_bytes": 3453
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json",
+      "sha256": "d3b0ab0327594b375a8735caf044f75f8c39868f994296329074002ac51e65d3",
+      "size_bytes": 13168
+    },
+    {
+      "path": "doc/reports/vlaforge_release_v01/release_gate.json",
+      "sha256": "7d0a4e54d94ce4a0ff7e1f883ccb083158cd46804f998f897dfbe78f9cd9ddaa",
+      "size_bytes": 20311
+    }
+  ],
+  "installed_wheel_artifact_evaluation": {
+    "artifact_evaluation": {
+      "artifact": {
+        "path": "/tmp/vlaforge-wheel-artifact-eval-849a7df/artifact-audit/artifacts/audit_tensor_region.pt2",
+        "sha256": "fd49a9358b7e9863913f487a10ab6e6dcdd67d1060d2da46f62c931837e32849",
+        "size_bytes": 561486
+      },
+      "compile_seconds": 5.290297681000084,
+      "cuda": "12.8",
+      "direct_backend_smoke": {
+        "negative_cases": {},
+        "reason": "installed runtime distribution intentionally excludes test-only C++ sources; generated Session exercises the production backend",
+        "status": "not_run"
+      },
+      "invocation_resident_bundle": {
+        "abi_validated": true,
+        "artifact_residency": "invocation",
+        "artifact_sha256": "fd49a9358b7e9863913f487a10ab6e6dcdd67d1060d2da46f62c931837e32849",
+        "artifact_target": "sm_86",
+        "backend_variant": "torch-2.10-cu128",
+        "bundle_digest": "ab0de4620be4faa308812439bbef221eaa6be57b40a0a34ef2f40d0d351b0770",
+        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-849a7df/artifact-audit/compile-bundle-invocation/bundle.json",
+        "bundle_verified": true,
+        "invalid_python_environment_run": true,
+        "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
+        "max_abs_error": 4.340820147774593e-09,
+        "negative_cases": {
+          "abi-mismatch": "rejected",
+          "corrupt-artifact": "rejected",
+          "missing-artifact": "rejected",
+          "schema-mismatch": "rejected",
+          "wrong-device": "rejected",
+          "wrong-dtype": "rejected",
+          "wrong-layout": "rejected",
+          "wrong-shape": "rejected"
+        },
+        "output_elements": 16,
+        "python_linked": false,
+        "runner": "/tmp/vlaforge-wheel-artifact-eval-849a7df/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
+        "schema_validated": true,
+        "source_revision": "849a7df52567456930af1eca1f00477345df2fa1",
+        "status": "passed"
+      },
+      "session_resident_bundle": {
+        "abi_validated": true,
+        "artifact_residency": "session",
+        "artifact_sha256": "fd49a9358b7e9863913f487a10ab6e6dcdd67d1060d2da46f62c931837e32849",
+        "artifact_target": "sm_86",
+        "backend_variant": "torch-2.10-cu128",
+        "bundle_digest": "14a5c8936ff8cf970836c35d542fc264fdafdc8ec33af9c32aa08e6bee49a15f",
+        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-849a7df/artifact-audit/compile-bundle-session/bundle.json",
+        "bundle_verified": true,
+        "invalid_python_environment_run": true,
+        "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
+        "max_abs_error": 4.340820147774593e-09,
+        "negative_cases": {
+          "abi-mismatch": "rejected",
+          "corrupt-artifact": "rejected",
+          "missing-artifact": "rejected",
+          "schema-mismatch": "rejected",
+          "wrong-device": "rejected",
+          "wrong-dtype": "rejected",
+          "wrong-layout": "rejected",
+          "wrong-shape": "rejected"
+        },
+        "output_elements": 16,
+        "python_linked": false,
+        "runner": "/tmp/vlaforge-wheel-artifact-eval-849a7df/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
+        "schema_validated": true,
+        "source_revision": "849a7df52567456930af1eca1f00477345df2fa1",
+        "status": "passed"
+      },
+      "target": "sm_86",
+      "torch": "2.10.0+cu128"
+    },
+    "audit_tool": {
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
+      "sha256": "934d9a9d8cc5dc9058547de577f6b494f1937cf9a5bc45a6fcb9206cec153b9f"
+    },
+    "claim_boundary": {
+      "host_cuda": true,
+      "model_kernel_optimization": false,
+      "orin": false,
+      "real_model": false,
+      "source_checkout_used_for_package_import": false
+    },
+    "classification": "synthetic Host-CUDA artifact-evaluation smoke; not real-model or Orin evidence",
+    "commands": [
+      {
+        "command": [
+          "/home/zhangzimo/miniconda3/bin/python",
+          "-m",
+          "pip",
+          "wheel",
+          "--no-deps",
+          "--no-build-isolation",
+          "--wheel-dir",
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/wheels",
+          "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge"
+        ],
+        "cwd": "/home/zhangzimo/Repos/private/edge-fm-x",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-849a7df/logs/build-wheel.log",
+        "name": "build-wheel"
+      },
+      {
+        "command": [
+          "/home/zhangzimo/miniconda3/bin/python",
+          "-m",
+          "venv",
+          "--system-site-packages",
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/venv"
+        ],
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-849a7df/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-849a7df/logs/create-venv.log",
+        "name": "create-venv"
+      },
+      {
+        "command": [
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/venv/bin/python",
+          "-m",
+          "pip",
+          "install",
+          "--no-deps",
+          "--force-reinstall",
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
+        ],
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-849a7df/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-849a7df/logs/install-wheel.log",
+        "name": "install-wheel"
+      },
+      {
+        "command": [
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/venv/bin/python",
+          "-c",
+          "import json,sys,vlaforge;print(json.dumps({'prefix':sys.prefix,'package':vlaforge.__file__}))"
+        ],
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-849a7df/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-849a7df/logs/probe-installed-package.log",
+        "name": "probe-installed-package"
+      },
+      {
+        "command": [
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/venv/bin/python",
+          "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
+          "--work-dir",
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/artifact-audit",
+          "--report",
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/installed-wheel-aoti-audit.json",
+          "--runtime-root",
+          "/tmp/vlaforge-wheel-artifact-eval-849a7df/venv/share/vlaforge",
+          "--source-revision",
+          "849a7df52567456930af1eca1f00477345df2fa1"
+        ],
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-849a7df/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-849a7df/logs/installed-wheel-sm86-audit.log",
+        "name": "installed-wheel-sm86-audit"
+      }
+    ],
+    "environment": {
+      "cmake": "cmake version 3.22.1",
+      "compiler": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+      "gpu": "NVIDIA GeForce RTX 3060, 8.6, 595.58.03, 12288 MiB, 170.00 W",
+      "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+      "machine": "x86_64",
+      "ncu": "Version 2025.1.0.0 (build 35237751) (public-release)",
+      "nsys": "NVIDIA Nsight Systems version 2024.6.2.225-246235244400v0",
+      "nvcc": "Build cuda_12.8.r12.8/compiler.35404655_0",
+      "python_builder": "3.13.12"
+    },
+    "isolation": {
+      "installed_from_wheel_only": true,
+      "non_git_cwd": true,
+      "package_import": "/tmp/vlaforge-wheel-artifact-eval-849a7df/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
+      "runtime_root": "/tmp/vlaforge-wheel-artifact-eval-849a7df/venv/share/vlaforge",
+      "source_pythonpath_removed": true,
+      "venv_system_site_packages": true
+    },
+    "passed": true,
+    "repository": {
+      "baseline_revision": "f0fc1be",
+      "evaluated_revision": "849a7df52567456930af1eca1f00477345df2fa1",
+      "source_dirty": false
+    },
+    "reproduction": {
+      "command_template": [
+        "/home/zhangzimo/miniconda3/bin/python",
+        "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/evaluate_wheel_artifact.py",
+        "--work-dir",
+        "<empty-work-dir>",
+        "--baseline-revision",
+        "f0fc1be",
+        "--report",
+        "<report.json>"
+      ]
+    },
+    "schema": "vlaforge.wheel_artifact_evaluation/1",
+    "status": "passed",
+    "wheel": {
+      "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
+      "runtime_source_entries": 24,
+      "sha256": "671172bdcf1e72dd0dda31915200d6aa52c8ebb5f3a595bcd4a9f820d675604d",
+      "size_bytes": 228285
+    },
+    "work_dir": {
+      "large_files_committed": false,
+      "path": "/tmp/vlaforge-wheel-artifact-eval-849a7df",
+      "size_bytes": 110636763
+    }
+  },
+  "passed": true,
+  "repository": {
+    "audited_revision": "849a7df52567456930af1eca1f00477345df2fa1",
+    "baseline_revision": "f0fc1be",
+    "frozen_core_matches": true,
+    "frozen_core_revision": "766e27bdfb34c3311dda7d444862b7f95d05c7b8",
+    "frozen_core_sha256": "cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d",
+    "source_dirty": false
+  },
+  "reproduction_commands": [
+    {
+      "command": [
+        "/tmp/vlaforge-smolvla-env/bin/python",
+        "vlaforge/tools/audit_real_diffusiondrive_artifacts.py",
+        "--source-root",
+        "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725",
+        "--checkpoint",
+        "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+        "--export-dir",
+        "/tmp/vlaforge-diffusiondrive-l3-clean/exports",
+        "--artifact-dir",
+        "/tmp/vlaforge-diffusiondrive-l3-clean/artifacts",
+        "--frontend-report",
+        "/tmp/vlaforge-diffusiondrive-l3-clean/frontend.json",
+        "--report",
+        "<report.json>",
+        "--device",
+        "cuda:0"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json"
+    },
+    {
+      "command": [
+        "/tmp/vlaforge-smolvla-env/bin/python",
+        "vlaforge/tools/build_real_diffusiondrive_l4.py",
+        "--l3-root",
+        "/tmp/vlaforge-diffusiondrive-l3-clean",
+        "--support-root",
+        "/tmp/vlaforge-diffusiondrive-l4-clean/support",
+        "--bundle-root",
+        "/tmp/vlaforge-diffusiondrive-l4-clean/bundle",
+        "--checkpoint",
+        "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+        "--upstream-revision",
+        "9b52ed0ec06b073d82d6f392ab084c7b301c8681",
+        "--checkpoint-revision",
+        "8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71",
+        "--target",
+        "sm_86",
+        "--report",
+        "<report.json>"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l4.json"
+    },
+    {
+      "command": [
+        "/tmp/vlaforge-smolvla-env/bin/python",
+        "vlaforge/tools/audit_real_diffusiondrive_frontend.py",
+        "--source-root",
+        "/tmp/vlaforge-diffusiondrive-src.failed-clone-20260725",
+        "--checkpoint",
+        "/tmp/vlaforge-diffusiondrive-ckpt/diffusiondrive_navsim_88p1_PDMS",
+        "--export-dir",
+        "/tmp/vlaforge-diffusiondrive-l2-report/exports",
+        "--report",
+        "<report.json>",
+        "--device",
+        "cuda:0"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_real_v03/diffusiondrive_frontend_l2.json"
+    },
+    {
+      "command": [
+        "/usr/bin/time",
+        "-v",
+        "/tmp/vlaforge-smolvla-env/bin/python",
+        "vlaforge/tools/assemble_real_openvla_l4.py",
+        "--capture-root",
+        "/tmp/vlaforge-openvla-l3-capture",
+        "--l3-root",
+        "/tmp/vlaforge-openvla-l3-artifacts",
+        "--l3-report",
+        "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json",
+        "--support-root",
+        "/tmp/vlaforge-openvla-l4-support",
+        "--bundle-root",
+        "/tmp/vlaforge-openvla-l4-evidence/bundle",
+        "--input-root",
+        "/tmp/vlaforge-openvla-l4-evidence/inputs",
+        "--report",
+        "/tmp/vlaforge-openvla-l4-evidence/report.json",
+        "--python",
+        "/tmp/vlaforge-smolvla-env/bin/python",
+        "--target",
+        "sm_86",
+        "--runs",
+        "1"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/miniconda3/bin/python3.13",
+        "vlaforge/tools/build_real_smolvla_l4.py",
+        "--l3-root",
+        "/tmp/vlaforge-smolvla-l3.hr4TVE",
+        "--support-root",
+        "/tmp/vlaforge-smolvla-l4.oYi5dQ",
+        "--bundle-root",
+        "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12/bundle",
+        "--checkpoint",
+        "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLA-Base/model.safetensors",
+        "--vlm-path",
+        "/home/zhangzimo/Repos/private/edge-fm-x/examples/smolvla/SmolVLM2-500M-Video-Instruct",
+        "--upstream-revision",
+        "8fff0fde7c79f23a93d845d1a50e985de01f8b8a",
+        "--target",
+        "sm_86",
+        "--python",
+        "/home/zhangzimo/miniconda3/bin/python3.13",
+        "--report",
+        "<report.json>"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+    }
+  ],
+  "schema": "vlaforge.reproducibility_manifest/1",
+  "status": "passed",
+  "summary": {
+    "absolute_reference_count": 234,
+    "committed_raw_file_count": 36,
+    "external_reference_count": 196,
+    "formal_report_count": 11,
+    "missing_external_reference_count": 1,
+    "must_archive_missing_count": 0,
+    "must_archive_root_count": 8,
+    "must_archive_total_bytes": 122850214175,
+    "optional_archive_total_bytes": 49640814,
+    "reproduction_command_count": 5
+  }
+}

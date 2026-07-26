@@ -1,7 +1,7 @@
 # VLAForge 论文设计：Stateful Invocation Whole-Program Compilation
 
 > 文档状态：当前权威论文方案
-> 更新时间：2026-07-25
+> 更新时间：2026-07-26
 > 推荐方向：MLSys / 编译器与机器学习系统
 > 推荐题目：**VLAForge: Compiling Stateful VLA Invocations to Verified C++ Edge Sessions**
 
@@ -442,7 +442,14 @@ Generality：
 - 最终 Host-CUDA release gate 为 Python `215 passed/9 opt-in skipped`、
   CUDA AOTI 现场 `1 passed`、CPU/CUDA CTest `7/7` 与 `8/8`。wheel
   安装后的 CLI 可从非 Git cwd 生成 verified Compile Bundle，runner 在无效
-  Python 环境执行且不链接 `libpython`。
+  Python 环境执行且不链接 `libpython`；
+- 独立 installed-wheel artifact evaluation 已从 clean venv 的
+  `site-packages` 导入 VLAForge，并使用 wheel 自带 runtime 编译真实
+  `sm_86` AOTI artifact。session/invocation residency 均通过 schema、ABI、
+  artifact hash、输入契约、invalid-Python 和 no-libpython 验证；
+- 可复现 manifest 固化了 11 份正式报告和 36 个 committed raw summaries
+  的 SHA256，并明确八个必须外部归档的 checkpoint/capture/artifact 根目录
+  当前总计 114.41 GiB。大型模型文件与二进制 profile 不进入 Git。
 
 非 Host-CUDA release blocker 的后续工作：
 
@@ -464,6 +471,9 @@ production surface 与 CMake build graph 均不包含物理调度、middleware�
 publish、core action queue、Python runtime 或旧 EdgeFM CUDA kernel。
 最终发布证据见
 `doc/reports/vlaforge_release_v01/release_gate.{json,md}`。
+独立 artifact-evaluation、环境与外部归档边界见
+`doc/reports/vlaforge_reproducibility_v01/`。该 synthetic CUDA Region
+只证明发布包可复现性，不增加 real-model coverage。
 
 ## 13. 投稿 go/no-go
 

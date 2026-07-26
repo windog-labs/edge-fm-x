@@ -8,6 +8,9 @@ Current v0.2 evidence:
 - `vlaforge_real_v02/`: real SmolVLA and OpenVLA eager/IR L2 evidence;
 - `vlaforge_real_v03/`: real SmolVLA L3/L4, DiffusionDrive L2/L3/L4, and
   OpenVLA-7B L3 Host-CUDA evidence;
+- `vlaforge_reproducibility_v01/`: installed-wheel `sm_86` artifact
+  evaluation, environment manifest, committed-evidence hashes, reproduction
+  commands, and the external large-artifact archive inventory;
 - `vlaforge_orin_validation.md`: JetPack arm64 VLAForge runtime and generated
   Session portability evidence. Real Orin GPU execution remains pending.
 
