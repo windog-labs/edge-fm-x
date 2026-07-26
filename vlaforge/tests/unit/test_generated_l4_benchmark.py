@@ -42,7 +42,7 @@ def test_runner_output_parser_preserves_trace_and_samples() -> None:
             (
                 "SAMPLE,0,100,7,1,0.25",
                 "SAMPLE,1,90,8,1,0.5",
-                "SUMMARY,10,19,20,21,22,29,30,31,32,0.75,"
+                "SUMMARY,10,11,19,20,21,22,29,30,31,32,0.75,"
                 "2,3,4,5,6,0,6,1,7,8",
             )
         )
@@ -53,6 +53,7 @@ def test_runner_output_parser_preserves_trace_and_samples() -> None:
     assert summary["cache_misses"] == 4
     assert summary["transaction_aborts"] == 0
     assert summary["state_1_version"] == 8
+    assert summary["first_run_ns"] == 11
 
 
 def test_diffusiondrive_same_revision_requires_exact_cache_hits() -> None:

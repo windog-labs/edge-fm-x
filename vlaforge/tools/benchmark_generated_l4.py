@@ -180,6 +180,7 @@ bool RevisionPresent(const std::string& mode) {{
 
 void PrintSummary(
     std::uint64_t initialization_ns,
+    std::uint64_t first_run_ns,
     std::uint64_t rss_initialized_kib,
     std::uint64_t rss_start_kib,
     std::uint64_t rss_end_kib,
@@ -191,9 +192,10 @@ void PrintSummary(
     const Counts& before,
     const Counts& after) {{
   std::printf(
-      "SUMMARY,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%.17g,"
+      "SUMMARY,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%.17g,"
       "%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu\\n",
       static_cast<unsigned long long>(initialization_ns),
+      static_cast<unsigned long long>(first_run_ns),
       static_cast<unsigned long long>(rss_initialized_kib),
       static_cast<unsigned long long>(rss_start_kib),
       static_cast<unsigned long long>(rss_end_kib),
@@ -275,6 +277,7 @@ int main(int argc, char** argv) {
   std::uint64_t rss_start = rss_initialized;
   benchmark::Counts measured_before{};
   double checksum = 0.0;
+  std::uint64_t first_run_ns = 0u;
   for (std::uint64_t iteration = 0u; iteration < total; ++iteration) {
     if (iteration == warmup) {
       measured_before = counts;
@@ -299,6 +302,12 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "Run failed: %s\n", status.message);
       return 7;
     }
+    const auto latency = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            finished - started).count());
+    if (iteration == 0u) {
+      first_run_ns = latency;
+    }
     float first = 0.0f;
     if (cudaMemcpy(
             &first, outputs.action.tensor.data, sizeof(first),
@@ -312,9 +321,6 @@ int main(int argc, char** argv) {
     cuda_peak = std::max(cuda_peak, cuda_used);
     if (iteration >= warmup) {
       checksum += static_cast<double>(first);
-      const auto latency = static_cast<std::uint64_t>(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(
-              finished - started).count());
       std::printf(
           "SAMPLE,%llu,%llu,%llu,%u,%.17g\n",
           static_cast<unsigned long long>(iteration - warmup),
@@ -332,6 +338,7 @@ int main(int argc, char** argv) {
       static_cast<std::uint64_t>(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
               initialize_finished - initialize_started).count()),
+      first_run_ns,
       rss_initialized, rss_start, benchmark::RssKiB(),
       cuda_initialized, cuda_start, cuda_end, cuda_peak,
       checksum, measured_before, counts);
@@ -391,6 +398,7 @@ int main(int argc, char** argv) {
   std::uint64_t rss_start = rss_initialized;
   benchmark::Counts measured_before{};
   double checksum = 0.0;
+  std::uint64_t first_run_ns = 0u;
   for (std::uint64_t iteration = 0u; iteration < total; ++iteration) {
     if (iteration == warmup) {
       measured_before = counts;
@@ -420,6 +428,12 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "Run failed: %s\n", status.message);
       return 6;
     }
+    const auto latency = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            finished - started).count());
+    if (iteration == 0u) {
+      first_run_ns = latency;
+    }
     float first = 0.0f;
     if (cudaMemcpy(
             &first, outputs.trajectory.tensor.data, sizeof(first),
@@ -433,9 +447,6 @@ int main(int argc, char** argv) {
     cuda_peak = std::max(cuda_peak, cuda_used);
     if (iteration >= warmup) {
       checksum += static_cast<double>(first);
-      const auto latency = static_cast<std::uint64_t>(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(
-              finished - started).count());
       std::printf(
           "SAMPLE,%llu,%llu,%llu,%u,%.17g\n",
           static_cast<unsigned long long>(iteration - warmup),
@@ -453,6 +464,7 @@ int main(int argc, char** argv) {
       static_cast<std::uint64_t>(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
               initialize_finished - initialize_started).count()),
+      first_run_ns,
       rss_initialized, rss_start, benchmark::RssKiB(),
       cuda_initialized, cuda_start, cuda_end, cuda_peak,
       checksum, measured_before, counts);
@@ -566,28 +578,29 @@ def _parse_output(text: str) -> tuple[list[dict[str, object]], dict[str, object]
                     "output_probe": float(fields[5]),
                 }
             )
-        elif fields[0] == "SUMMARY" and len(fields) == 21:
+        elif fields[0] == "SUMMARY" and len(fields) == 22:
             summary = {
                 "initialization_ns": int(fields[1]),
-                "rss_initialized_kib": int(fields[2]),
-                "rss_start_kib": int(fields[3]),
-                "rss_end_kib": int(fields[4]),
-                "maximum_rss_kib": int(fields[5]),
-                "cuda_used_initialized_bytes": int(fields[6]),
-                "cuda_used_start_bytes": int(fields[7]),
-                "cuda_used_end_bytes": int(fields[8]),
-                "cuda_used_peak_sampled_bytes": int(fields[9]),
-                "checksum": float(fields[10]),
-                "regions": int(fields[11]),
-                "cache_hits": int(fields[12]),
-                "cache_misses": int(fields[13]),
-                "state_commits": int(fields[14]),
-                "transaction_commits": int(fields[15]),
-                "transaction_aborts": int(fields[16]),
-                "output_commits": int(fields[17]),
-                "resets": int(fields[18]),
-                "state_0_version": int(fields[19]),
-                "state_1_version": int(fields[20]),
+                "first_run_ns": int(fields[2]),
+                "rss_initialized_kib": int(fields[3]),
+                "rss_start_kib": int(fields[4]),
+                "rss_end_kib": int(fields[5]),
+                "maximum_rss_kib": int(fields[6]),
+                "cuda_used_initialized_bytes": int(fields[7]),
+                "cuda_used_start_bytes": int(fields[8]),
+                "cuda_used_end_bytes": int(fields[9]),
+                "cuda_used_peak_sampled_bytes": int(fields[10]),
+                "checksum": float(fields[11]),
+                "regions": int(fields[12]),
+                "cache_hits": int(fields[13]),
+                "cache_misses": int(fields[14]),
+                "state_commits": int(fields[15]),
+                "transaction_commits": int(fields[16]),
+                "transaction_aborts": int(fields[17]),
+                "output_commits": int(fields[18]),
+                "resets": int(fields[19]),
+                "state_0_version": int(fields[20]),
+                "state_1_version": int(fields[21]),
             }
     if summary is None or not samples:
         raise RuntimeError(f"benchmark runner output is incomplete: {text}")
@@ -652,6 +665,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--samples", type=int, default=100)
     parser.add_argument("--mode", choices=_MODES, default="full")
     parser.add_argument("--reuse-binary", action="store_true")
+    parser.add_argument(
+        "--binary-root",
+        type=Path,
+        help=(
+            "Build/reuse the benchmark binary here while writing reports "
+            "under --output-root."
+        ),
+    )
     args = parser.parse_args(argv)
     if args.warmup < 0 or args.samples < 1:
         parser.error("warmup must be non-negative and samples positive")
@@ -668,7 +689,12 @@ def main(argv: list[str] | None = None) -> int:
 
     import torch
 
-    binary = args.output_root / "bin" / "vlaforge_generated_benchmark"
+    binary_root = (
+        args.output_root
+        if args.binary_root is None
+        else args.binary_root.resolve()
+    )
+    binary = binary_root / "bin" / "vlaforge_generated_benchmark"
     if args.reuse_binary:
         if not binary.is_file():
             raise FileNotFoundError(binary)
@@ -677,7 +703,7 @@ def main(argv: list[str] | None = None) -> int:
         binary, build_seconds = _build(
             model=args.model,
             bundle_root=args.bundle_root,
-            output_root=args.output_root,
+            output_root=binary_root,
             cmake_prefix_path=Path(torch.utils.cmake_prefix_path),
         )
 

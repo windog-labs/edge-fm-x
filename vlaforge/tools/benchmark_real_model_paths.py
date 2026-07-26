@@ -459,6 +459,13 @@ def _benchmark(
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
     rss_initialized = _rss_kib()
     cuda_initialized = _device_used(torch)
+    first_started = time.perf_counter_ns()
+    first_output = run()
+    torch.cuda.synchronize()
+    first_run_ns = time.perf_counter_ns() - first_started
+    first_probe = float(first_output.reshape(-1)[0].item())
+    if not math.isfinite(first_probe):
+        raise RuntimeError("first model Run produced a non-finite output")
     for _ in range(warmup):
         run()
         torch.cuda.synchronize()
@@ -487,6 +494,8 @@ def _benchmark(
         )
     runtime = {
         "checksum": checksum,
+        "first_run_ns": first_run_ns,
+        "first_run_output_probe": first_probe,
         "rss_initialized_kib": rss_initialized,
         "rss_start_kib": rss_start,
         "rss_end_kib": _rss_kib(),
