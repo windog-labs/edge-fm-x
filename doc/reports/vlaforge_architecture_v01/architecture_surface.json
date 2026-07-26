@@ -111,7 +111,9 @@
     "invalid_edges": [],
     "optional_cuda_contract": "C++ AOTI backend links CUDA::cudart and executes external compiled artifacts; VLAForge declares no CUDA kernel source",
     "passed": true,
-    "root_edgefm_build_drives_vlaforge": false,
+    "retired_tracked_files": [],
+    "root_build_drives_vlaforge": true,
+    "root_legacy_build_references": [],
     "subdirectories": [
       {
         "cmake": "vlaforge/CMakeLists.txt",
@@ -148,8 +150,8 @@
     },
     {
       "new": "verified external AOTI/RegionExecutable artifacts",
-      "old": "EdgeFM custom CUDA operators",
-      "production_status": "not-a-VLAForge-build-dependency"
+      "old": "retired custom CUDA engine/operators",
+      "production_status": "removed"
     }
   ],
   "non_production_negative_mentions": [
@@ -239,25 +241,25 @@
     },
     {
       "category": "clock_domain",
-      "line": 326,
+      "line": 359,
       "match": "clock_domain",
       "path": "vlaforge/tools/audit_architecture_surface.py"
     },
     {
       "category": "run_tick",
-      "line": 327,
+      "line": 360,
       "match": "run_tick",
       "path": "vlaforge/tools/audit_architecture_surface.py"
     },
     {
       "category": "physical_deadline",
-      "line": 411,
+      "line": 446,
       "match": "deadline",
       "path": "vlaforge/tools/audit_architecture_surface.py"
     },
     {
       "category": "physical_period",
-      "line": 411,
+      "line": 446,
       "match": "period",
       "path": "vlaforge/tools/audit_architecture_surface.py"
     },
@@ -482,7 +484,7 @@
     ]
   },
   "repository": {
-    "revision": "f45f51cf7c286e08433b94e1ea4622f34fe2cdf1",
+    "revision": "80d1882b931b562ce38798d23348e412b293ad46",
     "source_dirty": false,
     "tracked_status": []
   },
@@ -516,6 +518,8 @@
     "old_edgefm_cuda_build_dependency_absent": true,
     "passive_invocation_only": true,
     "physical_scheduling_absent": true,
-    "python_runtime_dependency_absent": true
+    "python_runtime_dependency_absent": true,
+    "retired_source_tree_absent": true,
+    "root_build_is_vlaforge": true
   }
 }

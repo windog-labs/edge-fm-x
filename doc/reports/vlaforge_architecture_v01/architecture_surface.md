@@ -15,13 +15,14 @@ The production surface contains only passive, caller-driven model invocation sem
 | Semantic IR opcode set equals frozen v0.2 set | pass |
 | VLAForge build has no `.cu`, `.cuh`, or `.ptx` source | pass |
 | No source/subdirectory edge escapes `vlaforge/` | pass |
-| Root EdgeFM build does not implicitly build VLAForge | pass |
+| Repository root builds VLAForge and no retired source tree | pass |
 
 ## Build graph
 
 - Audited CMake files: 3
 - Declared C/C++ sources: 20
 - CUDA source files: 0
+- Retired engine/operator source files: 0
 - Contract: C++ AOTI backend links CUDA::cudart and executes external compiled artifacts; VLAForge declares no CUDA kernel source
 
 ## Old to new migration
@@ -33,7 +34,7 @@ The production surface contains only passive, caller-driven model invocation sem
 | action.publish / host I/O | transactional named outputs + ReadOutput | removed |
 | core ActionQueue | ChunkedAction Adapter authoritative state | adapter-only |
 | sensor synchronization / middleware | caller-prepared TensorView/ScalarValue inputs | outside-framework |
-| EdgeFM custom CUDA operators | verified external AOTI/RegionExecutable artifacts | not-a-VLAForge-build-dependency |
+| retired custom CUDA engine/operators | verified external AOTI/RegionExecutable artifacts | removed |
 
 ## Claim boundary
 
