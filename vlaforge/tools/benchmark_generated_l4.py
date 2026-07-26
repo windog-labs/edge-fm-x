@@ -32,8 +32,23 @@ from vlaforge.deployment import load_bundle_manifest  # noqa: E402
 
 
 _SCHEMA = "vlaforge.generated_l4_benchmark/1"
-_MODELS = ("smolvla", "diffusiondrive")
+_MODELS = ("smolvla", "diffusiondrive", "minddrive")
 _MODES = ("full", "same", "new", "missing")
+_MINDDRIVE_INPUTS = (
+    "camera_images",
+    "decision_input_ids",
+    "planning_input_ids",
+    "ego_route_command",
+    "trajectory_noise",
+    "path_noise",
+    "can_bus",
+    "lidar2img",
+    "camera_intrinsics",
+    "timestamp",
+    "ego_pose",
+    "ego_pose_inverse",
+    "route_command_index",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -62,15 +77,114 @@ def _summary(values: list[int]) -> dict[str, float | int]:
     if not values:
         raise ValueError("latency samples must be non-empty")
     mean = statistics.fmean(values)
+    standard_deviation = (
+        statistics.stdev(values) if len(values) > 1 else 0.0
+    )
+    confidence_half_width = (
+        1.96 * standard_deviation / math.sqrt(len(values))
+    )
     return {
         "count": len(values),
         "mean_ns": mean,
+        "std_ns": standard_deviation,
+        "mean_ci95_low_ns": mean - confidence_half_width,
+        "mean_ci95_high_ns": mean + confidence_half_width,
         "p50_ns": _percentile(values, 0.50),
         "p90_ns": _percentile(values, 0.90),
         "p99_ns": _percentile(values, 0.99),
         "minimum_ns": min(values),
         "maximum_ns": max(values),
         "throughput_runs_per_second": 1e9 / mean,
+    }
+
+
+def _bundle_memory_contract(bundle_root: Path) -> dict[str, object]:
+    metadata = bundle_root / "metadata"
+    input_schema = json.loads(
+        (metadata / "input_schema.json").read_text(encoding="utf-8")
+    )
+    output_schema = json.loads(
+        (metadata / "output_schema.json").read_text(encoding="utf-8")
+    )
+    state_schema = json.loads(
+        (metadata / "state_schema.json").read_text(encoding="utf-8")
+    )
+    memory_plan = json.loads(
+        (metadata / "physical_memory_plan.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    dtype_bytes = {
+        "bool": 1,
+        "i8": 1,
+        "u8": 1,
+        "i16": 2,
+        "u16": 2,
+        "f16": 2,
+        "bf16": 2,
+        "i32": 4,
+        "u32": 4,
+        "f32": 4,
+        "i64": 8,
+        "u64": 8,
+        "f64": 8,
+    }
+
+    def payload_bytes(payload: dict[str, object]) -> int:
+        elements = math.prod(
+            int(item) for item in payload.get("shape", ())
+        )
+        dtype = payload.get("dtype", payload.get("name"))
+        return elements * dtype_bytes[str(dtype)]
+
+    states = state_schema["states"]
+    payload_total = sum(
+        payload_bytes(item["payload"]) for item in states
+    )
+    retained_payload_total = sum(
+        payload_bytes(item["payload"]) * int(item["retention"])
+        for item in states
+    )
+    planned_states = memory_plan["states"]
+    state_arena_capacity = max(
+        (
+            int(item["offset"])
+            + int(item["slot_size_bytes"]) * int(item["slot_capacity"])
+            for item in planned_states
+        ),
+        default=0,
+    )
+    physical_buffers = memory_plan["arena"]["physical_buffers"]
+    derived_cache_capacity = sum(
+        int(item["size_bytes"])
+        for item in physical_buffers
+        if item["buffer_class"] == "derived_cache"
+    )
+    return {
+        "external_input_count": len(input_schema["inputs"]),
+        "external_input_bytes_per_invocation": sum(
+            payload_bytes(item["payload"])
+            for item in input_schema["inputs"]
+        ),
+        "external_output_count": len(output_schema["outputs"]),
+        "external_output_bytes_per_invocation": sum(
+            payload_bytes(item["payload"])
+            for item in output_schema["outputs"]
+        ),
+        "per_run_static_arena_bytes": int(
+            memory_plan["arena"]["size_bytes"]
+        ),
+        "authoritative_state_count": len(states),
+        "authoritative_state_payload_bytes": payload_total,
+        "authoritative_state_retained_payload_bytes": (
+            retained_payload_total
+        ),
+        "authoritative_state_arena_capacity_bytes": state_arena_capacity,
+        "derived_cache_physical_capacity_bytes": derived_cache_capacity,
+        "derived_cache_physical_buffer_count": sum(
+            item["buffer_class"] == "derived_cache"
+            for item in physical_buffers
+        ),
     }
 
 
@@ -96,7 +210,7 @@ struct Counts final {{
   std::uint64_t transaction_aborts = 0u;
   std::uint64_t output_commits = 0u;
   std::uint64_t resets = 0u;
-  std::array<std::uint64_t, 8> state_versions{{}};
+  std::array<std::uint64_t, 32> state_versions{{}};
 }};
 
 void Count(void* context, const vlaforge::runtime::TraceEvent* event) {{
@@ -223,6 +337,14 @@ void PrintSummary(
       static_cast<unsigned long long>(after.state_versions[1]));
 }}
 
+void PrintStateVersions(const Counts& counts) {{
+  std::printf("STATE_VERSIONS");
+  for (const auto version : counts.state_versions) {{
+    std::printf(",%llu", static_cast<unsigned long long>(version));
+  }}
+  std::printf("\\n");
+}}
+
 }}  // namespace benchmark
 """
 
@@ -334,6 +456,7 @@ int main(int argc, char** argv) {
   if (!benchmark::CudaUsed(&cuda_end)) {
     return 10;
   }
+  benchmark::PrintStateVersions(counts);
   benchmark::PrintSummary(
       static_cast<std::uint64_t>(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -460,6 +583,7 @@ int main(int argc, char** argv) {
   if (!benchmark::CudaUsed(&cuda_end)) {
     return 9;
   }
+  benchmark::PrintStateVersions(counts);
   benchmark::PrintSummary(
       static_cast<std::uint64_t>(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -472,6 +596,153 @@ int main(int argc, char** argv) {
 }
 """
     )
+
+
+def _minddrive_source(audit_runner: Path) -> str:
+    missing_stamp_lines = "\n".join(
+        (
+            f"    bound.{name}_stamp.has_revision = 0u;\n"
+            f"    bound.{name}_stamp.revision = 0u;"
+        )
+        for name in _MINDDRIVE_INPUTS
+    )
+    return (
+        _cpp_common(audit_runner)
+        + r"""
+vlaforge_generated::ModelInputs BindMindDriveInputs(
+    const InputFrame& frame, std::uint64_t revision,
+    bool revision_present) {
+  auto bound = frame.Typed(revision);
+  if (!revision_present) {
+__MISSING_STAMPS__
+  }
+  return bound;
+}
+
+int main(int argc, char** argv) {
+  if (argc != 6) {
+    std::fprintf(
+        stderr,
+        "usage: %s BUNDLE INPUT WARMUP SAMPLES MODE\n",
+        argv[0]);
+    return 2;
+  }
+  const std::uint64_t warmup =
+      static_cast<std::uint64_t>(std::strtoull(argv[3], nullptr, 10));
+  const std::uint64_t samples =
+      static_cast<std::uint64_t>(std::strtoull(argv[4], nullptr, 10));
+  const std::string mode(argv[5]);
+  if (samples == 0u ||
+      (mode != "full" && mode != "same" &&
+       mode != "new" && mode != "missing")) {
+    return 2;
+  }
+
+  constexpr std::array<const char*, 5> kFrames = {
+      "frame_00400", "frame_00401", "frame_00402",
+      "frame_00403", "frame_00404"};
+  std::array<InputFrame, 5> inputs{};
+  for (std::size_t index = 0u; index < inputs.size(); ++index) {
+    if (!inputs[index].Load(
+            std::string(argv[2]) + "/" + kFrames[index])) {
+      return 3;
+    }
+  }
+
+  const auto initialize_started = std::chrono::steady_clock::now();
+  vlaforge_generated::ModelSession session(argv[1]);
+  const auto initialize_finished = std::chrono::steady_clock::now();
+  if (!session.initialization_status().ok()) {
+    std::fprintf(
+        stderr, "Session initialization failed: %s\n",
+        session.initialization_status().message);
+    return 4;
+  }
+  benchmark::Counts counts{};
+  session.SetTraceSink({&counts, &benchmark::Count});
+
+  const std::uint64_t total = warmup + samples;
+  std::uint64_t cuda_initialized = 0u;
+  if (!benchmark::CudaUsed(&cuda_initialized)) {
+    return 5;
+  }
+  const auto rss_initialized = benchmark::RssKiB();
+  std::uint64_t cuda_start = cuda_initialized;
+  std::uint64_t cuda_peak = cuda_initialized;
+  std::uint64_t rss_start = rss_initialized;
+  benchmark::Counts measured_before{};
+  double checksum = 0.0;
+  std::uint64_t first_run_ns = 0u;
+  for (std::uint64_t iteration = 0u; iteration < total; ++iteration) {
+    if (iteration == warmup) {
+      measured_before = counts;
+      if (!benchmark::CudaUsed(&cuda_start)) {
+        return 5;
+      }
+      cuda_peak = cuda_start;
+      rss_start = benchmark::RssKiB();
+    }
+    const auto revision = benchmark::Revision(mode, iteration);
+    const auto frame_index =
+        mode == "full"
+        ? static_cast<std::size_t>(iteration % inputs.size())
+        : 0u;
+    const auto bound = BindMindDriveInputs(
+        inputs[frame_index], revision,
+        benchmark::RevisionPresent(mode));
+    vlaforge_generated::ModelOutputs outputs{};
+    const auto started = std::chrono::steady_clock::now();
+    const auto status = session.Run(bound, &outputs);
+    const auto finished = std::chrono::steady_clock::now();
+    if (!status.ok()) {
+      std::fprintf(stderr, "Run failed: %s\n", status.message);
+      return 6;
+    }
+    const auto latency = static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            finished - started).count());
+    if (iteration == 0u) {
+      first_run_ns = latency;
+    }
+    float first = 0.0f;
+    if (cudaMemcpy(
+            &first, outputs.trajectory.tensor.data, sizeof(first),
+            cudaMemcpyDeviceToHost) != cudaSuccess) {
+      return 7;
+    }
+    std::uint64_t cuda_used = 0u;
+    if (!benchmark::CudaUsed(&cuda_used)) {
+      return 8;
+    }
+    cuda_peak = std::max(cuda_peak, cuda_used);
+    if (iteration >= warmup) {
+      checksum += static_cast<double>(first);
+      std::printf(
+          "SAMPLE,%llu,%llu,%llu,%u,%.17g\n",
+          static_cast<unsigned long long>(iteration - warmup),
+          static_cast<unsigned long long>(latency),
+          static_cast<unsigned long long>(revision),
+          benchmark::RevisionPresent(mode) ? 1u : 0u,
+          static_cast<double>(first));
+    }
+  }
+  std::uint64_t cuda_end = 0u;
+  if (!benchmark::CudaUsed(&cuda_end)) {
+    return 9;
+  }
+  benchmark::PrintStateVersions(counts);
+  benchmark::PrintSummary(
+      static_cast<std::uint64_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              initialize_finished - initialize_started).count()),
+      first_run_ns,
+      rss_initialized, rss_start, benchmark::RssKiB(),
+      cuda_initialized, cuda_start, cuda_end, cuda_peak,
+      checksum, measured_before, counts);
+  return counts.transaction_aborts == 0u ? 0 : 10;
+}
+"""
+    ).replace("__MISSING_STAMPS__", missing_stamp_lines)
 
 
 def _cmake(bundle_root: Path) -> str:
@@ -525,11 +796,12 @@ def _build(
     audit_runner = (bundle_root / "generated" / "runner.cpp").resolve()
     if not audit_runner.is_file():
         raise FileNotFoundError(audit_runner)
-    text = (
-        _smolvla_source(audit_runner)
-        if model == "smolvla"
-        else _diffusiondrive_source(audit_runner)
-    )
+    source_builders = {
+        "smolvla": _smolvla_source,
+        "diffusiondrive": _diffusiondrive_source,
+        "minddrive": _minddrive_source,
+    }
+    text = source_builders[model](audit_runner)
     (source / "benchmark.cpp").write_text(text, encoding="utf-8")
     (source / "CMakeLists.txt").write_text(
         _cmake(bundle_root.resolve()),
@@ -566,6 +838,7 @@ def _build(
 def _parse_output(text: str) -> tuple[list[dict[str, object]], dict[str, object]]:
     samples: list[dict[str, object]] = []
     summary: dict[str, object] | None = None
+    state_versions: list[int] | None = None
     for line in text.splitlines():
         fields = line.split(",")
         if fields[0] == "SAMPLE" and len(fields) == 6:
@@ -578,6 +851,8 @@ def _parse_output(text: str) -> tuple[list[dict[str, object]], dict[str, object]
                     "output_probe": float(fields[5]),
                 }
             )
+        elif fields[0] == "STATE_VERSIONS" and len(fields) == 33:
+            state_versions = [int(value) for value in fields[1:]]
         elif fields[0] == "SUMMARY" and len(fields) == 22:
             summary = {
                 "initialization_ns": int(fields[1]),
@@ -604,6 +879,8 @@ def _parse_output(text: str) -> tuple[list[dict[str, object]], dict[str, object]
             }
     if summary is None or not samples:
         raise RuntimeError(f"benchmark runner output is incomplete: {text}")
+    if state_versions is not None:
+        summary["state_versions"] = state_versions
     if [item["index"] for item in samples] != list(range(len(samples))):
         raise RuntimeError("benchmark sample indices are not contiguous")
     return samples, summary
@@ -621,6 +898,7 @@ def _validate_runtime(
     model: str,
     mode: str,
     sample_count: int,
+    warmup: int = 0,
     samples: list[dict[str, object]],
     runtime: dict[str, object],
 ) -> None:
@@ -644,7 +922,7 @@ def _validate_runtime(
             raise RuntimeError(
                 "DiffusionDrive revision/cache accounting disagrees with mode"
             )
-    elif mode == "full":
+    elif model == "smolvla" and mode == "full":
         if int(runtime["resets"]) != sample_count:
             raise RuntimeError(
                 "SmolVLA full mode must reset before every measured Run"
@@ -652,6 +930,36 @@ def _validate_runtime(
         if int(runtime["state_commits"]) != 2 * sample_count:
             raise RuntimeError(
                 "SmolVLA full mode must commit queue and cursor per Run"
+            )
+    if model == "minddrive":
+        expected_hits = (
+            sample_count
+            if mode == "same" and warmup > 0
+            else max(sample_count - 1, 0)
+            if mode == "same"
+            else 0
+        )
+        expected_misses = sample_count - expected_hits
+        if (
+            int(runtime["cache_hits"]) != expected_hits
+            or int(runtime["cache_misses"]) != expected_misses
+        ):
+            raise RuntimeError(
+                "MindDrive vision-cache accounting disagrees with mode"
+            )
+        if int(runtime["state_commits"]) != 16 * sample_count:
+            raise RuntimeError(
+                "MindDrive must commit all 16 authoritative states per Run"
+            )
+        versions = runtime.get("state_versions")
+        expected_version = warmup + sample_count
+        if (
+            not isinstance(versions, list)
+            or len(versions) < 16
+            or any(int(value) != expected_version for value in versions[:16])
+        ):
+            raise RuntimeError(
+                "MindDrive authoritative state versions are incomplete"
             )
 
 
@@ -736,6 +1044,7 @@ def main(argv: list[str] | None = None) -> int:
         model=args.model,
         mode=args.mode,
         sample_count=args.samples,
+        warmup=args.warmup,
         samples=samples,
         runtime=runtime,
     )
@@ -778,6 +1087,9 @@ def main(argv: list[str] | None = None) -> int:
             ),
             "static_arena": (
                 manifest.compilation_certificate.arena.to_dict()
+            ),
+            "declared_contract": _bundle_memory_contract(
+                args.bundle_root
             ),
         },
         "bundle": {
