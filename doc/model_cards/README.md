@@ -13,7 +13,7 @@ fixture 已经生成并运行无 Python C++ Session，不表示真实 checkpoint
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 0 | [smolvla.md](smolvla.md) |
 | GR00T N1.7 | L0 + L1 | 0 | [groot_n1.md](groot_n1.md) |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 0 | [diffusiondrive.md](diffusiondrive.md) |
-| MindDrive 0.5B | L0-selected | 0 (target) | [minddrive.md](minddrive.md) |
+| MindDrive 0.5B | real eager + 4 real captured Regions（完整模型为 L2-prerequisite） | 0 | [minddrive.md](minddrive.md) |
 | AutoVLA | L0 + L1 + real L2 partition | 0 | [autovla.md](autovla.md) |
 | ReCogDrive | L0 + structural L1 | 0 | [recogdrive.md](recogdrive.md) |
 | UniDriveVLA | L0 + structural L1 | 0 | [unidrivevla.md](unidrivevla.md) |

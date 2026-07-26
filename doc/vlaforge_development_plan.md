@@ -314,7 +314,7 @@ opcode 或任意未验证 opcode。
 | P15 | 5 workloads × 5 independent processes 统计实验 | 完成：150 fresh-process tasks、4,500 steady samples、30 cells、50 parity cells |
 | P16 | 一个真实 held-out 模型至少 L2 | 完成：AutoVLA real L2 decoder partition，core op delta=0；L3 candidate 未晋级 |
 | P17 | 论文初稿、表格与 artifact-evaluation 指南 | 完成：论文、三张可复现图、claim map、final gate、manifest 与 completion audit |
-| P18 | 完整真实驾驶 VLA L2–L4 | 进行中：MindDrive 0.5B 完整权重、严格推理态加载、真实六相机 official-pipeline eager 已通过；24 层 EVA Region strict capture 与第二真实帧 held-out exported execution 已通过（完整模型仍为 L2-prerequisite-only）；待下游 object/map、Qwen/planner capture、显式 state/cache/transaction 的 Semantic IR/Plan 连续 Run parity、AOTI 与 C++ |
+| P18 | 完整真实驾驶 VLA L2–L4 | 进行中：MindDrive 0.5B 完整权重、严格推理态加载、真实六相机 eager 已通过；24 层 EVA、真实 Qwen2 decision/action experts、显式 RNG trajectory decoder 共 4 个 Region 的 strict capture 与第二真实帧 held-out execution 已通过（完整模型仍为 L2-prerequisite-only）；待 object/map + detection、显式 state/cache/transaction 的完整 Semantic IR/Plan 连续 Run parity、AOTI 与 C++ |
 
 ## 9. 测试与验收
 

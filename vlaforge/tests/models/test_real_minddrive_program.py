@@ -53,6 +53,14 @@ def _implementations(calls: _Calls) -> dict[str, Any]:
 
     return {
         "vision_encoder": vision_encoder,
+        "decision_expert": lambda *_arguments: None,
+        "action_expert": lambda *_arguments: None,
+        "trajectory_decoder": lambda *_arguments: (
+            None,
+            None,
+            None,
+            None,
+        ),
         "first_frame_planner": first_frame_planner,
         "stateful_planner": stateful_planner,
     }
@@ -124,6 +132,9 @@ def test_real_minddrive_program_is_small_generic_and_stateful() -> None:
     )
     assert tuple(region.name for region in module.regions) == (
         "vision_encoder",
+        "decision_expert",
+        "action_expert",
+        "trajectory_decoder",
         "first_frame_planner",
         "stateful_planner",
     )
@@ -131,6 +142,19 @@ def test_real_minddrive_program_is_small_generic_and_stateful() -> None:
         MINDDRIVE_UPSTREAM_REVISION
     )
     assert module.invocations[0].metadata["core_op_delta"] == 0
+    assert tuple(
+        value.name
+        for value in module.region("trajectory_decoder").inputs
+    ) == (
+        "action_hidden",
+        "decision_logits",
+        "ego_route_command",
+        "trajectory_noise",
+        "path_noise",
+    )
+    assert module.region("trajectory_decoder").metadata["rng_semantics"] == (
+        "explicit_tensor_inputs"
+    )
 
     compilation = compile_module(
         module,

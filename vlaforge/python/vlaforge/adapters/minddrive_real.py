@@ -59,6 +59,8 @@ MINDDRIVE_INPUT_TYPES = (
     ("decision_input_ids", TensorType((53,), "i64")),
     ("planning_input_ids", TensorType((71,), "i64")),
     ("ego_route_command", TensorType((1, 1, 1, 6), "f32")),
+    ("trajectory_noise", TensorType((1, 1, 32), "f32")),
+    ("path_noise", TensorType((1, 1, 32), "f32")),
     ("can_bus", TensorType((1, 18), "f32")),
     ("lidar2img", TensorType((1, 6, 4, 4), "f32")),
     ("camera_intrinsics", TensorType((1, 6, 4, 4), "f32")),
@@ -69,6 +71,22 @@ MINDDRIVE_INPUT_TYPES = (
 )
 
 MINDDRIVE_IMAGE_FEATURES = TensorType((1, 6, 1024, 40, 40), "f32")
+MINDDRIVE_VISION_TOKENS = TensorType((1, 529, 896), "f32")
+MINDDRIVE_DECISION_PROMPT_LENGTH = 53
+MINDDRIVE_ACTION_PROMPT_LENGTH = 71
+MINDDRIVE_IMAGE_TOKEN_INDEX = 27
+MINDDRIVE_DECISION_SEQUENCE_LENGTH = 581
+MINDDRIVE_ACTION_SEQUENCE_LENGTH = 599
+MINDDRIVE_ACTION_HIDDEN_POSITIONS = (596, 598)
+MINDDRIVE_DECISION_LOGITS = TensorType((1, 7), "f32")
+MINDDRIVE_ACTION_HIDDEN = TensorType((2, 896), "f32")
+MINDDRIVE_DECISION_DCE_MAX_ABS = 2.0e-5
+MINDDRIVE_DECISION_DCE_NRMSE = 1.0e-6
+# Locked from frame 00400 before executing the exported Region on frame 00401.
+# The small non-zero allowance covers only the source wrapper's equivalent
+# GRU/output re-association; strict-export eager parity remains exact.
+MINDDRIVE_TRAJECTORY_DECODER_MAX_ABS = 3.0e-6
+MINDDRIVE_TRAJECTORY_DECODER_NRMSE = 1.0e-6
 
 MINDDRIVE_OUTPUT_TYPES = (
     ("trajectory", TensorType((6, 2), "f32")),
@@ -227,6 +245,79 @@ def build_real_minddrive_program(*, device: str = "cuda:0") -> Any:
                 "cache_state_slots": [],
                 "loop_invariant": True,
                 "derived_cache": "exact_image_features",
+            },
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "decision_expert",
+            (
+                Value(
+                    "decision_input_ids",
+                    dict(MINDDRIVE_INPUT_TYPES)["decision_input_ids"],
+                ),
+                Value("vision_tokens", MINDDRIVE_VISION_TOKENS),
+            ),
+            (MINDDRIVE_DECISION_LOGITS,),
+            metadata={
+                "source_component": "Qwen2-0.5B decision_expert LoRA",
+                "bounded_prefill": MINDDRIVE_DECISION_SEQUENCE_LENGTH,
+                "compiler_transform": "exact_vocabulary_projection_dce",
+            },
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "action_expert",
+            (
+                Value(
+                    "planning_input_ids",
+                    dict(MINDDRIVE_INPUT_TYPES)["planning_input_ids"],
+                ),
+                Value("vision_tokens", MINDDRIVE_VISION_TOKENS),
+            ),
+            (MINDDRIVE_ACTION_HIDDEN,),
+            metadata={
+                "source_component": "Qwen2-0.5B action_expert LoRA",
+                "bounded_prefill": MINDDRIVE_ACTION_SEQUENCE_LENGTH,
+                "selected_hidden_positions": list(
+                    MINDDRIVE_ACTION_HIDDEN_POSITIONS
+                ),
+            },
+        )
+    )
+    builder.add_region(
+        TensorRegion(
+            "trajectory_decoder",
+            (
+                Value("action_hidden", MINDDRIVE_ACTION_HIDDEN),
+                Value("decision_logits", MINDDRIVE_DECISION_LOGITS),
+                Value(
+                    "ego_route_command",
+                    dict(MINDDRIVE_INPUT_TYPES)["ego_route_command"],
+                ),
+                Value(
+                    "trajectory_noise",
+                    dict(MINDDRIVE_INPUT_TYPES)["trajectory_noise"],
+                ),
+                Value(
+                    "path_noise",
+                    dict(MINDDRIVE_INPUT_TYPES)["path_noise"],
+                ),
+            ),
+            (
+                dict(MINDDRIVE_OUTPUT_TYPES)["trajectory"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["path_trajectory"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["speed_command"],
+                dict(MINDDRIVE_OUTPUT_TYPES)["path_command"],
+            ),
+            metadata={
+                "source_component": (
+                    "probabilistic GRU trajectory and path heads"
+                ),
+                "rng_semantics": "explicit_tensor_inputs",
+                "trajectory_steps": 6,
+                "path_steps": 20,
             },
         )
     )
@@ -787,6 +878,357 @@ def compare_minddrive_vision_backends(
         reference_absolute_maximum=reference_absolute_maximum,
         passed=passed,
     )
+
+
+def make_minddrive_decision_expert(model: Any) -> Any:
+    """Build the real Qwen2 decision-expert prefill Region.
+
+    The upstream method projects the penultimate hidden state to the complete
+    151k-token vocabulary and immediately gathers seven meta-action rows.
+    Keeping only those exact rows is a semantics-preserving compiler DCE, not
+    a reduced or synthetic model.
+    """
+
+    import torch
+    import torch.nn.functional as functional
+
+    model.lm_head.set_adapter("decision_expert")
+    implementation = (
+        model.lm_head.inference_action_distribution.__self__
+    )
+    _make_minddrive_qwen_rotary_exportable(implementation.model)
+    meta_action_ids = tuple(
+        int(item) for item in implementation.config.meta_action_token_idx[:7]
+    )
+
+    class DecisionExpert(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.language_model = implementation.model
+            selected_rows = implementation.lm_head.weight[
+                list(meta_action_ids)
+            ].detach().clone()
+            self.register_buffer("meta_action_rows", selected_rows)
+
+        def forward(
+            self, input_ids: Any, vision_tokens: Any
+        ) -> Any:
+            prefix_ids = input_ids[:MINDDRIVE_IMAGE_TOKEN_INDEX]
+            suffix_ids = input_ids[MINDDRIVE_IMAGE_TOKEN_INDEX + 1 :]
+            prefix = self.language_model.embed_tokens(prefix_ids)
+            suffix = self.language_model.embed_tokens(suffix_ids)
+            inputs_embeds = torch.cat(
+                (prefix, vision_tokens[0], suffix), dim=0
+            ).unsqueeze(0)
+            hidden = self.language_model(
+                input_ids=None,
+                attention_mask=None,
+                position_ids=None,
+                past_key_values=None,
+                inputs_embeds=inputs_embeds,
+                use_cache=False,
+                output_attentions=False,
+                output_hidden_states=False,
+                return_dict=False,
+            )[0]
+            selected_logits = functional.linear(
+                hidden[:, -2, :],
+                self.meta_action_rows,
+            )
+            return functional.log_softmax(selected_logits, dim=-1)
+
+    return DecisionExpert().eval()
+
+
+def make_minddrive_action_expert(model: Any) -> Any:
+    """Build the real Qwen2 action-expert prefill Region."""
+
+    import torch
+
+    model.lm_head.set_adapter("action_expert")
+    implementation = model.lm_head.inference_waypoints.__self__
+    _make_minddrive_qwen_rotary_exportable(implementation.model)
+
+    class ActionExpert(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.language_model = implementation.model
+
+        def forward(
+            self, input_ids: Any, vision_tokens: Any
+        ) -> Any:
+            prefix_ids = input_ids[:MINDDRIVE_IMAGE_TOKEN_INDEX]
+            suffix_ids = input_ids[MINDDRIVE_IMAGE_TOKEN_INDEX + 1 :]
+            prefix = self.language_model.embed_tokens(prefix_ids)
+            suffix = self.language_model.embed_tokens(suffix_ids)
+            inputs_embeds = torch.cat(
+                (prefix, vision_tokens[0], suffix), dim=0
+            ).unsqueeze(0)
+            hidden = self.language_model(
+                input_ids=None,
+                attention_mask=None,
+                position_ids=None,
+                past_key_values=None,
+                inputs_embeds=inputs_embeds,
+                use_cache=False,
+                output_attentions=False,
+                output_hidden_states=False,
+                return_dict=False,
+            )[0]
+            return torch.stack(
+                (
+                    hidden[0, MINDDRIVE_ACTION_HIDDEN_POSITIONS[0], :],
+                    hidden[0, MINDDRIVE_ACTION_HIDDEN_POSITIONS[1], :],
+                ),
+                dim=0,
+            )
+
+    return ActionExpert().eval()
+
+
+def make_minddrive_trajectory_decoder(model: Any) -> Any:
+    """Build the real probabilistic GRU trajectory/path decode Region.
+
+    Upstream draws two implicit Gaussian tensors.  They are explicit Region
+    inputs here so retry, parity, and transactional failure semantics are
+    deterministic and auditable.
+    """
+
+    import torch
+
+    present_distribution = model.present_distribution
+    path_present_distribution = model.pw_present_distribution
+    predict_model = model.predict_model
+    path_predict_model = model.pw_predict_model
+    trajectory_head = model.ego_fut_decoder
+    path_head = model.pw_ego_fut_decoder
+
+    class ExportablePredictModel(torch.nn.Module):
+        """Source-equivalent GRU predictor without eager flat-weight mutation.
+
+        ``nn.GRU.forward`` refreshes a cached flattened-weight view before
+        invoking ATen.  That eager implementation detail reads storage data
+        pointers and is therefore illegal under FakeTensor strict export.
+        Calling the same ATen GRU primitive with the named parameters keeps
+        the numerical operation intact and removes only that hidden mutation.
+        """
+
+        def __init__(self, upstream: Any) -> None:
+            super().__init__()
+            self.gru = upstream.gru
+            self.linear1 = upstream.linear1
+            self.linear2 = upstream.linear2
+            self.linear3 = upstream.linear3
+
+        def forward(self, value: Any, hidden: Any) -> Any:
+            flat_weights = []
+            for layer in range(self.gru.num_layers):
+                flat_weights.extend(
+                    (
+                        getattr(self.gru, f"weight_ih_l{layer}"),
+                        getattr(self.gru, f"weight_hh_l{layer}"),
+                        getattr(self.gru, f"bias_ih_l{layer}"),
+                        getattr(self.gru, f"bias_hh_l{layer}"),
+                    )
+                )
+            value, _ = torch._VF.gru(
+                value,
+                hidden,
+                flat_weights,
+                self.gru.bias,
+                self.gru.num_layers,
+                self.gru.dropout,
+                False,
+                self.gru.bidirectional,
+                self.gru.batch_first,
+            )
+            value = torch.relu(self.linear1(value))
+            value = torch.relu(self.linear2(value))
+            return self.linear3(value)
+
+    class TrajectoryDecoder(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.present_distribution = present_distribution
+            self.path_present_distribution = path_present_distribution
+            self.predict_model = ExportablePredictModel(predict_model)
+            self.path_predict_model = ExportablePredictModel(
+                path_predict_model
+            )
+            self.trajectory_head = trajectory_head
+            self.path_head = path_head
+            self.register_buffer(
+                "path_index_to_value",
+                torch.tensor(
+                    (2, 4, 1, 0, 3, 5),
+                    dtype=torch.int64,
+                    device=next(trajectory_head.parameters()).device,
+                ),
+            )
+
+        @staticmethod
+        def _sample(
+            distribution: Any,
+            current_state: Any,
+            noise: Any,
+        ) -> Any:
+            mean, log_sigma = distribution(current_state)
+            sampled = mean + torch.exp(log_sigma) * noise
+            return sampled.permute(0, 2, 1).expand(
+                current_state.shape[0],
+                sampled.shape[-1],
+                current_state.shape[1],
+            )
+
+        @staticmethod
+        def _future_states(
+            predictor: Any,
+            sample: Any,
+            hidden: Any,
+            current_state: Any,
+            steps: int,
+        ) -> Any:
+            future_input = sample.unsqueeze(0).expand(
+                steps, -1, -1, -1
+            )
+            future_input = future_input.reshape(steps, -1, 32)
+            gru_hidden = hidden.permute(1, 0, 2).reshape(4, -1, 224)
+            future = predictor(future_input, gru_hidden.contiguous())
+            future = future.reshape(steps, 1, -1, future.shape[2])
+            current = current_state.unsqueeze(0).repeat(
+                steps, 1, 1, 1
+            )
+            return torch.cat((current, future), dim=-1)
+
+        @staticmethod
+        def _decode_steps(
+            head: Any,
+            states: Any,
+            *,
+            modes: int,
+            steps: int,
+        ) -> Any:
+            step_outputs = []
+            for index in range(steps):
+                decoded = head(states[index]).reshape(1, modes, 2)
+                step_outputs.append(decoded)
+            return torch.stack(step_outputs, dim=2)
+
+        def forward(
+            self,
+            action_hidden: Any,
+            decision_logits: Any,
+            route_command: Any,
+            trajectory_noise: Any,
+            path_noise: Any,
+        ) -> tuple[Any, Any, Any, Any]:
+            ego_feature = action_hidden.reshape(1, 2, 896)
+            trajectory_hidden = ego_feature[:, 0].unsqueeze(1)
+            path_hidden = ego_feature[:, 1].unsqueeze(1)
+            trajectory_sample = self._sample(
+                self.present_distribution,
+                trajectory_hidden,
+                trajectory_noise,
+            )
+            path_sample = self._sample(
+                self.path_present_distribution,
+                path_hidden,
+                path_noise,
+            )
+            trajectory_states = self._future_states(
+                self.predict_model,
+                trajectory_sample,
+                trajectory_hidden,
+                trajectory_hidden,
+                6,
+            )
+            path_states = self._future_states(
+                self.path_predict_model,
+                path_sample,
+                path_hidden,
+                path_hidden,
+                20,
+            )
+            trajectory_modes = self._decode_steps(
+                self.trajectory_head,
+                trajectory_states[:, :, 0, :].unsqueeze(1),
+                modes=7,
+                steps=6,
+            )
+            path_modes = self._decode_steps(
+                self.path_head,
+                path_states[:, :, 0, :].unsqueeze(1),
+                modes=6,
+                steps=20,
+            )
+            speed_index = torch.argmax(decision_logits[0], dim=-1)
+            raw_path_index = torch.argmax(
+                route_command[0, 0, 0], dim=-1
+            )
+            path_value = torch.gather(
+                self.path_index_to_value,
+                0,
+                raw_path_index.reshape(1),
+            )[0]
+            trajectory = torch.gather(
+                trajectory_modes[0],
+                0,
+                speed_index.reshape(1, 1, 1).expand(1, 6, 2),
+            )[0].cumsum(dim=-2)
+            path = torch.gather(
+                path_modes[0],
+                0,
+                path_value.reshape(1, 1, 1).expand(1, 20, 2),
+            )[0].cumsum(dim=-2)
+            return trajectory, path, speed_index, path_value
+
+    return TrajectoryDecoder().eval()
+
+
+def _make_minddrive_qwen_rotary_exportable(language_model: Any) -> None:
+    """Remove an inference-only autocast context unsupported by torch 2.4.
+
+    Transformers forces Qwen RoPE arithmetic to FP32 under a disabled autocast
+    context.  This profile is already FP32, so the context has no numerical
+    effect but becomes an unverifiable ``_enter_autocast`` node in PyTorch
+    2.4.  The replacement uses the same pinned inverse frequencies and scaling
+    directly in ATen.
+    """
+
+    import torch
+
+    upstream = language_model.rotary_emb
+    if "dynamic" in str(upstream.rope_type):
+        raise ValueError("MindDrive deployment profile requires static RoPE")
+
+    class ExportableRotary(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.register_buffer(
+                "inv_freq",
+                upstream.inv_freq.detach().clone(),
+            )
+            scaling = upstream.attention_scaling
+            if torch.is_tensor(scaling):
+                self.register_buffer(
+                    "attention_scaling",
+                    scaling.detach().clone(),
+                )
+            else:
+                self.attention_scaling = float(scaling)
+
+        def forward(self, hidden: Any, position_ids: Any) -> tuple[Any, Any]:
+            inverse = self.inv_freq[None, :, None].float().expand(
+                position_ids.shape[0], -1, 1
+            )
+            positions = position_ids[:, None, :].float()
+            frequencies = (inverse @ positions).transpose(1, 2)
+            embedding = torch.cat((frequencies, frequencies), dim=-1)
+            cosine = embedding.cos() * self.attention_scaling
+            sine = embedding.sin() * self.attention_scaling
+            return cosine.to(hidden.dtype), sine.to(hidden.dtype)
+
+    language_model.rotary_emb = ExportableRotary()
 
 
 def _is_allowed_training_extra(key: str) -> bool:

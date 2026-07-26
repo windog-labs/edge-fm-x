@@ -351,6 +351,29 @@ def _tensor_record(value: Any) -> dict[str, Any]:
     }
 
 
+def _detach_tensor_tree(value: Any) -> Any:
+    """Keep only tensor-bearing parts of an upstream intermediate tree."""
+
+    import torch
+
+    if torch.is_tensor(value):
+        return value.detach().cpu()
+    if isinstance(value, dict):
+        return {
+            str(key): converted
+            for key, item in value.items()
+            if (converted := _detach_tensor_tree(item)) is not None
+        }
+    if isinstance(value, (tuple, list)):
+        converted = [
+            item
+            for value_item in value
+            if (item := _detach_tensor_tree(value_item)) is not None
+        ]
+        return tuple(converted) if isinstance(value, tuple) else converted
+    return None
+
+
 def _collect_named_outputs(result: dict[str, Any]) -> tuple[
     dict[str, Any], dict[str, Any]
 ]:
@@ -402,6 +425,11 @@ def main() -> int:
     parser.add_argument("--image-features", type=Path)
     parser.add_argument("--preprocessed-inputs", type=Path)
     parser.add_argument("--persistent-state", type=Path)
+    parser.add_argument(
+        "--intermediates",
+        type=Path,
+        help="save tensor-only source boundaries for Region adaptation",
+    )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument(
         "--precision", choices=("fp32", "fp16"), default="fp32"
@@ -579,9 +607,6 @@ def main() -> int:
     prepared = pipeline(raw)
     batch = collate([prepared], samples_per_gpu=1)
     flat_inputs = _flatten_preprocessed_inputs(batch)
-    if args.preprocessed_inputs is not None:
-        args.preprocessed_inputs.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(flat_inputs, args.preprocessed_inputs)
     _move_batch_to_device(batch, args.device)
 
     torch.cuda.empty_cache()
@@ -594,20 +619,121 @@ def main() -> int:
 
     _reset_model_state(model)
     captured_image_features: dict[str, Any] = {}
+    captured_intermediates: dict[str, Any] = {}
     original_extract_feat = model.extract_feat
+    original_prepare_location = model.prepare_location
+    original_position_embedding = model.position_embeding
+    original_decision = model.lm_head.inference_action_distribution
+    original_action = model.lm_head.inference_waypoints
+    lm_implementation = original_decision.__self__
+    original_multimodal = (
+        lm_implementation.prepare_inputs_labels_for_multimodal
+    )
+    multimodal_call_index = 0
 
     def capture_image_features(image: Any) -> Any:
         features = original_extract_feat(image)
         captured_image_features["value"] = features.detach().cpu()
         return features
 
+    def capture_prepare_location(*capture_args: Any, **capture_kwargs: Any) -> Any:
+        value = original_prepare_location(*capture_args, **capture_kwargs)
+        captured_intermediates["location"] = value.detach().cpu()
+        return value
+
+    def capture_position_embedding(
+        *capture_args: Any, **capture_kwargs: Any
+    ) -> Any:
+        value = original_position_embedding(*capture_args, **capture_kwargs)
+        captured_intermediates["position_embedding"] = (
+            value.detach().cpu()
+        )
+        return value
+
+    def capture_decision(*capture_args: Any, **capture_kwargs: Any) -> Any:
+        value = original_decision(*capture_args, **capture_kwargs)
+        captured_intermediates["decision_expert"] = _detach_tensor_tree(
+            value
+        )
+        return value
+
+    def capture_action(*capture_args: Any, **capture_kwargs: Any) -> Any:
+        value = original_action(*capture_args, **capture_kwargs)
+        captured_intermediates["action_expert"] = _detach_tensor_tree(value)
+        return value
+
+    def capture_multimodal(
+        *capture_args: Any, **capture_kwargs: Any
+    ) -> Any:
+        nonlocal multimodal_call_index
+        value = original_multimodal(*capture_args, **capture_kwargs)
+        captured_intermediates[
+            f"multimodal_preparation_{multimodal_call_index}"
+        ] = _detach_tensor_tree(value)
+        multimodal_call_index += 1
+        return value
+
+    def capture_map_head(
+        _module: Any, _inputs: Any, output: Any
+    ) -> None:
+        captured_intermediates["map_head"] = _detach_tensor_tree(output)
+
+    def capture_detection_head(
+        _module: Any, _inputs: Any, output: Any
+    ) -> None:
+        captured_intermediates["detection_head"] = _detach_tensor_tree(
+            output
+        )
+
+    hooks = [
+        model.map_head.register_forward_hook(capture_map_head),
+        model.pts_bbox_head.register_forward_hook(capture_detection_head),
+    ]
     model.extract_feat = capture_image_features
+    model.prepare_location = capture_prepare_location
+    model.position_embeding = capture_position_embedding
+    model.lm_head.inference_action_distribution = capture_decision
+    model.lm_head.inference_waypoints = capture_action
+    lm_implementation.prepare_inputs_labels_for_multimodal = (
+        capture_multimodal
+    )
+    original_randn_like = torch.randn_like
+    planner_noises: list[Any] = []
+
+    def capture_randn_like(
+        *capture_args: Any, **capture_kwargs: Any
+    ) -> Any:
+        value = original_randn_like(*capture_args, **capture_kwargs)
+        planner_noises.append(value.detach().cpu())
+        return value
+
+    torch.randn_like = capture_randn_like
     eager_started = time.perf_counter()
     try:
         with torch.inference_mode():
             output = model(batch, return_loss=False)
     finally:
+        torch.randn_like = original_randn_like
         model.extract_feat = original_extract_feat
+        model.prepare_location = original_prepare_location
+        model.position_embeding = original_position_embedding
+        model.lm_head.inference_action_distribution = original_decision
+        model.lm_head.inference_waypoints = original_action
+        lm_implementation.prepare_inputs_labels_for_multimodal = (
+            original_multimodal
+        )
+        for hook in hooks:
+            hook.remove()
+    captured_intermediates["planner_noises"] = tuple(planner_noises)
+    if len(planner_noises) != 2:
+        raise ValueError(
+            "MindDrive eager run did not produce exactly two planner noises"
+        )
+    flat_inputs["trajectory_noise"] = planner_noises[0]
+    flat_inputs["path_noise"] = planner_noises[1]
+    if args.preprocessed_inputs is not None:
+        args.preprocessed_inputs.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(flat_inputs, args.preprocessed_inputs)
     torch.cuda.synchronize()
     eager_seconds = time.perf_counter() - eager_started
     if not isinstance(output, list) or len(output) != 1:
@@ -691,6 +817,14 @@ def main() -> int:
         report["persistent_state_sha256"] = _sha256(
             args.persistent_state
         )
+    if args.intermediates is not None:
+        args.intermediates.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(captured_intermediates, args.intermediates)
+        report["intermediates"] = {
+            "path": str(args.intermediates.resolve()),
+            "sha256": _sha256(args.intermediates),
+            "keys": sorted(captured_intermediates),
+        }
 
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n")
