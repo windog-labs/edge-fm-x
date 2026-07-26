@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -77,3 +79,42 @@ def test_schedule_has_five_processes_for_every_path_and_workload() -> None:
                     and item["path"] == path
                 ]
                 assert {item["repeat"] for item in matches} == set(range(5))
+
+
+def test_config_records_explicit_pythonpath(
+    tmp_path: Path,
+) -> None:
+    benchmark = _module()
+    config = {
+        "schema": benchmark._CONFIG_SCHEMA,
+        "python": sys.executable,
+        "pythonpath": [str(tmp_path)],
+        "models": {
+            "smolvla": {
+                key: "value"
+                for key in (
+                    "workloads",
+                    "bundle_root",
+                    "l3_root",
+                    "support_root",
+                    "checkpoint",
+                    "vlm_path",
+                    "upstream_revision",
+                )
+            },
+            "diffusiondrive": {
+                key: "value"
+                for key in (
+                    "workloads",
+                    "bundle_root",
+                    "l3_root",
+                    "source_root",
+                    "checkpoint",
+                    "upstream_revision",
+                )
+            },
+        },
+    }
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+    assert benchmark._load_config(path)["pythonpath"] == [str(tmp_path)]

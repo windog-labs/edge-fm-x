@@ -170,6 +170,15 @@ def _load_config(path: Path) -> dict[str, Any]:
     python = Path(config["python"])
     if not python.is_file():
         raise FileNotFoundError(python)
+    pythonpath = config.get("pythonpath", [])
+    if (
+        not isinstance(pythonpath, list)
+        or not all(isinstance(item, str) for item in pythonpath)
+    ):
+        raise ValueError("matrix config pythonpath must be a string list")
+    for item in pythonpath:
+        if not Path(item).is_dir():
+            raise FileNotFoundError(item)
     required = {
         "smolvla": (
             "workloads",
@@ -411,6 +420,8 @@ def _run_tasks(
             "PYTHONHASHSEED": "0",
         }
     )
+    if config.get("pythonpath"):
+        environment["PYTHONPATH"] = os.pathsep.join(config["pythonpath"])
     progress_path = output_root / "progress.json"
     completed_tasks: list[dict[str, Any]] = []
     for task in tasks:
@@ -812,6 +823,7 @@ def _aggregate(
         "environment": {
             "host": platform.platform(),
             "python": str(config["python"]),
+            "pythonpath": list(config.get("pythonpath", ())),
             "gpu": subprocess.run(
                 [
                     "nvidia-smi",
