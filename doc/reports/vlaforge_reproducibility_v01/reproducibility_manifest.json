@@ -1607,7 +1607,7 @@
       "exists": true,
       "must_archive": true,
       "name": "smolvla_l3_capture_artifacts",
-      "path": "/tmp/vlaforge-smolvla-l3.hr4TVE",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-smolvla-l3.hr4TVE",
       "reason": "real SmolVLA export and AOTI artifact reproduction",
       "size_bytes": 2641019430
     },
@@ -1615,7 +1615,7 @@
       "exists": true,
       "must_archive": true,
       "name": "smolvla_l4_support",
-      "path": "/tmp/vlaforge-smolvla-l4.oYi5dQ",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-smolvla-l4.oYi5dQ",
       "reason": "real SmolVLA generated-session support inputs and artifacts",
       "size_bytes": 4104150792
     },
@@ -1623,7 +1623,7 @@
       "exists": true,
       "must_archive": true,
       "name": "smolvla_l4_aligned_bundle",
-      "path": "/tmp/vlaforge-smolvla-l4-aligned-0cf3d12",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-smolvla-l4-aligned-0cf3d12",
       "reason": "final aligned SmolVLA Compile Bundle",
       "size_bytes": 820230856
     },
@@ -1631,7 +1631,7 @@
       "exists": true,
       "must_archive": true,
       "name": "diffusiondrive_checkpoint",
-      "path": "/tmp/vlaforge-diffusiondrive-ckpt",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-diffusiondrive-ckpt",
       "reason": "pinned DiffusionDrive checkpoint",
       "size_bytes": 729534584
     },
@@ -1639,7 +1639,7 @@
       "exists": true,
       "must_archive": true,
       "name": "diffusiondrive_l3",
-      "path": "/tmp/vlaforge-diffusiondrive-l3-clean",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-diffusiondrive-l3-clean",
       "reason": "real DiffusionDrive exports and AOTI artifacts",
       "size_bytes": 791443499
     },
@@ -1647,7 +1647,7 @@
       "exists": true,
       "must_archive": true,
       "name": "diffusiondrive_l4",
-      "path": "/tmp/vlaforge-diffusiondrive-l4-clean",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-diffusiondrive-l4-clean",
       "reason": "real DiffusionDrive Compile Bundle and deterministic inputs",
       "size_bytes": 253648555
     },
@@ -1655,7 +1655,7 @@
       "exists": true,
       "must_archive": true,
       "name": "openvla_l3_capture",
-      "path": "/tmp/vlaforge-openvla-l3-capture",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-openvla-l3-capture",
       "reason": "real OpenVLA source exports and deterministic inputs",
       "size_bytes": 28497129835
     },
@@ -1663,7 +1663,7 @@
       "exists": true,
       "must_archive": true,
       "name": "openvla_l3_artifacts",
-      "path": "/tmp/vlaforge-openvla-l3-artifacts",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-openvla-l3-artifacts",
       "reason": "36 normalized OpenVLA exports and sm_86 AOTI packages",
       "size_bytes": 85013056624
     },
@@ -1671,7 +1671,7 @@
       "exists": true,
       "must_archive": true,
       "name": "autovla_checkpoint",
-      "path": "/tmp/vlaforge-autovla-checkpoint-a7d7ba3",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-autovla-checkpoint-a7d7ba3",
       "reason": "pinned 16.29 GB AutoVLA PDMS 89 checkpoint",
       "size_bytes": 16292681428
     },
@@ -1679,7 +1679,7 @@
       "exists": true,
       "must_archive": true,
       "name": "autovla_l2_frontend",
-      "path": "/tmp/vlaforge-autovla-l2-f750e54",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-autovla-l2-f750e54",
       "reason": "real AutoVLA partitioned L2 exports and capture evidence",
       "size_bytes": 144688453
     },
@@ -1687,20 +1687,162 @@
       "exists": true,
       "must_archive": false,
       "name": "autovla_l3_candidate",
-      "path": "/tmp/vlaforge-autovla-l3-conservative-f750e54",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/optional/vlaforge-autovla-l3-conservative-f750e54",
       "reason": "optional conservative AOTI L3-candidate artifacts",
       "size_bytes": 145957004
     },
     {
       "exists": true,
+      "must_archive": true,
+      "name": "minddrive_complete_l2_l3_l4",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726",
+      "reason": "complete MindDrive checkpoint, frontend captures, AOTI artifacts, verified bundle, and generated L4 evidence",
+      "size_bytes": 90261248315
+    },
+    {
+      "exists": true,
       "must_archive": false,
       "name": "nsight_binary_profiles",
-      "path": "/tmp/vlaforge-nsight-v2",
+      "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/optional/vlaforge-nsight-v2",
       "reason": "optional timeline reinspection; parsed NSYS/NCU summaries and profile hashes are committed",
       "size_bytes": 49640814
     }
   ],
   "external_path_references": [
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726",
+      "referenced_by": [
+        {
+          "json_pointer": "$.archive.root",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json"
+        },
+        {
+          "json_pointer": "$.archive.root",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/aoti24_all_contiguous_v6/artifact_manifest.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.artifact_manifest.path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/aoti24_all_contiguous_v6/residency_rtx3060.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.l4_feasibility.session_residency.report_path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/development_l3_aoti24_v6_sdpa_contract_v3_00400_00401_00402_00403_00404.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.l4_feasibility.attention_provider.json_path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/development_l3_aoti24_v6_sdpa_contract_v3_00400_00401_00402_00403_00404.pt",
+      "referenced_by": [
+        {
+          "json_pointer": "$.l4_feasibility.attention_provider.tensor_path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/heldout_l3_aoti24_v6_contract_v3_00400_00401_00402_00403_00404_clean_99f0192.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.heldout_report.json_path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/heldout_l3_aoti24_v6_contract_v3_00400_00401_00402_00403_00404_clean_99f0192.pt",
+      "referenced_by": [
+        {
+          "json_pointer": "$.heldout_report.tensor_path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+      "referenced_by": [
+        {
+          "json_pointer": "$.archive.bundle_root",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence",
+      "referenced_by": [
+        {
+          "json_pointer": "$.archive.evidence_root",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/minddrive-real-l4.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.report.path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json"
+        }
+      ]
+    },
     {
       "covered_by_archive_root": null,
       "exists": true,
@@ -2265,7 +2407,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_checkpoint",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2282,7 +2424,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_l2_frontend",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -2295,7 +2437,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_l2_frontend",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2308,7 +2450,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_l2_frontend",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2321,7 +2463,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_l2_frontend",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2334,7 +2476,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_l2_frontend",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2347,7 +2489,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_l2_frontend",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2360,7 +2502,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "autovla_l2_frontend",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2442,7 +2584,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_checkpoint",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2618,7 +2760,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -2631,7 +2773,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2644,7 +2786,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -2657,7 +2799,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2670,7 +2812,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2683,7 +2825,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2696,7 +2838,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2709,7 +2851,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2722,7 +2864,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -2735,7 +2877,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2748,7 +2890,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2761,7 +2903,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2774,7 +2916,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2787,7 +2929,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2800,7 +2942,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l3",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2821,7 +2963,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -2838,7 +2980,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2851,7 +2993,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2864,7 +3006,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -2877,7 +3019,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2890,7 +3032,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2903,7 +3045,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2916,7 +3058,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2929,7 +3071,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2942,7 +3084,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2955,7 +3097,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -2968,7 +3110,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "diffusiondrive_l4",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3063,7 +3205,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "nsight_binary_profiles",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3076,7 +3218,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "nsight_binary_profiles",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3089,7 +3231,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "nsight_binary_profiles",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3102,7 +3244,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "nsight_binary_profiles",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3115,7 +3257,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -3128,7 +3270,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3141,7 +3283,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3154,7 +3296,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3167,7 +3309,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3180,7 +3322,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3193,7 +3335,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3206,7 +3348,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3219,7 +3361,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3232,7 +3374,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3245,7 +3387,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3258,7 +3400,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3271,7 +3413,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3284,7 +3426,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3297,7 +3439,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3310,7 +3452,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3323,7 +3465,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3336,7 +3478,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3349,7 +3491,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3362,7 +3504,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3375,7 +3517,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3388,7 +3530,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3401,7 +3543,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3414,7 +3556,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3427,7 +3569,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3440,7 +3582,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3453,7 +3595,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3466,7 +3608,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3479,7 +3621,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3492,7 +3634,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3505,7 +3647,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3518,7 +3660,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3531,7 +3673,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3544,7 +3686,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3557,7 +3699,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3570,7 +3712,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3583,7 +3725,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3596,7 +3738,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -3609,7 +3751,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3622,7 +3764,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3635,7 +3777,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3648,7 +3790,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3661,7 +3803,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3674,7 +3816,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3687,7 +3829,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3700,7 +3842,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3713,7 +3855,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3726,7 +3868,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3739,7 +3881,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3752,7 +3894,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3765,7 +3907,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3778,7 +3920,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3791,7 +3933,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3804,7 +3946,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3817,7 +3959,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3830,7 +3972,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3843,7 +3985,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3856,7 +3998,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3869,7 +4011,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3882,7 +4024,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3895,7 +4037,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3908,7 +4050,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3921,7 +4063,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3934,7 +4076,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3947,7 +4089,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3960,7 +4102,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3973,7 +4115,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3986,7 +4128,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -3999,7 +4141,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4012,7 +4154,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4025,7 +4167,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4038,7 +4180,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4051,7 +4193,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4064,7 +4206,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4077,7 +4219,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -4090,7 +4232,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4103,7 +4245,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4116,7 +4258,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4129,7 +4271,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4142,7 +4284,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4155,7 +4297,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4168,7 +4310,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4181,7 +4323,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4194,7 +4336,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4207,7 +4349,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4220,7 +4362,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4233,7 +4375,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4246,7 +4388,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4259,7 +4401,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4272,7 +4414,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4285,7 +4427,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4298,7 +4440,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4311,7 +4453,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4324,7 +4466,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4337,7 +4479,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4350,7 +4492,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4363,7 +4505,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4376,7 +4518,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4389,7 +4531,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4402,7 +4544,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4415,7 +4557,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4428,7 +4570,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4441,7 +4583,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4454,7 +4596,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4467,7 +4609,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4480,7 +4622,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4493,7 +4635,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4506,7 +4648,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4519,7 +4661,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4532,7 +4674,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4545,7 +4687,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4558,7 +4700,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "openvla_l3_capture",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4677,7 +4819,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -4694,7 +4836,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4707,7 +4849,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4720,7 +4862,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4733,7 +4875,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4746,7 +4888,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4759,7 +4901,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4772,7 +4914,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l3_capture_artifacts",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4785,7 +4927,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_aligned_bundle",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -4802,7 +4944,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_aligned_bundle",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4815,7 +4957,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_aligned_bundle",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4828,7 +4970,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
@@ -4841,7 +4983,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4854,7 +4996,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4867,7 +5009,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4880,7 +5022,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4893,7 +5035,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4906,7 +5048,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4919,7 +5061,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4932,7 +5074,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4945,7 +5087,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4958,7 +5100,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4971,7 +5113,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4984,7 +5126,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -4997,7 +5139,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -5010,7 +5152,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -5023,7 +5165,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -5036,7 +5178,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -5049,7 +5191,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -5062,7 +5204,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -5075,7 +5217,7 @@
       ]
     },
     {
-      "covered_by_archive_root": "smolvla_l4_support",
+      "covered_by_archive_root": null,
       "exists": true,
       "inside_repository": false,
       "kind": "file",
@@ -5096,8 +5238,8 @@
     },
     {
       "path": "doc/reports/vlaforge_architecture_v01/architecture_surface.json",
-      "sha256": "0468e3eb3d1f785af910d0ba9b76961fc94aaa51f8ad66e2cc186a3f694ac5d0",
-      "size_bytes": 17558
+      "sha256": "79f6853592f8545d2ac5be3b996645078944bd32395b290314a03efe9779e877",
+      "size_bytes": 18788
     },
     {
       "path": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json",
@@ -5113,6 +5255,16 @@
       "path": "doc/reports/vlaforge_heldout_v01/heldout_audit.json",
       "sha256": "8a9f9822cb82b4c2b2d2663491fa6caad9e376aa627711552ec04f7bfce706d4",
       "size_bytes": 39343
+    },
+    {
+      "path": "doc/reports/vlaforge_minddrive_v01/minddrive_l3.json",
+      "sha256": "ad51008513caea93e09505aa8d7c6571eaa0a1a4bb8659a464daa67898ced8f8",
+      "size_bytes": 4557
+    },
+    {
+      "path": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json",
+      "sha256": "ccab87383a3b584287820140c57050ca7037be50e65b61254ed630c691876e2f",
+      "size_bytes": 2372
     },
     {
       "path": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json",
@@ -5156,18 +5308,18 @@
     },
     {
       "path": "doc/reports/vlaforge_release_v01/release_gate.json",
-      "sha256": "672eae358ec9ce254e4c52b4d98855e1bd99c2217f46e575e54135ae7914d585",
-      "size_bytes": 21871
+      "sha256": "c488e0fd2c4366d25d4f3ef2f909de052a4ff4ff409c1b48b78322adda2b26f4",
+      "size_bytes": 23599
     }
   ],
   "installed_wheel_artifact_evaluation": {
     "artifact_evaluation": {
       "artifact": {
-        "path": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/artifact-audit/artifacts/audit_tensor_region.pt2",
-        "sha256": "d4cf88c73fc344edc8c27a34b7005adb94f4a59fd615be6b9389a338b6fa0e55",
-        "size_bytes": 449358
+        "path": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/artifacts/audit_tensor_region.pt2",
+        "sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
+        "size_bytes": 502734
       },
-      "compile_seconds": 5.356728733051568,
+      "compile_seconds": 5.284065851941705,
       "cuda": "12.8",
       "direct_backend_smoke": {
         "negative_cases": {},
@@ -5177,11 +5329,11 @@
       "invocation_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "invocation",
-        "artifact_sha256": "d4cf88c73fc344edc8c27a34b7005adb94f4a59fd615be6b9389a338b6fa0e55",
+        "artifact_sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "be7aa82e4e2852012bb4cb3ec3925e8b2221cf67e1a97b6bd2e971fb2c74d3d0",
-        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/artifact-audit/compile-bundle-invocation/bundle.json",
+        "bundle_digest": "0ddcd0218879b55e87f702211dc7008869cdba8537e38de50a2ca38b5f3a8a4b",
+        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-invocation/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -5198,19 +5350,19 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
+        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "72756fccfbbcd64c9a99aa32c78846f827a9a40b",
+        "source_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
         "status": "passed"
       },
       "session_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "session",
-        "artifact_sha256": "d4cf88c73fc344edc8c27a34b7005adb94f4a59fd615be6b9389a338b6fa0e55",
+        "artifact_sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "23df0dd8b8a386ed88470b81606c8253c650b9dfe187fc50ab87683fe4343d20",
-        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/artifact-audit/compile-bundle-session/bundle.json",
+        "bundle_digest": "b5a05d6e7f38a5f752ba28851e797c9cb608c792c3eb268a6e816032dc47491c",
+        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-session/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -5227,9 +5379,9 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
+        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "72756fccfbbcd64c9a99aa32c78846f827a9a40b",
+        "source_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
         "status": "passed"
       },
       "target": "sm_86",
@@ -5257,11 +5409,11 @@
           "--no-deps",
           "--no-build-isolation",
           "--wheel-dir",
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/wheels",
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/wheels",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge"
         ],
         "cwd": "/home/zhangzimo/Repos/private/edge-fm-x",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/logs/build-wheel.log",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/build-wheel.log",
         "name": "build-wheel"
       },
       {
@@ -5270,51 +5422,51 @@
           "-m",
           "venv",
           "--system-site-packages",
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv"
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/logs/create-venv.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/create-venv.log",
         "name": "create-venv"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
           "-m",
           "pip",
           "install",
           "--no-deps",
           "--force-reinstall",
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/logs/install-wheel.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/install-wheel.log",
         "name": "install-wheel"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
           "-c",
           "import json,sys,vlaforge;print(json.dumps({'prefix':sys.prefix,'package':vlaforge.__file__}))"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/logs/probe-installed-package.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/probe-installed-package.log",
         "name": "probe-installed-package"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
           "--work-dir",
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/artifact-audit",
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit",
           "--report",
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/installed-wheel-aoti-audit.json",
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/installed-wheel-aoti-audit.json",
           "--runtime-root",
-          "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv/share/vlaforge",
+          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/share/vlaforge",
           "--source-revision",
-          "72756fccfbbcd64c9a99aa32c78846f827a9a40b"
+          "f124cbd883ced86480a21d05d28f9092841cde0c"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/logs/installed-wheel-sm86-audit.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/installed-wheel-sm86-audit.log",
         "name": "installed-wheel-sm86-audit"
       }
     ],
@@ -5332,15 +5484,15 @@
     "isolation": {
       "installed_from_wheel_only": true,
       "non_git_cwd": true,
-      "package_import": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
-      "runtime_root": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean/venv/share/vlaforge",
+      "package_import": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
+      "runtime_root": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/share/vlaforge",
       "source_pythonpath_removed": true,
       "venv_system_site_packages": true
     },
     "passed": true,
     "repository": {
       "baseline_revision": "f0fc1be",
-      "evaluated_revision": "72756fccfbbcd64c9a99aa32c78846f827a9a40b",
+      "evaluated_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
       "source_dirty": false
     },
     "reproduction": {
@@ -5359,41 +5511,46 @@
     "status": "passed",
     "wheel": {
       "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
-      "runtime_source_entries": 24,
-      "sha256": "9f9879ba3bb4e3dcf6ee8378d1cb566a6953a4048b20ddeafc24ac54ea2d0e7b",
-      "size_bytes": 235264
+      "runtime_source_entries": 30,
+      "sha256": "44ebe1380dd5fa5718921fd45d11e5e89660fed901a044644f45e8f43966c637",
+      "size_bytes": 279798
     },
     "work_dir": {
       "large_files_committed": false,
-      "path": "/tmp/vlaforge-wheel-artifact-eval-72756fc-clean",
-      "size_bytes": 110368055
+      "path": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T",
+      "size_bytes": 111096161
     }
   },
   "paper_artifacts": [
     {
       "path": "doc/vlaforge_paper_draft.md",
-      "sha256": "3078568a814783fd5a0e2e5757afc6e9dadbc56231103f5a079b8e0146a15162",
-      "size_bytes": 33884
+      "sha256": "0b5a1bb4509b83c6cadf34bfa85cbd0004dbbbb6ec997378f7693c3c203a8652",
+      "size_bytes": 35585
     },
     {
       "path": "doc/vlaforge_paper_design.md",
-      "sha256": "5bc34b73040e2c0c708219a0059169d1eb86767f8d4f7137c34f311b2c308acf",
-      "size_bytes": 23850
+      "sha256": "aa7cf86b27f996b5340d075c94b9d5457a73d100c906a179e1c1e163db3c3b92",
+      "size_bytes": 24270
     },
     {
       "path": "doc/vlaforge_claim_evidence_map.md",
-      "sha256": "99fcd8dbd0747ab375c4bdad974f09bbb94c710be0dba1108e03bf4ddadb5a9d",
-      "size_bytes": 8354
+      "sha256": "cad84714dd7e55c01a52e5c459fb72f117c543c2090269fdac8fedc6f544f21c",
+      "size_bytes": 8745
     },
     {
       "path": "doc/model_cards/README.md",
-      "sha256": "4987943bf0a8dce1ae96c231ad0c563ce8b849e3aec498a6b42cc31d577dde08",
-      "size_bytes": 1587
+      "sha256": "fe804b7aff7ef5f2a640fb14e68db84619ecd99acfa37292a4e1253294cd86d2",
+      "size_bytes": 1754
     },
     {
       "path": "doc/model_cards/autovla.md",
       "sha256": "c152cdd43e2ceb524b8cd7cdf59c53a6dc0f7b59f9802b15cfe30137cc79e0bf",
       "size_bytes": 3001
+    },
+    {
+      "path": "doc/model_cards/minddrive.md",
+      "sha256": "f014d31a103224d09c420e63d05ddb92a97ad2a017d6427c1b2cd6ed84c1b56f",
+      "size_bytes": 13007
     },
     {
       "path": "doc/figures/vlaforge_paper/architecture.svg",
@@ -5418,7 +5575,7 @@
   ],
   "passed": true,
   "repository": {
-    "audited_revision": "72756fccfbbcd64c9a99aa32c78846f827a9a40b",
+    "audited_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
     "baseline_revision": "f0fc1be",
     "frozen_core_matches": true,
     "frozen_core_revision": "766e27bdfb34c3311dda7d444862b7f95d05c7b8",
@@ -5572,16 +5729,16 @@
   "schema": "vlaforge.reproducibility_manifest/1",
   "status": "passed",
   "summary": {
-    "absolute_reference_count": 254,
+    "absolute_reference_count": 264,
     "committed_raw_file_count": 316,
-    "external_reference_count": 211,
-    "formal_report_count": 14,
+    "external_reference_count": 221,
+    "formal_report_count": 16,
     "missing_external_reference_count": 1,
     "must_archive_missing_count": 0,
-    "must_archive_root_count": 10,
-    "must_archive_total_bytes": 139287584056,
+    "must_archive_root_count": 11,
+    "must_archive_total_bytes": 229548832371,
     "optional_archive_total_bytes": 195597818,
-    "paper_artifact_count": 9,
+    "paper_artifact_count": 10,
     "reproduction_command_count": 6
   }
 }

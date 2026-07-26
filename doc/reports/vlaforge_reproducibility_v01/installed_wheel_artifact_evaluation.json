@@ -1,0 +1,209 @@
+{
+  "artifact_evaluation": {
+    "artifact": {
+      "path": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/artifacts/audit_tensor_region.pt2",
+      "sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
+      "size_bytes": 502734
+    },
+    "compile_seconds": 5.284065851941705,
+    "cuda": "12.8",
+    "direct_backend_smoke": {
+      "negative_cases": {},
+      "reason": "installed runtime distribution intentionally excludes test-only C++ sources; generated Session exercises the production backend",
+      "status": "not_run"
+    },
+    "invocation_resident_bundle": {
+      "abi_validated": true,
+      "artifact_residency": "invocation",
+      "artifact_sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
+      "artifact_target": "sm_86",
+      "backend_variant": "torch-2.10-cu128",
+      "bundle_digest": "0ddcd0218879b55e87f702211dc7008869cdba8537e38de50a2ca38b5f3a8a4b",
+      "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-invocation/bundle.json",
+      "bundle_verified": true,
+      "invalid_python_environment_run": true,
+      "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
+      "max_abs_error": 4.340820147774593e-09,
+      "negative_cases": {
+        "abi-mismatch": "rejected",
+        "corrupt-artifact": "rejected",
+        "missing-artifact": "rejected",
+        "schema-mismatch": "rejected",
+        "wrong-device": "rejected",
+        "wrong-dtype": "rejected",
+        "wrong-layout": "rejected",
+        "wrong-shape": "rejected"
+      },
+      "output_elements": 16,
+      "python_linked": false,
+      "runner": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
+      "schema_validated": true,
+      "source_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
+      "status": "passed"
+    },
+    "session_resident_bundle": {
+      "abi_validated": true,
+      "artifact_residency": "session",
+      "artifact_sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
+      "artifact_target": "sm_86",
+      "backend_variant": "torch-2.10-cu128",
+      "bundle_digest": "b5a05d6e7f38a5f752ba28851e797c9cb608c792c3eb268a6e816032dc47491c",
+      "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-session/bundle.json",
+      "bundle_verified": true,
+      "invalid_python_environment_run": true,
+      "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
+      "max_abs_error": 4.340820147774593e-09,
+      "negative_cases": {
+        "abi-mismatch": "rejected",
+        "corrupt-artifact": "rejected",
+        "missing-artifact": "rejected",
+        "schema-mismatch": "rejected",
+        "wrong-device": "rejected",
+        "wrong-dtype": "rejected",
+        "wrong-layout": "rejected",
+        "wrong-shape": "rejected"
+      },
+      "output_elements": 16,
+      "python_linked": false,
+      "runner": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
+      "schema_validated": true,
+      "source_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
+      "status": "passed"
+    },
+    "target": "sm_86",
+    "torch": "2.10.0+cu128"
+  },
+  "audit_tool": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
+    "sha256": "934d9a9d8cc5dc9058547de577f6b494f1937cf9a5bc45a6fcb9206cec153b9f"
+  },
+  "claim_boundary": {
+    "host_cuda": true,
+    "model_kernel_optimization": false,
+    "orin": false,
+    "real_model": false,
+    "source_checkout_used_for_package_import": false
+  },
+  "classification": "synthetic Host-CUDA artifact-evaluation smoke; not real-model or Orin evidence",
+  "commands": [
+    {
+      "command": [
+        "/home/zhangzimo/miniconda3/bin/python",
+        "-m",
+        "pip",
+        "wheel",
+        "--no-deps",
+        "--no-build-isolation",
+        "--wheel-dir",
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/wheels",
+        "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge"
+      ],
+      "cwd": "/home/zhangzimo/Repos/private/edge-fm-x",
+      "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/build-wheel.log",
+      "name": "build-wheel"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/miniconda3/bin/python",
+        "-m",
+        "venv",
+        "--system-site-packages",
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv"
+      ],
+      "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+      "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/create-venv.log",
+      "name": "create-venv"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "--force-reinstall",
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
+      ],
+      "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+      "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/install-wheel.log",
+      "name": "install-wheel"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
+        "-c",
+        "import json,sys,vlaforge;print(json.dumps({'prefix':sys.prefix,'package':vlaforge.__file__}))"
+      ],
+      "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+      "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/probe-installed-package.log",
+      "name": "probe-installed-package"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
+        "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
+        "--work-dir",
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit",
+        "--report",
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/installed-wheel-aoti-audit.json",
+        "--runtime-root",
+        "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/share/vlaforge",
+        "--source-revision",
+        "f124cbd883ced86480a21d05d28f9092841cde0c"
+      ],
+      "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
+      "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/installed-wheel-sm86-audit.log",
+      "name": "installed-wheel-sm86-audit"
+    }
+  ],
+  "environment": {
+    "cmake": "cmake version 3.22.1",
+    "compiler": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "gpu": "NVIDIA GeForce RTX 3060, 8.6, 595.58.03, 12288 MiB, 170.00 W",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "machine": "x86_64",
+    "ncu": "Version 2025.1.0.0 (build 35237751) (public-release)",
+    "nsys": "NVIDIA Nsight Systems version 2024.6.2.225-246235244400v0",
+    "nvcc": "Build cuda_12.8.r12.8/compiler.35404655_0",
+    "python_builder": "3.13.12"
+  },
+  "isolation": {
+    "installed_from_wheel_only": true,
+    "non_git_cwd": true,
+    "package_import": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
+    "runtime_root": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/share/vlaforge",
+    "source_pythonpath_removed": true,
+    "venv_system_site_packages": true
+  },
+  "passed": true,
+  "repository": {
+    "baseline_revision": "f0fc1be",
+    "evaluated_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command_template": [
+      "/home/zhangzimo/miniconda3/bin/python",
+      "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/evaluate_wheel_artifact.py",
+      "--work-dir",
+      "<empty-work-dir>",
+      "--baseline-revision",
+      "f0fc1be",
+      "--report",
+      "<report.json>"
+    ]
+  },
+  "schema": "vlaforge.wheel_artifact_evaluation/1",
+  "status": "passed",
+  "wheel": {
+    "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
+    "runtime_source_entries": 30,
+    "sha256": "44ebe1380dd5fa5718921fd45d11e5e89660fed901a044644f45e8f43966c637",
+    "size_bytes": 279798
+  },
+  "work_dir": {
+    "large_files_committed": false,
+    "path": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T",
+    "size_bytes": 111096161
+  }
+}
