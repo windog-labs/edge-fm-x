@@ -269,8 +269,13 @@ def _reproduction_commands(
 def _du_bytes(path: Path) -> int:
     if not path.exists():
         return 0
+    # Evidence is often moved from an ephemeral experiment path into durable
+    # storage while the original path is retained as a compatibility symlink.
+    # GNU du measures the symlink inode unless the root is dereferenced, which
+    # would silently turn a multi-GiB archive into a byte-sized inventory row.
+    measured_path = path.resolve(strict=True)
     completed = subprocess.run(
-        ["du", "-sb", str(path)],
+        ["du", "-sb", str(measured_path)],
         check=True,
         capture_output=True,
         text=True,

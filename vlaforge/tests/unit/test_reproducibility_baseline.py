@@ -102,3 +102,16 @@ def test_formal_inventory_includes_matrix_ablations_and_autovla() -> None:
     assert "cuda_paper_matrix.json" in names
     assert "paper_ablations.json" in names
     assert "autovla_frontend_l2.json" in names
+
+
+def test_archive_size_dereferences_compatibility_symlink(
+    tmp_path: Path,
+) -> None:
+    audit = _module()
+    archive = tmp_path / "archive"
+    archive.mkdir()
+    (archive / "artifact.bin").write_bytes(b"vlaforge-archive")
+    compatibility_path = tmp_path / "ephemeral-root"
+    compatibility_path.symlink_to(archive, target_is_directory=True)
+
+    assert audit._du_bytes(compatibility_path) == audit._du_bytes(archive)
