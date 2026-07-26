@@ -313,7 +313,7 @@ opcode 或任意未验证 opcode。
 | P14 | 论文 artifact 可复现基线 | 完成：clean wheel、非 Git cwd、installed runtime、真实 `sm_86` AOTI、Bundle、invalid-Python C++ 与外部证据 inventory |
 | P15 | 5 workloads × 5 independent processes 统计实验 | 完成：150 fresh-process tasks、4,500 steady samples、30 cells、50 parity cells |
 | P16 | 一个真实 held-out 模型至少 L2 | 完成：AutoVLA real L2 decoder partition，core op delta=0；L3 candidate 未晋级 |
-| P17 | 论文初稿、表格与 artifact-evaluation 指南 | 初稿/图/claim map 已完成，待最终 gate 与 completion audit 刷新 |
+| P17 | 论文初稿、表格与 artifact-evaluation 指南 | 完成：论文、三张可复现图、claim map、final gate、manifest 与 completion audit |
 
 ## 9. 测试与验收
 
@@ -335,8 +335,8 @@ Host release gate：
 14. invalid `PYTHONHOME/PYTHONPATH` 仍运行，`ldd` 无 Python；
 15. 完整 Python tests 与 CTest 通过。
 
-2026-07-25 最终 Host-CUDA release gate：offline Python 215 passed/9
-opt-in skipped；CUDA AOTI 现场 opt-in 1 passed；real
+最终 Host-CUDA release gate 已在 2026-07-26 刷新：offline Python
+238 passed/10 opt-in skipped；CUDA AOTI 现场 opt-in 1 passed；real
 SmolVLA L4、DiffusionDrive L2/L3/L4 opt-in 均各 1 passed；clean C++ Release、CPU 7/7 CTest、CUDA/AOTI
 8/8 CTest 与 install-export 均通过。RTX 3060
 `sm_86` 上真实 AOTI
@@ -450,8 +450,8 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    `doc/reports/vlaforge_ablations_v01/`；
 3. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3
    conservative candidate 按预声明阈值未晋级；
-4. **当前收口**：刷新最终 Python/CPU-CUDA CTest/live AOTI/clean-wheel
-   gate、reproducibility manifest 和机械 completion audit；
+4. **已完成**：最终 Python/CPU-CUDA CTest/live AOTI/clean-wheel gate、
+   reproducibility manifest 和机械 completion audit；
 5. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
    探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
 6. Orin 环境就绪后可选执行模型专属 SM87 artifact 和 latency/power/thermal

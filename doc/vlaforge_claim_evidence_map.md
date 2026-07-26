@@ -79,11 +79,12 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | invalid Python environment | runner succeeds with invalid `PYTHONHOME/PYTHONPATH` | same |
 | no Python link | `ldd` has no `libpython` | same |
 | schema/ABI/hash/target mismatch | every negative case rejected | same |
-| Python suite | all non-opt-in tests pass | final completion audit will refresh |
-| CPU CTest | 7/7 | final completion audit will refresh |
-| CUDA CTest | 8/8 | final completion audit will refresh |
-| live CUDA AOTI | pass | final completion audit will refresh |
-| clean worktree/report provenance | `source_dirty=false` for formal runs | matrix/ablation reports pass |
+| Python suite | all non-opt-in tests pass | 238 passed, 10 explicit real-environment opt-in skipped |
+| CPU CTest | 7/7 | passed |
+| CUDA CTest | 8/8 | passed |
+| live CUDA AOTI | pass | 1/1 passed |
+| clean installed wheel/no-Python | current wheel, non-Git cwd, invalid Python environment | passed |
+| clean worktree/report provenance | `source_dirty=false` for formal runs | matrix, ablation, AutoVLA L2, release and reproducibility reports pass |
 
 ## Prohibited claim inflation
 
@@ -117,3 +118,6 @@ The current paper is submission-ready when:
 Orin, OpenVLA real L4, real-vehicle/sensor integration, cross-GPU performance,
 and second-machine reproduction remain optional evidence after these five
 conditions pass.
+
+Current status: all five conditions pass. The machine-readable final decision
+is `doc/reports/vlaforge_paper_completion_v01/paper_completion.json`.

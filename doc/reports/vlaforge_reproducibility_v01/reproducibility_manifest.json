@@ -1669,6 +1669,30 @@
     },
     {
       "exists": true,
+      "must_archive": true,
+      "name": "autovla_checkpoint",
+      "path": "/tmp/vlaforge-autovla-checkpoint-a7d7ba3",
+      "reason": "pinned 16.29 GB AutoVLA PDMS 89 checkpoint",
+      "size_bytes": 16292681428
+    },
+    {
+      "exists": true,
+      "must_archive": true,
+      "name": "autovla_l2_frontend",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54",
+      "reason": "real AutoVLA partitioned L2 exports and capture evidence",
+      "size_bytes": 144688453
+    },
+    {
+      "exists": true,
+      "must_archive": false,
+      "name": "autovla_l3_candidate",
+      "path": "/tmp/vlaforge-autovla-l3-conservative-f750e54",
+      "reason": "optional conservative AOTI L3-candidate artifacts",
+      "size_bytes": 145957004
+    },
+    {
+      "exists": true,
       "must_archive": false,
       "name": "nsight_binary_profiles",
       "path": "/tmp/vlaforge-nsight-v2",
@@ -2237,6 +2261,183 @@
         {
           "json_pointer": "$.reproduction.command[11]",
           "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_checkpoint",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-checkpoint-a7d7ba3/AutoVLA_PDMS_89.ckpt",
+      "referenced_by": [
+        {
+          "json_pointer": "$.checkpoint.path",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[5]",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_l2_frontend",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54/exports",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[11]",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_l2_frontend",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_action_projection.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[1].evidence",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_l2_frontend",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_action_projection.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[1].program",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_l2_frontend",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_decoder_mlp.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[0].evidence",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_l2_frontend",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_decoder_mlp.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[0].program",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_l2_frontend",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_trajectory_decode.capture.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[2].evidence",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "autovla_l2_frontend",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-l2-f750e54/exports/autovla_trajectory_decode.pt2e",
+      "referenced_by": [
+        {
+          "json_pointer": "$.captures[2].program",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/tmp/vlaforge-autovla-minimal-ba34eed",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[3]",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-minimal-ba34eed/codebook_cache/agent_vocab.pkl",
+      "referenced_by": [
+        {
+          "json_pointer": "$.codebook.path",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[7]",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-minimal-ba34eed/config/eval/qwen2.5-vl-3B-nusc-sft-eval.yaml",
+      "referenced_by": [
+        {
+          "json_pointer": "$.upstream.source_files[2].path",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-minimal-ba34eed/models/action_tokenizer.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.upstream.source_files[1].path",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/tmp/vlaforge-autovla-minimal-ba34eed/models/autovla.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.upstream.source_files[0].path",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
         }
       ]
     },
@@ -4426,6 +4627,23 @@
       "exists": true,
       "inside_repository": false,
       "kind": "file",
+      "path": "/tmp/vlaforge-qwen2.5-vl-3b-config/config.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.qwen.config_path",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[9]",
+          "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
       "path": "/tmp/vlaforge-smolvla-env/bin/python",
       "referenced_by": [
         {
@@ -4882,6 +5100,11 @@
       "size_bytes": 17558
     },
     {
+      "path": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json",
+      "sha256": "6948c6acfdd037be961ad5483094fc82c4e65cf59f1f36c3af35cec774af3fea",
+      "size_bytes": 11686
+    },
+    {
       "path": "doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
       "sha256": "fc7a476c9bc9130e9c2550fc869dc87d220ab95a9ddd85230773cf7b6819a3cb",
       "size_bytes": 152407
@@ -4933,18 +5156,18 @@
     },
     {
       "path": "doc/reports/vlaforge_release_v01/release_gate.json",
-      "sha256": "7d0a4e54d94ce4a0ff7e1f883ccb083158cd46804f998f897dfbe78f9cd9ddaa",
-      "size_bytes": 20311
+      "sha256": "672eae358ec9ce254e4c52b4d98855e1bd99c2217f46e575e54135ae7914d585",
+      "size_bytes": 21871
     }
   ],
   "installed_wheel_artifact_evaluation": {
     "artifact_evaluation": {
       "artifact": {
-        "path": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/artifacts/audit_tensor_region.pt2",
-        "sha256": "3526d7cb7d65b2c39b606b7bd061a6561f59e2e668fcd59c5936086a80c8c13c",
-        "size_bytes": 428046
+        "path": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/artifact-audit/artifacts/audit_tensor_region.pt2",
+        "sha256": "2402348270f2f08939ae29cc54ef3a88e5cd2b755e4fb0575ab24287ce561e57",
+        "size_bytes": 444046
       },
-      "compile_seconds": 5.2950173281133175,
+      "compile_seconds": 5.2826027639675885,
       "cuda": "12.8",
       "direct_backend_smoke": {
         "negative_cases": {},
@@ -4954,11 +5177,11 @@
       "invocation_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "invocation",
-        "artifact_sha256": "3526d7cb7d65b2c39b606b7bd061a6561f59e2e668fcd59c5936086a80c8c13c",
+        "artifact_sha256": "2402348270f2f08939ae29cc54ef3a88e5cd2b755e4fb0575ab24287ce561e57",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "697decdc3549c14961b525385b1da9bee64ab3b7ac1b56b623014e1820a55fd2",
-        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-invocation/bundle.json",
+        "bundle_digest": "768f0545b5fc16af66482ba1903ccef6d2c649448b36a3af1cba1598f892d66e",
+        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/artifact-audit/compile-bundle-invocation/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -4975,19 +5198,19 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
+        "runner": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
+        "source_revision": "9aeb0ef4f8d3f0fe3c5d0bc9f51f2f3b5dcdc355",
         "status": "passed"
       },
       "session_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "session",
-        "artifact_sha256": "3526d7cb7d65b2c39b606b7bd061a6561f59e2e668fcd59c5936086a80c8c13c",
+        "artifact_sha256": "2402348270f2f08939ae29cc54ef3a88e5cd2b755e4fb0575ab24287ce561e57",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "81d648be456cfb6eec94a7b1ae81a02ab8b60a869bc842eb19b9f12546ed6753",
-        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-session/bundle.json",
+        "bundle_digest": "d4236a0f2d6c26cbb4fbb71a9875305a92a2bacbfc6269752e0880201194d168",
+        "bundle_manifest": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/artifact-audit/compile-bundle-session/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -5004,9 +5227,9 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
+        "runner": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
+        "source_revision": "9aeb0ef4f8d3f0fe3c5d0bc9f51f2f3b5dcdc355",
         "status": "passed"
       },
       "target": "sm_86",
@@ -5034,11 +5257,11 @@
           "--no-deps",
           "--no-build-isolation",
           "--wheel-dir",
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/wheels",
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/wheels",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge"
         ],
         "cwd": "/home/zhangzimo/Repos/private/edge-fm-x",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/build-wheel.log",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/logs/build-wheel.log",
         "name": "build-wheel"
       },
       {
@@ -5047,51 +5270,51 @@
           "-m",
           "venv",
           "--system-site-packages",
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv"
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/create-venv.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/logs/create-venv.log",
         "name": "create-venv"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/bin/python",
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv/bin/python",
           "-m",
           "pip",
           "install",
           "--no-deps",
           "--force-reinstall",
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/install-wheel.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/logs/install-wheel.log",
         "name": "install-wheel"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/bin/python",
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv/bin/python",
           "-c",
           "import json,sys,vlaforge;print(json.dumps({'prefix':sys.prefix,'package':vlaforge.__file__}))"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/probe-installed-package.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/logs/probe-installed-package.log",
         "name": "probe-installed-package"
       },
       {
         "command": [
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/bin/python",
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv/bin/python",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
           "--work-dir",
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/artifact-audit",
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/artifact-audit",
           "--report",
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/installed-wheel-aoti-audit.json",
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/installed-wheel-aoti-audit.json",
           "--runtime-root",
-          "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/share/vlaforge",
+          "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv/share/vlaforge",
           "--source-revision",
-          "f831c814d7bbe434b2246ba3788c7e00f6b27d49"
+          "9aeb0ef4f8d3f0fe3c5d0bc9f51f2f3b5dcdc355"
         ],
-        "cwd": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/non-git-cwd",
-        "log": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/logs/installed-wheel-sm86-audit.log",
+        "cwd": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/non-git-cwd",
+        "log": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/logs/installed-wheel-sm86-audit.log",
         "name": "installed-wheel-sm86-audit"
       }
     ],
@@ -5109,15 +5332,15 @@
     "isolation": {
       "installed_from_wheel_only": true,
       "non_git_cwd": true,
-      "package_import": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
-      "runtime_root": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean/venv/share/vlaforge",
+      "package_import": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
+      "runtime_root": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean/venv/share/vlaforge",
       "source_pythonpath_removed": true,
       "venv_system_site_packages": true
     },
     "passed": true,
     "repository": {
       "baseline_revision": "f0fc1be",
-      "evaluated_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
+      "evaluated_revision": "9aeb0ef4f8d3f0fe3c5d0bc9f51f2f3b5dcdc355",
       "source_dirty": false
     },
     "reproduction": {
@@ -5137,18 +5360,65 @@
     "wheel": {
       "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
       "runtime_source_entries": 24,
-      "sha256": "66c535eea2c9cff002014dcbdffa4a38cab0defebbc28d9bcc218973961ef6d5",
-      "size_bytes": 228303
+      "sha256": "0425df02f94ead9cb7639cd8ba70c8c3be4ab4ef4820286df85c82a2bd680025",
+      "size_bytes": 235264
     },
     "work_dir": {
       "large_files_committed": false,
-      "path": "/tmp/vlaforge-wheel-artifact-eval-f831c81-clean",
-      "size_bytes": 110239634
+      "path": "/tmp/vlaforge-wheel-artifact-eval-9aeb0ef-clean",
+      "size_bytes": 110352121
     }
   },
+  "paper_artifacts": [
+    {
+      "path": "doc/vlaforge_paper_draft.md",
+      "sha256": "3078568a814783fd5a0e2e5757afc6e9dadbc56231103f5a079b8e0146a15162",
+      "size_bytes": 33884
+    },
+    {
+      "path": "doc/vlaforge_paper_design.md",
+      "sha256": "e07705412ff4d767ce28f0558c41c11ca0c41c57c02e33c4371130354273cdb9",
+      "size_bytes": 23840
+    },
+    {
+      "path": "doc/vlaforge_claim_evidence_map.md",
+      "sha256": "ce365807871db0819849acfa1ac44533dd8dd284b531e8c5a0b96f75a2c6a0e4",
+      "size_bytes": 8124
+    },
+    {
+      "path": "doc/model_cards/README.md",
+      "sha256": "4987943bf0a8dce1ae96c231ad0c563ce8b849e3aec498a6b42cc31d577dde08",
+      "size_bytes": 1587
+    },
+    {
+      "path": "doc/model_cards/autovla.md",
+      "sha256": "c152cdd43e2ceb524b8cd7cdf59c53a6dc0f7b59f9802b15cfe30137cc79e0bf",
+      "size_bytes": 3001
+    },
+    {
+      "path": "doc/figures/vlaforge_paper/architecture.svg",
+      "sha256": "e74788d9f47cc3a09c1289fd949100b8921a45f49b6dc53d396c4a7e74f5aba1",
+      "size_bytes": 6212
+    },
+    {
+      "path": "doc/figures/vlaforge_paper/performance.svg",
+      "sha256": "7dee22e3f592fff40a5663c4527ddeaa3db0794b0c47c2929de2fbb42ca02277",
+      "size_bytes": 6775
+    },
+    {
+      "path": "doc/figures/vlaforge_paper/ablations.svg",
+      "sha256": "daf4677013c2657df011a72e2dd517d68f34ab98c413996ba54cc0910765abe1",
+      "size_bytes": 7236
+    },
+    {
+      "path": "doc/figures/vlaforge_paper/figures_manifest.json",
+      "sha256": "7c812e377fa31a1f5a653a05e8855ff6961beacb782070b8f0d26a927cf205f7",
+      "size_bytes": 1233
+    }
+  ],
   "passed": true,
   "repository": {
-    "audited_revision": "f831c814d7bbe434b2246ba3788c7e00f6b27d49",
+    "audited_revision": "9aeb0ef4f8d3f0fe3c5d0bc9f51f2f3b5dcdc355",
     "baseline_revision": "f0fc1be",
     "frozen_core_matches": true,
     "frozen_core_revision": "766e27bdfb34c3311dda7d444862b7f95d05c7b8",
@@ -5156,6 +5426,28 @@
     "source_dirty": false
   },
   "reproduction_commands": [
+    {
+      "command": [
+        "/home/zhangzimo/miniconda3/bin/python",
+        "vlaforge/tools/audit_real_autovla_frontend.py",
+        "--source-root",
+        "/tmp/vlaforge-autovla-minimal-ba34eed",
+        "--checkpoint",
+        "/tmp/vlaforge-autovla-checkpoint-a7d7ba3/AutoVLA_PDMS_89.ckpt",
+        "--codebook",
+        "/tmp/vlaforge-autovla-minimal-ba34eed/codebook_cache/agent_vocab.pkl",
+        "--qwen-config",
+        "/tmp/vlaforge-qwen2.5-vl-3b-config/config.json",
+        "--export-dir",
+        "/tmp/vlaforge-autovla-l2-f750e54/exports",
+        "--report",
+        "<report.json>",
+        "--device",
+        "cuda:0"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+    },
     {
       "command": [
         "/tmp/vlaforge-smolvla-env/bin/python",
@@ -5280,15 +5572,16 @@
   "schema": "vlaforge.reproducibility_manifest/1",
   "status": "passed",
   "summary": {
-    "absolute_reference_count": 240,
+    "absolute_reference_count": 254,
     "committed_raw_file_count": 316,
-    "external_reference_count": 197,
-    "formal_report_count": 13,
+    "external_reference_count": 211,
+    "formal_report_count": 14,
     "missing_external_reference_count": 1,
     "must_archive_missing_count": 0,
-    "must_archive_root_count": 8,
-    "must_archive_total_bytes": 122850214175,
-    "optional_archive_total_bytes": 49640814,
-    "reproduction_command_count": 5
+    "must_archive_root_count": 10,
+    "must_archive_total_bytes": 139287584056,
+    "optional_archive_total_bytes": 195597818,
+    "paper_artifact_count": 9,
+    "reproduction_command_count": 6
   }
 }

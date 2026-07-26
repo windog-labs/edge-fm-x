@@ -23,6 +23,9 @@ Current v0.2 evidence:
   zero new core ops, plus a non-promoted conservative AOTI L3 candidate whose
   final tokens/trajectory pass but intermediate NRMSE exceeds the predeclared
   threshold;
+- `vlaforge_paper_completion_v01/`: mechanical submission audit over the
+  required Host-CUDA matrix, ablations, held-out L2, final release gate, paper
+  materials and explicit optional/non-blocking evidence;
 - `vlaforge_orin_validation.md`: JetPack arm64 VLAForge runtime and generated
   Session portability evidence. Real Orin GPU execution is an optional
   cross-platform extension, not a Host-CUDA paper completion condition.

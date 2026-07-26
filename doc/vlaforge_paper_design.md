@@ -461,7 +461,7 @@ Generality：
   allocated 533,944,320 bytes，Host RSS 1,473,228,800 bytes。conservative
   AOTI 最终 token exact、trajectory max abs `1.91e-6`，但中间 Region NRMSE
   超过 `1e-3`，因此只记录 L3-candidate；
-- 最终 Host-CUDA release gate 为 Python `215 passed/9 opt-in skipped`、
+- 最终 Host-CUDA release gate 已刷新为 Python `238 passed/10 opt-in skipped`、
   CUDA AOTI 现场 `1 passed`、CPU/CUDA CTest `7/7` 与 `8/8`。wheel
   安装后的 CLI 可从非 Git cwd 生成 verified Compile Bundle，runner 在无效
   Python 环境执行且不链接 `libpython`；

@@ -1,0 +1,123 @@
+{
+  "claim_boundary": {
+    "cross_gpu_required": false,
+    "host_cuda_only": true,
+    "legacy_edgefm_cuda_kernel_work_required": false,
+    "measured_platform": "RTX 3060 sm_86 / CUDA 12.8",
+    "openvla_l4_required": false,
+    "orin_required": false,
+    "real_vehicle_or_sensor_stack_required": false,
+    "second_machine_required": false
+  },
+  "evidence": {
+    "cuda_matrix": {
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_cuda_matrix_v01/cuda_paper_matrix.json",
+      "schema": "vlaforge.cuda_paper_matrix/1",
+      "sha256": "fc7a476c9bc9130e9c2550fc869dc87d220ab95a9ddd85230773cf7b6819a3cb",
+      "status": "passed"
+    },
+    "final_release_gate": {
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_release_v01/release_gate.json",
+      "schema": "vlaforge.host_cuda_release_gate/1",
+      "sha256": "672eae358ec9ce254e4c52b4d98855e1bd99c2217f46e575e54135ae7914d585",
+      "status": "passed"
+    },
+    "formal_ablations": {
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_ablations_v01/paper_ablations.json",
+      "schema": "vlaforge.cuda_paper_ablations/1",
+      "sha256": "2a98af20fa334bfedbbd5dce7d7828adf5be02c9dac71cc40c32b6fc026b33ba",
+      "status": "passed"
+    },
+    "heldout_real_model": {
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json",
+      "schema": "vlaforge.autovla_real_frontend/1",
+      "sha256": "6948c6acfdd037be961ad5483094fc82c4e65cf59f1f36c3af35cec774af3fea",
+      "status": "passed"
+    }
+  },
+  "optional_not_required": [
+    "Orin latency, power, thermal, SM87, or JetPack evidence",
+    "real-vehicle or sensor closed-loop integration",
+    "ROS/Cyber, periodic scheduling, dropped-frame, or publish logic",
+    "OpenVLA real L4",
+    "cross-GPU performance",
+    "second-machine independent artifact reproduction",
+    "legacy EdgeFM CUDA kernel compilation or optimization"
+  ],
+  "paper_positioning": "Stateful Invocation Whole-Program Compilation for VLA Deployment",
+  "passed": true,
+  "required_host_cuda_gates": {
+    "final_python_cpp_cuda": {
+      "clean_wheel_no_python": true,
+      "cpu_ctest": "7/7",
+      "cuda_ctest": "8/8",
+      "legacy_cuda_kernels_compiled": false,
+      "live_cuda_aoti": true,
+      "passed": true,
+      "python_passed": 238
+    },
+    "formal_ablations": {
+      "formal_ablations": [
+        "exact reuse",
+        "static arena",
+        "transaction/failure/retry",
+        "deployment boundary"
+      ],
+      "passed": true
+    },
+    "heldout_real_model": {
+      "core_op_delta": 0,
+      "evidence_level": "L2-partitioned-real-checkpoint-frontend",
+      "model": "AutoVLA PDMS 89",
+      "partitioned": true,
+      "passed": true
+    },
+    "paper_artifact": {
+      "artifact_readme": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_reproducibility_v01/README.md",
+      "claim_evidence_map": "/home/zhangzimo/Repos/private/edge-fm-x/doc/vlaforge_claim_evidence_map.md",
+      "figures": [
+        {
+          "name": "architecture.svg",
+          "sha256": "e74788d9f47cc3a09c1289fd949100b8921a45f49b6dc53d396c4a7e74f5aba1",
+          "size_bytes": 6212
+        },
+        {
+          "name": "performance.svg",
+          "sha256": "7dee22e3f592fff40a5663c4527ddeaa3db0794b0c47c2929de2fbb42ca02277",
+          "size_bytes": 6775
+        },
+        {
+          "name": "ablations.svg",
+          "sha256": "daf4677013c2657df011a72e2dd517d68f34ab98c413996ba54cc0910765abe1",
+          "size_bytes": 7236
+        }
+      ],
+      "model_card": "/home/zhangzimo/Repos/private/edge-fm-x/doc/model_cards/autovla.md",
+      "paper": "/home/zhangzimo/Repos/private/edge-fm-x/doc/vlaforge_paper_draft.md",
+      "passed": true
+    },
+    "performance_matrix": {
+      "cells": 30,
+      "passed": true,
+      "statistics": [
+        "mean",
+        "p50",
+        "p90",
+        "p99",
+        "process-mean standard deviation",
+        "process-cluster bootstrap 95% CI"
+      ],
+      "tasks": 150
+    }
+  },
+  "schema": "vlaforge.paper_completion_audit/1",
+  "status": "passed",
+  "submission_ready": true,
+  "summary": {
+    "core_op_delta": 0,
+    "heldout_evidence_level": "L2-partitioned-real-checkpoint-frontend",
+    "required_gate_count": 5,
+    "required_gate_passed": 5,
+    "submission_ready": true
+  }
+}

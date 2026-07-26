@@ -201,10 +201,10 @@ compiled artifacts.
 
 ## Final Host-CUDA release gate
 
-The final clean gate passed 215 offline Python tests with nine explicitly
-gated real-model tests, one live CUDA AOTI package test, 7/7 CPU CTests, and
-8/8 CUDA/AOTI CTests. Both CPU and CUDA installed-package consumers built and
-ran.
+The final clean gate was refreshed on 2026-07-26 and passed 238 offline Python
+tests with ten explicitly gated real-environment tests, one live CUDA AOTI
+package test, 7/7 CPU CTests, and 8/8 CUDA/AOTI CTests. Both CPU and CUDA
+installed-package consumers built and ran.
 
 The gate found and fixed a wheel-only defect: the CLI previously assumed a
 Git checkout and did not ship its C++ runtime source. The installed wheel now
