@@ -23,6 +23,31 @@
     "tensor_path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/heldout_l3_aoti24_v6_contract_v3_00400_00401_00402_00403_00404_clean_99f0192.pt",
     "tensor_sha256": "479703872f4b91e44ce944a3d76f5664f33c2ae6518189d9e1a5bf41dafd81bd"
   },
+  "l4_feasibility": {
+    "aoti_backend": {
+      "package_regression": "passed with LibTorch 2.10.0+cu128",
+      "raw_shared_library": "built and executed with LibTorch 2.4.1+cu118",
+      "status": "passed"
+    },
+    "attention_provider": {
+      "all_contract_v3_outputs_within_threshold": true,
+      "evidence_role": "development",
+      "json_path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/development_l3_aoti24_v6_sdpa_contract_v3_00400_00401_00402_00403_00404.json",
+      "json_sha256": "cd82cdd9edcbed2769322809988d5f60a7b721ff892b7732087d526cb5fb6b77",
+      "provider": "aoti24-contiguous-physical-regions+aten-sdpa-cuda",
+      "tensor_path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/development_l3_aoti24_v6_sdpa_contract_v3_00400_00401_00402_00403_00404.pt",
+      "tensor_sha256": "80c4badb6212ee81a9fb45f40550bde088071800bd1f6f41aa66b3ed3ff2ef48"
+    },
+    "session_residency": {
+      "all_resident": true,
+      "artifact_count": 64,
+      "cuda_driver_used_delta_bytes": 5651824640,
+      "current_rss_bytes": 6121152512,
+      "report_path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/artifacts/reports/aoti24_all_contiguous_v6/residency_rtx3060.json",
+      "report_sha256": "188599bebcc800a886169c7a51709b511fad1de690d28e1aaa3f13bbf80bfa99",
+      "scope": "fresh-process load-only feasibility, not L4"
+    }
+  },
   "model": {
     "authoritative_state_slots": 16,
     "logical_regions": 8,

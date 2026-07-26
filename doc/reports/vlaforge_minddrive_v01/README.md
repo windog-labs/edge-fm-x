@@ -22,3 +22,14 @@ digest before execution.
 The next promotion gate is a verified Compile Bundle and generated no-Python
 C++ Session that executes the same physical artifacts and compiled CUDA
 attention provider without Python orchestration.
+
+The first L4 feasibility gates are now recorded in `minddrive_l3.json`:
+
+- the backend builds against both LibTorch 2.4 and 2.10 and executes a raw
+  PyTorch 2.4 AOTI `.so` through the stable RegionExecutable ABI;
+- all 64 verified raw artifacts can be resident together on the RTX 3060;
+- an ATen SDPA provider stays within every frozen contract-v3 output/state
+  threshold on the five-frame development rerun, so generated C++ does not
+  need the Python FlashAttention wrapper.
+
+These are provider feasibility results, not an L4 promotion.

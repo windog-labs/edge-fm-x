@@ -5,8 +5,17 @@
 #include <ATen/ops/from_blob.h>
 #include <c10/cuda/CUDAGuard.h>
 #include <c10/cuda/CUDAFunctions.h>
-#include <torch/csrc/inductor/aoti_package/model_package_loader.h>
+#include <torch/csrc/inductor/aoti_runner/model_container_runner_cpu.h>
+#include <torch/csrc/inductor/aoti_runner/model_container_runner_cuda.h>
 #include <torch/version.h>
+
+#if TORCH_VERSION_MAJOR > 2 || \
+    (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 6)
+#include <torch/csrc/inductor/aoti_package/model_package_loader.h>
+#define VLAFORGE_HAS_AOTI_PACKAGE_LOADER 1
+#else
+#define VLAFORGE_HAS_AOTI_PACKAGE_LOADER 0
+#endif
 
 #include <algorithm>
 #include <array>
@@ -152,7 +161,11 @@ struct VLAForgeRegionExecutable {
   std::uint32_t abi_version = 0u;
   VLAForgeDeviceKind device_kind = VLAFORGE_DEVICE_CPU;
   int device_ordinal = 0;
-  std::unique_ptr<torch::inductor::AOTIModelPackageLoader> loader;
+#if VLAFORGE_HAS_AOTI_PACKAGE_LOADER
+  std::unique_ptr<torch::inductor::AOTIModelPackageLoader> package_loader;
+#endif
+  std::unique_ptr<torch::inductor::AOTIModelContainerRunnerCpu> cpu_runner;
+  std::unique_ptr<torch::inductor::AOTIModelContainerRunnerCuda> cuda_runner;
   std::array<Binding, kMaximumBindings> inputs{};
   std::array<Binding, kMaximumBindings> outputs{};
   std::size_t input_count = 0u;
@@ -167,6 +180,39 @@ struct VLAForgeRegionExecutable {
 };
 
 namespace {
+
+bool IsRawSharedLibrary(std::string_view path) {
+  constexpr std::string_view kSharedLibrarySuffix = ".so";
+  return path.size() >= kSharedLibrarySuffix.size() &&
+      path.substr(path.size() - kSharedLibrarySuffix.size()) ==
+      kSharedLibrarySuffix;
+}
+
+bool IsLoaded(const VLAForgeRegionExecutable& executable) {
+#if VLAFORGE_HAS_AOTI_PACKAGE_LOADER
+  if (executable.package_loader != nullptr) {
+    return true;
+  }
+#endif
+  return executable.cpu_runner != nullptr || executable.cuda_runner != nullptr;
+}
+
+std::vector<at::Tensor> RunLoaded(
+    VLAForgeRegionExecutable& executable,
+    std::vector<at::Tensor>& inputs) {
+#if VLAFORGE_HAS_AOTI_PACKAGE_LOADER
+  if (executable.package_loader != nullptr) {
+    return executable.package_loader->run(inputs);
+  }
+#endif
+  if (executable.cuda_runner != nullptr) {
+    return executable.cuda_runner->run(inputs);
+  }
+  if (executable.cpu_runner != nullptr) {
+    return executable.cpu_runner->run(inputs);
+  }
+  throw std::runtime_error("AOTI executable is not loaded");
+}
 
 bool OnExecutableDevice(
     const at::Tensor& tensor,
@@ -241,25 +287,47 @@ VLAForgeStatus AotiLoad(
     return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
                                  "AOTI artifact target mismatch");
   }
+  if (IsLoaded(*executable)) {
+    return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
+                                 "AOTI executable is already loaded");
+  }
   try {
     std::optional<c10::cuda::CUDAGuard> guard;
     if (executable->device_kind == VLAFORGE_DEVICE_CUDA) {
       guard.emplace(executable->device_ordinal);
     }
+    const std::string path(artifact->path, artifact->path_size);
+    if (IsRawSharedLibrary(path)) {
+      if (executable->device_kind == VLAFORGE_DEVICE_CUDA) {
+        executable->cuda_runner = std::make_unique<
+            torch::inductor::AOTIModelContainerRunnerCuda>(
+                path, 1u, "cuda:" + std::to_string(
+                    executable->device_ordinal));
+      } else {
+        executable->cpu_runner = std::make_unique<
+            torch::inductor::AOTIModelContainerRunnerCpu>(path, 1u);
+      }
+    } else {
+#if VLAFORGE_HAS_AOTI_PACKAGE_LOADER
 #if TORCH_VERSION_MAJOR > 2 || \
     (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 10)
-    executable->loader =
-        std::make_unique<torch::inductor::AOTIModelPackageLoader>(
-            std::string(artifact->path, artifact->path_size), "model",
-            true, 1u,
-            executable->device_kind == VLAFORGE_DEVICE_CUDA
-                ? executable->device_ordinal
-                : -1);
+      executable->package_loader =
+          std::make_unique<torch::inductor::AOTIModelPackageLoader>(
+              path, "model", true, 1u,
+              executable->device_kind == VLAFORGE_DEVICE_CUDA
+                  ? executable->device_ordinal
+                  : -1);
 #else
-    executable->loader =
-        std::make_unique<torch::inductor::AOTIModelPackageLoader>(
-            std::string(artifact->path, artifact->path_size), "model");
+      executable->package_loader =
+          std::make_unique<torch::inductor::AOTIModelPackageLoader>(
+              path, "model");
 #endif
+#else
+      return vlaforge_status_error(
+          VLAFORGE_STATUS_UNSUPPORTED_ABI,
+          "this LibTorch version supports raw AOTI shared libraries only");
+#endif
+    }
   } catch (const std::exception& error) {
     return executable->RecordError(error.what());
   }
@@ -355,7 +423,7 @@ VLAForgeStatus AotiBindWorkspace(
 }
 
 VLAForgeStatus AotiRun(VLAForgeRegionExecutable* executable) {
-  if (executable == nullptr || executable->loader == nullptr) {
+  if (executable == nullptr || !IsLoaded(*executable)) {
     return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
                                  "AOTI executable is not loaded");
   }
@@ -382,7 +450,7 @@ VLAForgeStatus AotiRun(VLAForgeRegionExecutable* executable) {
     for (std::size_t index = 0; index < executable->input_count; ++index) {
       inputs.push_back(TensorFromView(executable->inputs[index].view));
     }
-    auto outputs = executable->loader->run(inputs);
+    auto outputs = RunLoaded(*executable, inputs);
     if (outputs.size() != executable->output_count) {
       return executable->RecordError("AOTI output count mismatch");
     }

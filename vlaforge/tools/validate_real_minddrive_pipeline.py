@@ -213,22 +213,32 @@ def _run_stateful_aoti_artifact(
 
 
 def _run_partitioned_aoti_vision(
-    source_root: Path,
+    source_root: Path | None,
     artifact_root: Path,
     invocations: tuple[tuple[Any, ...], ...],
     *,
     device: str,
+    attention_provider: str = "flash",
 ) -> tuple[tuple[Any, ...], ...]:
-    """Execute 50 AOTI Regions around the upstream FlashAttention kernel."""
+    """Execute 50 AOTI Regions around a declared attention provider."""
 
     import torch
 
-    source = str(source_root.resolve())
-    if source not in sys.path:
-        sys.path.insert(0, source)
-    from mmcv.models.utils.attention import FlashAttention
+    if attention_provider not in {"flash", "sdpa"}:
+        raise ValueError(
+            f"unsupported partitioned attention provider: "
+            f"{attention_provider}"
+        )
+    flash = None
+    if attention_provider == "flash":
+        if source_root is None:
+            raise ValueError("FlashAttention provider requires source root")
+        source = str(source_root.resolve())
+        if source not in sys.path:
+            sys.path.insert(0, source)
+        from mmcv.models.utils.attention import FlashAttention
 
-    flash = FlashAttention(attention_dropout=0.0).eval()
+        flash = FlashAttention(attention_dropout=0.0).eval()
     features = [
         _aoti_arguments(arguments, device)[0]
         for arguments in invocations
@@ -258,15 +268,41 @@ def _run_partitioned_aoti_vision(
                 for value in features
             ]
             del runner
-            attention = [
-                flash(
-                    query.contiguous(),
-                    key_value.contiguous(),
-                    key_padding_mask=None,
-                    causal=False,
-                )[0].contiguous()
-                for _, query, key_value in prepared
-            ]
+            if flash is not None:
+                attention = [
+                    flash(
+                        query.contiguous(),
+                        key_value.contiguous(),
+                        key_padding_mask=None,
+                        causal=False,
+                    )[0].contiguous()
+                    for _, query, key_value in prepared
+                ]
+            else:
+                attention = []
+                for _, query, key_value in prepared:
+                    query_fp16 = query.to(torch.float16).permute(
+                        0, 2, 1, 3
+                    )
+                    key_fp16 = key_value[:, :, 0].to(
+                        torch.float16
+                    ).permute(0, 2, 1, 3)
+                    value_fp16 = key_value[:, :, 1].to(
+                        torch.float16
+                    ).permute(0, 2, 1, 3)
+                    result = torch.nn.functional.scaled_dot_product_attention(
+                        query_fp16,
+                        key_fp16,
+                        value_fp16,
+                        dropout_p=0.0,
+                        is_causal=False,
+                        scale=None,
+                    )
+                    attention.append(
+                        result.permute(0, 2, 1, 3)
+                        .to(torch.float32)
+                        .contiguous()
+                    )
             runner = torch._export.aot_load(
                 str(
                     (
@@ -906,7 +942,12 @@ def main() -> int:
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument(
         "--vision-provider",
-        choices=("artifact", "flash-plugin", "partitioned-aoti24"),
+        choices=(
+            "artifact",
+            "flash-plugin",
+            "partitioned-aoti24",
+            "partitioned-aoti24-sdpa",
+        ),
         default="artifact",
     )
     parser.add_argument(
@@ -1049,9 +1090,12 @@ def main() -> int:
                     f"{name}: AOTI artifact hash does not match its capture "
                     "contract"
                 )
-        if args.vision_provider != "partitioned-aoti24":
+        if args.vision_provider not in {
+            "partitioned-aoti24",
+            "partitioned-aoti24-sdpa",
+        }:
             raise ValueError(
-                "aoti24 execution requires partitioned-aoti24 vision"
+                "aoti24 execution requires partitioned AOTI24 vision"
             )
 
     # Vision is run from the real camera tensor; saved official features are
@@ -1059,16 +1103,31 @@ def main() -> int:
     vision_invocations = tuple(
         (frame["camera_images"],) for frame in frame_inputs
     )
-    if args.vision_provider == "partitioned-aoti24":
-        if args.source_root is None:
+    if args.vision_provider in {
+        "partitioned-aoti24",
+        "partitioned-aoti24-sdpa",
+    }:
+        if (
+            args.vision_provider == "partitioned-aoti24"
+            and args.source_root is None
+        ):
             raise ValueError(
                 "partitioned-aoti24 vision requires --source-root"
             )
         vision = _run_partitioned_aoti_vision(
-            args.source_root.resolve(),
+            (
+                None
+                if args.source_root is None
+                else args.source_root.resolve()
+            ),
             args.aoti24_root.resolve(),
             vision_invocations,
             device=args.device,
+            attention_provider=(
+                "sdpa"
+                if args.vision_provider == "partitioned-aoti24-sdpa"
+                else "flash"
+            ),
         )
     elif args.vision_provider == "flash-plugin":
         if args.source_root is None or args.release_root is None:
@@ -1412,9 +1471,18 @@ def main() -> int:
                 if args.vision_provider == "flash-plugin"
                 else (
                     "aoti24-contiguous-physical-regions"
-                    "+compiled-flash-cuda"
+                    + (
+                        "+aten-sdpa-cuda"
+                        if args.vision_provider
+                        == "partitioned-aoti24-sdpa"
+                        else "+compiled-flash-cuda"
+                    )
                 )
-                if args.vision_provider == "partitioned-aoti24"
+                if args.vision_provider
+                in {
+                    "partitioned-aoti24",
+                    "partitioned-aoti24-sdpa",
+                }
                 else "torch-export"
             ),
             "source_root": (
