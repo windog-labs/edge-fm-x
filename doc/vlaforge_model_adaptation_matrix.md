@@ -80,7 +80,7 @@ memory/performance results
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
 | DiffusionDrive | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
-| MindDrive 0.5B | complete real L2：真实六相机 frontend、8 Region、16 authoritative states、10 named outputs、四帧 eager/captured/Semantic IR/Plan parity | 是 | 否 | source-exact vision C++/CUDA provider、real L3、real L4 |
+| MindDrive 0.5B | complete real L3：真实六相机 frontend、8 logical/64 physical Regions、16 authoritative states、10 named outputs、五帧 compiled held-out parity | 是 | 否 | verified bundle、no-Python C++ real L4、正式性能矩阵 |
 | AutoVLA | L0 + L1 + real L2 partition + L3-candidate | 是 | 否 | 完整 camera/VLM/decode 与通过门槛的 real L3/L4 |
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
@@ -110,7 +110,10 @@ Qwen decision/action、trajectory/detection decoder 共 8 个 Region 已接入�
 contract v2；Semantic IR 与 Plan 的 10 named outputs、normalized trace 和
 16 个 authoritative state version 全等，same/new/missing revision、
 validation abort/retry 和 ResetEpisode 均通过，`core_op_delta=0`。MindDrive
-因此已达到完整 real L2。下一门禁是将 7 个 exported Regions 与 source-exact
-FlashAttention vision plugin 形成 real L3；论文若保留“编译真实自动驾驶
-VLA”强 claim，必须先完成该门禁。目标仍为 real L4。OpenVLA real L4、跨
-GPU、第二机复现和 Orin 属于可选增强，不阻塞本机主线。
+因此先达到完整 real L2。随后 backend-only decomposition 形成 64 个真实
+`sm_86` AOTI Regions；统一 manifest 对全部 capture/compile/physical ABI/
+artifact identity 做精确绑定。contract v3 在新帧 `00404` 执行前冻结，
+连续五帧的 task outputs 与 authoritative states 全部通过，MindDrive 因此
+达到完整 real L3，`core_op_delta=0`。下一门禁是 verified bundle 与
+generated no-Python C++ real L4。OpenVLA real L4、跨 GPU、第二机复现和
+Orin 属于可选增强，不阻塞本机主线。

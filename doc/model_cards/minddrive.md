@@ -6,10 +6,10 @@
 | Code license | Apache-2.0 |
 | Dataset boundary | Bench2Drive data is CC BY-NC-ND 4.0 |
 | Checkpoint repository | `poleyzdk/Minddrive@5cf1eafc7f6d1028006f2d97d083d8e9aa4c0b12` |
-| 当前证据 | **完整 real L2**：真实六相机 frontend、完整 checkpoint、8 个显式 Region、16 个 authoritative StateSlot、10 个 named outputs，eager/captured/Semantic IR/Plan 连续四帧 parity 通过 |
+| 当前证据 | **完整 real L3**：real L2 的六相机/8 logical Region/16 authoritative StateSlot/10 named outputs 链路保持；64 个真实 `sm_86` AOTI physical Regions 在新五帧 held-out 上通过端到端 compiled parity |
 | Adapter | 13 个静态 InputPort、8 个 TensorRegion、16 个 StateSlot、1 个 transactional output group；无 sensor/timer/middleware 语义 |
 | Core op 增量 | **0** |
-| 当前缺口 | real L3 AOTI、real L4 no-Python C++、正式性能/内存矩阵 |
+| 当前缺口 | real L4 verified bundle/no-Python C++、正式性能/内存矩阵 |
 
 ## 固定发布物
 
@@ -45,8 +45,9 @@ backend failure 后可以确定性重试。InputRevision 只表示这组输入�
 
 真实样本固定自
 `Telkwevr/Bench2Drive-Speed-sample@c84ffbc2b7f3bda9b4acb7fab6971b3599092f42`
-的同一路线，连续使用 frame `00400`、`00401`、`00402` 和 `00403`。`00400`
-用于开发校准，后续帧用于连续状态与 held-out 验证；六相机原图、
+的同一路线，连续使用 frame `00400` 至 `00404`。`00400` 至 `00403`
+用于 L3 development/calibration；`00404` 是在 numerical contract v3
+冻结后才执行的 compiled held-out。六相机原图、
 measurement、annotation、重建后的 13 输入及 reference state/output 均位于
 durable archive，不提交到 Git。
 
@@ -88,13 +89,13 @@ I/O：
 
 | Region | artifact bytes | SHA256 |
 |---|---:|---|
-| `position_encoder` | 41,236,298 | `35d0efcb66cd8a1593325632c9e0e2b722160d5953fef75b753e1e8ce84a23ad` |
-| `map_encoder` | 96,807,824 | `a1a0bceb14150e19f4118e4638bc16ae34db70dcbeaa2f320bf93e734ab6b644` |
-| `detection_encoder` | 116,517,839 | `c67ef0ef9d6a22767208c402931bc25a96f7d2001c1412e872a868982e3f4915` |
+| `position_encoder` | 41,236,298 | `daf7271a3b924f35b719bd7660a68998faa30b17dc07bba4eb5c400bd91e94bf` |
+| `map_encoder` | 96,807,824 | `fd414c2d7e0ffd0d85e612e59a57a924ab3e04064ec1db4c1adaf570c40a1bd7` |
+| `detection_encoder` | 116,519,868 | `5ed7e9ad2a7a9cb11440d21dba4d4acfa18c2783614ca6d08d8dd7f663fbc0a9` |
 | `decision_expert` | exported program | `4ba68bc01c7caf5574e89a2d8df6b843e1417f171d6ea9b0d467524b7ae06315` |
 | `action_expert` | exported program | `55eb2084c467a5bd464d906f5620f2c1f3d523902b2aa5408be30f598db5296b` |
 | `trajectory_decoder` | 116,408,192 | `b97923e1fbfa01de5928cc004e54b773c62441d00e4fa5d6f3b331a3868debd6` |
-| `detection_decoder` | 838,986 | `bae163c98c3af5988242d044b1001932eb613fe682fe90798428608a4a4bf90b` |
+| `detection_decoder` | 838,986 | `c3599c2f02753ef2bc7632857f8ca0f45b4a13c03b7011c3ad9665cd41f96e6f` |
 
 上游 FlashAttention 2 通过无 dispatcher schema 的 PyCapsule 调用，无法直接
 进入当前 `torch.export`。曾捕获的 ATen SDPA vision artifact 在 frame
@@ -107,8 +108,9 @@ I/O：
 
 完整 L2 因此使用 source-exact FlashAttention vision 作为静态 Tensor
 Region plugin；它仍只接受/返回静态 Tensor ABI，不把任意 Python/CARLA
-宿主对象泄露进 IR。该 provider 在 source reference 上 bit-exact。后续 L3
-必须将它编译为稳定的 no-Python C++/CUDA Region，或明确保留为 L3 blocker。
+宿主对象泄露进 IR。L3 将 logical vision Region 物理分解为 stem、
+24 组 pre/FlashAttention/post 和 finish：50 个 ATen 部分由 AOTI 编译，
+中间调用上游已编译 FlashAttention CUDA extension。该分解不增加 core op。
 
 ## 真实 held-out 端到端 L2
 
@@ -146,6 +148,49 @@ strict-export Regions 在连续 `00400 -> 00401 -> 00402 -> 00403` 上通过：
 这构成完整 `real-L2`，而不是 fixture、随机权重、decoder partition 或
 只编译未执行的 artifact。
 
+## 真实 held-out 端到端 L3
+
+第一轮 compiled `00400 -> 00403` 暴露了两个 L2 无法覆盖的边界：EVA
+physical decomposition 的 heavy-tail feature maximum，以及 proposal state
+经过四次 compiled carry 后不能复用单 Region 阈值。该序列被明确降级为
+development data。contract v3 在获取 `00404` 后、执行其 compiled pipeline
+前冻结：所有 task-output 阈值保持不变；vision NRMSE 仍为 `2e-5`；state
+增加单独的数值门槛和 geometry-assignment 最大距离门槛。
+
+新的 `00400 -> 00404` held-out 使用 64 个真实 `sm_86` AOTI Regions：
+
+- vision：50 个 physical Regions + upstream compiled FlashAttention；
+- map：front + 6 decoder layers + finish；
+- position、detection encoder/decoder、decision/action experts 和 trajectory
+  decoder：6 个 Regions。
+
+结果全部通过：
+
+| 关键证据 | held-out 结果 |
+|---|---:|
+| vision feature | max `0.83009`，NRMSE `1.1055e-5` |
+| detection tokens | max `1.5151e-3`，NRMSE `2.8654e-5` |
+| decision/action | max `5.1403e-4` / `2.8334e-3` |
+| trajectory/path | max `6.4123e-4` / `6.0374e-4` |
+| speed/path command | exact |
+| detection set | count exact，center p95 `3.3221e-3 m` |
+| detection state assignment | maximum `1.6850e-2 m` |
+| map state assignment | maximum `1.5171e-1 m` |
+| valid mask/count | exact |
+
+统一 artifact manifest 精确覆盖 64 个执行对象，拒绝未使用的旧 logical
+`map_encoder.so`，并逐 Region 绑定 capture SHA256、compile report、
+contiguous physical ABI、真实 `.so` SHA256 和非硬链接不可变性。
+`artifact_set_sha256` 为
+`772aef7b066aff8a2068cb0cc78742ad0f486ebb21dd3df5171c7872ea71192b`。
+正式报告：
+
+- `artifacts/reports/aoti24_all_contiguous_v6/artifact_manifest.json`；
+- `artifacts/reports/heldout_l3_aoti24_v6_contract_v3_00400_00401_00402_00403_00404.json`。
+
+因此 MindDrive 已达到完整 `real-L3-compiled-held-out-end-to-end`；它不是
+compile-only、部分 decoder 或 fixture 证据。
+
 ## 资源记录
 
 官方完整 eager 的已记录峰值：
@@ -161,14 +206,11 @@ allocated/reserved 正式统计。
 
 ## 下一证据等级
 
-1. 为 7 个 exported Regions 编译 `sm_86` AOTI artifact；
-2. 为 FlashAttention vision 建立稳定 no-Python C++/CUDA Region provider，
-   或记录不能满足 source-exact 数值门槛的正式 blocker；
-3. 完成 exported/AOTI artifact 与 real L2 reference parity、两次执行、
-   artifact hash/size/load/latency/memory 记录，达到 real L3；
-4. 若 L3 通过，生成 verified Compile Bundle、typed/generic ABI 和
+1. 将 64-Region manifest 转换为 verified Compile Bundle；
+2. 为 FlashAttention 和 AOTI physical scheduling 建立 no-Python C++ provider；
+3. 生成 typed/generic ABI 和
    no-Python C++ Session，完成 cache/transaction/reset/failure/retry；
-5. 将 MindDrive 加入正式性能矩阵、消融、论文表格与 claim-evidence map。
+4. 将 MindDrive 加入正式性能矩阵、消融、论文表格与 claim-evidence map。
 
-在第 3 步完成前，论文只能声称 MindDrive 达到完整 real L2，不能声称
-VLAForge 已编译真实自动驾驶 VLA；在第 4 步完成前不能声称 MindDrive L4。
+论文现在可以声称 VLAForge 已在 RTX 3060 上编译真实自动驾驶 VLA；
+在上述 no-Python C++ Session 完成前仍不能声称 MindDrive L4。

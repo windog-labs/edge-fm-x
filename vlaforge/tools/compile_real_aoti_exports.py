@@ -125,17 +125,7 @@ def main() -> int:
                     f"{name}: normalized export output arity changed"
                 )
             normalize_maximum_absolute_error = max(
-                (
-                    float(
-                        (expected - actual)
-                        .abs()
-                        .float()
-                        .max()
-                        .item()
-                    )
-                    if expected.numel()
-                    else 0.0
-                )
+                _maximum_absolute_error(expected, actual)
                 for expected, actual in zip(
                     source_outputs,
                     normalized_outputs,
@@ -201,7 +191,7 @@ def main() -> int:
                 "load_seconds": load_seconds,
                 "load_peak_rss_kib": load_peak_rss_kib,
                 "load_mode": (
-                    "legacy_mmap"
+                    "legacy_mmap_schema_bridge"
                     if args.mmap_export_cache is not None
                     else "torch_export"
                 ),
@@ -238,6 +228,19 @@ def _as_tuple(value: object) -> tuple[torch.Tensor, ...]:
     if isinstance(value, tuple):
         return value
     return (value,)
+
+
+def _maximum_absolute_error(
+    expected: torch.Tensor,
+    actual: torch.Tensor,
+) -> float:
+    if not expected.numel():
+        return 0.0
+    if expected.dtype == torch.bool or actual.dtype == torch.bool:
+        return 0.0 if torch.equal(expected, actual) else 1.0
+    return float(
+        (expected - actual).abs().float().max().item()
+    )
 
 
 if __name__ == "__main__":

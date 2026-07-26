@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute the full captured MindDrive pipeline over two real frames."""
+"""Execute the full captured MindDrive pipeline over a real frame sequence."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import argparse
 import gc
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -26,15 +27,20 @@ from vlaforge.adapters.minddrive_real import (
     MINDDRIVE_PIPELINE_DETECTION_MOTION_P99,
     MINDDRIVE_PIPELINE_DETECTION_SCORE_FLOOR,
     MINDDRIVE_PIPELINE_DETECTION_SCORE_P99,
+    MINDDRIVE_PIPELINE_DETECTION_STATE_ASSIGNMENT_MAX,
+    MINDDRIVE_PIPELINE_DETECTION_STATE_MAX_ABS,
+    MINDDRIVE_PIPELINE_DETECTION_STATE_NRMSE,
     MINDDRIVE_PIPELINE_DETECTION_TOKEN_MAX_ABS,
     MINDDRIVE_PIPELINE_DETECTION_TOKEN_NRMSE,
     MINDDRIVE_PIPELINE_MAP_MAX_ABS,
     MINDDRIVE_PIPELINE_MAP_NRMSE,
+    MINDDRIVE_PIPELINE_MAP_STATE_ASSIGNMENT_MAX,
     MINDDRIVE_PIPELINE_TRAJECTORY_MAX_ABS,
     MINDDRIVE_PIPELINE_TRAJECTORY_NRMSE,
     MINDDRIVE_PIPELINE_VISION_MAX_ABS,
     MINDDRIVE_PIPELINE_VISION_NRMSE,
     MINDDRIVE_STATE_TYPES,
+    MINDDRIVE_UPSTREAM_STATE_KEYS,
     load_real_minddrive_model,
     make_minddrive_flash_vision_encoder,
     make_minddrive_torch_initial_state,
@@ -105,6 +111,294 @@ def _run_artifact(
             outputs.append(_to_cpu(value))
     del implementation
     del exported
+    gc.collect()
+    torch.cuda.empty_cache()
+    return tuple(outputs)
+
+
+def _as_tuple(value: Any) -> tuple[Any, ...]:
+    if isinstance(value, tuple | list):
+        return tuple(value)
+    return (value,)
+
+
+def _aoti_arguments(
+    arguments: tuple[Any, ...], device: str
+) -> tuple[Any, ...]:
+    import torch
+
+    values = []
+    for value in arguments:
+        if not isinstance(value, torch.Tensor):
+            raise TypeError(
+                "MindDrive AOTI physical Region accepts tensors only"
+            )
+        values.append(value.to(device).contiguous())
+    return tuple(values)
+
+
+def _aoti_call(
+    runner: Any,
+    arguments: tuple[Any, ...],
+    *,
+    device: str,
+) -> tuple[Any, ...]:
+    # AOTI may return tensors backed by storage owned by the loaded runner.
+    # Physical Regions are deliberately loaded and released independently, so
+    # merely calling contiguous() is insufficient when the result already has
+    # contiguous strides: it can leave the next Region holding runner-owned
+    # storage after `del runner`.  Clone every boundary value to transfer
+    # ownership to the invocation before the provider is released.
+    return tuple(
+        value.contiguous().clone()
+        for value in _as_tuple(
+            runner(*_aoti_arguments(arguments, device))
+        )
+    )
+
+
+def _run_aoti_artifact(
+    artifact: Path,
+    invocations: tuple[tuple[Any, ...], ...],
+    *,
+    device: str,
+) -> tuple[tuple[Any, ...], ...]:
+    import torch
+
+    runner = torch._export.aot_load(str(artifact.resolve()), device)
+    outputs = []
+    with torch.inference_mode():
+        for arguments in invocations:
+            outputs.append(
+                _to_cpu(
+                    _aoti_call(runner, arguments, device=device)
+                )
+            )
+    del runner
+    gc.collect()
+    torch.cuda.empty_cache()
+    return tuple(outputs)
+
+
+def _run_stateful_aoti_artifact(
+    artifact: Path,
+    frame_prefixes: tuple[tuple[Any, ...], ...],
+    initial_state: tuple[Any, ...],
+    *,
+    state_output_offset: int,
+    device: str,
+) -> tuple[tuple[Any, ...], ...]:
+    import torch
+
+    runner = torch._export.aot_load(str(artifact.resolve()), device)
+    state = _aoti_arguments(initial_state, device)
+    outputs = []
+    with torch.inference_mode():
+        for prefix in frame_prefixes:
+            value = _aoti_call(
+                runner,
+                (*prefix, *state),
+                device=device,
+            )
+            outputs.append(_to_cpu(value))
+            state = tuple(
+                item.clone()
+                for item in value[state_output_offset:]
+            )
+    del runner
+    del state
+    gc.collect()
+    torch.cuda.empty_cache()
+    return tuple(outputs)
+
+
+def _run_partitioned_aoti_vision(
+    source_root: Path,
+    artifact_root: Path,
+    invocations: tuple[tuple[Any, ...], ...],
+    *,
+    device: str,
+) -> tuple[tuple[Any, ...], ...]:
+    """Execute 50 AOTI Regions around the upstream FlashAttention kernel."""
+
+    import torch
+
+    source = str(source_root.resolve())
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    from mmcv.models.utils.attention import FlashAttention
+
+    flash = FlashAttention(attention_dropout=0.0).eval()
+    features = [
+        _aoti_arguments(arguments, device)[0]
+        for arguments in invocations
+    ]
+    with torch.inference_mode():
+        runner = torch._export.aot_load(
+            str((artifact_root / "vision_stem.so").resolve()),
+            device,
+        )
+        features = [
+            _aoti_call(runner, (value,), device=device)[0]
+            for value in features
+        ]
+        del runner
+        for index in range(24):
+            runner = torch._export.aot_load(
+                str(
+                    (
+                        artifact_root
+                        / f"vision_block_{index:02d}_pre.so"
+                    ).resolve()
+                ),
+                device,
+            )
+            prepared = [
+                _aoti_call(runner, (value,), device=device)
+                for value in features
+            ]
+            del runner
+            attention = [
+                flash(
+                    query.contiguous(),
+                    key_value.contiguous(),
+                    key_padding_mask=None,
+                    causal=False,
+                )[0].contiguous()
+                for _, query, key_value in prepared
+            ]
+            runner = torch._export.aot_load(
+                str(
+                    (
+                        artifact_root
+                        / f"vision_block_{index:02d}_post.so"
+                    ).resolve()
+                ),
+                device,
+            )
+            features = [
+                _aoti_call(
+                    runner,
+                    (prepared[frame][0], attention[frame]),
+                    device=device,
+                )[0]
+                for frame in range(len(features))
+            ]
+            del runner
+            del prepared
+            del attention
+        runner = torch._export.aot_load(
+            str((artifact_root / "vision_finish.so").resolve()),
+            device,
+        )
+        outputs = [
+            _to_cpu(
+                _aoti_call(runner, (value,), device=device)
+            )
+            for value in features
+        ]
+        del runner
+    del flash
+    del features
+    gc.collect()
+    torch.cuda.empty_cache()
+    return tuple(outputs)
+
+
+def _run_partitioned_aoti_map(
+    artifact_root: Path,
+    frame_prefixes: tuple[tuple[Any, ...], ...],
+    initial_state: tuple[Any, ...],
+    *,
+    device: str,
+) -> tuple[tuple[Any, ...], ...]:
+    """Execute the backend-only front/layer/finish map decomposition."""
+
+    import torch
+
+    names = (
+        "map_front",
+        *(f"map_decoder_layer_{index:02d}" for index in range(6)),
+        "map_finish",
+    )
+    runners = {
+        name: torch._export.aot_load(
+            str((artifact_root / f"{name}.so").resolve()),
+            device,
+        )
+        for name in names
+    }
+    state = _aoti_arguments(initial_state, device)
+    outputs = []
+    with torch.inference_mode():
+        for prefix in frame_prefixes:
+            (
+                image_features,
+                position_embedding,
+                timestamp,
+                ego_pose,
+                ego_pose_inverse,
+            ) = prefix
+            front = _aoti_call(
+                runners["map_front"],
+                (
+                    image_features,
+                    timestamp,
+                    ego_pose_inverse,
+                    *state,
+                ),
+                device=device,
+            )
+            (
+                query,
+                image_memory,
+                query_position,
+                temporal_attention_mask,
+                temporal_memory,
+                temporal_position,
+                reference_points,
+                rec_ego_pose,
+                memory_reference_point,
+                memory_timestamp,
+                memory_egopose,
+                memory_mask,
+            ) = front
+            decoded = []
+            for index in range(6):
+                query = _aoti_call(
+                    runners[f"map_decoder_layer_{index:02d}"],
+                    (
+                        query,
+                        image_memory,
+                        query_position,
+                        position_embedding,
+                        temporal_attention_mask,
+                        temporal_memory,
+                        temporal_position,
+                    ),
+                    device=device,
+                )[0]
+                decoded.append(query)
+            value = _aoti_call(
+                runners["map_finish"],
+                (
+                    *decoded,
+                    reference_points,
+                    timestamp,
+                    ego_pose,
+                    rec_ego_pose,
+                    temporal_memory,
+                    memory_reference_point,
+                    memory_timestamp,
+                    memory_egopose,
+                    memory_mask,
+                ),
+                device=device,
+            )
+            outputs.append(_to_cpu(value))
+            state = tuple(item.clone() for item in value[4:])
+    del runners
+    del state
     gc.collect()
     torch.cuda.empty_cache()
     return tuple(outputs)
@@ -365,6 +659,145 @@ def _detection_set_equivalence(
     }
 
 
+def _proposal_state_equivalence(
+    reference: tuple[Any, ...],
+    candidate: tuple[Any, ...],
+    *,
+    state_names: tuple[str, ...],
+    identity_index: int,
+    proposal_field_count: int,
+    maximum_absolute_error: float,
+    normalized_root_mean_square_error: float,
+    maximum_assignment_distance: float,
+    enforce: bool,
+) -> dict[str, object]:
+    """Compare authoritative proposal state as age-partitioned row bundles.
+
+    AOTI may exchange near-tied top-k rows. One geometry-derived assignment is
+    therefore applied to every tensor in the proposal bundle; fields never
+    receive independent best-case permutations. The two 300-row age
+    partitions are matched separately so current and previous invocation
+    state cannot be interchanged.
+    """
+
+    import torch
+    from scipy.optimize import linear_sum_assignment
+
+    if len(reference) != len(candidate) or len(reference) != len(state_names):
+        raise ValueError("MindDrive authoritative state arity changed")
+    proposal_count = int(reference[identity_index].shape[1])
+    if proposal_count != 600:
+        raise ValueError(
+            "MindDrive proposal state profile changed: "
+            f"{proposal_count} != 600"
+        )
+    reference_rows = []
+    candidate_rows = []
+    partitions = []
+    for age, start in enumerate((0, 300)):
+        stop = start + 300
+        reference_identity = (
+            reference[identity_index][0, start:stop]
+            .to(torch.float64)
+            .flatten(1)
+        )
+        candidate_identity = (
+            candidate[identity_index][0, start:stop]
+            .to(torch.float64)
+            .flatten(1)
+        )
+        cost = torch.cdist(reference_identity, candidate_identity).numpy()
+        reference_assignment, candidate_assignment = (
+            linear_sum_assignment(cost)
+        )
+        reference_local = torch.from_numpy(reference_assignment)
+        candidate_local = torch.from_numpy(candidate_assignment)
+        reference_rows.append(reference_local + start)
+        candidate_rows.append(candidate_local + start)
+        assigned_cost = torch.from_numpy(
+            cost[reference_assignment, candidate_assignment]
+        )
+        displacement = abs(reference_assignment - candidate_assignment)
+        partitions.append(
+            {
+                "age": age,
+                "start": start,
+                "stop": stop,
+                "permuted_row_count": int((displacement != 0).sum()),
+                "maximum_rank_displacement": int(displacement.max()),
+                "mean_identity_distance": float(
+                    assigned_cost.mean().item()
+                ),
+                "p95_identity_distance": float(
+                    torch.quantile(assigned_cost, 0.95).item()
+                ),
+                "maximum_identity_distance": float(
+                    assigned_cost.max().item()
+                ),
+                "maximum_identity_distance_threshold": (
+                    maximum_assignment_distance
+                ),
+                "assignment_within_threshold": bool(
+                    assigned_cost.max().item()
+                    <= maximum_assignment_distance
+                ),
+            }
+        )
+    reference_order = torch.cat(reference_rows)
+    candidate_order = torch.cat(candidate_rows)
+    if not torch.equal(reference_order, torch.arange(proposal_count)):
+        raise ValueError("proposal assignment did not cover reference rows")
+
+    fields: dict[str, object] = {}
+    for index, name in enumerate(state_names):
+        reference_value = reference[index]
+        candidate_value = candidate[index]
+        if index < proposal_field_count:
+            reference_value = reference_value[:, reference_order]
+            candidate_value = candidate_value[:, candidate_order]
+        if (
+            reference_value.dtype == torch.bool
+            or not reference_value.is_floating_point()
+        ):
+            fields[name] = _exact(reference_value, candidate_value)
+        else:
+            fields[name] = _equivalence(
+                reference_value,
+                candidate_value,
+                maximum_absolute_error=maximum_absolute_error,
+                normalized_root_mean_square_error=(
+                    normalized_root_mean_square_error
+                ),
+                enforce=enforce,
+            )
+    assignments_within = all(
+        bool(item["assignment_within_threshold"])
+        for item in partitions
+    )
+    fields_within = all(bool(item["passed"]) for item in fields.values())
+    within = assignments_within and fields_within
+    return {
+        "comparison": (
+            "two-age-partition geometry assignment with one shared "
+            "permutation for every proposal-state field"
+        ),
+        "identity_state": state_names[identity_index],
+        "proposal_rows": proposal_count,
+        "partitions": partitions,
+        "fields": fields,
+        "thresholds": {
+            "maximum_identity_distance": maximum_assignment_distance,
+            "maximum_absolute_error": maximum_absolute_error,
+            "normalized_root_mean_square_error": (
+                normalized_root_mean_square_error
+            ),
+        },
+        "threshold_enforced": enforce,
+        "within_provisional_threshold": within,
+        "passed": within if enforce else True,
+    }
+
+
 def _raw_map(intermediates: dict[str, Any]) -> tuple[Any, ...]:
     raw = intermediates["map_head"][0]
     return (
@@ -461,11 +894,36 @@ def main() -> int:
     parser.add_argument("--second-image-features", type=Path, required=True)
     parser.add_argument("--second-intermediates", type=Path, required=True)
     parser.add_argument("--second-outputs", type=Path, required=True)
+    parser.add_argument(
+        "--second-persistent-state",
+        type=Path,
+        required=True,
+        help=(
+            "Upstream authoritative state after the final real frame; "
+            "required for L2/L3 state-carry parity."
+        ),
+    )
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument(
         "--vision-provider",
-        choices=("artifact", "flash-plugin"),
+        choices=("artifact", "flash-plugin", "partitioned-aoti24"),
         default="artifact",
+    )
+    parser.add_argument(
+        "--execution-provider",
+        choices=("export", "aoti24"),
+        default="export",
+    )
+    parser.add_argument("--aoti24-root", type=Path)
+    parser.add_argument(
+        "--aoti24-artifact-manifest",
+        "--aoti24-physical-abi-manifest",
+        dest="aoti24_artifact_manifest",
+        type=Path,
+        help=(
+            "Required for AOTI execution; binds all 64 Region captures, "
+            "compile reports, physical tensor contracts, and shared objects."
+        ),
     )
     parser.add_argument("--source-root", type=Path)
     parser.add_argument("--release-root", type=Path)
@@ -510,17 +968,109 @@ def main() -> int:
     frame_names.append(args.second_frame)
     second_intermediates = _load_tensor_file(args.second_intermediates)
     second_outputs = _load_tensor_file(args.second_outputs)
+    second_persistent_state = _load_tensor_file(
+        args.second_persistent_state
+    )
     artifacts = _artifact_paths(args.artifact_root.resolve())
     for name, path in artifacts.items():
         if not path.is_file():
             raise FileNotFoundError(f"{name} artifact is missing: {path}")
+    aoti_artifacts: dict[str, Path] = {}
+    artifact_manifest: dict[str, Any] | None = None
+    if args.execution_provider == "aoti24":
+        if args.aoti24_root is None:
+            raise ValueError("aoti24 execution requires --aoti24-root")
+        if args.aoti24_artifact_manifest is None:
+            raise ValueError(
+                "aoti24 execution requires "
+                "--aoti24-artifact-manifest"
+            )
+        aoti_root = args.aoti24_root.resolve()
+        names = (
+            "position_encoder",
+            "detection_encoder",
+            "detection_decoder",
+            "decision_expert",
+            "action_expert",
+            "trajectory_decoder",
+            "vision_stem",
+            "vision_finish",
+            "map_front",
+            "map_finish",
+            *(f"vision_block_{index:02d}_{part}"
+              for index in range(24)
+              for part in ("pre", "post")),
+            *(f"map_decoder_layer_{index:02d}"
+              for index in range(6)),
+        )
+        aoti_artifacts = {
+            name: aoti_root / f"{name}.so" for name in names
+        }
+        for name, path in aoti_artifacts.items():
+            if not path.is_file():
+                raise FileNotFoundError(
+                    f"{name} AOTI artifact is missing: {path}"
+                )
+        artifact_manifest = json.loads(
+            args.aoti24_artifact_manifest.resolve().read_text(
+                encoding="utf-8"
+            )
+        )
+        if (
+            artifact_manifest.get("schema")
+            != "vlaforge.minddrive_aoti_artifact_manifest/1"
+            or not artifact_manifest.get("passed")
+        ):
+            raise ValueError(
+                "MindDrive AOTI artifact manifest is invalid or failed"
+            )
+        manifest_root = Path(
+            artifact_manifest["artifact_root"]
+        ).resolve()
+        if manifest_root != aoti_root:
+            raise ValueError(
+                "MindDrive AOTI artifact root does not match the physical "
+                f"ABI manifest: {aoti_root} != {manifest_root}"
+            )
+        manifest_regions = {
+            str(item["name"]): item
+            for item in artifact_manifest["regions"]
+        }
+        execution_names = set(names)
+        if set(manifest_regions) != execution_names:
+            raise ValueError(
+                "MindDrive artifact manifest Region coverage changed"
+            )
+        for name in sorted(execution_names):
+            path = aoti_artifacts[name]
+            expected_hash = manifest_regions[name]["artifact"]["sha256"]
+            if _sha256(path) != expected_hash:
+                raise ValueError(
+                    f"{name}: AOTI artifact hash does not match its capture "
+                    "contract"
+                )
+        if args.vision_provider != "partitioned-aoti24":
+            raise ValueError(
+                "aoti24 execution requires partitioned-aoti24 vision"
+            )
 
     # Vision is run from the real camera tensor; saved official features are
     # references only and never substituted into the captured pipeline.
     vision_invocations = tuple(
         (frame["camera_images"],) for frame in frame_inputs
     )
-    if args.vision_provider == "flash-plugin":
+    if args.vision_provider == "partitioned-aoti24":
+        if args.source_root is None:
+            raise ValueError(
+                "partitioned-aoti24 vision requires --source-root"
+            )
+        vision = _run_partitioned_aoti_vision(
+            args.source_root.resolve(),
+            args.aoti24_root.resolve(),
+            vision_invocations,
+            device=args.device,
+        )
+    elif args.vision_provider == "flash-plugin":
         if args.source_root is None or args.release_root is None:
             raise ValueError(
                 "flash-plugin requires --source-root and --release-root"
@@ -537,8 +1087,18 @@ def main() -> int:
             vision_invocations,
             device=args.device,
         )
-    position = _run_artifact(
-        artifacts["position_encoder"],
+    run_artifact = (
+        _run_aoti_artifact
+        if args.execution_provider == "aoti24"
+        else _run_artifact
+    )
+    execution_artifacts = (
+        aoti_artifacts
+        if args.execution_provider == "aoti24"
+        else artifacts
+    )
+    position = run_artifact(
+        execution_artifacts["position_encoder"],
         tuple(
             (
                 vision[index][0],
@@ -550,43 +1110,74 @@ def main() -> int:
         device=args.device,
     )
     initial = make_minddrive_torch_initial_state(torch, device="cpu")
-    map_outputs = _run_stateful_artifact(
-        artifacts["map_encoder"],
-        tuple(
-            (
-                vision[index][0],
-                position[index][0],
-                frame["timestamp"],
-                frame["ego_pose"],
-                frame["ego_pose_inverse"],
-            )
-            for index, frame in enumerate(frame_inputs)
-        ),
-        tuple(initial[name] for name, _ in MINDDRIVE_STATE_TYPES[10:]),
-        state_output_offset=4,
-        device=args.device,
+    map_prefixes = tuple(
+        (
+            vision[index][0],
+            position[index][0],
+            frame["timestamp"],
+            frame["ego_pose"],
+            frame["ego_pose_inverse"],
+        )
+        for index, frame in enumerate(frame_inputs)
     )
-    detection_outputs = _run_stateful_artifact(
-        artifacts["detection_encoder"],
-        tuple(
-            (
-                vision[index][0],
-                position[index][0],
-                *map_outputs[index][:3],
-                frame["timestamp"],
-                frame["ego_pose"],
-                frame["ego_pose_inverse"],
-                frame["can_bus"],
-                frame["route_command_index"],
-            )
-            for index, frame in enumerate(frame_inputs)
-        ),
-        tuple(initial[name] for name, _ in MINDDRIVE_STATE_TYPES[:10]),
-        state_output_offset=6,
-        device=args.device,
+    if args.execution_provider == "aoti24":
+        map_outputs = _run_partitioned_aoti_map(
+            args.aoti24_root.resolve(),
+            map_prefixes,
+            tuple(
+                initial[name]
+                for name, _ in MINDDRIVE_STATE_TYPES[10:]
+            ),
+            device=args.device,
+        )
+    else:
+        map_outputs = _run_stateful_artifact(
+            artifacts["map_encoder"],
+            map_prefixes,
+            tuple(
+                initial[name]
+                for name, _ in MINDDRIVE_STATE_TYPES[10:]
+            ),
+            state_output_offset=4,
+            device=args.device,
+        )
+    detection_prefixes = tuple(
+        (
+            vision[index][0],
+            position[index][0],
+            *map_outputs[index][:3],
+            frame["timestamp"],
+            frame["ego_pose"],
+            frame["ego_pose_inverse"],
+            frame["can_bus"],
+            frame["route_command_index"],
+        )
+        for index, frame in enumerate(frame_inputs)
     )
-    decision = _run_artifact(
-        artifacts["decision_expert"],
+    if args.execution_provider == "aoti24":
+        detection_outputs = _run_stateful_aoti_artifact(
+            aoti_artifacts["detection_encoder"],
+            detection_prefixes,
+            tuple(
+                initial[name]
+                for name, _ in MINDDRIVE_STATE_TYPES[:10]
+            ),
+            state_output_offset=6,
+            device=args.device,
+        )
+    else:
+        detection_outputs = _run_stateful_artifact(
+            artifacts["detection_encoder"],
+            detection_prefixes,
+            tuple(
+                initial[name]
+                for name, _ in MINDDRIVE_STATE_TYPES[:10]
+            ),
+            state_output_offset=6,
+            device=args.device,
+        )
+    decision = run_artifact(
+        execution_artifacts["decision_expert"],
         (
             (
                 second["decision_input_ids"],
@@ -596,8 +1187,8 @@ def main() -> int:
         ),
         device=args.device,
     )[0][0]
-    action = _run_artifact(
-        artifacts["action_expert"],
+    action = run_artifact(
+        execution_artifacts["action_expert"],
         (
             (
                 second["planning_input_ids"],
@@ -607,8 +1198,8 @@ def main() -> int:
         ),
         device=args.device,
     )[0][0]
-    trajectory = _run_artifact(
-        artifacts["trajectory_decoder"],
+    trajectory = run_artifact(
+        execution_artifacts["trajectory_decoder"],
         (
             (
                 action,
@@ -620,8 +1211,8 @@ def main() -> int:
         ),
         device=args.device,
     )[0]
-    decoded = _run_artifact(
-        artifacts["detection_decoder"],
+    decoded = run_artifact(
+        execution_artifacts["detection_decoder"],
         (
             detection_outputs[-1][:3],
             _raw_detection(second_intermediates)[:3],
@@ -718,6 +1309,54 @@ def main() -> int:
         decoded_candidate,
         enforce=enforce_numerical,
     )
+    map_state_names = tuple(
+        name for name, _ in MINDDRIVE_STATE_TYPES[10:]
+    )
+    map_state_reference = tuple(
+        second_persistent_state[MINDDRIVE_UPSTREAM_STATE_KEYS[name]]
+        for name in map_state_names
+    )
+    map_state_candidate = map_outputs[-1][4:]
+    evidence["map_authoritative_state"] = _proposal_state_equivalence(
+        map_state_reference,
+        map_state_candidate,
+        state_names=map_state_names,
+        identity_index=1,
+        proposal_field_count=4,
+        maximum_absolute_error=MINDDRIVE_PIPELINE_MAP_MAX_ABS,
+        normalized_root_mean_square_error=MINDDRIVE_PIPELINE_MAP_NRMSE,
+        maximum_assignment_distance=(
+            MINDDRIVE_PIPELINE_MAP_STATE_ASSIGNMENT_MAX
+        ),
+        enforce=enforce_numerical,
+    )
+    detection_state_names = tuple(
+        name for name, _ in MINDDRIVE_STATE_TYPES[:10]
+    )
+    detection_state_reference = tuple(
+        second_persistent_state[MINDDRIVE_UPSTREAM_STATE_KEYS[name]]
+        for name in detection_state_names
+    )
+    detection_state_candidate = detection_outputs[-1][6:]
+    evidence[
+        "detection_authoritative_state"
+    ] = _proposal_state_equivalence(
+        detection_state_reference,
+        detection_state_candidate,
+        state_names=detection_state_names,
+        identity_index=1,
+        proposal_field_count=5,
+        maximum_absolute_error=(
+            MINDDRIVE_PIPELINE_DETECTION_STATE_MAX_ABS
+        ),
+        normalized_root_mean_square_error=(
+            MINDDRIVE_PIPELINE_DETECTION_STATE_NRMSE
+        ),
+        maximum_assignment_distance=(
+            MINDDRIVE_PIPELINE_DETECTION_STATE_ASSIGNMENT_MAX
+        ),
+        enforce=enforce_numerical,
+    )
     for name, index in (
         ("detection_valid_mask", 4),
         ("detection_valid_count", 5),
@@ -734,11 +1373,34 @@ def main() -> int:
         ),
         "passed": passed,
         "evidence_level": (
-            "real-L2-development-sequence"
+            "real-L3-compiled-development-sequence"
+            if args.execution_provider == "aoti24"
+            and args.evidence_role == "development"
+            else "real-L3-compiled-held-out-end-to-end"
+            if args.execution_provider == "aoti24"
+            else "real-L2-development-sequence"
             if args.evidence_role == "development"
             else "real-L2-held-out-end-to-end"
         ),
         "evidence_role": args.evidence_role,
+        "execution_provider": args.execution_provider,
+        "artifact_manifest": (
+            {
+                "path": str(
+                    args.aoti24_artifact_manifest.resolve()
+                ),
+                "sha256": _sha256(
+                    args.aoti24_artifact_manifest.resolve()
+                ),
+                "schema": artifact_manifest["schema"],
+                "artifact_set_sha256": (
+                    artifact_manifest["artifact_set_sha256"]
+                ),
+                "region_count": len(artifact_manifest["regions"]),
+            }
+            if artifact_manifest is not None
+            else None
+        ),
         "sequence": frame_names,
         "state_semantics": (
             "zero-reset-read-latest-stage-write-commit-per-invocation"
@@ -748,6 +1410,11 @@ def main() -> int:
             "abi": (
                 "static-tensor-region-plugin"
                 if args.vision_provider == "flash-plugin"
+                else (
+                    "aoti24-contiguous-physical-regions"
+                    "+compiled-flash-cuda"
+                )
+                if args.vision_provider == "partitioned-aoti24"
                 else "torch-export"
             ),
             "source_root": (
@@ -761,7 +1428,7 @@ def main() -> int:
                 "path": str(path),
                 "sha256": _sha256(path),
             }
-            for name, path in artifacts.items()
+            for name, path in execution_artifacts.items()
         },
         "inputs": {
             "first_invocation_sha256": _sha256(args.first_invocation),
@@ -782,6 +1449,9 @@ def main() -> int:
                 args.second_intermediates
             ),
             "second_outputs_sha256": _sha256(args.second_outputs),
+            "second_persistent_state_sha256": _sha256(
+                args.second_persistent_state
+            ),
         },
         "outputs": evidence,
     }
@@ -796,10 +1466,14 @@ def main() -> int:
             {
                 "map_candidate": map_outputs[-1][:4],
                 "map_reference": _raw_map(second_intermediates),
+                "map_state_candidate": map_state_candidate,
+                "map_state_reference": map_state_reference,
                 "detection_candidate_raw": detection_outputs[-1][:6],
                 "detection_reference_raw": _raw_detection(
                     second_intermediates
                 ),
+                "detection_state_candidate": detection_state_candidate,
+                "detection_state_reference": detection_state_reference,
                 "detection_candidate_decoded": decoded_candidate,
                 "detection_reference_decoded": decoded_reference,
                 "decision_candidate": decision,

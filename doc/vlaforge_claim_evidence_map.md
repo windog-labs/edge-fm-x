@@ -29,7 +29,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | C4 | State and named outputs commit transactionally | validation failure, version sequence, prior-output preservation, retry | SmolVLA and DiffusionDrive real L4 failure/retry | passed | vehicle safety and fallback policy remain external |
 | C5 | Generated C++ adds low orchestration overhead over identical direct artifacts | five workloads, five independent processes, direct-vs-generated exact output | 150-task CUDA matrix | passed | approximately 0.5% on two models and one RTX 3060 only |
 | C6 | Generated deployment is no-Python and contract verified | clean wheel, non-Git cwd, invalid Python env, `ldd`, negative schema/hash/target cases | reproducibility report and deployment-boundary ablation | passed | does not imply a Python-free compile toolchain |
-| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving L4, held-out real model with core delta zero | SmolVLA L4, DiffusionDrive L4, OpenVLA L3, AutoVLA real L2 partition | passed | AutoVLA is a real decoder partition, not full camera-to-trajectory support |
+| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving artifacts, held-out real model with core delta zero | SmolVLA L4, OpenVLA L3, MindDrive complete driving-VLA L3, DiffusionDrive planner L4 | passed | MindDrive is full six-camera-to-trajectory; DiffusionDrive is not a language VLA |
 | C8 | Memory is statically bounded and stable | Plan certificate, memory-class split, 10k soak | static-arena ablation and real L4 soaks | passed | packing savings are small; claim boundedness, not compression |
 
 ## Performance evidence
@@ -69,6 +69,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | driving trajectory | trajectory fixture | one trajectory; no state | L1 fixture | 0 |
 | driving autoregressive | AutoVLA | trajectory + tokens | real L2 partition | 0 |
 | driving diffusion | DiffusionDrive | candidates/scores/trajectory/aux | real L4 | 0 |
+| stateful multimodal driving VLA | MindDrive 0.5B | trajectory/path/commands/detection/motion + 16 states | real L3 | 0 |
 | external-feature hybrid | DriveVLM-Dual-like | trajectory/prediction/map/VQA | L1 fixture + C++ plugin fixture | 0 |
 
 ## Artifact/reproduction gates

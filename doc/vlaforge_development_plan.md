@@ -314,7 +314,7 @@ opcode 或任意未验证 opcode。
 | P15 | 5 workloads × 5 independent processes 统计实验 | 完成：150 fresh-process tasks、4,500 steady samples、30 cells、50 parity cells |
 | P16 | 一个真实 held-out 模型至少 L2 | 完成：AutoVLA real L2 decoder partition，core op delta=0；L3 candidate 未晋级 |
 | P17 | 论文初稿、表格与 artifact-evaluation 指南 | 完成：论文、三张可复现图、claim map、final gate、manifest 与 completion audit |
-| P18 | 完整真实驾驶 VLA L2–L4 | **real L2 已完成**：MindDrive 0.5B 真实六相机 frontend、完整 checkpoint、8 Region、16 authoritative states、10 named outputs、连续四帧 eager/captured/Semantic IR/Plan parity、revision cache、abort/retry/reset 全通过，core op delta=0；real L3/L4 进行中 |
+| P18 | 完整真实驾驶 VLA L2–L4 | **real L3 已完成**：MindDrive 0.5B 的完整 real L2 保持；64 个 `sm_86` AOTI physical Regions、统一 capture/ABI/artifact manifest 和新五帧 held-out compiled parity 全通过，core op delta=0；real L4 进行中 |
 
 ## 9. 测试与验收
 
@@ -412,7 +412,13 @@ Plan 在四帧上的 outputs、normalized trace、state versions 全等；same/n
 missing revision、validation abort、retry 和 ResetEpisode 全通过。新增 core
 op 为 0，因此完整 real L2 已闭合。durable evidence 位于
 `/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/capture/pipeline/`。
-当前 P18 剩余门禁是将这些边界编译为 real L3，并在资源允许时生成 real L4。
+L3 将 8 个 logical Regions 分解为 64 个实际执行 artifacts，并以统一
+manifest 绑定 capture、compile report、contiguous physical ABI 和 `.so`
+identity。原 `00403` compiled 失败被保留为 development calibration；
+contract v3 在执行新获取的 `00404` 前冻结。连续五帧上的 trajectory/path、
+command、detection set、validity、map/detection authoritative states 和
+全部中间 task contracts 均通过，因此 real L3 已闭合。当前 P18 剩余门禁是
+verified Compile Bundle 与 generated no-Python C++ Session 的 real L4。
 
 最终 architecture/build-surface negative audit 也已固化为自动测试：
 49 个 production source files 中不存在 tick/clock/deadline/period/jitter、
@@ -466,10 +472,9 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
 3. **已完成**：MindDrive 0.5B 完整 real L2；真实六相机到 10 named outputs
    的 8 Region/16 state 连续四帧链路、cache/transaction/reset 和
    Semantic/Plan parity 全通过，新增 core op=0；
-4. **进行中**：编译 MindDrive 的 7 个 exported Regions，并将
-   source-exact FlashAttention vision 接入稳定 C++/CUDA Region provider；
-   通过预声明端到端门槛后升级 real L3，再生成 verified bundle/no-Python
-   Session 争取 real L4；
+4. **已完成 L3，进行中 L4**：MindDrive 64 个真实 AOTI physical Regions、
+   完整 artifact manifest 和新五帧 held-out compiled parity 已通过；
+   下一步生成 verified bundle/no-Python Session；
 5. **待重跑**：MindDrive 达到相应等级后，加入 fresh-process
    cold/first/warm、RSS/CUDA memory、revision cache、四类消融和论文图表；
 6. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3

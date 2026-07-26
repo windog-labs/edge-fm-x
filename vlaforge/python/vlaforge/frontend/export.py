@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import os
 import shutil
@@ -122,11 +123,22 @@ def _load_legacy_export_mmap(
     state_dict = torch.load(state_path, **load_options)
     constants = torch.load(constants_path, **load_options)
     example_inputs = torch.load(example_inputs_path, **load_options)
-    return serialize.ExportedProgramDeserializer().deserialize(
+    deserializer = serialize.ExportedProgramDeserializer()
+    deserialize_options: dict[str, object] = {}
+    if "_unsafe_skip_version_check" in inspect.signature(
+        deserializer.deserialize
+    ).parameters:
+        # This path is opt-in, accepts only the fixed legacy archive members
+        # above, and is followed by an exact active-version re-export in the
+        # AOTI tool.  Newer PyTorch releases otherwise reject older schemas
+        # before their compatibility deserializer can process the graph.
+        deserialize_options["_unsafe_skip_version_check"] = True
+    return deserializer.deserialize(
         graph,
         state_dict,
         constants,
         example_inputs,
+        **deserialize_options,
     )
 
 
