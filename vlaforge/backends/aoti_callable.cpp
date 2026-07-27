@@ -12,6 +12,7 @@
 #define VLAFORGE_HAS_AOTI_PACKAGE_LOADER 0
 #endif
 
+#include <filesystem>
 #include <stdexcept>
 #include <string_view>
 
@@ -61,9 +62,12 @@ void AotiCallable::Load(const std::string& path) {
   }
   if (IsRawSharedLibrary(path)) {
     if (impl_->device_kind == VLAFORGE_DEVICE_CUDA) {
+      const auto cubin_dir =
+          std::filesystem::path(path).parent_path().string();
       impl_->cuda_runner = std::make_unique<
           torch::inductor::AOTIModelContainerRunnerCuda>(
-              path, 1u, "cuda:" + std::to_string(impl_->device_ordinal));
+              path, 1u, "cuda:" + std::to_string(impl_->device_ordinal),
+              cubin_dir);
     } else {
       impl_->cpu_runner = std::make_unique<
           torch::inductor::AOTIModelContainerRunnerCpu>(path, 1u);

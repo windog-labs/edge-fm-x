@@ -1,12 +1,69 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+
+def _assembler_module() -> object:
+    project_root = Path(__file__).resolve().parents[2]
+    path = project_root / "tools" / "assemble_real_openvla_l4.py"
+    specification = importlib.util.spec_from_file_location(
+        "assemble_real_openvla_l4",
+        path,
+    )
+    assert specification is not None
+    assert specification.loader is not None
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
+    return module
+
+
+def test_stable_openvla_artifact_maps_wrapper_and_runtime_files(
+    tmp_path: Path,
+) -> None:
+    assembler = _assembler_module()
+    package = tmp_path / "artifacts" / "decode.pt2"
+    package.parent.mkdir()
+    package.write_bytes(b"verified package")
+    digest = assembler._sha256(package)
+    runtime = (
+        tmp_path
+        / "extracted_artifacts"
+        / "decode"
+        / "decode"
+        / "data"
+        / "aotinductor"
+        / "model"
+    )
+    runtime.mkdir(parents=True)
+    wrapper = runtime / "model.wrapper.so"
+    wrapper.write_bytes(b"shared library")
+    cubin = runtime / "kernel.cubin"
+    cubin.write_bytes(b"cuda binary")
+    runtime.parents[3].joinpath(".package-sha256").write_text(
+        digest + "\n",
+        encoding="utf-8",
+    )
+
+    source, relative, auxiliary, record = (
+        assembler._stable_model_artifact(
+            l3_root=tmp_path,
+            name="decode",
+            package_path=package,
+        )
+    )
+
+    assert source == wrapper
+    assert relative == "artifacts/decode/model.wrapper.so"
+    assert auxiliary == {"artifacts/decode/kernel.cubin": cubin}
+    assert record["package_sha256"] == digest
+    assert record["runtime_file_count"] == 1
 
 
 @pytest.mark.cuda_aoti

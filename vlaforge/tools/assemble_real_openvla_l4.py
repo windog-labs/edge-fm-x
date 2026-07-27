@@ -164,6 +164,65 @@ def _verify_l3(
     return report
 
 
+def _stable_model_artifact(
+    *,
+    l3_root: Path,
+    name: str,
+    package_path: Path,
+) -> tuple[Path, str, dict[str, Path], dict[str, object]]:
+    """Resolve one verified, stably extracted raw AOTI artifact tree."""
+
+    extracted = l3_root / "extracted_artifacts" / name
+    marker = extracted / ".package-sha256"
+    package_digest = _sha256(package_path)
+    if (
+        not marker.is_file()
+        or marker.read_text(encoding="utf-8").strip() != package_digest
+    ):
+        raise ValueError(
+            f"{name}: stable extraction does not match AOTI package"
+        )
+    wrappers = tuple(sorted(extracted.rglob("*.wrapper.so")))
+    if len(wrappers) != 1:
+        raise ValueError(
+            f"{name}: expected one stable wrapper.so, got {len(wrappers)}"
+        )
+    wrapper = wrappers[0]
+    runtime_root = wrapper.parent
+    bundle_root = f"artifacts/{name}"
+    artifact_path = f"{bundle_root}/{wrapper.name}"
+    auxiliary: dict[str, Path] = {}
+    runtime_files = []
+    for source in sorted(runtime_root.rglob("*")):
+        if not source.is_file() or source == wrapper:
+            continue
+        relative = source.relative_to(runtime_root).as_posix()
+        destination = f"{bundle_root}/{relative}"
+        auxiliary[destination] = source
+        runtime_files.append(
+            {
+                "path": relative,
+                "sha256": _sha256(source),
+                "size_bytes": source.stat().st_size,
+            }
+        )
+    return (
+        wrapper,
+        artifact_path,
+        auxiliary,
+        {
+            "package_sha256": package_digest,
+            "wrapper_sha256": _sha256(wrapper),
+            "wrapper_size_bytes": wrapper.stat().st_size,
+            "runtime_file_count": len(runtime_files),
+            "runtime_files_size_bytes": sum(
+                int(item["size_bytes"]) for item in runtime_files
+            ),
+            "runtime_files": runtime_files,
+        },
+    )
+
+
 def _artifact_contracts(
     module: Any,
     *,
@@ -176,11 +235,13 @@ def _artifact_contracts(
     dict[str, RegionArtifactContract],
     dict[str, Path],
     list[dict[str, object]],
+    dict[str, Path],
 ]:
     model_regions = frozenset(artifact_region_names())
     contracts: dict[str, RegionArtifactContract] = {}
     sources: dict[str, Path] = {}
     records: list[dict[str, object]] = []
+    auxiliary_files: dict[str, Path] = {}
     digest = io_schema_digest(module)
     shard_identity = ",".join(
         str(item["sha256"]) for item in l3["checkpoint"]["shards"]
@@ -260,6 +321,33 @@ def _artifact_contracts(
                 }
             )
         )
+        if is_model:
+            (
+                artifact_source,
+                bundle_artifact_path,
+                region_auxiliary,
+                stable_record,
+            ) = _stable_model_artifact(
+                l3_root=l3_root,
+                name=name,
+                package_path=artifact_path,
+            )
+            overlap = set(auxiliary_files).intersection(region_auxiliary)
+            if overlap:
+                raise ValueError(
+                    f"{name}: duplicate runtime artifacts: {sorted(overlap)}"
+                )
+            auxiliary_files.update(region_auxiliary)
+            artifact_kind = ArtifactKind.SHARED_LIBRARY
+            backend_variant = (
+                "torch-2.10-cu128-stable-raw-weight-paged"
+            )
+        else:
+            artifact_source = artifact_path
+            bundle_artifact_path = f"artifacts/{name}.pt2"
+            stable_record = None
+            artifact_kind = ArtifactKind.AOTI_PACKAGE
+            backend_variant = "torch-2.10-cu128-session-package"
         contract = RegionArtifactContract(
             region_id=region_id,
             region_name=name,
@@ -272,10 +360,10 @@ def _artifact_contracts(
                 checkpoint_identity=f"sha256-set:{shard_identity}",
                 graph_sha256=str(capture["graph_digest"]),
             ),
-            artifact_kind=ArtifactKind.AOTI_PACKAGE,
-            artifact_path=f"artifacts/{name}.pt2",
-            artifact_sha256=_sha256(artifact_path),
-            artifact_size_bytes=artifact_path.stat().st_size,
+            artifact_kind=artifact_kind,
+            artifact_path=bundle_artifact_path,
+            artifact_sha256=_sha256(artifact_source),
+            artifact_size_bytes=artifact_source.stat().st_size,
             workspace=WorkspaceContract(device="cuda:0"),
             capability=BackendCapability(
                 backend="aoti",
@@ -286,7 +374,7 @@ def _artifact_contracts(
                 requires_synchronize=True,
             ),
             effect_audit=EffectAudit.from_dict(capture["effect_audit"]),
-            backend_variant="torch-2.10-cu128-weight-paged",
+            backend_variant=backend_variant,
             residency=(
                 ArtifactResidency.INVOCATION
                 if is_model
@@ -294,7 +382,7 @@ def _artifact_contracts(
             ),
         )
         contracts[name] = contract
-        sources[name] = artifact_path
+        sources[name] = artifact_source
         records.append(
             {
                 "region_id": region_id,
@@ -304,9 +392,15 @@ def _artifact_contracts(
                 "artifact_sha256": contract.artifact_sha256,
                 "artifact_size_bytes": contract.artifact_size_bytes,
                 "compile_seconds": compile_seconds,
+                "provider": (
+                    "stable-raw-wrapper"
+                    if is_model
+                    else "session-package"
+                ),
+                "stable_extraction": stable_record,
             }
         )
-    return contracts, sources, records
+    return contracts, sources, records, auxiliary_files
 
 
 def _write_input_fixtures(
@@ -796,7 +890,12 @@ def main(argv: list[str] | None = None) -> int:
         python=args.python,
     )
     module = build_compiled_openvla_program()
-    contracts, sources, artifact_records = _artifact_contracts(
+    (
+        contracts,
+        sources,
+        artifact_records,
+        auxiliary_files,
+    ) = _artifact_contracts(
         module,
         capture_root=args.capture_root,
         l3_root=args.l3_root,
@@ -850,6 +949,7 @@ return true;""",
         },
         default_device="cuda:0",
         state_device="cpu",
+        auxiliary_files=auxiliary_files,
     )
     build_seconds = time.perf_counter() - build_started
     runner = args.bundle_root / "bin" / "vlaforge_generated_runner"
@@ -938,6 +1038,10 @@ return true;""",
                 int(item["artifact_size_bytes"])
                 for item in artifact_records
             ),
+            "stable_runtime_auxiliary_files": len(auxiliary_files),
+            "stable_runtime_auxiliary_bytes": sum(
+                path.stat().st_size for path in auxiliary_files.values()
+            ),
         },
         "bundle": {
             "root": str(args.bundle_root),
@@ -971,8 +1075,9 @@ return true;""",
                 "derived_fixed_kv_bytes"
             ],
             "artifact_residency": (
-                "model packages load for one invocation and are released; "
-                "support packages remain session resident"
+                "model raw wrappers load from stable bundle paths for one "
+                "invocation and release CUDA constants; support packages "
+                "remain session resident"
             ),
         },
         "l3_source": {
