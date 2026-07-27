@@ -87,8 +87,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--short",
         "--untracked-files=no",
     )
-    if source_status:
-        raise RuntimeError("AutoVLA source has tracked modifications")
 
     repository_bundle = output / "edge-fm-x.bundle"
     subprocess.run(
@@ -159,6 +157,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         },
         "autovla": {
             "revision": source_revision,
+            "source_checkout_dirty": bool(source_status),
+            "source_checkout_status_line_count": (
+                len(source_status.splitlines()) if source_status else 0
+            ),
+            "archive_source": "pinned Git commit, not working tree",
         },
         "packaged": packaged,
         "external": {
