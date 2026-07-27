@@ -73,7 +73,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | driving autoregressive | AutoVLA | trajectory + tokens | real L2 partition | 0 |
 | driving diffusion | DiffusionDrive | candidates/scores/trajectory/aux | real L4 | 0 |
 | stateful multimodal driving VLA | MindDrive 0.5B | trajectory/path/commands/detection/motion + 16 states | real L4 | 0 |
-| external-feature hybrid | DriveVLM-Dual-like | trajectory/prediction/map/VQA | L1 fixture + C++ plugin fixture | 0 |
+| external-feature hybrid | DriveVLM-Dual-like | trajectory/prediction/map/VQA | L1 + dynamically loaded no-Python C++ plugin fixture | 0 |
 
 ## Artifact/reproduction gates
 

@@ -370,7 +370,9 @@ compiler profile 的准确表述是
 12. required/optional/default、tensor/scalar binding 与 schema mismatch；
 13. wrong shape/dtype/device/layout/alignment 明确报错；
 14. borrowed lifetime 与 zero-copy/copy 边界；
-15. 外部 C++ preprocessing Region 通过稳定 RegionExecutable ABI 接入；
+15. 外部 C++ preprocessing Region 通过稳定 RegionExecutable value ABI
+    接入；bundle 将其声明为 `shared_plugin` artifact，在 `dlopen` 前校验
+    size/SHA256/schema，加载后校验 callable ABI、target 与 backend variant；
 16. typed wrapper 与 generic C ABI 返回同一 committed output。
 
 ## 9. 论文主张

@@ -100,8 +100,8 @@ def _fixtures(tmp_path: Path) -> dict[str, Path]:
             "summary": {
                 "release_gate_passed": True,
                 "python_passed": 235,
-                "cpu_ctest_passed": 7,
-                "cuda_ctest_passed": 8,
+                "cpu_ctest_passed": 8,
+                "cuda_ctest_passed": 9,
                 "cuda_aoti_opt_in_passed": 1,
                 "wheel_install_bundle_passed": True,
                 "no_python_runner": True,

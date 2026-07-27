@@ -132,8 +132,8 @@ def aggregate(gate_root: Path) -> dict[str, Any]:
     if (
         python_tests["passed"] < 200
         or cuda_aoti["passed"] != 1
-        or cpu_ctest["passed"] != 7
-        or cuda_ctest["passed"] != 8
+        or cpu_ctest["passed"] != 8
+        or cuda_ctest["passed"] != 9
     ):
         raise ValueError("release test coverage is incomplete")
 
@@ -358,8 +358,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
             f"| CUDA AOTI opt-in | "
             f"{tests['cuda_aoti_opt_in']['passed']} passed |"
         ),
-        f"| CPU Release CTest | {tests['cpu_ctest']['passed']}/7 |",
-        f"| CUDA/AOTI Release CTest | {tests['cuda_ctest']['passed']}/8 |",
+        f"| CPU Release CTest | {tests['cpu_ctest']['passed']}/8 |",
+        f"| CUDA/AOTI Release CTest | {tests['cuda_ctest']['passed']}/9 |",
         "| CPU installed-package consumer | passed |",
         "| CUDA installed-package consumer | passed |",
         "| Old EdgeFM/custom CUDA sources compiled | no |",

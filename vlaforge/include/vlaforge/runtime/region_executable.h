@@ -175,6 +175,15 @@ typedef VLAForgeStatus (*VLAForgeRegionBindValueFn)(
     VLAForgeRegionExecutable* executable, uint32_t index,
     const VLAForgeValueView* value);
 
+/*
+ * Value descriptors are borrowed through synchronize(). For a scalar output,
+ * the caller supplies a mutable VLAForgeValueView through this const-qualified
+ * descriptor pointer; the backend writes the scalar payload before
+ * synchronize() returns. The const qualification protects descriptor
+ * identity, matching tensor outputs whose mutable storage is also referenced
+ * indirectly.
+ */
+
 typedef struct VLAForgeRegionExecutableValueApi {
   uint32_t struct_size;
   uint32_t abi_version;
@@ -188,6 +197,12 @@ typedef struct VLAForgeRegionExecutableValueApi {
   VLAForgeRegionSynchronizeFn synchronize;
   VLAForgeRegionDestroyFn destroy;
 } VLAForgeRegionExecutableValueApi;
+
+#define VLAFORGE_REGION_EXECUTABLE_VALUE_API_SYMBOL \
+  "vlaforge_region_executable_value_api"
+
+typedef const VLAForgeRegionExecutableValueApi*
+    (*VLAForgeRegionExecutableValueApiProviderFn)(void);
 
 VLAForgeStatus vlaforge_status_ok(void);
 VLAForgeStatus vlaforge_status_error(VLAForgeStatusCode code,

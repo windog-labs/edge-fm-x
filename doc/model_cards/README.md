@@ -18,6 +18,7 @@ fixture 已经生成并运行无 Python C++ Session，不表示真实 checkpoint
 | ReCogDrive | L0 + structural L1 | 0 | [recogdrive.md](recogdrive.md) |
 | UniDriveVLA | L0 + structural L1 | 0 | [unidrivevla.md](unidrivevla.md) |
 | OpenDriveVLA | L0 + structural L1 | 0 | [opendrivevla.md](opendrivevla.md) |
+| ExternalFeature Hybrid fixture | L1 + no-Python C++ fixture | 0 | [external_feature_hybrid.md](external_feature_hybrid.md) |
 
 共同验收路径：
 

@@ -38,7 +38,7 @@ fixture、真实模型 capture 和完整 C++ 部署混为一谈。
 | DiffusionPlanner | DrivingDiffusion/DiffusionDrive | 2-step denoise、K candidates+score | fixture-L4 + real L2/L3/L4 |
 | HybridVLMPlanner | ReCogDrive-like | VLM + diffusion 跨 artifact 组合 | L1/L2+ |
 | MultiTaskDriving | UniDriveVLA/OpenDriveVLA-like | 2D/3D token、多专家、多 named outputs | L1/L2+ |
-| ExternalFeature Hybrid | DriveVLM-Dual-like fixture | C++ BEV/agent/map Region plugin | L1/L4 |
+| ExternalFeature Hybrid | DriveVLM-Dual-like fixture | dynamically loaded C++ BEV/agent/map Region plugin | L1 + no-Python C++ fixture |
 
 ## 3. Model Adaptation Card
 
@@ -85,6 +85,7 @@ memory/performance results
 | ReCogDrive | L0 + structural L1 | hybrid | hybrid fixture | real hybrid artifacts |
 | UniDriveVLA | L0 + structural L1 | multitask structure | 否 | license/checkpoint/L2–L4 |
 | OpenDriveVLA | L0 + structural L1 | multitask structure | 否 | gated checkpoint/L2–L4 |
+| ExternalFeature Hybrid | L1 + no-Python C++ fixture | 是 | dynamic `.so` plugin | 仅为 source-faithful fixture，不是 DriveVLM-Dual real-model 证据 |
 
 当前 11 类 executable/structural fixtures 均由 v0.2 通用 op 表达，新增 core
 opcode 数为 0。完整 pinned revision 和 unsupported items 见
@@ -127,3 +128,10 @@ revision 模式各运行 5 个独立进程，报告 cold/first/warm、RSS/CUDA m
 reference 误差为 0，typed/generic ABI 一致，failure/abort 保留上一 committed
 output，恢复 Run 成功，`core_op_delta=0`。该结果是 correctness audit，
 不加入性能矩阵。跨 GPU、第二机复现和 Orin 属于可选增强，不阻塞本机主线。
+
+ExternalFeature Hybrid 现已不再只依赖 codegen 内嵌测试函数。bundle 将客户
+Region 作为 `shared_plugin` artifact 记录，先校验 size/SHA256 和 schema，
+再以 `RTLD_LOCAL` 动态加载 stable value ABI。fixture 同时覆盖 Tensor +
+Scalar、optional/default、typed/generic output、revision cache、
+failure/abort/retry、reset、篡改拒绝和 invalid-Python no-Python runner。
+它仍诚实标记为 source-faithful fixture，不计入真实模型数量。

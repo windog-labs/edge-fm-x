@@ -46,7 +46,7 @@ class CppArtifactRegionDefinition:
         candidate = PurePosixPath(self.artifact_path)
         if (
             not self.region_name
-            or self.backend not in {"aoti", "tensorrt"}
+            or self.backend not in {"aoti", "tensorrt", "shared_plugin"}
             or not self.artifact_path
             or candidate.is_absolute()
             or ".." in candidate.parts
@@ -69,6 +69,27 @@ class CppArtifactRegionDefinition:
         ):
             raise ValueError(
                 "TensorRT artifact Regions require a TensorRT backend variant"
+            )
+        if self.backend == "shared_plugin" and (
+            self.backend_variant is None
+            or not self.backend_variant.startswith("shared-plugin/")
+        ):
+            raise ValueError(
+                "shared plugin Regions require a shared-plugin/* variant"
+            )
+        if self.backend == "shared_plugin" and (
+            (self.target == "cpu" and self.device != "cpu")
+            or (
+                self.target.startswith("sm_")
+                and not self.device.startswith("cuda:")
+            )
+            or (
+                self.target != "cpu"
+                and not self.target.startswith("sm_")
+            )
+        ):
+            raise ValueError(
+                "shared plugin target and execution device disagree"
             )
         for name, value in (
             ("artifact SHA-256", self.artifact_sha256),

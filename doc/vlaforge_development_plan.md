@@ -302,7 +302,7 @@ opcode 或任意未验证 opcode。
 | P3 | Scheduled Plan、memory lowering、Semantic/Plan parity | 完成 |
 | P4 | C++ Session、StateStore、Transaction、C ABI v2 | 完成 |
 | P5 | typed wrapper、schema digest、negative input contracts | 完成 |
-| P6 | Region plugin ABI v2、clean no-Python build/run | 完成 |
+| P6 | Region plugin ABI v2、clean no-Python build/run | 完成：除静态 provider 外，已增加 verified `shared_plugin` 动态 `.so` loader、Tensor/Scalar ABI、typed/generic/failure/retry/篡改负例 |
 | P7 | robot/driving executable fixtures、fixture C++ parity | 完成 |
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |

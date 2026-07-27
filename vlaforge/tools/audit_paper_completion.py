@@ -218,12 +218,12 @@ def _audit_release_gate(report: Mapping[str, Any]) -> dict[str, Any]:
         "final Python test suite is incomplete",
     )
     _require(
-        int(summary.get("cpu_ctest_passed", 0)) == 7,
-        "CPU CTest gate is not 7/7",
+        int(summary.get("cpu_ctest_passed", 0)) == 8,
+        "CPU CTest gate is not 8/8",
     )
     _require(
-        int(summary.get("cuda_ctest_passed", 0)) == 8,
-        "CUDA CTest gate is not 8/8",
+        int(summary.get("cuda_ctest_passed", 0)) == 9,
+        "CUDA CTest gate is not 9/9",
     )
     _require(
         int(summary.get("cuda_aoti_opt_in_passed", 0)) == 1,
@@ -241,8 +241,8 @@ def _audit_release_gate(report: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "passed": True,
         "python_passed": int(summary["python_passed"]),
-        "cpu_ctest": "7/7",
-        "cuda_ctest": "8/8",
+        "cpu_ctest": "8/8",
+        "cuda_ctest": "9/9",
         "live_cuda_aoti": True,
         "clean_wheel_no_python": True,
         "legacy_cuda_kernels_compiled": False,
@@ -376,8 +376,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         ),
         (
             f"| Final Python/C++/CUDA gate | "
-            f"{release['python_passed']} Python tests; CPU 7/7; "
-            "CUDA 8/8; live AOTI passed |"
+            f"{release['python_passed']} Python tests; CPU 8/8; "
+            "CUDA 9/9; live AOTI passed |"
         ),
         "| Clean installed-wheel no-Python artifact | passed |",
         "| Paper, figures, Model Card, claim map, artifact README | passed |",

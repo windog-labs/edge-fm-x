@@ -1,6 +1,6 @@
 # VLAForge v0.2 C++ AOT 进度
 
-> 更新时间：2026-07-25
+> 更新时间：2026-07-27
 > 当前语义：独立的 passive `Session::Run()` invocation runtime
 
 ## 已完成
@@ -16,7 +16,10 @@
 - generic committed named outputs；
 - deterministic runtime trace；
 - static arena；
-- Tensor/Scalar `RegionExecutable` plugin ABI v2。
+- Tensor/Scalar `RegionExecutable` plugin ABI v2；
+- verified external `.so` loader：artifact hash/schema 在 `dlopen` 前校验，
+  API/target/backend variant 在 load 时校验，Session 销毁时先释放
+  executable 再 `dlclose`。
 
 ### Code generation
 
@@ -47,6 +50,11 @@
    required/optional/default、Tensor+Scalar bind、schema mismatch。
 6. Region ABI smoke：
    C customer plugin 使用 Tensor+Scalar value ABI。
+7. Dynamic external Region：
+   source-faithful BEV/agent/route `.so` 通过 bundle 动态加载，覆盖
+   optional/default、exact revision cache、typed/generic output、
+   failure/abort/retry、reset、tamper/ABI/entrypoint/target/variant 负例和
+   invalid-Python no-Python runner。
 
 ### 负契约
 

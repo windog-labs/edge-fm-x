@@ -240,6 +240,70 @@ def test_codegen_emits_bundle_loaded_tensorrt_regions() -> None:
         )
 
 
+def test_codegen_emits_bundle_loaded_shared_plugin_regions() -> None:
+    fixture = build_hybrid_external_feature_fixture()
+    compilation = compile_module(
+        fixture.module,
+        profile=CompilerProfile.OFF,
+        default_device="cpu",
+    )
+    definitions = {
+        region.name: CppArtifactRegionDefinition(
+            region_name=region.name,
+            backend="shared_plugin",
+            artifact_path=f"artifacts/{region.name}.so",
+            artifact_sha256=f"{index + 1:064x}",
+            artifact_size_bytes=4096 + index,
+            io_schema_digest=compilation.plan.io_schema_digest,
+            target="cpu",
+            device="cpu",
+            backend_variant="shared-plugin/1",
+        )
+        for index, region in enumerate(compilation.module.regions)
+    }
+    sources = generate_cpp_session(
+        compilation.plan,
+        compilation.module,
+        artifact_regions=definitions,
+        validators=hybrid_external_feature_validators(),
+    ).as_dict()
+
+    source = sources["session_generated.cpp"]
+    header = sources["session_generated.h"]
+    cmake = sources["CMakeLists.txt"]
+    assert "external_region_plugin.h" in header
+    assert "vlaforge_external_region_plugin_open" in source
+    assert "vlaforge_external_region_plugin_close" in source
+    assert "shared plugin Region load failed" in source
+    assert "VLAFORGE_VALUE_SCALAR" in source
+    assert "VLAFORGE_BUILD_AOTI_BACKEND ON" not in cmake
+    assert "VLAFORGE_BUILD_TENSORRT_BACKEND ON" not in cmake
+
+    with pytest.raises(ValueError, match="shared-plugin"):
+        CppArtifactRegionDefinition(
+            region_name="invalid",
+            backend="shared_plugin",
+            artifact_path="artifacts/invalid.so",
+            artifact_sha256="f" * 64,
+            artifact_size_bytes=1,
+            io_schema_digest="e" * 64,
+            target="cpu",
+            device="cpu",
+        )
+    with pytest.raises(ValueError, match="target and execution device"):
+        CppArtifactRegionDefinition(
+            region_name="invalid",
+            backend="shared_plugin",
+            artifact_path="artifacts/invalid.so",
+            artifact_sha256="f" * 64,
+            artifact_size_bytes=1,
+            io_schema_digest="e" * 64,
+            target="sm_86",
+            device="cpu",
+            backend_variant="shared-plugin/1",
+        )
+
+
 def test_generated_runner_is_clean_and_matches_python(tmp_path: Path):
     fixture, _, sources = _sources()
     source_dir = tmp_path / "source"

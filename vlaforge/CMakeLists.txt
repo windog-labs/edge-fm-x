@@ -26,13 +26,14 @@ option(VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY
 add_library(vlaforge_runtime STATIC
     runtime/artifact_verifier.cpp
     runtime/device_copy.cpp
+    runtime/external_region_plugin.cpp
     runtime/region_executable.c
     runtime/session_c.c
     runtime/static_arena.cpp
     runtime/state_store.cpp
     runtime/transaction.cpp
 )
-target_link_libraries(vlaforge_runtime PUBLIC OpenSSL::Crypto)
+target_link_libraries(vlaforge_runtime PUBLIC OpenSSL::Crypto ${CMAKE_DL_LIBS})
 target_include_directories(vlaforge_runtime
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

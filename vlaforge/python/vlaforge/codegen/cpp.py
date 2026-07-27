@@ -278,7 +278,13 @@ class _Emitter:
         cache_fields = "\n".join(
             self._cache_field(cache) for cache in self.caches
         )
-        artifact_include = "#include <string>" if self.artifact_mode else ""
+        artifact_include = (
+            """#include <string>
+
+#include "vlaforge/runtime/external_region_plugin.h\""""
+            if self.artifact_mode
+            else ""
+        )
         constructors = (
             """  explicit ModelSession(const char* bundle_root = ".");
   ~ModelSession() override;"""
@@ -302,6 +308,8 @@ class _Emitter:
              {len(self.module.regions)}> region_executables_{{}};
   std::array<const VLAForgeRegionExecutableValueApi*,
              {len(self.module.regions)}> region_apis_{{}};
+  std::array<VLAForgeExternalRegionPlugin*,
+             {len(self.module.regions)}> region_plugins_{{}};
   std::array<std::string, {len(self.module.regions)}> region_paths_{{}};"""
             if self.artifact_mode
             else ""
@@ -792,13 +800,31 @@ vlaforge::runtime::Status ReadBool(
             backend_label = {
                 "aoti": "AOTI",
                 "tensorrt": "TensorRT",
+                "shared_plugin": "shared plugin",
             }[artifact.backend]
-            backend_api = {
-                "aoti": "vlaforge_aoti_region_executable_value_api()",
-                "tensorrt": (
-                    "vlaforge_tensorrt_region_executable_value_api()"
-                ),
-            }[artifact.backend]
+            if artifact.backend == "shared_plugin":
+                api_setup = f"""    if (region_plugins_[{index}u] == nullptr) {{
+      const auto plugin_status =
+          vlaforge_external_region_plugin_open(
+              region_paths_[{index}u].data(),
+              region_paths_[{index}u].size(),
+              &region_plugins_[{index}u]);
+      if (plugin_status.code != VLAFORGE_STATUS_OK) {{
+        const auto status = FromCStatus(plugin_status, {index}u);
+        DestroyRegions();
+        return status;
+      }}
+    }}
+    const auto* api = vlaforge_external_region_plugin_api(
+        region_plugins_[{index}u]);"""
+            else:
+                backend_api = {
+                    "aoti": "vlaforge_aoti_region_executable_value_api()",
+                    "tensorrt": (
+                        "vlaforge_tensorrt_region_executable_value_api()"
+                    ),
+                }[artifact.backend]
+                api_setup = f"    const auto* api = {backend_api};"
             kind = _device(artifact.device)
             ordinal = _device_ordinal(artifact.device)
             variant_pointer = (
@@ -831,7 +857,7 @@ vlaforge::runtime::Status ReadBool(
                                     : "artifact verification failed");
     }}
     region_paths_[{index}u] = resolved_path;
-    const auto* api = {backend_api};
+{api_setup}
     auto c_status = vlaforge_region_executable_value_api_validate(api);
     if (c_status.code != VLAFORGE_STATUS_OK) {{
       DestroyRegions();
@@ -924,6 +950,12 @@ void ModelSession::DestroyRegion(std::size_t slot) noexcept {{
 void ModelSession::DestroyRegions() noexcept {{
   for (std::size_t index = region_executables_.size(); index > 0u; --index) {{
     DestroyRegion(index - 1u);
+  }}
+  for (std::size_t index = region_plugins_.size(); index > 0u; --index) {{
+    const auto slot = index - 1u;
+    vlaforge_external_region_plugin_close(region_plugins_[slot]);
+    region_plugins_[slot] = nullptr;
+    region_apis_[slot] = nullptr;
   }}
 }}
 
@@ -1496,6 +1528,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             "  VLAForgeStatus region_status{};",
             )
         )
+        scalar_output_copyback: list[str] = []
         for category, buffers in (
             ("input", task.inputs),
             ("output", task.outputs),
@@ -1510,8 +1543,51 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 physical = self.physical.get(buffer_id)
                 alignment = 1 if physical is None else physical.alignment
                 variable = f"region_{task.id}_{category}_{index}"
-                run.extend(
-                    (
+                if (
+                    definition.backend == "shared_plugin"
+                    and isinstance(buffer.type, ScalarType)
+                ):
+                    scalar = f"{variable}.value.scalar"
+                    run.extend(
+                        (
+                            f"  VLAForgeValueView {variable}{{}};",
+                            f"  {variable}.struct_size = "
+                            "sizeof(VLAForgeValueView);",
+                            f"  {variable}.kind = VLAFORGE_VALUE_SCALAR;",
+                            f"  {scalar}.struct_size = "
+                            "sizeof(VLAForgeScalarValue);",
+                            f"  {scalar}.dtype = {_dtype(buffer.type.name)};",
+                        )
+                    )
+                    if category == "input":
+                        run.extend(
+                            (
+                                "  status = vlaforge::runtime::CopyBytes(",
+                                f"      ScalarData(&{scalar}), "
+                                "{VLAFORGE_DEVICE_CPU, 0},",
+                                f"      values_[{buffer_id}u].data, "
+                                f"values_[{buffer_id}u].device,",
+                                f"      {_bytes(buffer.type)}u, {task.id}u);",
+                                "  if (!status.ok()) { "
+                                f"return {fail_status}; }}",
+                            )
+                        )
+                    else:
+                        scalar_output_copyback.extend(
+                            (
+                                "  status = vlaforge::runtime::CopyBytes(",
+                                f"      values_[{buffer_id}u].data, "
+                                f"values_[{buffer_id}u].device,",
+                                f"      ScalarData(&{scalar}), "
+                                "{VLAFORGE_DEVICE_CPU, 0},",
+                                f"      {_bytes(buffer.type)}u, {task.id}u);",
+                                "  if (!status.ok()) { "
+                                f"return {fail_status}; }}",
+                            )
+                        )
+                else:
+                    run.extend(
+                        (
                         f"  VLAForgeValueView {variable}{{}};",
                         f"  {variable}.struct_size = "
                         "sizeof(VLAForgeValueView);",
@@ -1519,6 +1595,10 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                         f"  {variable}.value.tensor = VLAForgeBoundTensor{{",
                         "      sizeof(VLAForgeBoundTensor), "
                         f"values_[{buffer_id}u], {layout}, {alignment}u}};",
+                        )
+                    )
+                run.extend(
+                    (
                         f"  region_status = api->bind_{category}(",
                         f"      executable, {index}u, &{variable});",
                         "  status = FromCStatus(region_status, "
@@ -1539,6 +1619,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 f"{task.id}u);",
                 "  if (!status.ok()) { "
                 f"return {fail_status}; }}",
+                *scalar_output_copyback,
                 "  vlaforge::runtime::EmitTrace("
                 "trace_, vlaforge::runtime::TraceEvent{"
                 "vlaforge::runtime::TraceKind::kRegion, "
@@ -2381,7 +2462,11 @@ add_executable(vlaforge_generated_runner runner.cpp)
 target_link_libraries(vlaforge_generated_runner PRIVATE
     vlaforge_generated_session)
 """ if has_runner else ""
-    unknown_backends = artifact_backends - {"aoti", "tensorrt"}
+    unknown_backends = artifact_backends - {
+        "aoti",
+        "tensorrt",
+        "shared_plugin",
+    }
     if unknown_backends:
         raise CodegenUnsupportedError(
             f"unsupported C++ artifact backends: {sorted(unknown_backends)}"

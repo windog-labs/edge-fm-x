@@ -30,6 +30,41 @@ target_link_libraries(vlaforge_artifact_verifier_smoke PRIVATE
 add_test(NAME vlaforge_artifact_verifier_smoke
     COMMAND vlaforge_artifact_verifier_smoke)
 
+function(vlaforge_add_external_plugin_fixture target)
+    add_library(${target} SHARED
+        ../../examples/external_bev_plugin/plugin.cpp)
+    target_include_directories(${target} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../include")
+    target_compile_definitions(${target} PRIVATE
+        "VLAFORGE_EXPECTED_SCHEMA_DIGEST=\"0000000000000000000000000000000000000000000000000000000000000000\""
+        ${ARGN})
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /WX)
+    else()
+        target_compile_options(${target} PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endfunction()
+
+vlaforge_add_external_plugin_fixture(
+    vlaforge_external_region_test_plugin)
+vlaforge_add_external_plugin_fixture(
+    vlaforge_external_region_bad_abi_plugin
+    VLAFORGE_PLUGIN_BAD_ABI=1)
+vlaforge_add_external_plugin_fixture(
+    vlaforge_external_region_missing_symbol_plugin
+    VLAFORGE_PLUGIN_OMIT_ENTRYPOINT=1)
+
+add_executable(vlaforge_external_region_plugin_smoke
+    external_region_plugin_smoke.cpp)
+target_link_libraries(vlaforge_external_region_plugin_smoke PRIVATE
+    vlaforge_runtime)
+add_test(NAME vlaforge_external_region_plugin_smoke
+    COMMAND vlaforge_external_region_plugin_smoke
+        $<TARGET_FILE:vlaforge_external_region_test_plugin>
+        $<TARGET_FILE:vlaforge_external_region_bad_abi_plugin>
+        $<TARGET_FILE:vlaforge_external_region_missing_symbol_plugin>)
+
 if(TARGET vlaforge_aoti_backend)
     add_executable(vlaforge_cuda_state_store_smoke
         cuda_state_store_smoke.cpp)

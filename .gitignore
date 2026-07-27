@@ -19,6 +19,10 @@ artifacts/
 deliverables/
 third_party/
 examples/
+!vlaforge/examples/
+vlaforge/examples/*
+!vlaforge/examples/external_bev_plugin/
+!vlaforge/examples/external_bev_plugin/**
 
 *.pt
 *.pt2
