@@ -84,3 +84,26 @@ def test_print_plan_is_portable_and_does_not_probe_gpu(
     expected_index = audit_command.index("--expected-target") + 1
     assert audit_command[expected_index] == "sm_80"
     assert "sm_86" not in json.dumps(plan)
+
+
+def test_packaged_source_uses_pinned_content_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    handoff = _module()
+    for relative, expected in handoff.AUTOVLA_SOURCE_SHA256.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(relative, encoding="utf-8")
+        monkeypatch.setitem(
+            handoff.AUTOVLA_SOURCE_SHA256,
+            relative,
+            handoff._sha256(path),
+        )
+    record, errors = handoff._source_record(tmp_path)
+    assert errors == []
+    assert record["repository"]["git_checkout"] is False
+    assert (
+        record["repository"]["identity_mode"]
+        == "pinned-content-sha256"
+    )

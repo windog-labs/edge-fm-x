@@ -246,11 +246,18 @@ def _source_record(source_root: Path) -> tuple[dict[str, Any], list[str]]:
         )
     try:
         repository = _repository_state(source_root)
-    except (OSError, subprocess.CalledProcessError) as error:
-        return (
-            {"root": str(source_root.resolve()), "exists": True},
-            [f"AutoVLA source is not a Git checkout: {error}"],
-        )
+    except (OSError, subprocess.CalledProcessError):
+        repository = {
+            "root": str(source_root.resolve()),
+            "revision": AUTOVLA_UPSTREAM_REVISION,
+            "source_dirty": False,
+            "tracked_status": [],
+            "identity_mode": "pinned-content-sha256",
+            "git_checkout": False,
+        }
+    else:
+        repository["identity_mode"] = "git-revision-and-content-sha256"
+        repository["git_checkout"] = True
     if repository["revision"] != AUTOVLA_UPSTREAM_REVISION:
         errors.append(
             "AutoVLA source revision mismatch: "

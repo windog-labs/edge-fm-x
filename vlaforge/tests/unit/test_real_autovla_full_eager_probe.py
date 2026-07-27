@@ -97,3 +97,25 @@ def test_inference_score_shim_is_fail_closed() -> None:
     assert isinstance(score, types.ModuleType)
     with pytest.raises(RuntimeError, match="inference-only"):
         score.PDM_Reward()
+
+
+def test_packaged_source_identity_does_not_require_git(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    probe = _module()
+    for relative in tuple(probe.AUTOVLA_SOURCE_SHA256):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(relative, encoding="utf-8")
+        monkeypatch.setitem(
+            probe.AUTOVLA_SOURCE_SHA256,
+            relative,
+            probe._sha256(path),
+        )
+    source = probe._verify_source(tmp_path)
+    assert source["repository"]["git_checkout"] is False
+    assert (
+        source["repository"]["identity_mode"]
+        == "pinned-content-sha256"
+    )

@@ -221,7 +221,20 @@ def _install_inference_only_score_shim() -> None:
 
 
 def _verify_source(source_root: Path) -> dict[str, Any]:
-    repository = _repository_state(source_root)
+    try:
+        repository = _repository_state(source_root)
+    except (OSError, subprocess.CalledProcessError):
+        repository = {
+            "root": str(source_root.resolve()),
+            "revision": AUTOVLA_UPSTREAM_REVISION,
+            "source_dirty": False,
+            "tracked_status": [],
+            "identity_mode": "pinned-content-sha256",
+            "git_checkout": False,
+        }
+    else:
+        repository["identity_mode"] = "git-revision-and-content-sha256"
+        repository["git_checkout"] = True
     if repository["revision"] != AUTOVLA_UPSTREAM_REVISION:
         raise ValueError(
             "AutoVLA revision mismatch: "
