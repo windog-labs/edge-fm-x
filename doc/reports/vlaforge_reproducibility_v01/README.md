@@ -5,18 +5,18 @@ Status: **passed**.
 ## Frozen baseline
 
 - Baseline revision: `f0fc1be`
-- Audited revision: `f124cbd883ced86480a21d05d28f9092841cde0c`
+- Audited revision: `5d90e4e4fff01316f1ec8a45f23c4f09f514d844`
 - Frozen core SHA256: `cc2d1b63e2d6cbcd65935b37d69b5f18fae4d2d177c7026a69c6e78f5c80ae6d`
 - Frozen core still matches: yes
 - Installed-wheel CUDA target: `sm_86`
-- Installed-wheel package import: `/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/lib/python3.13/site-packages/vlaforge/__init__.py`
+- Installed-wheel package import: `/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/lib/python3.13/site-packages/vlaforge/__init__.py`
 
 ## Durable evidence in Git
 
-- Formal JSON reports: 16
+- Formal JSON reports: 19
 - Committed raw JSON/CSV/Nsight text summaries: 316
-- Paper, Model Card and figure artifacts: 10
-- Extracted reproduction commands: 6
+- Paper, Model Card and figure artifacts: 11
+- Extracted reproduction commands: 9
 - Large checkpoints, AOTI packages and binary profiler databases: not committed
 
 ## External archive roots
@@ -31,13 +31,14 @@ Status: **passed**.
 | `/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-diffusiondrive-l4-clean` | 0.24 GiB | required | present | real DiffusionDrive Compile Bundle and deterministic inputs |
 | `/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-openvla-l3-capture` | 26.54 GiB | required | present | real OpenVLA source exports and deterministic inputs |
 | `/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-openvla-l3-artifacts` | 79.17 GiB | required | present | 36 normalized OpenVLA exports and sm_86 AOTI packages |
+| `/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876` | 26.32 GiB | required | present | real OpenVLA weight-paged verified bundle, deterministic inputs, generated no-Python C++ runner, and L4 report |
 | `/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-autovla-checkpoint-a7d7ba3` | 15.17 GiB | required | present | pinned 16.29 GB AutoVLA PDMS 89 checkpoint |
 | `/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-autovla-l2-f750e54` | 0.13 GiB | required | present | real AutoVLA partitioned L2 exports and capture evidence |
 | `/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/optional/vlaforge-autovla-l3-conservative-f750e54` | 0.14 GiB | optional | present | optional conservative AOTI L3-candidate artifacts |
-| `/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726` | 84.06 GiB | required | present | complete MindDrive checkpoint, frontend captures, AOTI artifacts, verified bundle, and generated L4 evidence |
+| `/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726` | 84.09 GiB | required | present | complete MindDrive checkpoint, frontend captures, AOTI artifacts, verified bundle, and generated L4 evidence |
 | `/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/optional/vlaforge-nsight-v2` | 0.05 GiB | optional | present | optional timeline reinspection; parsed NSYS/NCU summaries and profile hashes are committed |
 
-Required external roots currently total **213.78 GiB**. They must be archived outside Git to retain byte-for-byte real-model reproduction.
+Required external roots currently total **240.13 GiB**. They must be archived outside Git to retain byte-for-byte real-model reproduction.
 The audit found 1 missing ephemeral references. They remain disclosed in the JSON manifest; committed hashes and summaries are still available, while byte-for-byte reruns require regeneration or the external archive roots above.
 
 ## Claim boundary

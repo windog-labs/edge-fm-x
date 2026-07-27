@@ -117,7 +117,9 @@ This paper makes the following contributions:
 3. **Failure-safe verified C++ deployment.** VLAForge generates a no-Python
    C++ Session, a generic C ABI, and a model-specific typed wrapper. Bundle
    loading verifies schema, ABI, artifact hashes, and target metadata before
-   execution; state and named outputs commit transactionally.
+   execution; state and named outputs commit transactionally. The same
+   verified boundary dynamically loads customer C++/CUDA preprocessing and
+   feature Regions through a constrained Tensor/Scalar plugin ABI.
 4. **Frozen-core evidence across VLA paradigms.** The same core expresses real
    robot flow/chunk, autoregressive OpenVLA, driving diffusion, and stateful
    MindDrive generated Sessions, a held-out real AutoVLA decoder partition,
@@ -312,7 +314,9 @@ manifests, target metadata, and hashes. Loading checks schema digest, ABI,
 artifact hashes, target role, and path containment. Generated code uses the
 same C ABI as the typed wrapper and returns only committed outputs. A
 `RegionExecutable` is selected by verified artifact identity; it is not a
-Python callback.
+Python callback. External shared-library Regions are hash-checked before
+`dlopen`, loaded with local symbol scope, and validated for callable ABI,
+target, backend variant, and static Tensor/Scalar contracts.
 
 ## 4. Implementation
 
@@ -714,6 +718,9 @@ The artifact contains:
   bundle/report with raw-artifact failure/retry evidence;
 - checkpoint, source, export, artifact, bundle, and runner hashes;
 - generated C/C++ schema and ABI negative tests;
+- a dynamically loaded external BEV/agent/route Region fixture with
+  typed/generic parity, exact-cache, failure/retry, tamper, and no-Python
+  evidence;
 - Python, CPU CTest, CUDA CTest, live CUDA AOTI, and no-Python gates.
 
 Large checkpoints, compiled packages, and profiler databases are identified by

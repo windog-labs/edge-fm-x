@@ -2,6 +2,7 @@
   "build_graph": {
     "cmake_files": [
       "vlaforge/CMakeLists.txt",
+      "vlaforge/examples/external_bev_plugin/CMakeLists.txt",
       "vlaforge/tests/cpp/CMakeLists.txt",
       "vlaforge/tests/install_consumer/CMakeLists.txt",
       "vlaforge/tests/tensorrt_install_consumer/CMakeLists.txt"
@@ -15,6 +16,11 @@
       {
         "cmake": "vlaforge/CMakeLists.txt",
         "source": "vlaforge/runtime/device_copy.cpp",
+        "target": "vlaforge_runtime"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/runtime/external_region_plugin.cpp",
         "target": "vlaforge_runtime"
       },
       {
@@ -44,7 +50,17 @@
       },
       {
         "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/backends/aoti_callable.cpp",
+        "target": "vlaforge_aoti_backend"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
         "source": "vlaforge/backends/aoti_region_executable.cpp",
+        "target": "vlaforge_aoti_backend"
+      },
+      {
+        "cmake": "vlaforge/CMakeLists.txt",
+        "source": "vlaforge/backends/aoti_sequence_runner.cpp",
         "target": "vlaforge_aoti_backend"
       },
       {
@@ -56,6 +72,11 @@
         "cmake": "vlaforge/CMakeLists.txt",
         "source": "vlaforge/backends/torchscript_region_executable.cpp",
         "target": "vlaforge_torchscript_backend"
+      },
+      {
+        "cmake": "vlaforge/examples/external_bev_plugin/CMakeLists.txt",
+        "source": "vlaforge/examples/external_bev_plugin/plugin.cpp",
+        "target": "vlaforge_external_bev_plugin"
       },
       {
         "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
@@ -91,6 +112,16 @@
         "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
         "source": "vlaforge/tests/cpp/artifact_verifier_smoke.cpp",
         "target": "vlaforge_artifact_verifier_smoke"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/examples/external_bev_plugin/plugin.cpp",
+        "target": "${target}"
+      },
+      {
+        "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
+        "source": "vlaforge/tests/cpp/external_region_plugin_smoke.cpp",
+        "target": "vlaforge_external_region_plugin_smoke"
       },
       {
         "cmake": "vlaforge/tests/cpp/CMakeLists.txt",
@@ -178,13 +209,13 @@
   "non_production_negative_mentions": [
     {
       "category": "run_tick",
-      "line": 76,
+      "line": 98,
       "match": "RunTick",
       "path": "vlaforge/tests/codegen/test_codegen.py"
     },
     {
       "category": "clock_domain",
-      "line": 77,
+      "line": 99,
       "match": "ClockDomain",
       "path": "vlaforge/tests/codegen/test_codegen.py"
     },
@@ -299,15 +330,31 @@
   ],
   "passed": true,
   "production_surface": {
-    "file_count": 49,
+    "file_count": 56,
     "files": [
       {
         "path": "vlaforge/CMakeLists.txt",
-        "sha256": "81196256ca7cb39b7e7a4ddf96c3a361ca22f8ca85b8edd5649163f4710ffc73"
+        "sha256": "90f4b4a8c4e8b056a27185d749cfed0df248eb7a43e28b33aef290f7596f3131"
+      },
+      {
+        "path": "vlaforge/backends/aoti_callable.cpp",
+        "sha256": "497f1d9ce12f958f0fe9ed77bde0060e0fbb68e1c7ea2fb63c05a86d8c71fe98"
+      },
+      {
+        "path": "vlaforge/backends/aoti_callable.h",
+        "sha256": "078dc39afea6fba148b51692d6f0e2ad9b8839535fb1ec0ed67bd6579dc7a932"
       },
       {
         "path": "vlaforge/backends/aoti_region_executable.cpp",
-        "sha256": "083cdbfd567b1df917f0d05265389065c28d0d075f736739442f0d08ab0f3c01"
+        "sha256": "0a645c81d62ed6f6088a4047673d70fced14ab51ed588d2df74b0ff5fdc4503b"
+      },
+      {
+        "path": "vlaforge/backends/aoti_sequence_runner.cpp",
+        "sha256": "5025abc9dcfa8964eff562b89ca91ef61e8417ab234ebcd7684717396054db10"
+      },
+      {
+        "path": "vlaforge/backends/aoti_sequence_runner.h",
+        "sha256": "a437877e14b273e972bbec3c8fc9a2d02c441dda5ad9f81ef0add0af2ce5faa6"
       },
       {
         "path": "vlaforge/backends/tensorrt_region_executable.cpp",
@@ -331,15 +378,19 @@
       },
       {
         "path": "vlaforge/include/vlaforge/runtime/artifact_verifier.h",
-        "sha256": "8e0f98bdd83863f14178e484eeb4ab8df878db714a460eb0633cc9aecf133b1d"
+        "sha256": "fa92610f61487c686602c11ad4c4f30b80d9f1447454f5f329384f57b8678e78"
       },
       {
         "path": "vlaforge/include/vlaforge/runtime/device_copy.h",
         "sha256": "e52f7b3dfeab5382007d7ebc089cf06dea8fd885eb06fc2be163c84bf9d29f07"
       },
       {
+        "path": "vlaforge/include/vlaforge/runtime/external_region_plugin.h",
+        "sha256": "f6f72569d5f66dc43ee590c966c6f83e9790d4c8f22171cbc30c86fa87bba883"
+      },
+      {
         "path": "vlaforge/include/vlaforge/runtime/region_executable.h",
-        "sha256": "4dabd1ce98e4482ea6e548ba3dd4ef0d2261ae1e44419291e507c24fe1a3e7bf"
+        "sha256": "eb3cf9ac99d7a7cb7d64cb002e0037db46c09c512de4bf5ca1dc5b2f832056d3"
       },
       {
         "path": "vlaforge/include/vlaforge/runtime/session.h",
@@ -351,7 +402,7 @@
       },
       {
         "path": "vlaforge/include/vlaforge/runtime/state_store.h",
-        "sha256": "36bb4ba0ec831d6c29a923d65e103c6323571277921189e9fcaaddc21af51aca"
+        "sha256": "21ffcf62724e24bd580f8bbc6243bcc84a223f901fde143ef267c9b4931785c3"
       },
       {
         "path": "vlaforge/include/vlaforge/runtime/static_arena.h",
@@ -375,19 +426,19 @@
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/__init__.py",
-        "sha256": "bb2250f925b1ab63d71ceb3295d4b4aabf487ef0046ec981be4ae311d4a939e5"
+        "sha256": "7e8d6c96ebd1c98363aeefa574c292d3a94ba426222f946e7db85d1f08ebf7e9"
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/cpp.py",
-        "sha256": "c69744ab6c629cf8ae9bfe6375f11b94a1341e0696cce33c26d7b80ef035249b"
+        "sha256": "428bba1621f5871b59327c55fbc2c2edba8ed70d5cf51c5b0b21c1d595f1e218"
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/fixtures.py",
-        "sha256": "541a142b573b8285e8bb2f2868da8788dc3d0e203ac4730bd9dae0f8df65dd91"
+        "sha256": "84e97ad86bf8ef776f2d4987f57e2c37c7e6a2d5eec326ba4ce35f34e64b991f"
       },
       {
         "path": "vlaforge/python/vlaforge/codegen/model.py",
-        "sha256": "0ae2afd8266781a448d81386ed880cc4a5e50a2406e3aee55766b95d58443b38"
+        "sha256": "8efa446d27fe7b18117bdb8f3a565b0f89ce3e485aa153ea6c94a9526f29e55f"
       },
       {
         "path": "vlaforge/python/vlaforge/compiler.py",
@@ -395,11 +446,15 @@
       },
       {
         "path": "vlaforge/python/vlaforge/deployment/__init__.py",
-        "sha256": "b939ec7b6e1da4ddddd884334e5295fed9e03fd124899811e55aa7ccc5e3b6a4"
+        "sha256": "6d68b0787154ffae2a0d117ee42e327c98ce87f50641369585e6a52b801ae421"
+      },
+      {
+        "path": "vlaforge/python/vlaforge/deployment/aoti_sequence.py",
+        "sha256": "8acb335162548b801b0792ce14b3359879f9b56228ac66ead21c6dec9d7ee4f3"
       },
       {
         "path": "vlaforge/python/vlaforge/deployment/build.py",
-        "sha256": "e54c5a6086c1049b8346bca85663a9c7eccc41de6ad93b8532d7582d09189b4c"
+        "sha256": "5dc490c7171161ab085b4b5aa7031643f198ec2a01e4b26ca4a7366e3dd5f7a6"
       },
       {
         "path": "vlaforge/python/vlaforge/deployment/bundle.py",
@@ -407,7 +462,7 @@
       },
       {
         "path": "vlaforge/python/vlaforge/deployment/contract.py",
-        "sha256": "6ee8a4ea61e6e616ce3a0b0ec6bfbdaf83d34f6f92bb6b51090275f522cbc75f"
+        "sha256": "a5cca52c7dda5d066a4d1f59a5bd0fe1d2daa52cb13515886bbe380119fa878a"
       },
       {
         "path": "vlaforge/python/vlaforge/ir/__init__.py",
@@ -451,7 +506,7 @@
       },
       {
         "path": "vlaforge/python/vlaforge/plan/executor.py",
-        "sha256": "ca742674cd04c7a0d96e9741351a0fcc01078b9f98844e8866d1abb717c3a6e8"
+        "sha256": "245a073d6060d505517e3e11a59f48eea788aec458c1ccba8a59be38b1b2a0a3"
       },
       {
         "path": "vlaforge/python/vlaforge/plan/lowering.py",
@@ -471,11 +526,15 @@
       },
       {
         "path": "vlaforge/runtime/artifact_verifier.cpp",
-        "sha256": "dab6435e7749a04c13df33a31f9cca14c907590fdce962cfc2c2216bd2e1caf1"
+        "sha256": "4b8b6886834d42be8b63f2b4ca4f0a4b04599335cd991706a3d4250769f55326"
       },
       {
         "path": "vlaforge/runtime/device_copy.cpp",
         "sha256": "4dab1ee81ad47a73770bcf7632093ef43ea839bd96aaddc4a7f401f506629a9d"
+      },
+      {
+        "path": "vlaforge/runtime/external_region_plugin.cpp",
+        "sha256": "ca9d70997a2ce99ca64316354c6f8a12f594a0cf8e65c95b04fcb8c4375dccf5"
       },
       {
         "path": "vlaforge/runtime/region_executable.c",
@@ -487,7 +546,7 @@
       },
       {
         "path": "vlaforge/runtime/state_store.cpp",
-        "sha256": "39bf3b3bdd2c2b4c0fbe22b7f12cf836f97769e8ba5a166ee6ae5d561c2d849f"
+        "sha256": "bdab861622c183039f788d15cb45d8f6800a808f5952f4465fa59fb7739382ad"
       },
       {
         "path": "vlaforge/runtime/static_arena.cpp",
@@ -513,9 +572,16 @@
     ]
   },
   "repository": {
-    "revision": "19ee19af5bb30d219d41b9fa6495c0c5c62e10fb",
-    "source_dirty": false,
-    "tracked_status": []
+    "revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
+    "source_dirty": true,
+    "tracked_status": [
+      "M doc/reports/vlaforge_paper_completion_v01/README.md",
+      " M doc/reports/vlaforge_paper_completion_v01/paper_completion.json",
+      " M doc/reports/vlaforge_release_v01/release_gate.json",
+      " M doc/reports/vlaforge_release_v01/release_gate.md",
+      " M doc/reports/vlaforge_reproducibility_v01/README.md",
+      " M doc/reports/vlaforge_reproducibility_v01/reproducibility_manifest.json"
+    ]
   },
   "schema": "vlaforge.architecture_surface_audit/1",
   "semantic_ir": {

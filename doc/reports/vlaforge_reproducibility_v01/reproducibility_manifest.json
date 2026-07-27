@@ -1670,6 +1670,14 @@
     {
       "exists": true,
       "must_archive": true,
+      "name": "openvla_l4_bundle",
+      "path": "/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876",
+      "reason": "real OpenVLA weight-paged verified bundle, deterministic inputs, generated no-Python C++ runner, and L4 report",
+      "size_bytes": 28262371463
+    },
+    {
+      "exists": true,
+      "must_archive": true,
       "name": "autovla_checkpoint",
       "path": "/home/zhangzimo/Archives/vlaforge-paper-artifact-20260726/required/vlaforge-autovla-checkpoint-a7d7ba3",
       "reason": "pinned 16.29 GB AutoVLA PDMS 89 checkpoint",
@@ -1697,7 +1705,7 @@
       "name": "minddrive_complete_l2_l3_l4",
       "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726",
       "reason": "complete MindDrive checkpoint, frontend captures, AOTI artifacts, verified bundle, and generated L4 evidence",
-      "size_bytes": 90261248315
+      "size_bytes": 90291206509
     },
     {
       "exists": true,
@@ -1809,11 +1817,355 @@
       "exists": true,
       "inside_repository": false,
       "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[9]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[11]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        },
+        {
+          "json_pointer": "$.reproduction.orchestrator[11]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary/bin/vlaforge_generated_benchmark",
+      "referenced_by": [
+        {
+          "json_pointer": "$.runner.path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[0]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        },
+        {
+          "json_pointer": "$.runner.path",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_00/minddrive_full_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[0]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_01/minddrive_full_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[1]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_02/minddrive_full_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[2]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_03/minddrive_full_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[3]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/full/repeat_04/minddrive_full_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[4]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_00/minddrive_missing_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[15]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_01/minddrive_missing_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[16]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_02/minddrive_missing_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[17]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_03/minddrive_missing_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[18]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/missing/repeat_04/minddrive_missing_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[19]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_00/minddrive_new_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[10]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_01/minddrive_new_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[11]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_02/minddrive_new_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[12]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_03/minddrive_new_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[13]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/new/repeat_04/minddrive_new_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[14]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_00/minddrive_same_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[5]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_01/minddrive_same_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[6]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_02/minddrive_same_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[7]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_03/minddrive_same_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[8]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/raw/same/repeat_04/minddrive_same_10.json",
+      "referenced_by": [
+        {
+          "json_pointer": "$.raw_reports[9]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/soak-same-1000-a7daea5",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.orchestrator[9]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
       "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
       "referenced_by": [
         {
           "json_pointer": "$.archive.bundle_root",
           "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json"
+        },
+        {
+          "json_pointer": "$.bundle.root",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[5]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        },
+        {
+          "json_pointer": "$.bundle.root",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[1]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        },
+        {
+          "json_pointer": "$.reproduction.orchestrator[5]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
         }
       ]
     },
@@ -1834,12 +2186,98 @@
       "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
       "exists": true,
       "inside_repository": false,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/inputs",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[7]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+        },
+        {
+          "json_pointer": "$.reproduction.command[2]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        },
+        {
+          "json_pointer": "$.reproduction.orchestrator[7]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "minddrive_complete_l2_l3_l4",
+      "exists": true,
+      "inside_repository": false,
       "kind": "file",
       "path": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/minddrive-real-l4.json",
       "referenced_by": [
         {
           "json_pointer": "$.report.path",
           "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l4_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "directory",
+      "path": "/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876/bundle",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.root",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l4_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876/bundle/bin/vlaforge_generated_runner",
+      "referenced_by": [
+        {
+          "json_pointer": "$.bundle.runner",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l4_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876/inputs/image.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.inputs.image.path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l4_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876/inputs/instruction_mask.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.inputs.instruction_mask.path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": "openvla_l4_bundle",
+      "exists": true,
+      "inside_repository": false,
+      "kind": "file",
+      "path": "/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876/inputs/instruction_tokens.bin",
+      "referenced_by": [
+        {
+          "json_pointer": "$.inputs.instruction_tokens.path",
+          "report": "doc/reports/vlaforge_real_v03/openvla_artifact_l4.json"
         }
       ]
     },
@@ -2403,6 +2841,32 @@
         {
           "json_pointer": "$.reproduction.command[11]",
           "report": "doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_generated_l4.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.orchestrator[1]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+        }
+      ]
+    },
+    {
+      "covered_by_archive_root": null,
+      "exists": true,
+      "inside_repository": true,
+      "kind": "file",
+      "path": "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_minddrive_l4.py",
+      "referenced_by": [
+        {
+          "json_pointer": "$.reproduction.command[1]",
+          "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
         }
       ]
     },
@@ -5267,6 +5731,16 @@
       "size_bytes": 2372
     },
     {
+      "path": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json",
+      "sha256": "2621a5581aab63febba6216aa91fbdbdc43e32e8a4a2056712b1fe945716f8e5",
+      "size_bytes": 23630
+    },
+    {
+      "path": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json",
+      "sha256": "681e06f74aea4a98ad7728218e9626d189ad3c9a668c4b224f27c2c85922ec9c",
+      "size_bytes": 4923
+    },
+    {
       "path": "doc/reports/vlaforge_real_v03/diffusiondrive_artifact_l3.json",
       "sha256": "164dd294813e1814d72ada3edf95ab16eaed444778566807d6d3e4bcd5fb49cb",
       "size_bytes": 19925
@@ -5285,6 +5759,11 @@
       "path": "doc/reports/vlaforge_real_v03/openvla_artifact_l3.json",
       "sha256": "6579008f77d7dc760d3d21259cab754388f719c4234f2d78744c126796ec12c3",
       "size_bytes": 119607
+    },
+    {
+      "path": "doc/reports/vlaforge_real_v03/openvla_artifact_l4.json",
+      "sha256": "ec626d7c3aa85d268ee680cc4b714d27c7a5d8f1311f3f8908b406d929eab563",
+      "size_bytes": 169624
     },
     {
       "path": "doc/reports/vlaforge_real_v03/openvla_artifact_l4_blocker.json",
@@ -5315,11 +5794,11 @@
   "installed_wheel_artifact_evaluation": {
     "artifact_evaluation": {
       "artifact": {
-        "path": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/artifacts/audit_tensor_region.pt2",
-        "sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
-        "size_bytes": 502734
+        "path": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/artifacts/audit_tensor_region.pt2",
+        "sha256": "b18e76b208df0e41aecf283797371ab4b43e79412aa56f19200eebf074881700",
+        "size_bytes": 438670
       },
-      "compile_seconds": 5.284065851941705,
+      "compile_seconds": 5.305471705039963,
       "cuda": "12.8",
       "direct_backend_smoke": {
         "negative_cases": {},
@@ -5329,11 +5808,11 @@
       "invocation_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "invocation",
-        "artifact_sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
+        "artifact_sha256": "b18e76b208df0e41aecf283797371ab4b43e79412aa56f19200eebf074881700",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "0ddcd0218879b55e87f702211dc7008869cdba8537e38de50a2ca38b5f3a8a4b",
-        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-invocation/bundle.json",
+        "bundle_digest": "caee2ff50cee97cb05828d06ded954bc2bc0b42ba7f33a21c430d757848160a3",
+        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-invocation/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -5350,19 +5829,19 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
+        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
+        "source_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
         "status": "passed"
       },
       "session_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "session",
-        "artifact_sha256": "e64fa3a064236767f7061e5da22e63abca031ff2df968cf29e9697cb9e17c6d6",
+        "artifact_sha256": "b18e76b208df0e41aecf283797371ab4b43e79412aa56f19200eebf074881700",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "b5a05d6e7f38a5f752ba28851e797c9cb608c792c3eb268a6e816032dc47491c",
-        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-session/bundle.json",
+        "bundle_digest": "da66f27193c5e52926752635cd5c314685d2baf3ac5b11304e5ed350f83fcb45",
+        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-session/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -5379,9 +5858,9 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
+        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
+        "source_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
         "status": "passed"
       },
       "target": "sm_86",
@@ -5409,11 +5888,11 @@
           "--no-deps",
           "--no-build-isolation",
           "--wheel-dir",
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/wheels",
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/wheels",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge"
         ],
         "cwd": "/home/zhangzimo/Repos/private/edge-fm-x",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/build-wheel.log",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/build-wheel.log",
         "name": "build-wheel"
       },
       {
@@ -5422,51 +5901,51 @@
           "-m",
           "venv",
           "--system-site-packages",
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv"
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/create-venv.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/create-venv.log",
         "name": "create-venv"
       },
       {
         "command": [
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/bin/python",
           "-m",
           "pip",
           "install",
           "--no-deps",
           "--force-reinstall",
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/install-wheel.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/install-wheel.log",
         "name": "install-wheel"
       },
       {
         "command": [
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/bin/python",
           "-c",
           "import json,sys,vlaforge;print(json.dumps({'prefix':sys.prefix,'package':vlaforge.__file__}))"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/probe-installed-package.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/probe-installed-package.log",
         "name": "probe-installed-package"
       },
       {
         "command": [
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/bin/python",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
           "--work-dir",
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/artifact-audit",
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit",
           "--report",
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/installed-wheel-aoti-audit.json",
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/installed-wheel-aoti-audit.json",
           "--runtime-root",
-          "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/share/vlaforge",
+          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/share/vlaforge",
           "--source-revision",
-          "f124cbd883ced86480a21d05d28f9092841cde0c"
+          "5d90e4e4fff01316f1ec8a45f23c4f09f514d844"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/logs/installed-wheel-sm86-audit.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/installed-wheel-sm86-audit.log",
         "name": "installed-wheel-sm86-audit"
       }
     ],
@@ -5484,15 +5963,15 @@
     "isolation": {
       "installed_from_wheel_only": true,
       "non_git_cwd": true,
-      "package_import": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
-      "runtime_root": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T/venv/share/vlaforge",
+      "package_import": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
+      "runtime_root": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/share/vlaforge",
       "source_pythonpath_removed": true,
       "venv_system_site_packages": true
     },
     "passed": true,
     "repository": {
       "baseline_revision": "f0fc1be",
-      "evaluated_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
+      "evaluated_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
       "source_dirty": false
     },
     "reproduction": {
@@ -5511,36 +5990,36 @@
     "status": "passed",
     "wheel": {
       "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
-      "runtime_source_entries": 30,
-      "sha256": "44ebe1380dd5fa5718921fd45d11e5e89660fed901a044644f45e8f43966c637",
-      "size_bytes": 279798
+      "runtime_source_entries": 32,
+      "sha256": "11b2aa05b3b2ee4128efc8f92788ce22aa0c65224819c428192024c9e71b1337",
+      "size_bytes": 284034
     },
     "work_dir": {
       "large_files_committed": false,
-      "path": "/home/zhangzimo/Archives/vlaforge-wheel-f124cbd.PLAQ7T",
-      "size_bytes": 111096161
+      "path": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO",
+      "size_bytes": 110942519
     }
   },
   "paper_artifacts": [
     {
       "path": "doc/vlaforge_paper_draft.md",
-      "sha256": "0b5a1bb4509b83c6cadf34bfa85cbd0004dbbbb6ec997378f7693c3c203a8652",
-      "size_bytes": 35585
+      "sha256": "5d4e52099da9f90f2e7bd1ab670fc1da76e3c6d91e920cb22e2c182f969815fb",
+      "size_bytes": 38007
     },
     {
       "path": "doc/vlaforge_paper_design.md",
-      "sha256": "aa7cf86b27f996b5340d075c94b9d5457a73d100c906a179e1c1e163db3c3b92",
-      "size_bytes": 24270
+      "sha256": "aec2d78ea37871c6cc70b654716261cc8686775545fffbb9ed267f51a3c04b04",
+      "size_bytes": 24460
     },
     {
       "path": "doc/vlaforge_claim_evidence_map.md",
-      "sha256": "cad84714dd7e55c01a52e5c459fb72f117c543c2090269fdac8fedc6f544f21c",
-      "size_bytes": 8745
+      "sha256": "7f71df97e7039f9a894036ffc5f414f3f61a7104ec8dbd929332ab0cd090f78a",
+      "size_bytes": 9595
     },
     {
       "path": "doc/model_cards/README.md",
-      "sha256": "fe804b7aff7ef5f2a640fb14e68db84619ecd99acfa37292a4e1253294cd86d2",
-      "size_bytes": 1754
+      "sha256": "c69ef34cf7f657b0e541fcc92e54f6c270ca6b499649a6289b7b1a2d37368b23",
+      "size_bytes": 1878
     },
     {
       "path": "doc/model_cards/autovla.md",
@@ -5549,8 +6028,13 @@
     },
     {
       "path": "doc/model_cards/minddrive.md",
-      "sha256": "f014d31a103224d09c420e63d05ddb92a97ad2a017d6427c1b2cd6ed84c1b56f",
-      "size_bytes": 13007
+      "sha256": "171659dc1b76d31a02c3f92748c203f33f76bd683b5d54a3f2d0a1c7517075e0",
+      "size_bytes": 15264
+    },
+    {
+      "path": "doc/model_cards/openvla.md",
+      "sha256": "98e2be801a580e475d9218b4a9190532533dc19f1ec04f29f36fa85d8fb4ab38",
+      "size_bytes": 3783
     },
     {
       "path": "doc/figures/vlaforge_paper/architecture.svg",
@@ -5575,7 +6059,7 @@
   ],
   "passed": true,
   "repository": {
-    "audited_revision": "f124cbd883ced86480a21d05d28f9092841cde0c",
+    "audited_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
     "baseline_revision": "f0fc1be",
     "frozen_core_matches": true,
     "frozen_core_revision": "766e27bdfb34c3311dda7d444862b7f95d05c7b8",
@@ -5604,6 +6088,71 @@
       ],
       "json_pointer": "$.reproduction.command",
       "report": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/miniconda3/bin/python",
+        "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_minddrive_l4.py",
+        "--torch-python",
+        "/home/zhangzimo/.cache/vlaforge/envs/minddrive-conda-py310/bin/python",
+        "--bundle-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+        "--input-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/inputs",
+        "--output-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5",
+        "--binary-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary",
+        "--process-repeats",
+        "5",
+        "--warmup",
+        "1",
+        "--samples",
+        "10",
+        "--bootstrap-resamples",
+        "2000",
+        "--seed",
+        "20260727"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.json"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary/bin/vlaforge_generated_benchmark",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/inputs",
+        "1",
+        "1000",
+        "same"
+      ],
+      "json_pointer": "$.reproduction.command",
+      "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
+    },
+    {
+      "command": [
+        "/home/zhangzimo/.cache/vlaforge/envs/minddrive-conda-py310/bin/python",
+        "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_generated_l4.py",
+        "--model",
+        "minddrive",
+        "--bundle-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+        "--input-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/inputs",
+        "--output-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/soak-same-1000-a7daea5",
+        "--binary-root",
+        "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary",
+        "--reuse-binary",
+        "--warmup",
+        "1",
+        "--samples",
+        "1000",
+        "--mode",
+        "same"
+      ],
+      "json_pointer": "$.reproduction.orchestrator",
+      "report": "doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json"
     },
     {
       "command": [
@@ -5729,16 +6278,16 @@
   "schema": "vlaforge.reproducibility_manifest/1",
   "status": "passed",
   "summary": {
-    "absolute_reference_count": 264,
+    "absolute_reference_count": 296,
     "committed_raw_file_count": 316,
-    "external_reference_count": 221,
-    "formal_report_count": 16,
+    "external_reference_count": 251,
+    "formal_report_count": 19,
     "missing_external_reference_count": 1,
     "must_archive_missing_count": 0,
-    "must_archive_root_count": 11,
-    "must_archive_total_bytes": 229548832371,
+    "must_archive_root_count": 12,
+    "must_archive_total_bytes": 257841162028,
     "optional_archive_total_bytes": 195597818,
-    "paper_artifact_count": 10,
-    "reproduction_command_count": 6
+    "paper_artifact_count": 11,
+    "reproduction_command_count": 9
   }
 }

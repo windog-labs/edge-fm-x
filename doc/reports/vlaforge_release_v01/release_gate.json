@@ -14,8 +14,8 @@
     "installed_binaries": {
       "aoti_backend": {
         "name": "libvlaforge_aoti_backend.a",
-        "sha256": "f003e239980a5f490859287fa4962efba9b96c089d1a81a70fb0e1cc2df28f0c",
-        "size_bytes": 208018
+        "sha256": "b1d109b1c256bb9cf8fd6242d22f9992c14c07d1fe9abb60e07af3f32f43d671",
+        "size_bytes": 210280
       },
       "cpu_consumer": {
         "name": "vlaforge_install_consumer",
@@ -24,18 +24,18 @@
       },
       "cpu_runtime": {
         "name": "libvlaforge_runtime.a",
-        "sha256": "91711208625936c30852abc8a8349ccd6f1e3a6a2d4ec4f8dd9028e875d0f832",
-        "size_bytes": 65794
+        "sha256": "d390d82c7e002f3bb74c8ba05659dedf26e4e421d9a814f964513fff4a044bf1",
+        "size_bytes": 73304
       },
       "cuda_consumer": {
         "name": "vlaforge_install_consumer",
-        "sha256": "1443e8d8774479c46ffd6d84f62e362ecef05be84ad7cd923d4a29075978fd14",
-        "size_bytes": 155096
+        "sha256": "3746526af60417e20abdf192056ebd5dcbd30eec1f3bb013b8a475d7111bc112",
+        "size_bytes": 159192
       },
       "cuda_runtime": {
         "name": "libvlaforge_runtime.a",
-        "sha256": "d5fa7b81c1e22fc8fbd0bb5afbe992191b009a5082507ac293fe1944cdd1175c",
-        "size_bytes": 67090
+        "sha256": "a28dc721a835e938b96dab1f3984d757978eff42b5b851f2b8e6f903758405a5",
+        "size_bytes": 74600
       }
     },
     "old_edgefm_or_custom_cuda_sources_compiled": false
@@ -70,57 +70,29 @@
     "real_models": {
       "DiffusionDrive": "L4",
       "MindDrive": "L4",
-      "OpenVLA": "L3",
+      "OpenVLA": "L4",
       "SmolVLA": "L4"
     }
   },
   "repository": {
-    "revision": "ee146850557d67e8813568483f37fea5b712228b",
+    "revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
     "source_dirty": false,
     "tracked_status": []
   },
   "schema": "vlaforge.host_cuda_release_gate/1",
   "status": "passed",
   "summary": {
-    "cpu_ctest_passed": 7,
+    "cpu_ctest_passed": 8,
     "cuda_aoti_opt_in_passed": 1,
-    "cuda_ctest_passed": 8,
+    "cuda_ctest_passed": 9,
     "no_python_runner": true,
     "python_opt_in_skipped": 11,
-    "python_passed": 263,
+    "python_passed": 284,
     "release_gate_passed": true,
     "wheel_install_bundle_passed": true
   },
   "tests": {
     "cpu_ctest": {
-      "errors": 0,
-      "failures": 0,
-      "passed": 7,
-      "seconds": 0.0,
-      "skipped": 0,
-      "test_names": [
-        "vlaforge_region_c_abi_smoke",
-        "vlaforge_region_value_c_abi_smoke",
-        "vlaforge_region_cpp_abi_smoke",
-        "vlaforge_static_arena_smoke",
-        "vlaforge_runtime_state_smoke",
-        "vlaforge_session_c_abi_smoke",
-        "vlaforge_artifact_verifier_smoke"
-      ],
-      "tests": 7
-    },
-    "cuda_aoti_opt_in": {
-      "errors": 0,
-      "failures": 0,
-      "passed": 1,
-      "seconds": 52.343,
-      "skipped": 0,
-      "test_names": [
-        "test_cuda_aoti_region_backend"
-      ],
-      "tests": 1
-    },
-    "cuda_ctest": {
       "errors": 0,
       "failures": 0,
       "passed": 8,
@@ -134,15 +106,45 @@
         "vlaforge_runtime_state_smoke",
         "vlaforge_session_c_abi_smoke",
         "vlaforge_artifact_verifier_smoke",
-        "vlaforge_cuda_state_store_smoke"
+        "vlaforge_external_region_plugin_smoke"
       ],
       "tests": 8
+    },
+    "cuda_aoti_opt_in": {
+      "errors": 0,
+      "failures": 0,
+      "passed": 1,
+      "seconds": 51.934,
+      "skipped": 0,
+      "test_names": [
+        "test_cuda_aoti_region_backend"
+      ],
+      "tests": 1
+    },
+    "cuda_ctest": {
+      "errors": 0,
+      "failures": 0,
+      "passed": 9,
+      "seconds": 0.0,
+      "skipped": 0,
+      "test_names": [
+        "vlaforge_region_c_abi_smoke",
+        "vlaforge_region_value_c_abi_smoke",
+        "vlaforge_region_cpp_abi_smoke",
+        "vlaforge_static_arena_smoke",
+        "vlaforge_runtime_state_smoke",
+        "vlaforge_session_c_abi_smoke",
+        "vlaforge_artifact_verifier_smoke",
+        "vlaforge_external_region_plugin_smoke",
+        "vlaforge_cuda_state_store_smoke"
+      ],
+      "tests": 9
     },
     "python": {
       "errors": 0,
       "failures": 0,
-      "passed": 263,
-      "seconds": 7.836,
+      "passed": 284,
+      "seconds": 11.51,
       "skipped": 11,
       "test_names": [
         "test_dependency_graph_tracks_state_and_ssa_edges",
@@ -157,6 +159,7 @@
         "test_codegen_is_deterministic_and_has_v02_apis",
         "test_codegen_emits_bundle_loaded_aoti_regions",
         "test_codegen_emits_bundle_loaded_tensorrt_regions",
+        "test_codegen_emits_bundle_loaded_shared_plugin_regions",
         "test_generated_runner_is_clean_and_matches_python",
         "test_generated_stateful_smolvla_matches_python_and_resets",
         "test_generated_hybrid_driving_session_covers_external_region_and_io_contracts",
@@ -199,6 +202,7 @@
         "test_bundle_rejects_duplicate_region_ids",
         "test_bundle_rejects_wrong_required_role",
         "test_reproducibility_environment_must_be_sorted",
+        "test_external_bev_shared_plugin_builds_verified_no_python_bundle",
         "test_capture_pure_region_and_save_round_trip",
         "test_load_legacy_export_uses_content_addressed_mmap_cache",
         "test_capture_dynamic_shape_uses_bounded_profile",
@@ -277,6 +281,8 @@
         "test_real_openvla_source_contract_uses_invocation_ir_v02",
         "test_real_openvla_checkpoint_matches_ir",
         "test_real_openvla_partitioned_artifact_parity",
+        "test_stable_openvla_artifact_maps_wrapper_and_runtime_files",
+        "test_openvla_failure_probe_uses_contract_artifact_path",
         "test_real_openvla_generated_cuda_session",
         "test_real_smolvla_source_contract_uses_tensor_ports_and_adapter_state",
         "test_real_smolvla_checkpoint_matches_ir",
@@ -339,6 +345,9 @@
         "test_latency_summary_uses_nearest_rank_percentiles",
         "test_runner_output_parser_preserves_trace_and_samples",
         "test_diffusiondrive_same_revision_requires_exact_cache_hits",
+        "test_minddrive_requires_cache_and_all_state_commits",
+        "test_minddrive_source_supports_real_frames_and_missing_revision",
+        "test_bundle_memory_contract_separates_state_cache_and_arena",
         "test_source_provenance_falls_back_to_installed_version",
         "test_explicit_source_provenance_is_validated",
         "test_runtime_root_accepts_complete_installed_source",
@@ -363,6 +372,13 @@
         "test_ir_necessity_ablation_detects_all_adversarial_cases",
         "test_complete_manifest_binds_exact_64_region_set",
         "test_complete_manifest_rejects_stale_unreferenced_artifact",
+        "test_cluster_summary_resamples_independent_processes",
+        "test_output_validation_requires_revision_paths_to_match",
+        "test_schedule_has_every_path_and_repeat_once",
+        "test_probe_validation_uses_predeclared_path_tolerances",
+        "test_probe_validation_rejects_post_hoc_tolerance_expansion",
+        "test_cluster_summary_bootstraps_independent_processes",
+        "test_resume_archives_incomplete_task_without_deleting_evidence",
         "test_physical_abi_audit_binds_exact_export_and_artifact",
         "test_physical_abi_audit_rejects_reused_artifact",
         "test_physical_abi_audit_rejects_stride_contract_drift",
@@ -377,12 +393,18 @@
         "test_paper_figure_renderer_is_deterministic",
         "test_speedup_is_baseline_over_optimized",
         "test_latency_summary_uses_nearest_rank_percentiles",
+        "test_aoti_sequence_parser_preserves_bindings_and_liveness",
+        "test_first_run_can_be_counted_inside_stateful_warmup",
+        "test_minddrive_replays_only_the_stochastic_meta_action_token",
+        "test_minddrive_projects_upstream_state_to_fixed_retention",
+        "test_minddrive_clones_views_but_borrows_tensor_storage",
         "test_junit_summary_supports_testsuites_and_skips",
         "test_absolute_reference_and_command_inventory",
         "test_reproducibility_markdown_discloses_external_archives",
         "test_formal_status_accepts_legacy_pass_and_explicit_blocker",
         "test_formal_inventory_includes_matrix_ablations_and_real_models",
         "test_archive_size_dereferences_compatibility_symlink",
+        "test_authoritative_archive_roots_are_durable_home_paths",
         "test_type_round_trip[ir_type0]",
         "test_type_round_trip[ir_type1]",
         "test_type_round_trip[ir_type2]",
@@ -399,6 +421,7 @@
         "test_parser_rejects_header_payload_version_mismatch",
         "test_duplicate_declaration_names_are_rejected",
         "test_wheel_runtime_inventory_and_directory_size",
+        "test_built_wheel_contains_private_aoti_backend_header",
         "test_artifact_evaluation_markdown_has_claim_boundaries",
         "test_cuda_aoti_audit_exercises_schema_and_abi_rejection",
         "test_valid_fixture_has_no_diagnostics[build_smolvla_fixture]",
@@ -420,13 +443,13 @@
         "test_output_group_membership_is_verified",
         "test_unknown_extension_opcode_is_rejected"
       ],
-      "tests": 274
+      "tests": 295
     }
   },
   "wheel": {
     "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
     "installed_cli_bundle": {
-      "bundle_digest": "36b872bdc340f75f391b423834990a86f39f7236cfc23792da8a73c15e66c352",
+      "bundle_digest": "fd3a94e97da4a2c2282bc272339738c748d4a2e785fbfaf353e557917fe35849",
       "invalid_python_environment": true,
       "io_schema_digest": "144081eb6287422643a1f88ede09d39652250d16d6442da654bfef9d09e87b5c",
       "links_libpython": false,
@@ -438,14 +461,14 @@
       "profile": "verified",
       "runner": {
         "name": "vlaforge_generated_runner",
-        "sha256": "6ae8cb2b0b1568b03504ab0f014e79e38f93a3ab452fc69d07dad1fa3d9e16a3",
-        "size_bytes": 62264
+        "sha256": "0d644d4b383fcc4b7e41e1ce536e6ddfa2b57a501246e26d0ae708a250da8ad9",
+        "size_bytes": 66648
       },
       "source_dirty": false,
       "source_revision": "package:vlaforge-0.2.0.dev0"
     },
-    "runtime_source_entries": 28,
-    "sha256": "dd7e176cc351e846787bdb3f0fb7036b32ccf38dc09db48e8c2ee14b5b9deb0a",
-    "size_bytes": 278295
+    "runtime_source_entries": 32,
+    "sha256": "cd2a60df9fb5440d22c4c96b2680be2e7e35907b51c3a0ad9565b78319df24a5",
+    "size_bytes": 284031
   }
 }

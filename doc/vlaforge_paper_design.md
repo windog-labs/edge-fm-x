@@ -472,17 +472,18 @@ Generality：
   allocated 533,944,320 bytes，Host RSS 1,473,228,800 bytes。conservative
   AOTI 最终 token exact、trajectory max abs `1.91e-6`，但中间 Region NRMSE
   超过 `1e-3`，因此只记录 L3-candidate；
-- 最终 Host-CUDA release gate 已刷新为 Python `238 passed/10 opt-in skipped`、
-  CUDA AOTI 现场 `1 passed`、CPU/CUDA CTest `7/7` 与 `8/8`。wheel
+- 最终 Host-CUDA release gate 已刷新为 Python `284 passed/11 opt-in skipped`、
+  CUDA AOTI 现场 `1 passed`、CPU/CUDA CTest `8/8` 与 `9/9`。wheel
   安装后的 CLI 可从非 Git cwd 生成 verified Compile Bundle，runner 在无效
   Python 环境执行且不链接 `libpython`；
 - 独立 installed-wheel artifact evaluation 已从 clean venv 的
   `site-packages` 导入 VLAForge，并使用 wheel 自带 runtime 编译真实
   `sm_86` AOTI artifact。session/invocation residency 均通过 schema、ABI、
   artifact hash、输入契约、invalid-Python 和 no-libpython 验证；
-- 可复现 manifest 固化了 11 份正式报告和 36 个 committed raw summaries
-  的 SHA256，并明确八个必须外部归档的 checkpoint/capture/artifact 根目录
-  当前总计 114.41 GiB。大型模型文件与二进制 profile 不进入 Git。
+- 可复现 manifest 固化了 19 份正式报告和 316 个 committed raw
+  JSON/CSV/Nsight summaries 的 SHA256，并明确 12 个必须外部归档的
+  checkpoint/capture/artifact 根目录当前总计 240.13 GiB。大型模型文件与
+  二进制 profile 不进入 Git。
 
 非 Host-CUDA release blocker 的后续工作：
 

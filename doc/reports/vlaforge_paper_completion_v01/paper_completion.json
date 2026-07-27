@@ -19,7 +19,7 @@
     "final_release_gate": {
       "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_release_v01/release_gate.json",
       "schema": "vlaforge.host_cuda_release_gate/1",
-      "sha256": "c488e0fd2c4366d25d4f3ef2f909de052a4ff4ff409c1b48b78322adda2b26f4",
+      "sha256": "c61b59ad3f3fe69025f6923b550a1227d74d9e97e3755b6c18c8473869587bb7",
       "status": "passed"
     },
     "formal_ablations": {
@@ -39,7 +39,6 @@
     "Orin latency, power, thermal, SM87, or JetPack evidence",
     "real-vehicle or sensor closed-loop integration",
     "ROS/Cyber, periodic scheduling, dropped-frame, or publish logic",
-    "OpenVLA real L4",
     "cross-GPU performance",
     "second-machine independent artifact reproduction",
     "legacy EdgeFM CUDA kernel compilation or optimization"
@@ -49,12 +48,12 @@
   "required_host_cuda_gates": {
     "final_python_cpp_cuda": {
       "clean_wheel_no_python": true,
-      "cpu_ctest": "7/7",
-      "cuda_ctest": "8/8",
+      "cpu_ctest": "8/8",
+      "cuda_ctest": "9/9",
       "legacy_cuda_kernels_compiled": false,
       "live_cuda_aoti": true,
       "passed": true,
-      "python_passed": 263
+      "python_passed": 284
     },
     "formal_ablations": {
       "formal_ablations": [

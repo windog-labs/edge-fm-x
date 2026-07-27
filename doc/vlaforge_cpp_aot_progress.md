@@ -206,7 +206,7 @@ GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；AutoVLA 又完成
 
 ## 2026-07-27 Host-CUDA release audit
 
-- offline Python suite：263 passed，11 个 opt-in gate skipped；
+- offline Python suite：284 passed，11 个 opt-in gate skipped；
 - real SmolVLA checkpoint gate：1 passed；
 - real SmolVLA L4 opt-in gate：1 passed；
 - real OpenVLA-7B 4-bit gate：1 passed；
@@ -218,7 +218,7 @@ GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；AutoVLA 又完成
 - real MindDrive 0.5B generated L4：66 physical artifacts、10 outputs、
   typed/generic/compiled-reference exact、trace/failure/reset passed；
 - clean C++ Release build：passed；
-- CPU CTest：7/7 passed；CUDA/AOTI CTest：8/8 passed；
+- CPU CTest：8/8 passed；CUDA/AOTI CTest：9/9 passed；
 - CPU 与 AOTI CMake install/export consumer：passed；
 - wheel：`vlaforge-0.2.0.dev0-py3-none-any.whl` built；
 - arm64 JetPack image probe：`aarch64`；

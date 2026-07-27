@@ -336,10 +336,10 @@ Host release gate：
 14. invalid `PYTHONHOME/PYTHONPATH` 仍运行，`ldd` 无 Python；
 15. 完整 Python tests 与 CTest 通过。
 
-最终 Host-CUDA release gate 已在 2026-07-26 刷新：offline Python
-238 passed/10 opt-in skipped；CUDA AOTI 现场 opt-in 1 passed；real
-SmolVLA L4、DiffusionDrive L2/L3/L4 opt-in 均各 1 passed；clean C++ Release、CPU 7/7 CTest、CUDA/AOTI
-8/8 CTest 与 install-export 均通过。RTX 3060
+最终 Host-CUDA release gate 已在 2026-07-27 刷新：offline Python
+284 passed/11 opt-in skipped；CUDA AOTI 现场 opt-in 1 passed；clean C++
+Release、CPU 8/8 CTest、CUDA/AOTI 9/9 CTest 与 install-export 均通过。
+RTX 3060
 `sm_86` 上真实 AOTI
 package 已通过 Compile Bundle、generated C++ Session、无效 Python 环境和
 no-libpython 审计；该通用对象是 production-path audit Region，不是 real
@@ -429,10 +429,10 @@ trace 记录 `1 hit / 8 miss / 128 state commits / 8 transaction commits /
 1 abort / 8 output commits / 1 reset`，因此 P18 real L4 已闭合。
 
 最终 architecture/build-surface negative audit 也已固化为自动测试：
-49 个 production source files 中不存在 tick/clock/deadline/period/jitter、
+56 个 production source files 中不存在 tick/clock/deadline/period/jitter、
 middleware、publish、internal sleep、core action queue 或 Python runtime
-依赖。15 个 Semantic IR op 与冻结 v0.2 集合一致。VLAForge 的 4 个 CMake
-文件声明 24 个 C/C++ sources，没有 `.cu/.cuh/.ptx`、越界 source/subdirectory
+依赖。15 个 Semantic IR op 与冻结 v0.2 集合一致。VLAForge 的 5 个 CMake
+文件声明 30 个 C/C++ sources，没有 `.cu/.cuh/.ptx`、越界 source/subdirectory
 edge 或已退役的旧 operator 依赖；可选 CUDA target 只通过
 `CUDA::cudart` 调用外部 AOTI/TensorRT artifact，不包含 VLAForge 自定义
 CUDA kernel。负例测试和论文分析工具中的旧符号
@@ -440,7 +440,7 @@ CUDA kernel。负例测试和论文分析工具中的旧符号
 `doc/reports/vlaforge_architecture_v01/architecture_surface.md`。
 
 最终门禁还从 wheel 安装环境发现并修复了 CLI 对 Git checkout 和未打包 C++
-runtime source 的隐式依赖。当前 wheel 包含 24 个 CMake/runtime/header/backend
+runtime source 的隐式依赖。当前 wheel 包含 32 个 CMake/runtime/header/backend
 entries；从非 Git cwd 安装后可生成和验证 Compile Bundle。生成 runner 在无效
 `PYTHONHOME/PYTHONPATH` 下运行，`ldd` 无 `libpython`。正式汇总见
 `doc/reports/vlaforge_release_v01/release_gate.md`。
@@ -451,9 +451,9 @@ entries；从非 Git cwd 安装后可生成和验证 Compile Bundle。生成 run
 invocation-resident 两种 Compile Bundle 均通过数值、schema、C ABI、artifact
 hash、shape/dtype/device/layout 和 invalid-Python/no-libpython 审计。该对象是
 synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可读 manifest
-还扫描了 11 份正式 JSON 报告、36 个 committed raw summaries 和 234 个绝对
-路径引用，并确认八个必须外部归档的真实模型目录当前全部存在，总计
-114.41 GiB；另有 0.05 GiB NSYS/NCU 二进制 profile 可选归档。正式证据见
+还扫描了 19 份正式 JSON 报告、316 个 committed raw JSON/CSV/Nsight
+summaries 和 296 个绝对路径引用，并确认 12 个必须外部归档的真实模型目录
+当前全部存在，总计 240.13 GiB；可选归档约 0.18 GiB。正式证据见
 `doc/reports/vlaforge_reproducibility_v01/`。
 
 论文 release gate 另要求：

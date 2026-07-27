@@ -83,9 +83,9 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | invalid Python environment | runner succeeds with invalid `PYTHONHOME/PYTHONPATH` | same |
 | no Python link | `ldd` has no `libpython` | same |
 | schema/ABI/hash/target mismatch | every negative case rejected | same |
-| Python suite | all non-opt-in tests pass | 238 passed, 10 explicit real-environment opt-in skipped |
-| CPU CTest | 7/7 | passed |
-| CUDA CTest | 8/8 | passed |
+| Python suite | all non-opt-in tests pass | 284 passed, 11 explicit real-environment opt-in skipped |
+| CPU CTest | 8/8 | passed |
+| CUDA CTest | 9/9 | passed |
 | live CUDA AOTI | pass | 1/1 passed |
 | clean installed wheel/no-Python | current wheel, non-Git cwd, invalid Python environment | passed |
 | clean worktree/report provenance | `source_dirty=false` for formal runs | matrix, ablation, AutoVLA L2, release and reproducibility reports pass |

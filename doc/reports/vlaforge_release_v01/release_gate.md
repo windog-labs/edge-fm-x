@@ -4,10 +4,10 @@ Status: **passed**.
 
 | Gate | Result |
 |---|---:|
-| Python | 263 passed, 11 explicit opt-in skipped |
+| Python | 284 passed, 11 explicit opt-in skipped |
 | CUDA AOTI opt-in | 1 passed |
-| CPU Release CTest | 7/7 |
-| CUDA/AOTI Release CTest | 8/8 |
+| CPU Release CTest | 8/8 |
+| CUDA/AOTI Release CTest | 9/9 |
 | CPU installed-package consumer | passed |
 | CUDA installed-package consumer | passed |
 | Old EdgeFM/custom CUDA sources compiled | no |
@@ -18,9 +18,9 @@ Status: **passed**.
 ## Installed wheel
 
 - Wheel: `vlaforge-0.2.0.dev0-py3-none-any.whl`
-- SHA256: `dd7e176cc351e846787bdb3f0fb7036b32ccf38dc09db48e8c2ee14b5b9deb0a`
-- Bundled runtime source entries: 28
-- Bundle digest: `36b872bdc340f75f391b423834990a86f39f7236cfc23792da8a73c15e66c352`
+- SHA256: `cd2a60df9fb5440d22c4c96b2680be2e7e35907b51c3a0ad9565b78319df24a5`
+- Bundled runtime source entries: 32
+- Bundle digest: `fd3a94e97da4a2c2282bc272339738c748d4a2e785fbfaf353e557917fe35849`
 - I/O schema digest: `144081eb6287422643a1f88ede09d39652250d16d6442da654bfef9d09e87b5c`
 - Provenance: `package:vlaforge-0.2.0.dev0`
 
