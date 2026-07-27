@@ -115,6 +115,15 @@ python vlaforge/tools/run_high_memory_autovla.py \
   --through partition-l3
 ```
 
+默认使用 `--precision-mode fp32-internal`：输入/输出仍保持原 BF16/F32
+Region ABI，只把 Qwen MLP 与 action projection 的内部 GEMM 提升为 FP32。
+export 之前必须先对同一真实权重、同一输入运行 source-BF16 对照，并满足
+action token 完全一致、trajectory max-abs 不超过 `2e-3`；报告会保留
+hidden/logits 的完整误差，而不会把该变换伪装成 bit-exact。随后
+legalized eager→AOTI 仍执行原先的 `1e-3` Region NRMSE 和 `2e-3`
+trajectory 门槛。`--precision-mode source-bf16` 仅用于诊断原始 BF16
+kernel 数值漂移。
+
 该命令保留预声明 `1e-3` Region NRMSE 和 `2e-3` trajectory max-abs
 门槛。A100/H20 上若仍未通过，不得事后放宽；保存
 `partition_l3/autovla_artifact_l3.json` 为该硬件上的正式 candidate 结果。

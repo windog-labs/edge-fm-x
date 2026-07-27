@@ -171,3 +171,58 @@ def test_synthetic_modules_match_source_rollout_equations() -> None:
     )[0, 1:]
     torch.testing.assert_close(trajectory, reference)
     assert torch.equal(token_ids, action_indices + 100)
+
+
+def test_fp32_internal_mode_preserves_boundary_dtypes() -> None:
+    torch = pytest.importorskip("torch")
+    generator = torch.Generator().manual_seed(20260726)
+    hidden_size = 4
+    intermediate_size = 7
+    vocabulary_size = 8
+    weights = {
+        "post_attention_norm": torch.randn(
+            hidden_size, generator=generator
+        ).bfloat16(),
+        "gate_proj": torch.randn(
+            intermediate_size, hidden_size, generator=generator
+        ).bfloat16(),
+        "up_proj": torch.randn(
+            intermediate_size, hidden_size, generator=generator
+        ).bfloat16(),
+        "down_proj": torch.randn(
+            hidden_size, intermediate_size, generator=generator
+        ).bfloat16(),
+        "final_norm": torch.randn(
+            hidden_size, generator=generator
+        ).bfloat16(),
+        "action_projection": torch.randn(
+            vocabulary_size, hidden_size, generator=generator
+        ).bfloat16(),
+    }
+    codebook = torch.randn(
+        vocabulary_size, 6, 4, 2, generator=generator
+    )
+    decoder, projection, detokenize = build_autovla_region_modules(
+        weights,
+        codebook,
+        action_start_id=100,
+        precision_mode="fp32-internal",
+    )
+    hidden = torch.randn(
+        1, 10, hidden_size, generator=generator
+    ).bfloat16()
+    decoded = decoder(hidden)
+    logits = projection(decoded)
+    trajectory, tokens = detokenize(logits)
+
+    assert decoded.dtype == torch.bfloat16
+    assert logits.dtype == torch.float32
+    assert trajectory.dtype == torch.float32
+    assert tokens.dtype == torch.int64
+
+    with pytest.raises(ValueError, match="precision mode"):
+        build_autovla_region_modules(
+            weights,
+            codebook,
+            precision_mode="unknown",
+        )

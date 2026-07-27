@@ -19,7 +19,7 @@ import json
 import pickle
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +70,7 @@ AUTOVLA_HIDDEN_SIZE = 2_048
 AUTOVLA_INTERMEDIATE_SIZE = 11_008
 AUTOVLA_DECODE_STEPS = 10
 AUTOVLA_RMS_NORM_EPS = 1e-6
+AUTOVLA_PRECISION_MODES = ("source-bf16", "fp32-internal")
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +80,7 @@ class RealAutoVLAConfig:
     codebook: Path
     qwen_config: Path
     device: str = "cuda:0"
+    precision_mode: str = "source-bf16"
     upstream_revision: str = AUTOVLA_UPSTREAM_REVISION
     checkpoint_revision: str = AUTOVLA_CHECKPOINT_REVISION
     qwen_revision: str = AUTOVLA_QWEN_REVISION
@@ -96,6 +98,7 @@ class RealAutoVLARegions:
     resolved_keys: Mapping[str, str]
     tensor_shapes: Mapping[str, tuple[int, ...]]
     layer_index: int
+    precision_mode: str
 
 
 def build_real_autovla_program(*, device: str = "cuda:0") -> Any:
@@ -350,6 +353,7 @@ def load_real_autovla_regions(
             codebook,
             rms_norm_eps=float(qwen["rms_norm_eps"]),
             action_start_id=AUTOVLA_ACTION_START_ID,
+            precision_mode=config.precision_mode,
         )
     )
     generator = torch.Generator(device=config.device)
@@ -376,6 +380,7 @@ def load_real_autovla_regions(
         resolved_keys=dict(keys),
         tensor_shapes=tensor_shapes,
         layer_index=layer_index,
+        precision_mode=config.precision_mode,
     )
 
 
@@ -385,6 +390,7 @@ def build_autovla_region_modules(
     *,
     rms_norm_eps: float = AUTOVLA_RMS_NORM_EPS,
     action_start_id: int = AUTOVLA_ACTION_START_ID,
+    precision_mode: str = "source-bf16",
 ) -> tuple[Any, Any, Any]:
     """Create pure modules from real or synthetic partition tensors."""
 
@@ -402,12 +408,18 @@ def build_autovla_region_modules(
     missing = required - set(weights)
     if missing:
         raise ValueError(f"missing AutoVLA partition weights: {sorted(missing)}")
+    if precision_mode not in AUTOVLA_PRECISION_MODES:
+        raise ValueError(
+            f"unsupported AutoVLA precision mode: {precision_mode}"
+        )
 
     def rms_norm(hidden: Any, weight: Any) -> Any:
         input_dtype = hidden.dtype
         normalized = hidden.to(torch.float32)
         variance = normalized.pow(2).mean(dim=-1, keepdim=True)
         normalized = normalized * torch.rsqrt(variance + rms_norm_eps)
+        if precision_mode == "fp32-internal":
+            return weight.to(torch.float32) * normalized
         return weight * normalized.to(input_dtype)
 
     class DecoderMLP(torch.nn.Module):
@@ -427,6 +439,22 @@ def build_autovla_region_modules(
 
         def forward(self, hidden: Any) -> Any:
             normalized = rms_norm(hidden, self.post_attention_norm)
+            if precision_mode == "fp32-internal":
+                gated = functional.silu(
+                    functional.linear(
+                        normalized,
+                        self.gate_proj.to(torch.float32),
+                    )
+                )
+                up = functional.linear(
+                    normalized,
+                    self.up_proj.to(torch.float32),
+                )
+                decoded = hidden.to(torch.float32) + functional.linear(
+                    gated * up,
+                    self.down_proj.to(torch.float32),
+                )
+                return decoded.to(hidden.dtype)
             gated = functional.silu(
                 functional.linear(normalized, self.gate_proj)
             )
@@ -449,8 +477,11 @@ def build_autovla_region_modules(
 
         def forward(self, hidden: Any) -> Any:
             normalized = rms_norm(hidden, self.final_norm)
+            projection = self.action_projection
+            if precision_mode == "fp32-internal":
+                projection = projection.to(torch.float32)
             return functional.linear(
-                normalized, self.action_projection
+                normalized, projection
             ).to(torch.float32)
 
     class TrajectoryDecode(torch.nn.Module):
@@ -517,6 +548,36 @@ def build_autovla_region_modules(
         DecoderMLP().eval(),
         ActionProjection().eval(),
         TrajectoryDecode().eval(),
+    )
+
+
+def source_precision_reference(
+    regions: RealAutoVLARegions,
+) -> RealAutoVLARegions:
+    """Rebuild source-BF16 modules from an already loaded real partition."""
+
+    if regions.precision_mode == "source-bf16":
+        return regions
+    weights = {
+        "post_attention_norm": regions.decoder_mlp.post_attention_norm,
+        "gate_proj": regions.decoder_mlp.gate_proj,
+        "up_proj": regions.decoder_mlp.up_proj,
+        "down_proj": regions.decoder_mlp.down_proj,
+        "final_norm": regions.action_projection.final_norm,
+        "action_projection": regions.action_projection.action_projection,
+    }
+    decoder, projection, trajectory = build_autovla_region_modules(
+        weights,
+        regions.trajectory_decode.codebook,
+        action_start_id=regions.trajectory_decode.action_start_id,
+        precision_mode="source-bf16",
+    )
+    return replace(
+        regions,
+        decoder_mlp=decoder,
+        action_projection=projection,
+        trajectory_decode=trajectory,
+        precision_mode="source-bf16",
     )
 
 
@@ -712,6 +773,10 @@ def _validate_config(config: RealAutoVLAConfig) -> None:
         raise ValueError("AutoVLA checkpoint revision is not pinned")
     if config.qwen_revision != AUTOVLA_QWEN_REVISION:
         raise ValueError("AutoVLA Qwen revision is not pinned")
+    if config.precision_mode not in AUTOVLA_PRECISION_MODES:
+        raise ValueError(
+            f"unsupported AutoVLA precision mode: {config.precision_mode}"
+        )
     if not config.device.startswith("cuda"):
         raise ValueError("real AutoVLA frontend evidence requires CUDA")
     for path in (

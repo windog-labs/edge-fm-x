@@ -30,6 +30,7 @@ from vlaforge.adapters.autovla_real import (  # noqa: E402
     AUTOVLA_ACTION_VOCAB_SIZE,
     AUTOVLA_CHECKPOINT_REVISION,
     AUTOVLA_CHECKPOINT_SIZE,
+    AUTOVLA_PRECISION_MODES,
     AUTOVLA_QWEN_REVISION,
     AUTOVLA_SOURCE_SHA256,
     AUTOVLA_UPSTREAM_REVISION,
@@ -39,6 +40,7 @@ from vlaforge.adapters.autovla_real import (  # noqa: E402
     finite_trajectory,
     load_real_autovla_regions,
     run_real_autovla_chain,
+    source_precision_reference,
 )
 from vlaforge.analysis import verify  # noqa: E402
 from vlaforge.compiler import CompilerProfile, compile_module  # noqa: E402
@@ -206,6 +208,16 @@ def main() -> int:
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument(
+        "--precision-mode",
+        choices=AUTOVLA_PRECISION_MODES,
+        default="source-bf16",
+    )
+    parser.add_argument(
+        "--precision-trajectory-max-abs-tolerance",
+        type=float,
+        default=2e-3,
+    )
+    parser.add_argument(
         "--upstream-revision",
         default=AUTOVLA_UPSTREAM_REVISION,
     )
@@ -249,6 +261,7 @@ def main() -> int:
             codebook=args.codebook.resolve(),
             qwen_config=args.qwen_config.resolve(),
             device=args.device,
+            precision_mode=args.precision_mode,
             upstream_revision=args.upstream_revision,
             checkpoint_revision=args.checkpoint_revision,
             qwen_revision=args.qwen_revision,
@@ -259,6 +272,23 @@ def main() -> int:
 
     eager_started = time.perf_counter()
     eager = run_real_autovla_chain(regions)
+    source_eager = run_real_autovla_chain(
+        source_precision_reference(regions)
+    )
+    precision_metrics = {
+        name: _metrics(eager[name], source_eager[name])
+        for name in eager
+    }
+    precision_observables_preserved = bool(
+        precision_metrics["action_tokens"]["exact"]
+        and precision_metrics["trajectory"]["maximum_absolute_error"]
+        <= args.precision_trajectory_max_abs_tolerance
+    )
+    if not precision_observables_preserved:
+        raise ValueError(
+            "AutoVLA precision legalization changed observable outputs: "
+            f"{precision_metrics}"
+        )
     torch.cuda.synchronize()
     eager_seconds = time.perf_counter() - eager_started
 
@@ -433,6 +463,22 @@ def main() -> int:
             "config_path": str(args.qwen_config.resolve()),
             "config_sha256": regions.qwen_config_sha256,
         },
+        "precision_legalization": {
+            "mode": regions.precision_mode,
+            "source_reference": "source-bf16",
+            "internal_fp32_only": (
+                regions.precision_mode == "fp32-internal"
+            ),
+            "boundary_schema_changed": False,
+            "source_vs_selected": precision_metrics,
+            "observable_contract": {
+                "action_tokens": "exact",
+                "trajectory_max_abs": (
+                    args.precision_trajectory_max_abs_tolerance
+                ),
+            },
+            "observables_preserved": precision_observables_preserved,
+        },
         "codebook": {
             "path": str(args.codebook.resolve()),
             "sha256": regions.codebook_sha256,
@@ -519,6 +565,10 @@ def main() -> int:
                 "<report.json>",
                 "--device",
                 args.device,
+                "--precision-mode",
+                args.precision_mode,
+                "--precision-trajectory-max-abs-tolerance",
+                str(args.precision_trajectory_max_abs_tolerance),
             ],
             "environment": {
                 "PYTHONPATH": "vlaforge/python",

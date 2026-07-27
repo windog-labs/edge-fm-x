@@ -39,6 +39,7 @@ from vlaforge.adapters.autovla_real import (  # noqa: E402
     AUTOVLA_CHECKPOINT_SHA256,
     AUTOVLA_CHECKPOINT_SIZE,
     AUTOVLA_CODEBOOK_SHA256,
+    AUTOVLA_PRECISION_MODES,
     AUTOVLA_QWEN_CONFIG_SHA256,
     AUTOVLA_QWEN_REVISION,
     AUTOVLA_SOURCE_SHA256,
@@ -64,6 +65,7 @@ class RunConfig:
     output_root: Path
     device: str
     target: str
+    precision_mode: str
     inductor_profile: str
     region_nrmse_tolerance: float
     trajectory_max_abs_tolerance: float
@@ -387,6 +389,7 @@ def _preflight(
             "minimum_host_ram_gib": minimum_host_ram_gib,
             "minimum_free_disk_gib": minimum_free_disk_gib,
             "destination_native_aoti_required": True,
+            "precision_mode": config.precision_mode,
         },
         "inputs": {
             "source": source,
@@ -436,6 +439,10 @@ def _stages(config: RunConfig) -> tuple[Stage, ...]:
                 str(frontend_report),
                 "--device",
                 config.device,
+                "--precision-mode",
+                config.precision_mode,
+                "--precision-trajectory-max-abs-tolerance",
+                str(config.trajectory_max_abs_tolerance),
             ),
             frontend_report,
         ),
@@ -605,6 +612,16 @@ def _parser() -> argparse.ArgumentParser:
         choices=("default", "conservative"),
         default="conservative",
     )
+    parser.add_argument(
+        "--precision-mode",
+        choices=AUTOVLA_PRECISION_MODES,
+        default="fp32-internal",
+        help=(
+            "Region-internal numerical implementation; fp32-internal "
+            "preserves the BF16 boundary schema and audits source-observable "
+            "parity before export"
+        ),
+    )
     parser.add_argument("--region-nrmse-tolerance", type=float, default=1e-3)
     parser.add_argument(
         "--trajectory-max-abs-tolerance",
@@ -675,6 +692,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_root=args.output_root.resolve(),
         device=args.device,
         target=target,
+        precision_mode=args.precision_mode,
         inductor_profile=args.inductor_profile,
         region_nrmse_tolerance=args.region_nrmse_tolerance,
         trajectory_max_abs_tolerance=args.trajectory_max_abs_tolerance,

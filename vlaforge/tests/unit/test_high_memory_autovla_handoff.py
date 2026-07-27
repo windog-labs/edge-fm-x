@@ -96,6 +96,9 @@ def test_print_plan_is_portable_and_does_not_probe_gpu(
     compile_command = plan["stages"][1]["command"]
     assert "--device" in compile_command
     assert "--inductor-profile" in compile_command
+    frontend_command = plan["stages"][0]["command"]
+    precision_index = frontend_command.index("--precision-mode") + 1
+    assert frontend_command[precision_index] == "fp32-internal"
     audit_command = plan["stages"][2]["command"]
     expected_index = audit_command.index("--expected-target") + 1
     assert audit_command[expected_index] == "sm_80"
