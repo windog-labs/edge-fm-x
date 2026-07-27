@@ -573,6 +573,10 @@ def _parser() -> argparse.ArgumentParser:
         "--qwen-config",
         type=Path,
         default=_path_default("VLAFORGE_AUTOVLA_QWEN_CONFIG"),
+        help=(
+            "Qwen model config.json used by the partitioned frontend; "
+            "this is not AutoVLA's eval YAML"
+        ),
     )
     parser.add_argument(
         "--qwen-model-root",

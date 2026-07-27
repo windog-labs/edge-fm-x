@@ -24,7 +24,7 @@ artifact loader 的内存累积。
 1. 当前 `codex/vlaforge-paper-artifact` 分支或交接 Git bundle；
 2. `AutoVLA@ba34eed74ce6729e7986592d0e66cbaca397b4fa` 源码；
 3. `codebook_cache/agent_vocab.pkl`；
-4. `config/eval/qwen2.5-vl-3B-nusc-sft-eval.yaml`；
+4. `config/eval/qwen2.5-vl-3B-nusc-sft-eval.yaml`，仅供完整官方入口使用；
 5. 一份真实、离线、已经由外部系统组装好的三相机四帧输入。
 
 大型文件：
@@ -73,6 +73,10 @@ set -a
 source /path/to/private/autovla.env
 set +a
 ```
+
+`VLAFORGE_AUTOVLA_QWEN_CONFIG` 必须指向 Qwen snapshot 内的
+`config.json`；它供 partition frontend 构造 Qwen MLP，不能指向 AutoVLA
+源码中的 eval YAML。后者只通过完整 eager probe 的 `--config` 参数传入。
 
 正式证据应在干净 Git revision 上运行。开发中如确需运行，可使用
 `--allow-dirty`，但该结果不能直接进入论文。

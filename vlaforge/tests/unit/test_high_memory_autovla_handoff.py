@@ -41,6 +41,22 @@ def test_target_and_torch_arch_are_destination_specific() -> None:
         handoff._torch_arch_list("sm86")
 
 
+def test_environment_template_separates_qwen_model_and_eval_configs() -> None:
+    template = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "high_memory"
+        / "autovla.env.example"
+    ).read_text(encoding="utf-8")
+    config_line = next(
+        line
+        for line in template.splitlines()
+        if line.startswith("VLAFORGE_AUTOVLA_QWEN_CONFIG=")
+    )
+    assert config_line.endswith("/Qwen2.5-VL-3B-Instruct/config.json")
+    assert "nusc-sft-eval.yaml" not in config_line
+
+
 def test_print_plan_is_portable_and_does_not_probe_gpu(
     tmp_path: Path,
 ) -> None:
