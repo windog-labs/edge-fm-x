@@ -427,6 +427,10 @@ Generality：
   states 和 10 个 trajectory/detection/motion outputs；typed/generic/
   compiled-reference bit-exact，trace 覆盖 revision hit/miss、128 state
   commits、validation abort/retry 与 episode reset，新增 core op 为 0；
+- MindDrive 同五帧 eager/direct-AOTI/generated-C++ 正式控制：每路径
+  5 个 fresh process、5 次 stateful warmup、10 次测量，warm mean 为
+  1511.66/1275.17/1279.71 ms；generated/direct delta 为 +0.356%，
+  direct/generated probe exact；
 - SmolVLA 与 DiffusionDrive 的 Host-CUDA eager/direct-artifact/generated-C++
   正式矩阵：每模型五个确定性 content workload、每单元五个独立进程、
   每进程 5 次 warmup 与 30 次稳态采样，合计 150 个独立进程任务；

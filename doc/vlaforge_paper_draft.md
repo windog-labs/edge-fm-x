@@ -576,9 +576,26 @@ independent fresh processes, with one warmup and ten measured Runs per process:
 Every same-revision process records 10 exact-cache hits and no misses; all
 other modes record no hits and 10 misses. Same revision is approximately
 4.92x faster than new revision. This demonstrates exact-reuse value and
-generated-Session stability. It is not a third full
-eager/direct-AOTI/generated-C++ matrix, and we do not derive a MindDrive
-orchestration-overhead claim from it.
+generated-Session stability.
+
+We separately execute an aligned MindDrive three-path control using the same
+five real frames, fixed 16-state contract, and 66 physical artifacts. Each
+path runs in five independent processes with five stateful warmup Runs and ten
+measured Runs:
+
+| MindDrive path | First Run mean | Warm mean | Warm-mean 95% CI |
+|---|---:|---:|---:|
+| official eager | 1629.26 ms | 1511.66 ms | [1504.59, 1515.41] ms |
+| persistent direct AOTI | 1385.84 ms | 1275.17 ms | [1265.51, 1282.75] ms |
+| generated no-Python C++ | 1394.94 ms | 1279.71 ms | [1275.59, 1283.34] ms |
+
+Generated C++ adds 0.356% over the direct-artifact path and is 1.181x faster
+than official eager. Direct/generated output probes are exact; eager/direct
+maximum absolute error is $4.61\times10^{-5}$ under the predeclared
+$3\times10^{-3}$ trajectory tolerance. We do not compare initialization
+speed because eager includes official frontend preparation, direct includes
+all persistent provider loads, and generated Session timing starts after C++
+fixture loading.
 
 ## 7. Discussion
 

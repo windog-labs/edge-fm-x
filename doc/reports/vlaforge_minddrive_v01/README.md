@@ -70,5 +70,16 @@ a 3,351,680-byte authoritative-state arena, and a 39,321,600-byte derived
 cache.
 
 These reports are formal generated no-Python C++ measurements. They are not
-yet a third eager/direct-AOTI/generated-C++ comparison matrix, so they do not
-support a MindDrive orchestration-overhead claim.
+used by themselves for an orchestration-overhead claim.
+
+`formal_path_matrix/` adds the aligned three-path control from clean commit
+`0720cf11a160dbea45793e11ab434689faec5da0`. Each path uses the same five real
+frames, 16 fixed-shape authoritative states, 66 physical AOTI artifacts, five
+fresh processes, five stateful warmup Runs, and ten measured Runs. The official
+eager, persistent direct-AOTI, and generated no-Python C++ warm means are
+1511.66, 1275.17, and 1279.71 ms. The generated/direct delta is +0.356%, while
+generated is 1.181x faster than official eager. Direct and generated scalar
+probes are exact; eager/direct maximum absolute error is 4.61e-5 against the
+predeclared 3e-3 trajectory tolerance. This comparison attributes only the
+direct/generated delta to the composition/state-management boundary; it does
+not attribute AOTI model-kernel gains to VLAForge.

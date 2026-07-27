@@ -481,12 +481,13 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    verified bundle 与 generated no-Python Session 已通过；typed/generic
    10-output exact parity、revision cache、16-state transaction、validation
    abort/retry 和 ResetEpisode 均闭合；
-5. **generated 路径已完成，三路径对照待补**：MindDrive generated C++
-   已完成 full/same/new/missing 四模式 × 5 fresh process 的
-   cold/first/warm、RSS/CUDA memory 与 2,000 次 cluster-bootstrap 统计，
-   并通过 1000-Run same-revision soak（CUDA drift 0，RSS drift +60 KiB）。
-   eager/direct-AOTI/generated-C++ 的同输入、常驻 provider 三路径对照仍是
-   补充实验；完成前不得声称 MindDrive orchestration overhead；
+5. **已完成**：MindDrive generated C++ 已完成 full/same/new/missing
+   四模式 × 5 fresh process 的 cold/first/warm、RSS/CUDA memory 与
+   2,000 次 cluster-bootstrap 统计，并通过 1000-Run same-revision soak
+   （CUDA drift 0，RSS drift +60 KiB）。同五帧、同 16-state contract、
+   同 66 physical artifacts 的 eager/direct-AOTI/generated-C++ 三路径
+   对照也已通过：warm mean 为 1511.66/1275.17/1279.71 ms，
+   generated/direct delta 为 +0.356%，direct/generated probe exact；
 6. **已完成**：AutoVLA real L2 decoder partition，新增 core op=0；L3
    conservative candidate 按预声明阈值未晋级；
 7. **阶段门禁已通过，最终提交仍需刷新**：MindDrive L4 后的

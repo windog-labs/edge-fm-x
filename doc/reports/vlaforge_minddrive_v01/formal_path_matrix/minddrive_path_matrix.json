@@ -1,0 +1,699 @@
+{
+  "bundle": {
+    "artifact_bytes": 4280465454,
+    "digest": "7b91233d74563e959f1d7e1dbbae0ade08a889cdef011379e45a74566e01d453",
+    "io_schema_digest": "62e566cde5ca9cec1bbb7949b7eacf42393d1316e35a16e9c1b839f6220ded2a",
+    "root": "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+    "source_dirty": false,
+    "source_revision": "b9372682abd9af484a046014be6305dd2ae1ee45"
+  },
+  "cells": {
+    "direct_artifact": {
+      "first_run_ns": {
+        "ci95": [
+          1374207692.8,
+          1399190588.0
+        ],
+        "maximum": 1407188916,
+        "mean": 1385836395.0,
+        "minimum": 1367464876,
+        "samples": [
+          1387193096,
+          1407188916,
+          1367464876,
+          1378702904,
+          1388632183
+        ],
+        "stddev": 14611524.77852866
+      },
+      "initialization_ns": {
+        "ci95": [
+          4886657769.0,
+          4970772337.2
+        ],
+        "maximum": 5008856308,
+        "mean": 4925407738.0,
+        "minimum": 4862261854,
+        "samples": [
+          4917875517,
+          5008856308,
+          4909417245,
+          4862261854,
+          4928627766
+        ],
+        "stddev": 53089229.84250909
+      },
+      "memory": {
+        "cuda_drift_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "maximum_cuda_bytes": 2099249152,
+        "maximum_rss_kib": 6273868,
+        "maximum_torch_allocated_bytes": 1096802304,
+        "maximum_torch_reserved_bytes": 2099249152,
+        "rss_drift_kib": [
+          32,
+          28,
+          12,
+          24,
+          12
+        ]
+      },
+      "processes": 5,
+      "raw_reports": [
+        "raw/direct_artifact/repeat_00/report.json",
+        "raw/direct_artifact/repeat_01/report.json",
+        "raw/direct_artifact/repeat_02/report.json",
+        "raw/direct_artifact/repeat_03/report.json",
+        "raw/direct_artifact/repeat_04/report.json"
+      ],
+      "samples_per_process": 10,
+      "warm_latency": {
+        "maximum_ns": 1288799482,
+        "mean_ns": {
+          "ci95": [
+            1265508916.22,
+            1282753373.44
+          ],
+          "estimate": 1275171261.94
+        },
+        "minimum_ns": 1254417813,
+        "p50_ns": {
+          "ci95": [
+            1262956649.0,
+            1282479152.0
+          ],
+          "estimate": 1279396031.0
+        },
+        "p90_ns": {
+          "ci95": [
+            1280492565.0,
+            1288320415.0
+          ],
+          "estimate": 1284404232.0
+        },
+        "p99_ns": {
+          "ci95": [
+            1282560549.0,
+            1288799482.0
+          ],
+          "estimate": 1288799482.0
+        },
+        "process_mean_ns": [
+          1281536987.0,
+          1280723206.6,
+          1258289237.3,
+          1270322035.5,
+          1284984843.3
+        ],
+        "process_mean_stddev_ns": 10910667.68314978,
+        "processes": 5,
+        "samples_per_process": [
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        "throughput_runs_per_second": 0.7842083881961358
+      },
+      "warmup_runs_per_process": 5
+    },
+    "eager": {
+      "first_run_ns": {
+        "ci95": [
+          1625355715.2,
+          1631879074.8
+        ],
+        "maximum": 1632367856,
+        "mean": 1629263813.8,
+        "minimum": 1621532700,
+        "samples": [
+          1632367856,
+          1621532700,
+          1629812620,
+          1632053769,
+          1630552124
+        ],
+        "stddev": 4448313.725517817
+      },
+      "initialization_ns": {
+        "ci95": [
+          26299282793.8,
+          26414220063.2
+        ],
+        "maximum": 26460973026,
+        "mean": 26352712221.8,
+        "minimum": 26267600279,
+        "samples": [
+          26460973026,
+          26312926367,
+          26375254871,
+          26346806566,
+          26267600279
+        ],
+        "stddev": 72612682.395657
+      },
+      "memory": {
+        "cuda_drift_bytes": [
+          0,
+          0,
+          0,
+          131072,
+          131072
+        ],
+        "maximum_cuda_bytes": 5731516416,
+        "maximum_rss_kib": 8231056,
+        "maximum_torch_allocated_bytes": 4390181888,
+        "maximum_torch_reserved_bytes": 5731516416,
+        "rss_drift_kib": [
+          184,
+          180,
+          184,
+          184,
+          180
+        ]
+      },
+      "processes": 5,
+      "raw_reports": [
+        "raw/eager/repeat_00/report.json",
+        "raw/eager/repeat_01/report.json",
+        "raw/eager/repeat_02/report.json",
+        "raw/eager/repeat_03/report.json",
+        "raw/eager/repeat_04/report.json"
+      ],
+      "samples_per_process": 10,
+      "warm_latency": {
+        "maximum_ns": 1519802893,
+        "mean_ns": {
+          "ci95": [
+            1504588374.98,
+            1515411260.68
+          ],
+          "estimate": 1511661416.64
+        },
+        "minimum_ns": 1491939741,
+        "p50_ns": {
+          "ci95": [
+            1502676508.0,
+            1516874682.0
+          ],
+          "estimate": 1513949118.0
+        },
+        "p90_ns": {
+          "ci95": [
+            1517860798.0,
+            1519219697.0
+          ],
+          "estimate": 1518718020.0
+        },
+        "p99_ns": {
+          "ci95": [
+            1519076138.0,
+            1519802893.0
+          ],
+          "estimate": 1519802893.0
+        },
+        "process_mean_ns": [
+          1515133307.2,
+          1497620243.1,
+          1515472387.3,
+          1515489110.8,
+          1514592034.8
+        ],
+        "process_mean_stddev_ns": 7857668.88451365,
+        "processes": 5,
+        "samples_per_process": [
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        "throughput_runs_per_second": 0.6615237969245256
+      },
+      "warmup_runs_per_process": 5
+    },
+    "generated_session": {
+      "first_run_ns": {
+        "ci95": [
+          1389473465.6,
+          1399650659.0
+        ],
+        "maximum": 1402037434,
+        "mean": 1394940992.6,
+        "minimum": 1385444765,
+        "samples": [
+          1402037434,
+          1398994348,
+          1396189731,
+          1392038685,
+          1385444765
+        ],
+        "stddev": 6460461.403220307
+      },
+      "initialization_ns": {
+        "ci95": [
+          4090976683.0,
+          4123634416.0
+        ],
+        "maximum": 4141526437,
+        "mean": 4104268517.8,
+        "minimum": 4086171731,
+        "samples": [
+          4141526437,
+          4100051652,
+          4097276199,
+          4086171731,
+          4096316570
+        ],
+        "stddev": 21479956.87139729
+      },
+      "memory": {
+        "cuda_drift_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "maximum_cuda_bytes": 8385331200,
+        "maximum_rss_kib": 6135548,
+        "maximum_torch_allocated_bytes": 0,
+        "maximum_torch_reserved_bytes": 0,
+        "rss_drift_kib": [
+          8,
+          4,
+          4,
+          4,
+          8
+        ]
+      },
+      "processes": 5,
+      "raw_reports": [
+        "raw/generated_session/repeat_00/minddrive_full_10.json",
+        "raw/generated_session/repeat_01/minddrive_full_10.json",
+        "raw/generated_session/repeat_02/minddrive_full_10.json",
+        "raw/generated_session/repeat_03/minddrive_full_10.json",
+        "raw/generated_session/repeat_04/minddrive_full_10.json"
+      ],
+      "samples_per_process": 10,
+      "warm_latency": {
+        "maximum_ns": 1288736500,
+        "mean_ns": {
+          "ci95": [
+            1275589098.48,
+            1283341716.18
+          ],
+          "estimate": 1279710901.46
+        },
+        "minimum_ns": 1269813299,
+        "p50_ns": {
+          "ci95": [
+            1273939464.0,
+            1283145626.0
+          ],
+          "estimate": 1281180261.0
+        },
+        "p90_ns": {
+          "ci95": [
+            1282199716.0,
+            1287041940.0
+          ],
+          "estimate": 1284679683.0
+        },
+        "p99_ns": {
+          "ci95": [
+            1283203313.0,
+            1288736500.0
+          ],
+          "estimate": 1288736500.0
+        },
+        "process_mean_ns": [
+          1282544540.7,
+          1285036124.9,
+          1280800103.1,
+          1277598015.2,
+          1272575723.4
+        ],
+        "process_mean_stddev_ns": 4820501.2845287565,
+        "processes": 5,
+        "samples_per_process": [
+          10,
+          10,
+          10,
+          10,
+          10
+        ],
+        "throughput_runs_per_second": 0.7814264916076883
+      },
+      "warmup_runs_per_process": 5
+    }
+  },
+  "classification": "real MindDrive Host-CUDA path evidence on RTX 3060 sm_86; no Orin, cross-GPU, closed-loop, power, thermal, sensor, middleware, or model-kernel-optimization claim",
+  "comparison": {
+    "direct_artifact_mean_ns": 1275171261.94,
+    "eager_mean_ns": 1511661416.64,
+    "eager_over_generated_speedup": 1.1812522773037033,
+    "generated_over_direct_percent": 0.35600233909707235,
+    "generated_session_mean_ns": 1279710901.46,
+    "orchestration_boundary": "direct and generated execute the same 66 physical AOTI artifacts, five-frame inputs, explicit state carry, and trajectory probe; the ratio includes their Python versus generated C++ composition/state-management boundaries"
+  },
+  "environment": {
+    "cuda": "11.8",
+    "driver": "595.58.03",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "host": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+    "python_orchestrator": "3.10.20",
+    "torch": "2.4.1+cu118",
+    "torch_python": "/home/zhangzimo/.cache/vlaforge/envs/minddrive-conda-py310/bin/python3.10"
+  },
+  "evidence": "real-eager-direct-AOTI-generated-C++-path-matrix",
+  "memory_contract": {
+    "authoritative_state_arena_capacity_bytes": 3351680,
+    "authoritative_state_count": 16,
+    "authoritative_state_payload_bytes": 1675568,
+    "authoritative_state_retained_payload_bytes": 3351136,
+    "derived_cache_physical_buffer_count": 1,
+    "derived_cache_physical_capacity_bytes": 39321600,
+    "external_input_bytes_per_invocation": 29493452,
+    "external_input_count": 13,
+    "external_output_bytes_per_invocation": 29332,
+    "external_output_count": 10,
+    "per_run_static_arena_bytes": 56559808
+  },
+  "model": "MindDrive 0.5B",
+  "output_validation": {
+    "all_passed": true,
+    "comparisons": [
+      {
+        "direct_generated_maximum_absolute_error": 0.0,
+        "direct_generated_tolerance": 1e-07,
+        "eager_direct_maximum_absolute_error": 4.605855792760849e-05,
+        "eager_direct_tolerance": 0.003,
+        "passed": true,
+        "repeat": 0
+      },
+      {
+        "direct_generated_maximum_absolute_error": 0.0,
+        "direct_generated_tolerance": 1e-07,
+        "eager_direct_maximum_absolute_error": 4.605855792760849e-05,
+        "eager_direct_tolerance": 0.003,
+        "passed": true,
+        "repeat": 1
+      },
+      {
+        "direct_generated_maximum_absolute_error": 0.0,
+        "direct_generated_tolerance": 1e-07,
+        "eager_direct_maximum_absolute_error": 4.605855792760849e-05,
+        "eager_direct_tolerance": 0.003,
+        "passed": true,
+        "repeat": 2
+      },
+      {
+        "direct_generated_maximum_absolute_error": 0.0,
+        "direct_generated_tolerance": 1e-07,
+        "eager_direct_maximum_absolute_error": 4.605855792760849e-05,
+        "eager_direct_tolerance": 0.003,
+        "passed": true,
+        "repeat": 3
+      },
+      {
+        "direct_generated_maximum_absolute_error": 0.0,
+        "direct_generated_tolerance": 1e-07,
+        "eager_direct_maximum_absolute_error": 4.605855792760849e-05,
+        "eager_direct_tolerance": 0.003,
+        "passed": true,
+        "repeat": 4
+      }
+    ],
+    "full_output_parity_evidence": "doc/reports/vlaforge_minddrive_v01/minddrive_l4.json",
+    "probe_only": true,
+    "within_path": {
+      "direct_artifact": {
+        "maximum_absolute_error": 0.0,
+        "passed": true,
+        "tolerance": 1e-07
+      },
+      "eager": {
+        "maximum_absolute_error": 0.0,
+        "passed": true,
+        "tolerance": 0.003
+      },
+      "generated_session": {
+        "maximum_absolute_error": 0.0,
+        "passed": true,
+        "tolerance": 1e-07
+      }
+    }
+  },
+  "passed": true,
+  "protocol": {
+    "bootstrap_resamples": 2000,
+    "bootstrap_unit": "independent fresh process",
+    "initialization_boundary": {
+      "cross_path_initialization_directly_comparable": false,
+      "direct_artifact": "66 persistent AOTI runners and five prepared inputs",
+      "eager": "official model/checkpoint/frontend and five prepared inputs",
+      "generated_session": "ModelSession construction after C++ input files load"
+    },
+    "paths": [
+      "eager",
+      "direct_artifact",
+      "generated_session"
+    ],
+    "processes_per_path": 5,
+    "samples_per_process": 10,
+    "schedule_seed": 20260727,
+    "stateful_frame_cycle": [
+      "frame_00400",
+      "frame_00401",
+      "frame_00402",
+      "frame_00403",
+      "frame_00404"
+    ],
+    "timed_boundary": "one full stateful MindDrive invocation plus backend CUDA synchronization",
+    "warmup_alignment": "first Run is included in warmup on every path; warmup is a multiple of five, so measured samples begin on frame_00400",
+    "warmup_runs_per_process": 5
+  },
+  "raw_evidence": [
+    {
+      "path": "raw/direct_artifact/repeat_00/process.log",
+      "sha256": "849dad495c2aac011ead77de61149f7133e2320e87ed3aff36e3bea2ee512e4a",
+      "size_bytes": 15587
+    },
+    {
+      "path": "raw/direct_artifact/repeat_00/report.json",
+      "sha256": "ef652cda7c07d35b79dcee5ff4a97339dd51f9b390aa77e27aee2b3fd6b3f0b8",
+      "size_bytes": 14040
+    },
+    {
+      "path": "raw/direct_artifact/repeat_01/process.log",
+      "sha256": "604bdbf276310bf5b1252d54f1aacc421207954fb09a2bfd8c810299896f0149",
+      "size_bytes": 15589
+    },
+    {
+      "path": "raw/direct_artifact/repeat_01/report.json",
+      "sha256": "b534a2374c3ffb1beacc8d7bdd92c8a31db503f1d271be79418d0bd94a01db5a",
+      "size_bytes": 14042
+    },
+    {
+      "path": "raw/direct_artifact/repeat_02/process.log",
+      "sha256": "4550bed2b30e10cfc5f96bb803c28f488c852ce2672c835b25066f369d5f42d0",
+      "size_bytes": 15586
+    },
+    {
+      "path": "raw/direct_artifact/repeat_02/report.json",
+      "sha256": "f79b13316960aafc60b1c96c12911b14561c228e5914dd4e053ab9bbbee2dc89",
+      "size_bytes": 14041
+    },
+    {
+      "path": "raw/direct_artifact/repeat_03/process.log",
+      "sha256": "022e93763a2a52f2b17d3ef4c80a9cf910d6219ef2a22a714f1660e459b2ce15",
+      "size_bytes": 15589
+    },
+    {
+      "path": "raw/direct_artifact/repeat_03/report.json",
+      "sha256": "38ff47247c8602653f12cf59cafbbb83639a0bd30b707abc9fd0c1176991fdfd",
+      "size_bytes": 14041
+    },
+    {
+      "path": "raw/direct_artifact/repeat_04/process.log",
+      "sha256": "6245597b1c187672feb7262a3b94c388b63f9ae1959462fc93e2d329ef392ba0",
+      "size_bytes": 15587
+    },
+    {
+      "path": "raw/direct_artifact/repeat_04/report.json",
+      "sha256": "04a362083dfbd7c439afffac918342b93422edec743d0877b33105fec5e05abc",
+      "size_bytes": 14040
+    },
+    {
+      "path": "raw/eager/repeat_00/process.log",
+      "sha256": "bbda1668bf8bf437ad212c359f509fa0ce1e8498739126456a82603d1798f005",
+      "size_bytes": 63855
+    },
+    {
+      "path": "raw/eager/repeat_00/report.json",
+      "sha256": "0b147f3eff1269458264982767c5b6a96d2cff6347dbddb87c7bf41fce7e130c",
+      "size_bytes": 20409
+    },
+    {
+      "path": "raw/eager/repeat_01/process.log",
+      "sha256": "7e549fcebfd3f78ba2ca04601dc3016d636f1a6e66c57e4e0c64eee9426f435a",
+      "size_bytes": 63854
+    },
+    {
+      "path": "raw/eager/repeat_01/report.json",
+      "sha256": "18407d499a0430864b6c4728ec7ff9cebb212eb57bc293ac445ebd471658a1ce",
+      "size_bytes": 20410
+    },
+    {
+      "path": "raw/eager/repeat_02/process.log",
+      "sha256": "f9804b3c3b9cdba2dc6c8baed891c4050b435966fc43321d7bef199aa4d49c00",
+      "size_bytes": 63856
+    },
+    {
+      "path": "raw/eager/repeat_02/report.json",
+      "sha256": "74afc3762b685abd142fe716427da31e3d910875ac51a8b2e30be97a2886cd5c",
+      "size_bytes": 20411
+    },
+    {
+      "path": "raw/eager/repeat_03/process.log",
+      "sha256": "3a6ddd1cc14ed11562ee1401356fbc68e8cd09b1c25a6df7476e3d8c03b33df1",
+      "size_bytes": 63862
+    },
+    {
+      "path": "raw/eager/repeat_03/report.json",
+      "sha256": "6434825762cd214a92577bb10ff6654cfb43aa7e1606b162e78bfed6b70e429e",
+      "size_bytes": 20416
+    },
+    {
+      "path": "raw/eager/repeat_04/process.log",
+      "sha256": "5da75fd6ed47658b5321f3dafcd064317435d0067c2fd0f44ecb80c095981cfc",
+      "size_bytes": 63861
+    },
+    {
+      "path": "raw/eager/repeat_04/report.json",
+      "sha256": "37b3dae81b0000979bd6e09e18d1a24e5f3d3130f14f44241479f107ec5d576d",
+      "size_bytes": 20415
+    },
+    {
+      "path": "raw/generated_session/repeat_00/minddrive_full_10.csv",
+      "sha256": "2bdfa4d63af0a11cc48848ee65c07a2bd4cb9f1b36b61f405dfbad6380f47c54",
+      "size_bytes": 506
+    },
+    {
+      "path": "raw/generated_session/repeat_00/minddrive_full_10.json",
+      "sha256": "a1e132f335625d433699591fd309d64fab0e379e4f95461c7b57963d6c93a27c",
+      "size_bytes": 4910
+    },
+    {
+      "path": "raw/generated_session/repeat_00/process.log",
+      "sha256": "3974d83ed60539d1afbaa17f8404f4d656cc00be6c3ef49e1b46b171eefdf476",
+      "size_bytes": 6169
+    },
+    {
+      "path": "raw/generated_session/repeat_01/minddrive_full_10.csv",
+      "sha256": "2537b8e54c7533062e5eb71300f9e4d8d2c5163a3d7a2a60d2aeaee1c5e6ad92",
+      "size_bytes": 506
+    },
+    {
+      "path": "raw/generated_session/repeat_01/minddrive_full_10.json",
+      "sha256": "93bb3d23871104f16e7690669032d946df60d9f16320b2e01cbc15938b22c181",
+      "size_bytes": 4911
+    },
+    {
+      "path": "raw/generated_session/repeat_01/process.log",
+      "sha256": "49fb59d9b1edcb4901d481eea08c80492beda655b5c146e110c71de8da2b2ec3",
+      "size_bytes": 6171
+    },
+    {
+      "path": "raw/generated_session/repeat_02/minddrive_full_10.csv",
+      "sha256": "0029f963c74bc2e9ab4fb163cb53245311162ca83ffcb122caec81bd8c8868db",
+      "size_bytes": 506
+    },
+    {
+      "path": "raw/generated_session/repeat_02/minddrive_full_10.json",
+      "sha256": "5335efae9675ec0c99391dfab51b12b305da6d7f2edb647d3efa258598e8f63b",
+      "size_bytes": 4908
+    },
+    {
+      "path": "raw/generated_session/repeat_02/process.log",
+      "sha256": "bd6bc4def7319192e7953e778dcf1905c33696e674c0e623672ac247aa30d76a",
+      "size_bytes": 6166
+    },
+    {
+      "path": "raw/generated_session/repeat_03/minddrive_full_10.csv",
+      "sha256": "8ec6131ad1e003c782353fb47d757380f106354c08ad71384393cde0a048a5e2",
+      "size_bytes": 506
+    },
+    {
+      "path": "raw/generated_session/repeat_03/minddrive_full_10.json",
+      "sha256": "185cc3975a265a25740026ac4b93fcc6de50ecf5dba5d9013c1c011f57af788d",
+      "size_bytes": 4911
+    },
+    {
+      "path": "raw/generated_session/repeat_03/process.log",
+      "sha256": "4820533c2aeaab5a2613db46db20244d37c6f10ba41087e45b1835f0b0d7d7c3",
+      "size_bytes": 6170
+    },
+    {
+      "path": "raw/generated_session/repeat_04/minddrive_full_10.csv",
+      "sha256": "6275ea6278de550e48c6b25c4decb6a956c442d0d060fd6a8316b6dd6be286df",
+      "size_bytes": 506
+    },
+    {
+      "path": "raw/generated_session/repeat_04/minddrive_full_10.json",
+      "sha256": "17ec130ea7f765fd650011cc165c75ea2e13a1842833434db91a33f43e2e67eb",
+      "size_bytes": 4911
+    },
+    {
+      "path": "raw/generated_session/repeat_04/process.log",
+      "sha256": "7e00c3721149083bb1fbb7d576fb4b9795d0d815d948c82c63241d50237d7d0f",
+      "size_bytes": 6170
+    }
+  ],
+  "repository": {
+    "revision": "0720cf11a160dbea45793e11ab434689faec5da0",
+    "source_dirty": false
+  },
+  "reproduction": {
+    "command": [
+      "/home/zhangzimo/.cache/vlaforge/envs/minddrive-conda-py310/bin/python",
+      "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/benchmark_minddrive_path_matrix.py",
+      "--torch-python",
+      "/home/zhangzimo/.cache/vlaforge/envs/minddrive-conda-py310/bin/python",
+      "--bundle-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/bundle",
+      "--input-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/l4/evidence/inputs",
+      "--source-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/source",
+      "--release-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/upstream",
+      "--frame-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/real_input/Accident+Follow_Town12_Road392_Route112425_Weather14_01-07-09-36-50",
+      "--output-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-paths-fa2c354",
+      "--binary-root",
+      "/home/zhangzimo/Archives/vlaforge-minddrive-0.5b-20260726/benchmarks/formal-generated-a7daea5/binary",
+      "--process-repeats",
+      "5",
+      "--warmup",
+      "5",
+      "--samples",
+      "10",
+      "--bootstrap-resamples",
+      "2000",
+      "--seed",
+      "20260727",
+      "--resume"
+    ]
+  },
+  "schema": "vlaforge.minddrive_path_matrix/1",
+  "status": "passed"
+}

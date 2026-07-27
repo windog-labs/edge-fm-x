@@ -9,7 +9,7 @@
 | 当前证据 | **完整 real L4**：real L2/L3 保持；8 logical Regions 由 66 个真实 `sm_86` AOTI artifacts 执行，生成的 no-Python C++ Session 在五帧序列上通过 typed/generic API、事务、cache、reset 与 10 named outputs exact parity |
 | Adapter | 13 个静态 InputPort、8 个 TensorRegion、16 个 StateSlot、1 个 transactional output group；无 sensor/timer/middleware 语义 |
 | Core op 增量 | **0** |
-| 当前缺口 | generated C++ 的正式 cold/first/warm、RSS/CUDA memory、revision 矩阵与 1000-Run soak 已完成；尚未形成与 SmolVLA/DiffusionDrive 相同协议的 eager/direct-AOTI/generated-C++ 三路径性能对照，不影响 real L4 correctness 等级 |
+| 当前缺口 | 本机 correctness、revision 矩阵、1000-Run soak 与 eager/direct-AOTI/generated-C++ 三路径性能对照均已完成；仅剩跨 GPU/Orin/第二机复现等可选增强 |
 
 ## 固定发布物
 
@@ -278,14 +278,26 @@ Host RSS drift 为 +60 KiB。正式索引为：
 - `doc/reports/vlaforge_minddrive_v01/minddrive_l4_benchmark.md`；
 - `doc/reports/vlaforge_minddrive_v01/minddrive_l4_soak.json`。
 
+三路径正式控制另使用相同真实五帧、相同 16-state contract 和 66 个物理
+artifacts，每条路径 5 个 fresh process、5 次 stateful warmup、10 次测量：
+
+| Path | First Run mean | Warm mean | Warm-mean 95% CI |
+|---|---:|---:|---:|
+| official eager | 1629.26 ms | 1511.66 ms | [1504.59, 1515.41] ms |
+| persistent direct-AOTI | 1385.84 ms | 1275.17 ms | [1265.51, 1282.75] ms |
+| generated no-Python C++ | 1394.94 ms | 1279.71 ms | [1275.59, 1283.34] ms |
+
+generated/direct delta 为 +0.356%，generated 相对 official eager 为
+1.181x。direct/generated probe 逐值相等；eager/direct 最大绝对误差为
+4.61e-5，小于预声明的 3e-3 trajectory tolerance。初始化边界不同，只报告
+不做跨路径 speedup。正式机器可读报告位于
+`doc/reports/vlaforge_minddrive_v01/formal_path_matrix/`。
+
 ## 后续可选证据
 
-1. 使用相同真实五帧、同一批 artifacts 和常驻 provider 补充
-   eager/direct-AOTI/generated-C++ 三路径对照；在完成前不能把上述
-   generated-only 数字解释为 direct-artifact orchestration overhead；
-2. 按模型适用性补充 Region 粒度、derived-cache 或 validation overhead
+1. 按模型适用性补充 Region 粒度、derived-cache 或 validation overhead
    消融，但不改变当前 L4 correctness 结论；
-3. 在第二台 GPU 或 Orin 上复现 artifact；它们属于跨硬件增强，不是当前
+2. 在第二台 GPU 或 Orin 上复现 artifact；它们属于跨硬件增强，不是当前
    Host-CUDA L4 的完成条件。
 
 论文现在可以声称 VLAForge 已在 RTX 3060 上将真实、持久状态化的自动驾驶
