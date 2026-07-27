@@ -12,6 +12,7 @@ Canonical design:
 - [Paper design](../doc/vlaforge_paper_design.md)
 - [Model evidence matrix](../doc/vlaforge_model_adaptation_matrix.md)
 - [Model cards](../doc/model_cards/README.md)
+- [A100/H20 high-memory handoff](../doc/vlaforge_high_memory_handoff.md)
 
 ## Scope
 

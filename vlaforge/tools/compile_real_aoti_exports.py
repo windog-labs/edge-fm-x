@@ -7,6 +7,8 @@ import argparse
 import gc
 import hashlib
 import json
+import os
+import platform
 import resource
 import time
 from pathlib import Path
@@ -34,6 +36,26 @@ _INDUCTOR_PROFILES: dict[str, dict[str, object]] = {
 }
 
 
+def _validate_native_cuda_arch(
+    requested: str | None,
+    *,
+    major: int,
+    minor: int,
+) -> None:
+    if requested is None:
+        return
+    native = f"{major}.{minor}"
+    targets = {
+        item.removesuffix("+PTX")
+        for item in requested.replace(";", " ").split()
+    }
+    if targets != {native}:
+        raise RuntimeError(
+            "real-model AOTI evidence must be destination-native: "
+            f"TORCH_CUDA_ARCH_LIST={requested!r}, current GPU={native}"
+        )
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -47,6 +69,11 @@ def main() -> int:
     parser.add_argument("--export-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument(
+        "--device",
+        default="cuda:0",
+        help="device used by the exported examples and AOTI compiler",
+    )
     parser.add_argument(
         "--inductor-profile",
         choices=tuple(_INDUCTOR_PROFILES),
@@ -73,6 +100,13 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.normalized_export_dir is not None:
         args.normalized_export_dir.mkdir(parents=True, exist_ok=True)
+    if torch.cuda.is_available() and args.device.startswith("cuda"):
+        major, minor = torch.cuda.get_device_capability(args.device)
+        _validate_native_cuda_arch(
+            os.environ.get("TORCH_CUDA_ARCH_LIST"),
+            major=major,
+            minor=minor,
+        )
 
     records = []
     for name in args.regions:
@@ -208,10 +242,37 @@ def main() -> int:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    environment = {
+        "host": platform.platform(),
+        "python": platform.python_version(),
+        "torch": torch.__version__,
+        "cuda": torch.version.cuda,
+        "device": args.device,
+        "torch_cuda_arch_list": os.environ.get("TORCH_CUDA_ARCH_LIST"),
+    }
+    if torch.cuda.is_available() and args.device.startswith("cuda"):
+        major, minor = torch.cuda.get_device_capability(args.device)
+        environment.update(
+            {
+                "gpu": torch.cuda.get_device_name(args.device),
+                "compute_capability": [major, minor],
+                "target": f"sm_{major}{minor}",
+            }
+        )
+    else:
+        environment.update(
+            {
+                "gpu": None,
+                "compute_capability": None,
+                "target": "cpu",
+            }
+        )
+
     report = {
         "schema": "vlaforge.real_aoti_compile/1",
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
+        "environment": environment,
         "inductor_profile": args.inductor_profile,
         "inductor_configs": _INDUCTOR_PROFILES[args.inductor_profile],
         "regions": records,

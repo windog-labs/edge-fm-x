@@ -57,3 +57,20 @@ NRMSE 分别为 `6.65e-3` 与 `4.54e-3`，超过预声明 `1e-3` Region 门槛�
 fixture 仍用于 fast/slow branch 和 bounded token-decode 的结构覆盖，不能替代
 上述真实 checkpoint 证据。冻结核心审计见
 `../reports/vlaforge_heldout_v01/heldout_audit.md`。
+
+## A100/H20 后续入口
+
+高显存开发不再从零定位环境和 checkpoint。当前分支提供：
+
+- `tools/run_high_memory_autovla.py`：自动探测 `sm_80`/`sm_90` 等目标，
+  校验源码和 checkpoint，并以独立进程重跑 partition L2、原生 AOTI 编译
+  和 L3 审计；
+- `tools/probe_real_autovla_full_eager.py`：从外部已组装的三相机四帧输入
+  运行官方完整 `AutoVLA.predict`，并固化可捕获的 prompt/generation/
+  action-token/trajectory 数据；
+- `spec/autovla_full_input.example.json`：完整 eager 输入契约模板。
+
+full-eager probe 只能标记为 `L2-candidate-full-real-checkpoint-eager`。
+在 captured Regions、Semantic IR 和 Plan 对齐前，本卡的正式证据等级仍是
+上文的真实 decoder partition L2。详细步骤见
+`../vlaforge_high_memory_handoff.md`。

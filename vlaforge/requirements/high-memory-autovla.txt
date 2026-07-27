@@ -1,0 +1,14 @@
+# Install the CUDA-enabled PyTorch build separately so the wheel matches the
+# destination driver/toolkit. The validated frontend versions below are the
+# source-faithful AutoVLA inference subset; nuPlan/training dependencies are
+# intentionally excluded from the offline deployment audit environment.
+transformers==4.49.0
+tokenizers==0.21.1
+accelerate==1.5.2
+qwen-vl-utils==0.0.10
+safetensors==0.5.3
+sentencepiece==0.2.1
+numpy>=1.26,<3
+pillow>=10
+pyyaml>=6
+pytest>=8

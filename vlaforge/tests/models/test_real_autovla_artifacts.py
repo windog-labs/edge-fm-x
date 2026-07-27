@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
 import torch
 
 
@@ -38,3 +39,33 @@ def test_artifact_metrics_distinguish_exact_tokens_and_float_error() -> None:
     assert metrics["exact"] is False
     assert metrics["maximum_absolute_error"] == 0.25
     assert metrics["normalized_root_mean_square_error"] > 0.0
+
+
+def test_target_chain_accepts_destination_native_artifacts() -> None:
+    audit = _module()
+    audit._validate_target_chain(
+        runtime_target="sm_80",
+        expected_target="sm_80",
+        compile_target="sm_80",
+    )
+    audit._validate_target_chain(
+        runtime_target="sm_90",
+        expected_target=None,
+        compile_target="sm_90",
+    )
+
+
+def test_target_chain_rejects_cross_gpu_artifact_reuse() -> None:
+    audit = _module()
+    with pytest.raises(RuntimeError, match="must be rebuilt"):
+        audit._validate_target_chain(
+            runtime_target="sm_90",
+            expected_target="sm_90",
+            compile_target="sm_86",
+        )
+    with pytest.raises(RuntimeError, match="legacy"):
+        audit._validate_target_chain(
+            runtime_target="sm_80",
+            expected_target=None,
+            compile_target=None,
+        )

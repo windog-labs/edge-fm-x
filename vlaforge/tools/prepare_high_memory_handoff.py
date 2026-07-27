@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""Create a durable, checkpoint-light A100/H20 handoff directory."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import subprocess
+import tarfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Sequence
+
+_SOURCE_ROOT = Path(__file__).resolve().parents[1]
+_REPOSITORY_ROOT = _SOURCE_ROOT.parent
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _git(root: Path, *arguments: str) -> str:
+    return subprocess.run(
+        ["git", *arguments],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _file(path: Path) -> dict[str, Any]:
+    return {
+        "path": str(path.resolve()),
+        "size_bytes": path.stat().st_size,
+        "sha256": _sha256(path),
+    }
+
+
+def _archive_directory(source: Path, output: Path) -> None:
+    with tarfile.open(output, "w:gz") as archive:
+        archive.add(source, arcname=source.name, recursive=True)
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--autovla-source-root", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--baseline-l2-root", type=Path)
+    parser.add_argument(
+        "--verify-checkpoint-hash",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    output = args.output_dir.resolve()
+    if output.exists() and any(output.iterdir()):
+        raise ValueError(f"handoff directory is not empty: {output}")
+    output.mkdir(parents=True, exist_ok=True)
+
+    status = _git(
+        _REPOSITORY_ROOT,
+        "status",
+        "--short",
+        "--untracked-files=no",
+    )
+    if status:
+        raise RuntimeError("commit tracked VLAForge changes before handoff")
+    branch = _git(_REPOSITORY_ROOT, "symbolic-ref", "--short", "HEAD")
+    revision = _git(_REPOSITORY_ROOT, "rev-parse", "HEAD")
+
+    source_root = args.autovla_source_root.resolve()
+    source_revision = _git(source_root, "rev-parse", "HEAD")
+    source_status = _git(
+        source_root,
+        "status",
+        "--short",
+        "--untracked-files=no",
+    )
+    if source_status:
+        raise RuntimeError("AutoVLA source has tracked modifications")
+
+    repository_bundle = output / "edge-fm-x.bundle"
+    subprocess.run(
+        [
+            "git",
+            "bundle",
+            "create",
+            str(repository_bundle),
+            branch,
+        ],
+        cwd=_REPOSITORY_ROOT,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "bundle", "verify", str(repository_bundle)],
+        cwd=_REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    autovla_archive = output / f"autovla-source-{source_revision[:8]}.tar.gz"
+    subprocess.run(
+        [
+            "git",
+            "archive",
+            "--format=tar.gz",
+            f"--output={autovla_archive}",
+            source_revision,
+        ],
+        cwd=source_root,
+        check=True,
+    )
+
+    packaged = {
+        "repository_bundle": _file(repository_bundle),
+        "autovla_source": _file(autovla_archive),
+    }
+    if args.baseline_l2_root is not None:
+        baseline_root = args.baseline_l2_root.resolve()
+        if not baseline_root.is_dir():
+            raise FileNotFoundError(baseline_root)
+        baseline_archive = output / "autovla-partition-l2-baseline.tar.gz"
+        _archive_directory(baseline_root, baseline_archive)
+        packaged["partition_l2_baseline"] = _file(baseline_archive)
+
+    checkpoint = args.checkpoint.resolve()
+    if not checkpoint.is_file():
+        raise FileNotFoundError(checkpoint)
+    checkpoint_record = {
+        "path": str(checkpoint),
+        "size_bytes": checkpoint.stat().st_size,
+        "sha256": (
+            _sha256(checkpoint)
+            if args.verify_checkpoint_hash
+            else None
+        ),
+        "hash_verified": args.verify_checkpoint_hash,
+        "packaged": False,
+        "transfer_separately": True,
+    }
+    manifest = {
+        "schema": "vlaforge.high_memory_handoff/1",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "vlaforge": {
+            "branch": branch,
+            "revision": revision,
+        },
+        "autovla": {
+            "revision": source_revision,
+        },
+        "packaged": packaged,
+        "external": {
+            "checkpoint": checkpoint_record,
+            "qwen_snapshot": {
+                "repository": "Qwen/Qwen2.5-VL-3B-Instruct",
+                "revision": (
+                    "66285546d2b821cf421d4f5eb2576359d3770cd3"
+                ),
+                "packaged": False,
+                "download_or_transfer_separately": True,
+            },
+            "real_camera_input": {
+                "packaged": False,
+                "reason": "user-provided licensed offline sample",
+            },
+        },
+        "claim_boundary": {
+            "source_handoff_only": True,
+            "contains_no_new_gpu_evidence": True,
+        },
+    }
+    manifest_path = output / "handoff_manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    checksums = [
+        f"{record['sha256']}  {Path(record['path']).name}"
+        for record in packaged.values()
+    ]
+    checksums.append(f"{_sha256(manifest_path)}  {manifest_path.name}")
+    (output / "SHA256SUMS").write_text(
+        "\n".join(checksums) + "\n",
+        encoding="utf-8",
+    )
+    (output / "README.md").write_text(
+        "\n".join(
+            (
+                "# VLAForge high-memory handoff",
+                "",
+                f"- VLAForge revision: `{revision}`",
+                f"- Branch: `{branch}`",
+                f"- AutoVLA revision: `{source_revision}`",
+                "",
+                "Restore:",
+                "",
+                "```bash",
+                "git clone edge-fm-x.bundle edge-fm-x",
+                f"cd edge-fm-x && git checkout {branch}",
+                "cd ..",
+                f"tar -xzf {autovla_archive.name}",
+                "sha256sum -c SHA256SUMS",
+                "```",
+                "",
+                "Transfer the checkpoint, pinned Qwen snapshot, and licensed "
+                "real camera sample separately. Then follow "
+                "`doc/vlaforge_high_memory_handoff.md`.",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    print(json.dumps(manifest, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -53,6 +53,32 @@ def _as_tuple(value: Any) -> tuple[Any, ...]:
     return value if isinstance(value, tuple) else (value,)
 
 
+def _validate_target_chain(
+    *,
+    runtime_target: str,
+    expected_target: str | None,
+    compile_target: str | None,
+) -> None:
+    if expected_target is not None and runtime_target != expected_target:
+        raise RuntimeError(
+            "AutoVLA runtime target mismatch: "
+            f"expected {expected_target}, got {runtime_target}"
+        )
+    if compile_target is None:
+        if runtime_target != "sm_86":
+            raise RuntimeError(
+                "legacy AutoVLA compile report has no target metadata; "
+                f"recompile artifacts on {runtime_target}"
+            )
+        return
+    if compile_target != runtime_target:
+        raise RuntimeError(
+            "AutoVLA artifact target mismatch: "
+            f"compiled for {compile_target}, running on {runtime_target}; "
+            "AOTI packages must be rebuilt on the destination GPU class"
+        )
+
+
 def _metrics(expected: Any, actual: Any) -> dict[str, object]:
     import torch
 
@@ -121,6 +147,8 @@ def _validate_chain(
     artifact_dir: Path,
     frontend_path: Path,
     compile_path: Path,
+    runtime_target: str,
+    expected_target: str | None,
 ) -> tuple[dict[str, Any], list[dict[str, object]], list[dict[str, object]]]:
     frontend = _json(frontend_path)
     if (
@@ -135,6 +163,14 @@ def _validate_chain(
     compile_report = _json(compile_path)
     if compile_report.get("schema") != "vlaforge.real_aoti_compile/1":
         raise ValueError("invalid AutoVLA AOTI compile report")
+    compile_target = compile_report.get("environment", {}).get("target")
+    _validate_target_chain(
+        runtime_target=runtime_target,
+        expected_target=expected_target,
+        compile_target=(
+            str(compile_target) if compile_target is not None else None
+        ),
+    )
     captures = {
         str(item["name"]): item for item in frontend.get("captures", ())
     }
@@ -219,6 +255,7 @@ def audit(
     device: str,
     region_nrmse_tolerance: float,
     trajectory_max_abs_tolerance: float,
+    expected_target: str | None = None,
 ) -> dict[str, Any]:
     import torch
     import torch._inductor.codecache  # noqa: F401
@@ -227,15 +264,13 @@ def audit(
         raise RuntimeError("AutoVLA real artifact audit requires CUDA")
     major, minor = torch.cuda.get_device_capability(device)
     target = f"sm_{major}{minor}"
-    if target != "sm_86":
-        raise RuntimeError(
-            f"AutoVLA artifact evidence requires sm_86, got {target}"
-        )
     frontend, export_records, artifact_records = _validate_chain(
         export_dir=export_dir,
         artifact_dir=artifact_dir,
         frontend_path=frontend_path,
         compile_path=compile_path,
+        runtime_target=target,
+        expected_target=expected_target,
     )
     exported = {
         name: load_exported_region(export_dir / f"{name}.pt2e").module()
@@ -357,7 +392,8 @@ def audit(
             "partitioned_real_checkpoint": True,
             "full_end_to_end_autovla": False,
             "generated_cpp_session": False,
-            "host_cuda_sm86_only": True,
+            "single_host_cuda_target": target,
+            "cross_gpu_performance_claim": False,
         },
     }
 
@@ -370,6 +406,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--compile-report", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument(
+        "--expected-target",
+        help="optional explicit target guard such as sm_80 or sm_90",
+    )
     parser.add_argument("--region-nrmse-tolerance", type=float, default=1e-3)
     parser.add_argument(
         "--trajectory-max-abs-tolerance",
@@ -389,6 +429,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         device=args.device,
         region_nrmse_tolerance=args.region_nrmse_tolerance,
         trajectory_max_abs_tolerance=args.trajectory_max_abs_tolerance,
+        expected_target=args.expected_target,
     )
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(
