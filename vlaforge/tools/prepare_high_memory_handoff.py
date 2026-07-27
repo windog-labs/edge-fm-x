@@ -258,8 +258,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "Restore:",
                 "",
                 "```bash",
-                "git clone edge-fm-x.bundle edge-fm-x",
-                f"cd edge-fm-x && git checkout {branch}",
+                f"git clone --branch {branch} "
+                "edge-fm-x.bundle edge-fm-x",
+                "cd edge-fm-x",
                 "cd ..",
                 f"tar -xzf {autovla_archive.name}",
                 "sha256sum -c SHA256SUMS",
