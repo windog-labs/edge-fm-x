@@ -24,8 +24,8 @@
       },
       "cpu_runtime": {
         "name": "libvlaforge_runtime.a",
-        "sha256": "d390d82c7e002f3bb74c8ba05659dedf26e4e421d9a814f964513fff4a044bf1",
-        "size_bytes": 73304
+        "sha256": "a9bd69eb58f656fb38eaff1d8362f7fb54008175c44299fb779401adf2dc6601",
+        "size_bytes": 73280
       },
       "cuda_consumer": {
         "name": "vlaforge_install_consumer",
@@ -34,8 +34,8 @@
       },
       "cuda_runtime": {
         "name": "libvlaforge_runtime.a",
-        "sha256": "a28dc721a835e938b96dab1f3984d757978eff42b5b851f2b8e6f903758405a5",
-        "size_bytes": 74600
+        "sha256": "ec314c94a603baa8f6e5259c6fd6feba3acd8f3b9c73f8c9003b6db0c00dca5b",
+        "size_bytes": 74576
       }
     },
     "old_edgefm_or_custom_cuda_sources_compiled": false
@@ -75,7 +75,7 @@
     }
   },
   "repository": {
-    "revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
+    "revision": "3ce480ef643d0d83a77c9ff5fc8b456f4736bc86",
     "source_dirty": false,
     "tracked_status": []
   },
@@ -114,7 +114,7 @@
       "errors": 0,
       "failures": 0,
       "passed": 1,
-      "seconds": 51.934,
+      "seconds": 52.729,
       "skipped": 0,
       "test_names": [
         "test_cuda_aoti_region_backend"
@@ -144,7 +144,7 @@
       "errors": 0,
       "failures": 0,
       "passed": 284,
-      "seconds": 11.51,
+      "seconds": 11.398,
       "skipped": 11,
       "test_names": [
         "test_dependency_graph_tracks_state_and_ssa_edges",
@@ -449,7 +449,7 @@
   "wheel": {
     "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
     "installed_cli_bundle": {
-      "bundle_digest": "fd3a94e97da4a2c2282bc272339738c748d4a2e785fbfaf353e557917fe35849",
+      "bundle_digest": "4c9d85f2472d76dca428fd594500a9ce6300b1f432b4ef4492b350475b4771b4",
       "invalid_python_environment": true,
       "io_schema_digest": "144081eb6287422643a1f88ede09d39652250d16d6442da654bfef9d09e87b5c",
       "links_libpython": false,
@@ -468,7 +468,7 @@
       "source_revision": "package:vlaforge-0.2.0.dev0"
     },
     "runtime_source_entries": 32,
-    "sha256": "cd2a60df9fb5440d22c4c96b2680be2e7e35907b51c3a0ad9565b78319df24a5",
-    "size_bytes": 284031
+    "sha256": "98ce41ba7c49b2ca7ab39bec9b418aaac2dbc254b6593da129c27cc688cb9ff9",
+    "size_bytes": 284047
   }
 }

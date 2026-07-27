@@ -19,7 +19,7 @@
     "final_release_gate": {
       "path": "/home/zhangzimo/Repos/private/edge-fm-x/doc/reports/vlaforge_release_v01/release_gate.json",
       "schema": "vlaforge.host_cuda_release_gate/1",
-      "sha256": "c61b59ad3f3fe69025f6923b550a1227d74d9e97e3755b6c18c8473869587bb7",
+      "sha256": "c8a6c19c617968d3c716f705f1ba7b30a5004d560ff8f3cd49ee5298d9fa2878",
       "status": "passed"
     },
     "formal_ablations": {

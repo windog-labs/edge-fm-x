@@ -219,6 +219,8 @@ GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；AutoVLA 又完成
   typed/generic/compiled-reference exact、trace/failure/reset passed；
 - clean C++ Release build：passed；
 - CPU CTest：8/8 passed；CUDA/AOTI CTest：9/9 passed；
+- CPU ASan/UBSan CTest：8/8 passed；由此发现并修复了 external Region
+  missing-symbol 错误路径中 `dlerror()` 跨 `dlclose()` 的生命周期问题；
 - CPU 与 AOTI CMake install/export consumer：passed；
 - wheel：`vlaforge-0.2.0.dev0-py3-none-any.whl` built；
 - arm64 JetPack image probe：`aarch64`；

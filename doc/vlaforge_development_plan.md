@@ -339,6 +339,8 @@ Host release gate：
 最终 Host-CUDA release gate 已在 2026-07-27 刷新：offline Python
 284 passed/11 opt-in skipped；CUDA AOTI 现场 opt-in 1 passed；clean C++
 Release、CPU 8/8 CTest、CUDA/AOTI 9/9 CTest 与 install-export 均通过。
+额外的 CPU ASan/UBSan 8/8 CTest 发现并关闭了 external Region
+missing-symbol 错误路径中的动态加载器字符串生命周期缺陷。
 RTX 3060
 `sm_86` 上真实 AOTI
 package 已通过 Compile Bundle、generated C++ Session、无效 Python 环境和

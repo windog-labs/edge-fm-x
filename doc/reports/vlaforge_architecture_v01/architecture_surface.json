@@ -534,7 +534,7 @@
       },
       {
         "path": "vlaforge/runtime/external_region_plugin.cpp",
-        "sha256": "ca9d70997a2ce99ca64316354c6f8a12f594a0cf8e65c95b04fcb8c4375dccf5"
+        "sha256": "acecaa569a6e0a3d787a0faabbd4cb30a48073e0c2a331ce27e0d08d2a527da5"
       },
       {
         "path": "vlaforge/runtime/region_executable.c",
@@ -572,7 +572,7 @@
     ]
   },
   "repository": {
-    "revision": "beb878fe08eac85913c4182668ab374f38741ff7",
+    "revision": "3ce480ef643d0d83a77c9ff5fc8b456f4736bc86",
     "source_dirty": false,
     "tracked_status": []
   },

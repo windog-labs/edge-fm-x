@@ -18,9 +18,9 @@ Status: **passed**.
 ## Installed wheel
 
 - Wheel: `vlaforge-0.2.0.dev0-py3-none-any.whl`
-- SHA256: `cd2a60df9fb5440d22c4c96b2680be2e7e35907b51c3a0ad9565b78319df24a5`
+- SHA256: `98ce41ba7c49b2ca7ab39bec9b418aaac2dbc254b6593da129c27cc688cb9ff9`
 - Bundled runtime source entries: 32
-- Bundle digest: `fd3a94e97da4a2c2282bc272339738c748d4a2e785fbfaf353e557917fe35849`
+- Bundle digest: `4c9d85f2472d76dca428fd594500a9ce6300b1f432b4ef4492b350475b4771b4`
 - I/O schema digest: `144081eb6287422643a1f88ede09d39652250d16d6442da654bfef9d09e87b5c`
 - Provenance: `package:vlaforge-0.2.0.dev0`
 
