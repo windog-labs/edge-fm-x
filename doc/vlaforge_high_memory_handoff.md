@@ -58,6 +58,10 @@ python -m pip install \
 
 这里只安装离线模型部署需要的依赖，不安装 nuPlan、Ray、训练或评测栈。
 VLAForge 不读取数据集、不做传感器同步，也不要求 CARLA/ROS/Cyber。
+AutoVLA 上游模块在文件顶层导入 nuPlan score，即使 `AutoVLA.predict` 完全不
+使用它；full-eager probe 只为这些训练评分符号安装 fail-closed import shim，
+不会替换或修改 processor、vision/VLM、generation、action tokenizer 或
+trajectory rollout。
 
 复制环境模板并修改绝对路径：
 

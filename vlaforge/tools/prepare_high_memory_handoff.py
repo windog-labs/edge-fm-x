@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import subprocess
+import sys
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,24 @@ from typing import Any, Sequence
 
 _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 _REPOSITORY_ROOT = _SOURCE_ROOT.parent
+sys.path.insert(0, str(_SOURCE_ROOT / "python"))
+
+from vlaforge.adapters.autovla_real import (  # noqa: E402
+    AUTOVLA_CODEBOOK_SHA256,
+    AUTOVLA_SOURCE_SHA256,
+    AUTOVLA_UPSTREAM_REVISION,
+)
+
+
+AUTOVLA_INFERENCE_FILES = (
+    "LICENSE",
+    "README.md",
+    "models/__init__.py",
+    "models/autovla.py",
+    "models/action_tokenizer.py",
+    "config/eval/qwen2.5-vl-3B-nusc-sft-eval.yaml",
+    "codebook_cache/agent_vocab.pkl",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -45,6 +64,35 @@ def _file(path: Path) -> dict[str, Any]:
 def _archive_directory(source: Path, output: Path) -> None:
     with tarfile.open(output, "w:gz") as archive:
         archive.add(source, arcname=source.name, recursive=True)
+
+
+def _archive_autovla_inference_source(
+    source: Path,
+    output: Path,
+    *,
+    revision: str,
+) -> str:
+    if revision != AUTOVLA_UPSTREAM_REVISION:
+        raise ValueError(
+            f"unexpected AutoVLA source revision: {revision}"
+        )
+    root_name = f"autovla-inference-{revision[:8]}"
+    for relative, expected in AUTOVLA_SOURCE_SHA256.items():
+        path = source / relative
+        if not path.is_file() or _sha256(path) != expected:
+            raise ValueError(
+                f"AutoVLA pinned source mismatch: {relative}"
+            )
+    codebook = source / "codebook_cache/agent_vocab.pkl"
+    if not codebook.is_file() or _sha256(codebook) != AUTOVLA_CODEBOOK_SHA256:
+        raise ValueError("AutoVLA codebook digest mismatch")
+    with tarfile.open(output, "w:gz") as archive:
+        for relative in AUTOVLA_INFERENCE_FILES:
+            path = source / relative
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            archive.add(path, arcname=f"{root_name}/{relative}")
+    return root_name
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -108,17 +156,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         text=True,
     )
 
-    autovla_archive = output / f"autovla-source-{source_revision[:8]}.tar.gz"
-    subprocess.run(
-        [
-            "git",
-            "archive",
-            "--format=tar.gz",
-            f"--output={autovla_archive}",
-            source_revision,
-        ],
-        cwd=source_root,
-        check=True,
+    autovla_archive = (
+        output / f"autovla-inference-source-{source_revision[:8]}.tar.gz"
+    )
+    autovla_archive_root = _archive_autovla_inference_source(
+        source_root,
+        autovla_archive,
+        revision=source_revision,
     )
 
     packaged = {
@@ -161,7 +205,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "source_checkout_status_line_count": (
                 len(source_status.splitlines()) if source_status else 0
             ),
-            "archive_source": "pinned Git commit, not working tree",
+            "archive_source": (
+                "hash-verified inference allowlist from pinned checkout"
+            ),
+            "archive_root": autovla_archive_root,
         },
         "packaged": packaged,
         "external": {

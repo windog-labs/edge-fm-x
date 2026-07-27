@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 from types import ModuleType
 
@@ -86,3 +87,13 @@ def test_input_manifest_rejects_unbounded_or_missing_history(
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="exactly four"):
         probe.load_input_manifest(path)
+
+
+def test_inference_score_shim_is_fail_closed() -> None:
+    probe = _module()
+    sys.modules.pop("models.utils.score", None)
+    probe._install_inference_only_score_shim()
+    score = sys.modules["models.utils.score"]
+    assert isinstance(score, types.ModuleType)
+    with pytest.raises(RuntimeError, match="inference-only"):
+        score.PDM_Reward()

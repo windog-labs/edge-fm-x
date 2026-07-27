@@ -20,6 +20,7 @@ import resource
 import subprocess
 import sys
 import time
+import types
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -198,6 +199,27 @@ def _load_config(
     return value
 
 
+def _install_inference_only_score_shim() -> None:
+    """Isolate upstream training-only nuPlan imports from AutoVLA inference."""
+
+    module_name = "models.utils.score"
+    if module_name in sys.modules:
+        return
+
+    class TrainingOnlyDependency:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            raise RuntimeError(
+                "nuPlan scoring is unavailable in the inference-only "
+                "AutoVLA environment"
+            )
+
+    module = types.ModuleType(module_name)
+    module.PDM_Reward = TrainingOnlyDependency
+    module.TrajectorySampling = TrainingOnlyDependency
+    module.Trajectory = TrainingOnlyDependency
+    sys.modules[module_name] = module
+
+
 def _verify_source(source_root: Path) -> dict[str, Any]:
     repository = _repository_state(source_root)
     if repository["revision"] != AUTOVLA_UPSTREAM_REVISION:
@@ -372,6 +394,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     sys.path.insert(0, str(source_root))
+    _install_inference_only_score_shim()
     upstream = importlib.import_module("models.autovla")
     torch.cuda.set_device(args.device)
     torch.cuda.reset_peak_memory_stats(args.device)
@@ -451,6 +474,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "model": "AutoVLA",
         "source": source,
+        "inference_environment": {
+            "training_only_nuplan_score_import_shim": True,
+            "model_inference_implementation_modified": False,
+        },
         "checkpoint": checkpoint_record,
         "pinned_revisions": {
             "autovla": AUTOVLA_UPSTREAM_REVISION,
