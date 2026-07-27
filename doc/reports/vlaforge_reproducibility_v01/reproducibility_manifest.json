@@ -5702,8 +5702,8 @@
     },
     {
       "path": "doc/reports/vlaforge_architecture_v01/architecture_surface.json",
-      "sha256": "79f6853592f8545d2ac5be3b996645078944bd32395b290314a03efe9779e877",
-      "size_bytes": 18788
+      "sha256": "b6af2b443e32f1f4c7d457d71b809a53ad8ddd0129f6c769677bdcf3da5bb6f2",
+      "size_bytes": 21079
     },
     {
       "path": "doc/reports/vlaforge_autovla_v01/autovla_frontend_l2.json",
@@ -5787,18 +5787,18 @@
     },
     {
       "path": "doc/reports/vlaforge_release_v01/release_gate.json",
-      "sha256": "c488e0fd2c4366d25d4f3ef2f909de052a4ff4ff409c1b48b78322adda2b26f4",
-      "size_bytes": 23599
+      "sha256": "c61b59ad3f3fe69025f6923b550a1227d74d9e97e3755b6c18c8473869587bb7",
+      "size_bytes": 25119
     }
   ],
   "installed_wheel_artifact_evaluation": {
     "artifact_evaluation": {
       "artifact": {
-        "path": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/artifacts/audit_tensor_region.pt2",
-        "sha256": "b18e76b208df0e41aecf283797371ab4b43e79412aa56f19200eebf074881700",
-        "size_bytes": 438670
+        "path": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/artifact-audit/artifacts/audit_tensor_region.pt2",
+        "sha256": "d5e2151bf9dcf1c77e2f525469f022b43b31e1a384b385efa0e15833199f0de9",
+        "size_bytes": 444046
       },
-      "compile_seconds": 5.305471705039963,
+      "compile_seconds": 5.3104471762198955,
       "cuda": "12.8",
       "direct_backend_smoke": {
         "negative_cases": {},
@@ -5808,11 +5808,11 @@
       "invocation_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "invocation",
-        "artifact_sha256": "b18e76b208df0e41aecf283797371ab4b43e79412aa56f19200eebf074881700",
+        "artifact_sha256": "d5e2151bf9dcf1c77e2f525469f022b43b31e1a384b385efa0e15833199f0de9",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "caee2ff50cee97cb05828d06ded954bc2bc0b42ba7f33a21c430d757848160a3",
-        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-invocation/bundle.json",
+        "bundle_digest": "b557a16ff8141b95d3ded65629a0274c4dbd61b899c45f23a416ee3f893b7710",
+        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/artifact-audit/compile-bundle-invocation/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -5829,19 +5829,19 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
+        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/artifact-audit/compile-bundle-invocation/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
+        "source_revision": "3391082cced6e10d7f5dbcdaae441c3b013aecd1",
         "status": "passed"
       },
       "session_resident_bundle": {
         "abi_validated": true,
         "artifact_residency": "session",
-        "artifact_sha256": "b18e76b208df0e41aecf283797371ab4b43e79412aa56f19200eebf074881700",
+        "artifact_sha256": "d5e2151bf9dcf1c77e2f525469f022b43b31e1a384b385efa0e15833199f0de9",
         "artifact_target": "sm_86",
         "backend_variant": "torch-2.10-cu128",
-        "bundle_digest": "da66f27193c5e52926752635cd5c314685d2baf3ac5b11304e5ed350f83fcb45",
-        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-session/bundle.json",
+        "bundle_digest": "f8db9ba9a31c99c6922e636d990c2fa9d976a86f65ce943c12c1b3c598fbb5f6",
+        "bundle_manifest": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/artifact-audit/compile-bundle-session/bundle.json",
         "bundle_verified": true,
         "invalid_python_environment_run": true,
         "io_schema_digest": "d7398b363ef95678240a9bfc76d5e83647774f97e60c053e7fd3b3a08186fdc2",
@@ -5858,9 +5858,9 @@
         },
         "output_elements": 16,
         "python_linked": false,
-        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
+        "runner": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/artifact-audit/compile-bundle-session/bin/vlaforge_generated_runner",
         "schema_validated": true,
-        "source_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
+        "source_revision": "3391082cced6e10d7f5dbcdaae441c3b013aecd1",
         "status": "passed"
       },
       "target": "sm_86",
@@ -5888,11 +5888,11 @@
           "--no-deps",
           "--no-build-isolation",
           "--wheel-dir",
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/wheels",
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/wheels",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge"
         ],
         "cwd": "/home/zhangzimo/Repos/private/edge-fm-x",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/build-wheel.log",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/logs/build-wheel.log",
         "name": "build-wheel"
       },
       {
@@ -5901,51 +5901,51 @@
           "-m",
           "venv",
           "--system-site-packages",
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv"
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/venv"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/create-venv.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/logs/create-venv.log",
         "name": "create-venv"
       },
       {
         "command": [
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/venv/bin/python",
           "-m",
           "pip",
           "install",
           "--no-deps",
           "--force-reinstall",
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/wheels/vlaforge-0.2.0.dev0-py3-none-any.whl"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/install-wheel.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/logs/install-wheel.log",
         "name": "install-wheel"
       },
       {
         "command": [
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/venv/bin/python",
           "-c",
           "import json,sys,vlaforge;print(json.dumps({'prefix':sys.prefix,'package':vlaforge.__file__}))"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/probe-installed-package.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/logs/probe-installed-package.log",
         "name": "probe-installed-package"
       },
       {
         "command": [
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/bin/python",
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/venv/bin/python",
           "/home/zhangzimo/Repos/private/edge-fm-x/vlaforge/tools/audit_cuda_aoti_region.py",
           "--work-dir",
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/artifact-audit",
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/artifact-audit",
           "--report",
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/installed-wheel-aoti-audit.json",
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/installed-wheel-aoti-audit.json",
           "--runtime-root",
-          "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/share/vlaforge",
+          "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/venv/share/vlaforge",
           "--source-revision",
-          "5d90e4e4fff01316f1ec8a45f23c4f09f514d844"
+          "3391082cced6e10d7f5dbcdaae441c3b013aecd1"
         ],
-        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/non-git-cwd",
-        "log": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/logs/installed-wheel-sm86-audit.log",
+        "cwd": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/non-git-cwd",
+        "log": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/logs/installed-wheel-sm86-audit.log",
         "name": "installed-wheel-sm86-audit"
       }
     ],
@@ -5963,15 +5963,15 @@
     "isolation": {
       "installed_from_wheel_only": true,
       "non_git_cwd": true,
-      "package_import": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
-      "runtime_root": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO/venv/share/vlaforge",
+      "package_import": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/venv/lib/python3.13/site-packages/vlaforge/__init__.py",
+      "runtime_root": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx/venv/share/vlaforge",
       "source_pythonpath_removed": true,
       "venv_system_site_packages": true
     },
     "passed": true,
     "repository": {
       "baseline_revision": "f0fc1be",
-      "evaluated_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
+      "evaluated_revision": "3391082cced6e10d7f5dbcdaae441c3b013aecd1",
       "source_dirty": false
     },
     "reproduction": {
@@ -5991,29 +5991,29 @@
     "wheel": {
       "filename": "vlaforge-0.2.0.dev0-py3-none-any.whl",
       "runtime_source_entries": 32,
-      "sha256": "11b2aa05b3b2ee4128efc8f92788ce22aa0c65224819c428192024c9e71b1337",
+      "sha256": "f637827fecb937b67635cde92ffd4ee5c9d89a15d64e75432363ccc6d8995cc6",
       "size_bytes": 284034
     },
     "work_dir": {
       "large_files_committed": false,
-      "path": "/home/zhangzimo/Archives/vlaforge-wheel-5d90e4e.1BfCyO",
-      "size_bytes": 110942519
+      "path": "/home/zhangzimo/Archives/vlaforge-wheel-3391082.BryJwx",
+      "size_bytes": 110958649
     }
   },
   "paper_artifacts": [
     {
       "path": "doc/vlaforge_paper_draft.md",
-      "sha256": "5d4e52099da9f90f2e7bd1ab670fc1da76e3c6d91e920cb22e2c182f969815fb",
-      "size_bytes": 38007
+      "sha256": "e95296e3509a5344ac8045d258a562a003ba86039b24b595e4fe433d271ab59c",
+      "size_bytes": 38503
     },
     {
       "path": "doc/vlaforge_paper_design.md",
-      "sha256": "aec2d78ea37871c6cc70b654716261cc8686775545fffbb9ed267f51a3c04b04",
-      "size_bytes": 24460
+      "sha256": "676d6b5670b2c35d03c82e50a94661e5a113e5123c155f78d3da2c4df2a70776",
+      "size_bytes": 24480
     },
     {
       "path": "doc/vlaforge_claim_evidence_map.md",
-      "sha256": "7f71df97e7039f9a894036ffc5f414f3f61a7104ec8dbd929332ab0cd090f78a",
+      "sha256": "6e0475ac4da7b26a732583307199ccc7ae50a66b2fa965a0a09e15abbca02647",
       "size_bytes": 9595
     },
     {
@@ -6059,7 +6059,7 @@
   ],
   "passed": true,
   "repository": {
-    "audited_revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
+    "audited_revision": "3391082cced6e10d7f5dbcdaae441c3b013aecd1",
     "baseline_revision": "f0fc1be",
     "frozen_core_matches": true,
     "frozen_core_revision": "766e27bdfb34c3311dda7d444862b7f95d05c7b8",
