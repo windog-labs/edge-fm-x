@@ -102,26 +102,24 @@ gate 不编译仓库外模型 kernel，也没有旧 CUDA operator fallback。
 
 OpenVLA 与 SmolVLA 已在 2026-07-25 重新通过 v0.2 真实 checkpoint
 eager/IR L2；报告位于 `doc/reports/vlaforge_real_v02/`。SmolVLA 又完成真实
-artifact L3 与 generated no-Python C++ Session L4。OpenVLA-7B 已通过
+artifact L3 与 generated no-Python C++ Session L4。OpenVLA-7B 先通过
 36 个 memory-bounded physical Regions 完成真实 `sm_86` artifact L3，
-但尚未形成真实 generated Session L4。
+随后以 stable raw wrapper/cubin provider 完成 weight-paged generated
+no-Python C++ Session L4。
 
 因此当前可以声称：
 
 - Invocation IR/Plan/C++ substrate 已贯通；
 - 模型范式 fixture 已证明 core expressiveness；
 - clean no-Python C/C++ ABI 已验证；
-- 固定 `SmolVLA-Base`、DiffusionDrive 与 MindDrive 0.5B checkpoint 已达到
-  real Host-CUDA L4；
-- OpenVLA-7B 已达到 real Host-CUDA L3；
+- 固定 `SmolVLA-Base`、OpenVLA-7B、DiffusionDrive 与 MindDrive 0.5B
+  checkpoint 已达到 real Host-CUDA L4；
 - robot/flow、robot/autoregressive、driving/diffusion 和
   driving/stateful-multimodal 四种真实模型范式已达到 L3，新增 core op
   均为 0。
 
-当前不能声称：
-
-- OpenVLA 7B 已完成 v0.2 real L4；
-- Orin 真机性能或闭环已验证。
+当前不能声称 OpenVLA L4 是 latency benchmark，也不能声称 Orin 真机性能
+或闭环已验证。
 
 ## Host CUDA production artifact audit
 
@@ -156,7 +154,7 @@ cache、CUDA authoritative queue/cursor、152 次事务提交、episode reset、
 typed/generic C ABI 与 NaN validation abort 均通过。`ldd` 无 `libpython`。
 详细证据见 `doc/reports/vlaforge_real_v03/smolvla_artifact_l4.json`。
 
-## OpenVLA-7B real Host-CUDA L3
+## OpenVLA-7B real Host-CUDA L3/L4
 
 OpenVLA-7B 的 logical prefill/decode/detokenize 被细化为 36 个 backend-owned
 physical Regions，以 two-layer chunk 在 RTX 3060 12GB 上完成 capture、
@@ -171,9 +169,13 @@ bit-exact，且与真实 L2 action 的最大绝对误差仅 `1.13e-17`。报告�
 revision `7ea773e`，core op delta 为 0。详细证据见
 `doc/reports/vlaforge_real_v03/openvla_artifact_l3.json`。
 
-这是 real L3，不是 L4。当前 eager-load generated Session 会同时常驻所有
-Region weights，不适合 12GB GPU；下一步只通过 generic artifact residency
-policy 尝试 weight paging，不把模型专属路由写入 core。
+L4 在不改变 logical IR 的前提下，将这 36 个模型 Region 绑定到 L3 已验证
+的 stable raw wrapper/cubin，并使用 invocation residency 做 weight paging；
+两个 support Region 保持 session resident。clean revision `5ad7876` 的
+38-Region bundle 在无效 Python 环境完成 typed/generic C++ Run，action
+相对 L3 reference 误差为 0。隐藏一个真实 raw wrapper 的故障探针产生一次
+abort、不增加 output commit、保持上一 committed output；恢复后 retry
+成功。该路径新增 core op 为 0。
 
 ## 当前完成边界与可选增强
 
@@ -186,12 +188,10 @@ GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；AutoVLA 又完成
 
 以下只属于可选增强，不保持当前论文 Goal 未完成：
 
-1. 以稳定 extracted-library/cubin provider 替代当前 PyTorch package-loader，
-   再尝试 OpenVLA generated no-Python C++ L4；现有资源 blocker 已正式记录；
-2. 扩展 AutoVLA 到 camera/prompt/VLM prefill 和完整 autoregressive decode，
+1. 扩展 AutoVLA 到 camera/prompt/VLM prefill 和完整 autoregressive decode，
    并在不放宽预声明数值门槛的前提下争取 real L3/L4；
-3. 增加第二机或其他 GPU 的独立复现；
-4. JetPack r36.4 ARM64 Docker 已完成 TensorRT Region backend、installed
+2. 增加第二机或其他 GPU 的独立复现；
+3. JetPack r36.4 ARM64 Docker 已完成 TensorRT Region backend、installed
    SDK consumer、generated TensorRT Session 和 identity-engine 上板 smoke
    的编译；Orin 台架就绪后执行 smoke，并可选补充真实模型 SM87
    parity/latency/power/thermal。
@@ -204,6 +204,9 @@ GR00T N1.7、AutoVLA held-out 审计均为 core-op delta 0；AutoVLA 又完成
 - real OpenVLA-7B 4-bit gate：1 passed；
 - real OpenVLA-7B partitioned artifact L3：36/36 Regions 与两次完整
   pipeline passed；
+- real OpenVLA-7B generated L4：38-Region weight-paged bundle、
+  typed/generic/action exact、artifact failure/abort/output preservation/retry
+  passed；
 - real MindDrive 0.5B generated L4：66 physical artifacts、10 outputs、
   typed/generic/compiled-reference exact、trace/failure/reset passed；
 - clean C++ Release build：passed；

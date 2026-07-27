@@ -39,6 +39,7 @@ _PAPER_ARTIFACTS = (
     "doc/model_cards/README.md",
     "doc/model_cards/autovla.md",
     "doc/model_cards/minddrive.md",
+    "doc/model_cards/openvla.md",
     "doc/figures/vlaforge_paper/architecture.svg",
     "doc/figures/vlaforge_paper/performance.svg",
     "doc/figures/vlaforge_paper/ablations.svg",
@@ -127,6 +128,15 @@ _ARCHIVE_ROOTS = (
         ),
         True,
         "36 normalized OpenVLA exports and sm_86 AOTI packages",
+    ),
+    (
+        "openvla_l4_bundle",
+        "/home/zhangzimo/Archives/vlaforge-openvla-l4-stable-5ad7876",
+        True,
+        (
+            "real OpenVLA weight-paged verified bundle, deterministic "
+            "inputs, generated no-Python C++ runner, and L4 report"
+        ),
     ),
     (
         "autovla_checkpoint",
@@ -473,6 +483,7 @@ def audit(
         "smolvla_artifact_l4.json",
         "diffusiondrive_artifact_l4.json",
         "openvla_artifact_l3.json",
+        "openvla_artifact_l4.json",
         "real_cuda_evidence.json",
         "minddrive_l3.json",
         "minddrive_l4.json",

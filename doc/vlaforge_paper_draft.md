@@ -119,10 +119,10 @@ This paper makes the following contributions:
    loading verifies schema, ABI, artifact hashes, and target metadata before
    execution; state and named outputs commit transactionally.
 4. **Frozen-core evidence across VLA paradigms.** The same core expresses real
-   robot flow/chunk and driving diffusion artifacts, real OpenVLA partitioned
-   artifacts, a complete stateful MindDrive generated Session, a held-out real
-   AutoVLA decoder partition, plus deterministic robot and driving fixtures.
-   Held-out adapters add zero core operations.
+   robot flow/chunk, autoregressive OpenVLA, driving diffusion, and stateful
+   MindDrive generated Sessions, a held-out real AutoVLA decoder partition,
+   plus deterministic robot and driving fixtures. Held-out adapters add zero
+   core operations.
 5. **Paper-grade correctness and overhead evidence.** A 150-process-task CUDA
    matrix, four formal ablations, clean-wheel artifact evaluation, failure and
    retry injection, and 10,000-Run soaks quantify performance and semantic
@@ -366,7 +366,7 @@ cross-GPU, power, thermal, or embedded-real-time claim.
 |---|---|---:|---:|
 | SmolVLA | VLM prefix + flow action expert + chunk queue | real L4 | 0 |
 | DiffusionDrive | condition encoder + two-step $K$-candidate diffusion | real L4 | 0 |
-| OpenVLA | autoregressive VLM action tokens | real L3 | 0 |
+| OpenVLA | autoregressive VLM action tokens | real L4 | 0 |
 | MindDrive 0.5B | six-camera VLM planner + 16-state map/detection memory | real L4 | 0 |
 | AutoVLA | driving autoregressive trajectory tokens | held-out real L2 decoder partition | 0 |
 
@@ -677,9 +677,10 @@ robot/driving control, and verified bottom-software C/C++ integration.
 
 1. Performance is measured on one RTX 3060, CUDA 12.8, and `sm_86`. We do not
    claim cross-GPU, embedded, power, thermal, or Orin performance.
-2. OpenVLA is real L3 rather than real L4. The current blocker is the package
-   loader/provider lifetime of many large physical artifacts, not a claimed
-   Semantic IR result.
+2. OpenVLA L4 uses invocation-resident weight paging and is reported as a
+   correctness/deployment audit. Its 89.61-second runner time is not a latency
+   benchmark, a resident-weight comparison, or evidence of edge real-time
+   performance.
 3. The held-out AutoVLA evidence is a real-weight decoder partition rather than
    full camera/prompt/VLM-prefill capture. Its conservative AOTI attempt is an
    L3-candidate, not promoted L3, because intermediate Region NRMSE exceeds the
@@ -709,6 +710,8 @@ The artifact contains:
 - the held-out AutoVLA real L2 report and non-promoted L3-candidate audit;
 - the MindDrive real L3 held-out index and clean-worktree real L4 generated
   bundle/report, four-mode generated benchmark, and 1,000-Run stateful soak;
+- the OpenVLA real L3 artifact audit and clean-worktree weight-paged real L4
+  bundle/report with raw-artifact failure/retry evidence;
 - checkpoint, source, export, artifact, bundle, and runner hashes;
 - generated C/C++ schema and ABI negative tests;
 - Python, CPU CTest, CUDA CTest, live CUDA AOTI, and no-Python gates.

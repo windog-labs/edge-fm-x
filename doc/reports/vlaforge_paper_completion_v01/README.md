@@ -20,7 +20,8 @@ The current paper is complete for the measured RTX 3060 `sm_86` and CUDA 12.8 Ho
 - Orin latency, power, thermal, SM87, or JetPack evidence
 - real-vehicle or sensor closed-loop integration
 - ROS/Cyber, periodic scheduling, dropped-frame, or publish logic
-- OpenVLA real L4
+- OpenVLA 跨 GPU 性能或常驻权重优化（当前 weight-paged real L4
+  correctness/deployment 已完成）
 - cross-GPU performance
 - second-machine independent artifact reproduction
 - legacy EdgeFM CUDA kernel compilation or optimization

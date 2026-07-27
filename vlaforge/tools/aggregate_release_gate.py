@@ -210,7 +210,7 @@ def aggregate(gate_root: Path) -> dict[str, Any]:
         "DiffusionDrive": _json(
             real_root / "diffusiondrive_artifact_l4.json"
         ),
-        "OpenVLA": _json(real_root / "openvla_artifact_l3.json"),
+        "OpenVLA": _json(real_root / "openvla_artifact_l4.json"),
         "performance": _json(real_root / "real_cuda_evidence.json"),
         "MindDrive": _json(
             _REPOSITORY_ROOT
@@ -226,7 +226,7 @@ def aggregate(gate_root: Path) -> dict[str, Any]:
         )
         or real_evidence["SmolVLA"].get("evidence_level") != "L4"
         or real_evidence["DiffusionDrive"].get("evidence_level") != "L4"
-        or real_evidence["OpenVLA"].get("evidence_level") != "L3"
+        or real_evidence["OpenVLA"].get("evidence_level") != "L4"
         or not str(real_evidence["MindDrive"].get("evidence_level", "")).startswith(
             "real-L4"
         )
@@ -316,7 +316,7 @@ def aggregate(gate_root: Path) -> dict[str, Any]:
             "real_models": {
                 "SmolVLA": "L4",
                 "DiffusionDrive": "L4",
-                "OpenVLA": "L3",
+                "OpenVLA": "L4",
                 "MindDrive": "L4",
             },
             "host_cuda_performance": "passed",

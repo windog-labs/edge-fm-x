@@ -306,7 +306,7 @@ opcode 或任意未验证 opcode。
 | P7 | robot/driving executable fixtures、fixture C++ parity | 完成 |
 | P8 | pinned upstream source audit、Model Adaptation Cards | 完成 |
 | P9 | 收敛唯一 production surface，完整回归和报告冻结 | 完成 |
-| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive、MindDrive 真实 Host-CUDA L4 已完成；OpenVLA 真实 L3 已完成，L4 的 clean bundle/C++ build 通过但执行受 AOTI package loader 资源行为阻塞 |
+| P10 | 真实 OpenVLA/SmolVLA/DiffusionDrive 等 L2–L4 | SmolVLA、DiffusionDrive、MindDrive 与 OpenVLA 真实 Host-CUDA L4 已完成；OpenVLA 使用 stable raw wrapper/cubin provider 做 invocation-resident weight paging |
 | P11 | Host CUDA 性能、消融、长稳 | 完成：两真实 L4 模型的 eager/direct/generated 对照、revision/cache 消融、10k Run soak、NSYS/NCU |
 | P12 | frozen-core held-out robot/driving 泛化 | 完成：Octo、GR00T N1.7、AutoVLA pinned-source L0 + executable L1，core op delta=0 |
 | P13 | JetPack arm64 与 TensorRT backend portability | standalone runtime、TensorRT Region backend、安装后 SDK consumer、generated TensorRT Session 与上板 smoke 均已编译；真机执行待环境 |
@@ -362,11 +362,14 @@ backend-owned two-layer physical Regions，并完成真实 `sm_86` L3：
 integer/token 输出 exact；两次完整 pipeline 的 7 个 token bit-exact，
 最终 action 相对 L2 reference 最大绝对误差 `1.13e-17`。固定 KV derived
 cache 为 140.5 MiB，capture/audit 峰值 CUDA allocated 为
-2.686/1.778 GiB，core op delta 仍为 0。OpenVLA L4 已成功生成 38 Region
-clean-source verified bundle 和 no-Python runner；真实执行中，重复 AOTI
-package load 留下 deleted wrapper mappings，runner 在 24.48GiB RSS、约
-82GB package writes、系统盘余 29GiB 时按安全阈值终止。该 blocker 位于
-backend package lifecycle，OpenVLA 不升级为 L4。
+2.686/1.778 GiB，core op delta 仍为 0。早期 package-loader L4 运行因
+deleted wrapper mappings 和重复解包被安全终止；该负例促使 backend
+provider 改为绑定 L3 已验证的 stable raw wrapper/cubin。clean revision
+`5ad7876` 的 38-Region weight-paged bundle 随后在无效 Python 环境完成真实
+C++ 执行：action 对 L3 reference 误差为 0，typed/generic ABI 一致，
+artifact failure 后事务 abort、旧 committed output 保持、恢复 retry
+成功，core op delta 仍为 0。OpenVLA 因此达到 real L4；89.61 秒 runner
+时间只属于 correctness audit，不是 latency benchmark。
 
 P11 已在 RTX 3060 `sm_86` 上完成。DiffusionDrive
 eager/direct/generated-C++ mean 为 `19.361/16.168/16.304 ms`，
@@ -494,8 +497,8 @@ synthetic artifact-evaluation Region，不计入真实模型覆盖。机器可�
    Python/CPU-CUDA CTest/live AOTI/clean-wheel/no-Python/reproducibility
    gate 已通过；新增 benchmark/provider/runtime 代码稳定后必须从最终提交
    再执行一次，不能用旧提交的绿色结果替代；
-8. OpenVLA L4 只允许在 backend/artifact provider 层复用现有 artifacts
-   探索稳定 mapping/residency，不得扩 core IR，也不得阻塞上述工作；
+8. **已完成**：OpenVLA L4 在 backend/artifact provider 层复用现有 L3
+   raw artifacts，实现稳定 mapping 与 invocation residency，未扩 core IR；
 9. **已完成可离线部分**：JetPack r36.4 ARM64 Docker 中完成 TensorRT 10
    Region backend、安装后 SDK consumer、backend-aware generated Session
    和上板 identity-engine smoke 的编译。Orin 环境就绪后只需先运行 smoke，

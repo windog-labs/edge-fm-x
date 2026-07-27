@@ -23,7 +23,7 @@ fixture、真实模型 capture 和完整 C++ 部署混为一谈。
 |---|---|---|---|
 | RT-1-like | source-faithful fixture | history tensor+mask、离散 token、detokenize | L1 |
 | RT-2-like | contract mapping | VLM autoregressive action token | L0/L1 |
-| OpenVLA | 真实开源对象 | prefill exact cache、bounded decode、无 queue | real L3；L4 可选 |
+| OpenVLA | 真实开源对象 | prefill exact cache、bounded decode、无 queue | real L4 |
 | ACT-like | ChunkedAction template | queue/cursor 是 Adapter state，不是 core | L1 |
 | Octo/Diffusion Policy-like | Octo 优先 | optional modality、bounded denoise、action chunk | L2–L4 |
 | π0/SmolVLA-like | SmolVLA 真实优先 | prefix、flow loop、continuous chunk、cache | L4 |
@@ -75,7 +75,7 @@ memory/performance results
 | RT-1 | L0 + L1 | 是 | 否 | L2–L4 |
 | ACT | L0 + L1 | 是 | 否 | L2–L4 |
 | Octo | L0 + L1 | 是 | 否 | JAX capture 与 L2–L4 |
-| OpenVLA | L0 + L1 + real L2 + real L3 + fixture-L4 | 是 | fixture | real generated Session L4 |
+| OpenVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA；weight-paged correctness audit，不是 latency benchmark |
 | π0 | L0 + L1 | 是 | 否 | real capture/artifact |
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 是 | real checkpoint | complete on Host CUDA |
 | GR00T N1.7 | L0 + L1 | 是 | 否 | real capture/artifact |
@@ -95,8 +95,7 @@ opcode 数为 0。完整 pinned revision 和 unsupported items 见
 1. 稳定 generic InputPort、bounded profile、transactional output group 和 plugin ABI；
 2. 完成四类 driving fixture 与 OpenVLA/SmolVLA/π0 fixture 迁移；
 3. 完成通用 C ABI、typed wrapper 和 clean C++ parity；
-4. SmolVLA、DiffusionDrive、MindDrive real L4 与 OpenVLA 分 Region real
-   L3 已完成；
+4. SmolVLA、DiffusionDrive、MindDrive 与 OpenVLA real L4 已完成；
 5. Host-CUDA 五 workload 统计矩阵、正式消融、10k Run 长稳和 profile 已完成；
 6. 冻结 core 后完成 Octo、GR00T N1.7、AutoVLA held-out L0/L1 审计，
    三者 core-op 增量均为 0；
@@ -123,5 +122,8 @@ commit、validation abort/retry 与 reset，达到完整 real L4，
 revision 模式各运行 5 个独立进程，报告 cold/first/warm、RSS/CUDA memory
 和进程级 bootstrap 95% CI；1000-Run same-revision soak 的 CUDA drift 为
 0、RSS drift 为 +60 KiB。该补充数据尚不是 eager/direct/generated
-三路径的完整对照。OpenVLA real L4、跨 GPU、第二机复现和 Orin 属于可选
-增强，不阻塞本机主线。
+三路径的完整对照。OpenVLA 随后以稳定 raw wrapper/cubin provider 完成
+38-Region weight-paged generated no-Python C++ Session：真实 action 与 L3
+reference 误差为 0，typed/generic ABI 一致，failure/abort 保留上一 committed
+output，恢复 Run 成功，`core_op_delta=0`。该结果是 correctness audit，
+不加入性能矩阵。跨 GPU、第二机复现和 Orin 属于可选增强，不阻塞本机主线。

@@ -69,9 +69,12 @@ ctest --preset host-cuda
 
 ## 当前证据边界
 
-真实 SmolVLA 和 DiffusionDrive 已完成 Host-CUDA generated no-Python C++
-Session 路径；OpenVLA 完成真实 Host-CUDA L3。正式统计、消融、Model Cards、
-复现清单和 release gate 位于 [doc/reports](doc/reports/README.md)。
+真实 SmolVLA、DiffusionDrive、OpenVLA-7B 和 MindDrive 0.5B 均已完成
+Host-CUDA generated no-Python C++ Session 路径。OpenVLA 使用稳定 raw
+wrapper/cubin provider 做 invocation-resident weight paging；该 L4 是
+correctness/deployment evidence，不是 latency benchmark。正式统计、消融、
+Model Cards、复现清单和 release gate 位于
+[doc/reports](doc/reports/README.md)。
 
 当前性能结论只覆盖 RTX 3060 (`sm_86`) / CUDA 12.8。Orin、跨 GPU 和第二台
 机器复现是可选增强，不影响当前 Host-CUDA 论文工程完成条件。

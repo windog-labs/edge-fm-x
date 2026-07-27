@@ -2,9 +2,9 @@
 """Mechanically audit the Host-CUDA paper completion boundary.
 
 This audit deliberately does not require Orin, a real vehicle, sensor
-middleware, OpenVLA L4, cross-GPU measurements, or a second-machine rerun.
-Those are useful extensions, but they are outside the submission gate agreed
-for the RTX 3060 Host-CUDA paper artifact.
+middleware, cross-GPU measurements, or a second-machine rerun. Those are
+useful extensions, but they are outside the submission gate agreed for the
+RTX 3060 Host-CUDA paper artifact.
 """
 
 from __future__ import annotations
@@ -39,7 +39,6 @@ OPTIONAL_NOT_REQUIRED = (
     "Orin latency, power, thermal, SM87, or JetPack evidence",
     "real-vehicle or sensor closed-loop integration",
     "ROS/Cyber, periodic scheduling, dropped-frame, or publish logic",
-    "OpenVLA real L4",
     "cross-GPU performance",
     "second-machine independent artifact reproduction",
     "legacy EdgeFM CUDA kernel compilation or optimization",

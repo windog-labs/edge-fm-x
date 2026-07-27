@@ -3,7 +3,8 @@
 > Status: paper audit checklist
 >
 > Scope: Host-CUDA paper claim on RTX 3060 / CUDA 12.8. Orin, a real vehicle,
-> sensor middleware, and OpenVLA real L4 are not completion gates.
+> sensor middleware, cross-GPU performance, and second-machine reproduction
+> are not completion gates.
 
 This file maps each paper-facing statement to committed machine-readable
 evidence and its exact boundary. A claim must be narrowed if its required row
@@ -26,10 +27,10 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | C1 | VLAForge represents a caller-driven stateful model invocation with a 15-op VLA-specific core | frozen schema/opcode audit, verifier tests, architecture scanner | `vlaforge_heldout_v01/heldout_audit.json`, `vlaforge_architecture_v01/architecture_surface.json` | passed | not a tensor algebra, scheduler, or middleware IR |
 | C2 | Authoritative state and derived cache have different lifetime/failure contracts | state/cache memory records, commit/abort tests, real stateful model | SmolVLA and MindDrive real L4, `paper_ablations.json` | passed | derived cache may be dropped; authoritative state may not |
 | C3 | `InputRevision` safely controls exact cross-Run reuse | same/new/missing/reset traces and cache-only performance control | 40-task exact-reuse ablation | passed | caller must assign truthful revisions; missing is safe-by-default |
-| C4 | State and named outputs commit transactionally | validation failure, version sequence, prior-output preservation, retry | SmolVLA, DiffusionDrive, and 16-state/10-output MindDrive real L4 failure/retry | passed | vehicle safety and fallback policy remain external |
+| C4 | State and named outputs commit transactionally | validation failure, version sequence, prior-output preservation, retry | SmolVLA, DiffusionDrive, 16-state/10-output MindDrive, and raw-artifact failure OpenVLA real L4 probes | passed | generated output uses two committed slots; vehicle safety and fallback policy remain external |
 | C5 | Generated C++ adds low orchestration overhead over identical direct artifacts | five workloads, five independent processes, direct-vs-generated exact output | 150-task CUDA matrix | passed | approximately 0.5% on two models and one RTX 3060 only |
 | C6 | Generated deployment is no-Python and contract verified | clean wheel, non-Git cwd, invalid Python env, `ldd`, negative schema/hash/target cases | reproducibility report and deployment-boundary ablation | passed | does not imply a Python-free compile toolchain |
-| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving artifacts, held-out real model with core delta zero | SmolVLA L4, OpenVLA L3, MindDrive complete driving-VLA L4, DiffusionDrive planner L4 | passed | MindDrive is full six-camera-to-trajectory; DiffusionDrive is not a language VLA |
+| C7 | A frozen core covers robot and driving VLA paradigms | model matrix, real robot/driving artifacts, held-out real model with core delta zero | SmolVLA L4, OpenVLA L4, MindDrive complete driving-VLA L4, DiffusionDrive planner L4 | passed | MindDrive is full six-camera-to-trajectory; DiffusionDrive is not a language VLA |
 | C8 | Memory is statically bounded and stable | Plan certificate, memory-class split, 10k soak | static-arena ablation, SmolVLA/DiffusionDrive 10k soaks, and MindDrive 1k 16-state soak | passed | packing savings are small; claim boundedness, not compression |
 
 ## Performance evidence
@@ -47,16 +48,16 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 
 ## Correctness and failure evidence
 
-| Property | SmolVLA | DiffusionDrive | MindDrive | Held-out AutoVLA |
-|---|---|---|---|---|
-| real eager/frontend | L2 | L2 | complete L2 | L2 partition, exact |
-| compiled artifact | L3 | L3 | complete held-out L3 | L3 candidate not promoted |
-| generated C++ | L4 | L4 | L4 | not required |
-| same/new/missing revision | passed | passed | passed on real generated L4; full/same/new/missing each have 5 fresh-process traces | same/new passed |
-| episode reset | passed | passed | passed for 16 states | stateless partition |
-| authoritative state commit/abort | queue/cursor versions passed | stateless, N/A | 128 commits + one abort passed | stateless partition |
-| transactional named outputs | action output | six planning outputs | ten trajectory/detection/motion outputs | trajectory + action tokens passed |
-| no-Python Session | passed | passed | typed/generic passed | not required at held-out L2 |
+| Property | SmolVLA | OpenVLA | DiffusionDrive | MindDrive | Held-out AutoVLA |
+|---|---|---|---|---|---|
+| real eager/frontend | L2 | L2 | L2 | complete L2 | L2 partition, exact |
+| compiled artifact | L3 | L3 | L3 | complete held-out L3 | L3 candidate not promoted |
+| generated C++ | L4 | weight-paged L4 | L4 | L4 | not required |
+| same/new/missing revision | passed | repeated/new revision trace passed | passed | passed on real generated L4; full/same/new/missing each have 5 fresh-process traces | same/new passed |
+| episode reset | passed | stateless, N/A | passed | passed for 16 states | stateless partition |
+| authoritative state commit/abort | queue/cursor versions passed | stateless; backend failure abort passed | stateless, N/A | 128 commits + one abort passed | stateless partition |
+| transactional named outputs | action output | action preserved across failed Run | six planning outputs | ten trajectory/detection/motion outputs | trajectory + action tokens passed |
+| no-Python Session | passed | typed/generic passed | passed | typed/generic passed | not required at held-out L2 |
 
 ## Generalization evidence
 
@@ -65,7 +66,7 @@ does not pass; fixture evidence can never upgrade a real-model claim.
 | discrete token policy | RT-1-like | token + detokenized action; no state | L1 fixture | 0 |
 | action chunk | ACT-like | chunk; Adapter queue/cursor | L1 fixture | 0 |
 | optional-modality diffusion | Octo-like | action chunk; condition cache | L1 fixture | 0 |
-| autoregressive robot VLM | OpenVLA | action tokens/action; loop KV SSA | real L3 | 0 |
+| autoregressive robot VLM | OpenVLA | action tokens/action; loop KV SSA | real L4 | 0 |
 | flow/chunk VLA | SmolVLA | continuous chunk; queue/cursor | real L4 | 0 |
 | multi-embodiment DiT | GR00T-like | chunk + aux; bounded DiT | L1 fixture | 0 |
 | driving trajectory | trajectory fixture | one trajectory; no state | L1 fixture | 0 |
@@ -96,8 +97,8 @@ The paper and abstract must not say or imply:
 - VLAForge designed or optimized the model CUDA kernels;
 - cache-hit or action-queue fast-path latency is full-compute model latency;
 - fixture support is real checkpoint support;
-- OpenVLA has real L4 unless a generated real-checkpoint Session actually
-  succeeds;
+- OpenVLA weight-paged L4 correctness is a latency or resident-weight
+  performance result;
 - one RTX 3060 proves cross-GPU or embedded performance;
 - static arena packing delivers meaningful memory compression in the current
   two real L4 workloads;
@@ -118,8 +119,8 @@ The current paper is submission-ready when:
    external archive identities;
 5. the final Python/C++/CUDA gate passes.
 
-Orin, OpenVLA real L4, real-vehicle/sensor integration, cross-GPU performance,
-and second-machine reproduction remain optional evidence after these five
+Orin, real-vehicle/sensor integration, cross-GPU performance, and
+second-machine reproduction remain optional evidence after these five
 conditions pass.
 
 Current status: all five conditions pass. The machine-readable final decision

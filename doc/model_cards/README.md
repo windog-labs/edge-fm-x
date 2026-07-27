@@ -8,7 +8,7 @@ fixture 已经生成并运行无 Python C++ Session，不表示真实 checkpoint
 | RT-1 | L0 + L1 | 0 | [rt1.md](rt1.md) |
 | ACT | L0 + L1 | 0 | [act.md](act.md) |
 | Octo | L0 + L1 | 0 | [octo.md](octo.md) |
-| OpenVLA | L0 + L1 + real L2 + real L3 + fixture-L4 | 0 | [openvla.md](openvla.md) |
+| OpenVLA | L0 + L1 + real L2 + real L3 + real L4 | 0 | [openvla.md](openvla.md) |
 | π0 | L0 + L1 | 0 | [pi0.md](pi0.md) |
 | SmolVLA | L0 + L1 + real L2 + real L3 + real L4 | 0 | [smolvla.md](smolvla.md) |
 | GR00T N1.7 | L0 + L1 | 0 | [groot_n1.md](groot_n1.md) |

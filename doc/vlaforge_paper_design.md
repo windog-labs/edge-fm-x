@@ -191,7 +191,7 @@ IR 已经存在。
 5. held-out model 证明适配主要发生在 Adapter/Region；
 6. trace/failure injection 证明语义忠实。
 
-当前仓库已完成真实 SmolVLA/DiffusionDrive/MindDrive L4、OpenVLA L3、
+当前仓库已完成真实 SmolVLA/DiffusionDrive/MindDrive/OpenVLA L4、
 正式五 workload/五进程矩阵、四类消融、failure/retry、
 clean-wheel/no-Python 部署边界，以及冻结核心后的 AutoVLA 真实 L2
 decoder partition。MindDrive 的完整六相机到 10 named outputs 路径包含
@@ -200,7 +200,7 @@ decoder partition。MindDrive 的完整六相机到 10 named outputs 路径包�
 
 > 当前 Host-CUDA 论文贡献已从设计闭环到真实模型与失败语义证据；论文可以
 > 按“Stateful Invocation Whole-Program Compilation for VLA Deployment”
-> 投稿。剩余 Orin、跨 GPU、OpenVLA L4 与第二机复现只属于可选增强。
+> 投稿。剩余 Orin、跨 GPU 与第二机复现只属于可选增强。
 
 ### 7.2 最强差异点
 
@@ -453,10 +453,11 @@ Generality：
 - OpenVLA-7B 真实 36 Region `sm_86` AOTInductor L3：two-layer
   prefill/decode physical partition、fixed loop-carried KV、两次完整
   autoregressive pipeline token/action parity，新增 core op 为 0；
-- OpenVLA-7B 的 clean-source 38 Region verified bundle 与 no-Python C++
-  runner 已生成，但真实 L4 execution 因 AOTI package loader 重复解包后保留
-  deleted shared-object mappings而未完成；该结果只作为 backend resource
-  limitation，不计入 L4 coverage；
+- OpenVLA-7B 的 clean-source 38 Region verified bundle 通过 stable raw
+  wrapper/cubin provider 实现 invocation-resident weight paging；真实
+  no-Python C++ action 对 L3 reference 误差为 0，typed/generic ABI 一致，
+  backend failure 保留上一 committed output 并可恢复，达到 real L4；
+  89.61 秒 runner 时间只作 correctness audit，不计入性能矩阵；
 - pinned upstream source audit 与 Model Adaptation Cards；
 - 以 `766e27b` 冻结 core 后，Octo、GR00T N1.7、AutoVLA 三个 held-out
   Adapter 在不改变 IR/compiler/Plan/codegen/deployment/runtime/C++ headers
@@ -485,8 +486,6 @@ Generality：
 
 非 Host-CUDA release blocker 的后续工作：
 
-- OpenVLA 的真实 generated no-Python C++ L4；现有 package-loader blocker
-  已记录，不能把成功 build 写成 L4 execution；
 - AutoVLA 完整 camera/prompt/VLM-prefill/autoregressive capture 与通过数值
   门槛的 L3/L4；当前 real L2 partition 已满足 held-out 投稿条件；
 - Orin 真机 latency/power/thermal 后置，只作为可选跨平台增强，不进入当前
@@ -526,8 +525,8 @@ publish、core action queue、Python runtime 或旧 EdgeFM CUDA kernel。
 若只完成 fixture-L4 和 source audit，应定位为 design/prototype，不应声称完整
 real-model deployment compiler。
 
-当前 Host-CUDA 结果已满足上述 go 条件：SmolVLA、DiffusionDrive 与
-MindDrive 达到真实 L4，OpenVLA 达到真实 L3；held-out core op delta=0；
+当前 Host-CUDA 结果已满足上述 go 条件：SmolVLA、DiffusionDrive、
+MindDrive 与 OpenVLA 达到真实 L4；held-out core op delta=0；
 性能、消融、failure injection、trace、clean build、wheel install 和
 no-Python 证据齐全。Orin 只能作为后续平台扩展实验，不能回填到当前 claim。
 
