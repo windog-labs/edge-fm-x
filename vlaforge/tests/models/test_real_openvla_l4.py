@@ -66,6 +66,18 @@ def test_stable_openvla_artifact_maps_wrapper_and_runtime_files(
     assert record["runtime_file_count"] == 1
 
 
+def test_openvla_failure_probe_uses_contract_artifact_path() -> None:
+    assembler = _assembler_module()
+    relative = "artifacts/decode/model.wrapper.so"
+
+    source = assembler._runner_source(relative)
+
+    assert f'std::filesystem::path(argv[1]) / "{relative}"' in source
+    assert "decode_token_embedding.pt2" not in source
+    with pytest.raises(ValueError, match="inside the bundle"):
+        assembler._runner_source("../outside.so")
+
+
 @pytest.mark.cuda_aoti
 @pytest.mark.real_model
 @pytest.mark.skipif(

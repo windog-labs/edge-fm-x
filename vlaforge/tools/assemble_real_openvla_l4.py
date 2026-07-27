@@ -459,8 +459,11 @@ def _write_input_fixtures(
     return records
 
 
-def _runner_source() -> str:
-    return r"""
+def _runner_source(failure_artifact_path: str) -> str:
+    failure_path = Path(failure_artifact_path)
+    if failure_path.is_absolute() or ".." in failure_path.parts:
+        raise ValueError("failure artifact path must stay inside the bundle")
+    source = r"""
 #include "session_generated.h"
 
 #include <cuda_runtime_api.h>
@@ -711,8 +714,7 @@ int main(int argc, char** argv) {
   const auto aborts_before_failure = trace.transaction_aborts;
   const auto outputs_before_failure = trace.output_commits;
   const std::filesystem::path failed_artifact =
-      std::filesystem::path(argv[1]) / "artifacts" /
-      "decode_token_embedding.pt2";
+      std::filesystem::path(argv[1]) / @FAILURE_ARTIFACT@;
   ArtifactMove failure_probe(failed_artifact);
   if (!failure_probe.moved()) {
     std::fprintf(stderr, "cannot move invocation-resident failure probe\n");
@@ -809,6 +811,10 @@ int main(int argc, char** argv) {
   return 0;
 }
 """
+    return source.replace(
+        "@FAILURE_ARTIFACT@",
+        json.dumps(failure_artifact_path),
+    )
 
 
 def _parse_runner(text: str) -> dict[str, object]:
@@ -933,7 +939,9 @@ for (std::size_t index = 0; index < 7u; ++index) {
 return true;""",
             )
         },
-        runner_source=_runner_source(),
+        runner_source=_runner_source(
+            contracts["decode_token_embedding"].artifact_path
+        ),
         runtime_root=_SOURCE_ROOT,
         cmake_prefix_path=torch.utils.cmake_prefix_path,
         backend_versions={
