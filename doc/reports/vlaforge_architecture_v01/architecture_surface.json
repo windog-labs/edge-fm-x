@@ -572,16 +572,9 @@
     ]
   },
   "repository": {
-    "revision": "5d90e4e4fff01316f1ec8a45f23c4f09f514d844",
-    "source_dirty": true,
-    "tracked_status": [
-      "M doc/reports/vlaforge_paper_completion_v01/README.md",
-      " M doc/reports/vlaforge_paper_completion_v01/paper_completion.json",
-      " M doc/reports/vlaforge_release_v01/release_gate.json",
-      " M doc/reports/vlaforge_release_v01/release_gate.md",
-      " M doc/reports/vlaforge_reproducibility_v01/README.md",
-      " M doc/reports/vlaforge_reproducibility_v01/reproducibility_manifest.json"
-    ]
+    "revision": "beb878fe08eac85913c4182668ab374f38741ff7",
+    "source_dirty": false,
+    "tracked_status": []
   },
   "schema": "vlaforge.architecture_surface_audit/1",
   "semantic_ir": {
