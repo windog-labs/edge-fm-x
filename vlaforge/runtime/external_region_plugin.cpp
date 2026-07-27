@@ -58,11 +58,13 @@ vlaforge_external_region_plugin_open(const char *path, std::size_t path_size,
   void *symbol = dlsym(handle, VLAFORGE_REGION_EXECUTABLE_VALUE_API_SYMBOL);
   const char *symbol_error = dlerror();
   if (symbol_error != nullptr || symbol == nullptr) {
+    const auto status =
+        Error(VLAFORGE_STATUS_NOT_FOUND,
+              symbol_error != nullptr
+                  ? symbol_error
+                  : "external Region plugin value API symbol is missing");
     dlclose(handle);
-    return Error(VLAFORGE_STATUS_NOT_FOUND,
-                 symbol_error != nullptr
-                     ? symbol_error
-                     : "external Region plugin value API symbol is missing");
+    return status;
   }
   VLAForgeRegionExecutableValueApiProviderFn provider = nullptr;
   static_assert(sizeof(provider) == sizeof(symbol),
