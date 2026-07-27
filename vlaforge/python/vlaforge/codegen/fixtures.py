@@ -789,9 +789,11 @@ def hybrid_external_feature_runner_source() -> str:
     return r"""
 #include "session_generated.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 
 namespace {
 
@@ -903,6 +905,7 @@ int main() {
   auto agent_view = Tensor(
       agents, sizeof(agents), agent_shape, 2u, VLAFORGE_DTYPE_F32);
   auto stamp = Stamp(40u);
+  std::array<float, 12> last_committed_trajectory{};
 
   auto bad_shape = Tensor(
       bev, sizeof(bev), wrong_shape, 2u, VLAFORGE_DTYPE_F32);
@@ -1008,6 +1011,10 @@ int main() {
         static_cast<const float*>(generic_trajectory.tensor.data);
     const auto* generic_prediction_data =
         static_cast<const float*>(generic_prediction.tensor.data);
+    std::copy(
+        typed_trajectory,
+        typed_trajectory + last_committed_trajectory.size(),
+        last_committed_trajectory.begin());
     std::printf(
         "OUTPUT,%llu,%.9g,%.9g,%.9g,%.9g,%lld,"
         "%.9g,%.9g,%.9g,%.9g,%lld\n",
@@ -1035,6 +1042,38 @@ int main() {
     return 13;
   }
   std::printf("CACHE,%u,%u\n", trace_counts.hit, trace_counts.miss);
+
+  // A failed late validation has already overwritten per-Run arena values.
+  // The prior committed output must still reside in independent storage.
+  bev[0] = std::numeric_limits<float>::quiet_NaN();
+  stamp = Stamp(43u);
+  vlaforge_generated::ModelInputs rejected_inputs{};
+  rejected_inputs.external_bev = bev_view;
+  rejected_inputs.external_bev_stamp = stamp;
+  rejected_inputs.route_command = route_view;
+  rejected_inputs.route_command_stamp = stamp;
+  vlaforge_generated::ModelOutputs rejected_outputs{};
+  const auto rejected = typed.Run(rejected_inputs, &rejected_outputs);
+  VLAForgeBoundTensor preserved{};
+  const bool preserved_read =
+      typed.ReadOutputTensor(0u, &preserved).ok();
+  const auto* preserved_trajectory =
+      preserved_read
+      ? static_cast<const float*>(preserved.tensor.data)
+      : nullptr;
+  bool preserved_equal = preserved_trajectory != nullptr;
+  for (std::size_t index = 0;
+       preserved_equal && index < last_committed_trajectory.size();
+       ++index) {
+    preserved_equal =
+        preserved_trajectory[index] == last_committed_trajectory[index];
+  }
+  if (rejected.code !=
+          vlaforge::runtime::StatusCode::kValidationFailed ||
+      !preserved_equal) {
+    return 14;
+  }
+  std::printf("FAILED_RUN_PRESERVED,1\n");
   api->destroy(generic);
   return 0;
 }

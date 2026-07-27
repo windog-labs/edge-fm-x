@@ -42,6 +42,7 @@ from vlaforge.deployment import (  # noqa: E402
 )
 from vlaforge.ir.serializer import io_schema_digest  # noqa: E402
 from vlaforge.ir.types import TensorType  # noqa: E402
+from vlaforge.plan import storage_size_bytes  # noqa: E402
 
 
 _REPORT_SCHEMA = "vlaforge.openvla_real_l4/1"
@@ -733,8 +734,25 @@ int main(int argc, char** argv) {
       trace.transaction_commits == commits_before_failure &&
       trace.transaction_aborts == aborts_before_failure + 1u &&
       trace.output_commits == outputs_before_failure;
-  if (!failure_probe.Restore() || !output_preserved || !failure_trace_ok) {
-    std::fprintf(stderr, "backend failure transaction probe failed\n");
+  const bool artifact_restored = failure_probe.Restore();
+  if (!artifact_restored || !output_preserved || !failure_trace_ok) {
+    std::fprintf(
+        stderr,
+        "backend failure transaction probe failed: "
+        "restore=%u status=%u message=%s output_preserved=%u "
+        "trace_ok=%u commits=%llu/%llu aborts=%llu/%llu "
+        "outputs=%llu/%llu\n",
+        artifact_restored ? 1u : 0u,
+        static_cast<unsigned>(failure_status.code),
+        failure_status.message,
+        output_preserved ? 1u : 0u,
+        failure_trace_ok ? 1u : 0u,
+        static_cast<unsigned long long>(trace.transaction_commits),
+        static_cast<unsigned long long>(commits_before_failure),
+        static_cast<unsigned long long>(trace.transaction_aborts),
+        static_cast<unsigned long long>(aborts_before_failure),
+        static_cast<unsigned long long>(trace.output_commits),
+        static_cast<unsigned long long>(outputs_before_failure));
     return 7;
   }
   vlaforge_generated::ModelOutputs recovered_outputs{};
@@ -974,12 +992,27 @@ return true;""",
             str(args.input_root),
             str(args.runs),
         ],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
         env=environment,
     )
     run_seconds = time.perf_counter() - run_started
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    stdout_log = args.report.with_suffix(
+        args.report.suffix + ".runner.stdout.log"
+    )
+    stderr_log = args.report.with_suffix(
+        args.report.suffix + ".runner.stderr.log"
+    )
+    stdout_log.write_text(completed.stdout, encoding="utf-8")
+    stderr_log.write_text(completed.stderr, encoding="utf-8")
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "generated OpenVLA runner failed with exit code "
+            f"{completed.returncode}; stdout={stdout_log}; "
+            f"stderr={stderr_log}"
+        )
     parsed = _parse_runner(completed.stdout)
     reference_action = l3["correctness"]["pipelines"][0]["action"]
     maximum_error = max(
@@ -1004,6 +1037,9 @@ return true;""",
     if "libpython" in linked.lower():
         raise RuntimeError("OpenVLA generated runner links libpython")
     manifest.verify_files(args.bundle_root)
+    output_payload_bytes = sum(
+        storage_size_bytes(port.payload) for port in module.outputs
+    )
     report = {
         "schema": _REPORT_SCHEMA,
         "status": "passed",
@@ -1082,6 +1118,10 @@ return true;""",
             "derived_fixed_kv_bytes": l3["memory"][
                 "derived_fixed_kv_bytes"
             ],
+            "transactional_output_payload_bytes": output_payload_bytes,
+            "transactional_output_slots": 2,
+            "transactional_output_storage_bytes": 2
+            * output_payload_bytes,
             "artifact_residency": (
                 "model raw wrappers load from stable bundle paths for one "
                 "invocation and release CUDA constants; support packages "
@@ -1093,7 +1133,6 @@ return true;""",
             "sha256": _sha256(args.l3_report),
         },
     }
-    args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

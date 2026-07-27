@@ -319,6 +319,7 @@ class _Emitter:
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 {artifact_include}
 
 #include "vlaforge/runtime/session.h"
@@ -398,6 +399,7 @@ class ModelSession final : public vlaforge::runtime::Session {{
   }};
 
   void InitializeValues() noexcept;
+  void InitializeOutputStorage();
   void ClearBindings() noexcept;
 {artifact_methods}
   vlaforge::runtime::Status PrepareInputs() noexcept;
@@ -423,8 +425,22 @@ class ModelSession final : public vlaforge::runtime::Session {{
       tensor_outputs_{{}};
   std::array<VLAForgeScalarValue, {max(len(self.module.outputs), 1)}>
       scalar_outputs_{{}};
+  std::array<VLAForgeBoundTensor, {max(len(self.module.outputs), 1)}>
+      staged_tensor_outputs_{{}};
+  std::array<VLAForgeScalarValue, {max(len(self.module.outputs), 1)}>
+      staged_scalar_outputs_{{}};
   std::array<bool, {max(len(self.module.outputs), 1)}>
       output_valid_{{}};
+  std::array<bool, {max(len(self.module.outputs), 1)}>
+      staged_output_valid_{{}};
+  std::array<bool, {max(len(self.module.outputs), 1)}>
+      output_slot_b_{{}};
+  std::array<bool, {max(len(self.module.outputs), 1)}>
+      staged_output_slot_b_{{}};
+  std::array<std::unique_ptr<vlaforge::runtime::StaticArena>,
+             {max(len(self.module.outputs), 1)}> output_slots_a_{{}};
+  std::array<std::unique_ptr<vlaforge::runtime::StaticArena>,
+             {max(len(self.module.outputs), 1)}> output_slots_b_{{}};
   std::uint64_t next_auto_revision_ = 1;
   std::uint64_t run_index_ = 0;
 {artifact_fields}
@@ -1015,9 +1031,14 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
   initialization_status_ = state_store_.initialization_status();
 {initial_state}
 {artifact_initialize}
+  InitializeOutputStorage();
 }}
 
 {artifact_methods}
+
+void ModelSession::InitializeOutputStorage() {{
+{self._output_storage_initialization()}
+}}
 
 void ModelSession::InitializeValues() noexcept {{
 {init_values}
@@ -1079,6 +1100,7 @@ vlaforge::runtime::Status ModelSession::Fail(
   if (transaction_.active()) {{
     (void)state_store_.Abort(&transaction_, 0u);
   }}
+  staged_output_valid_.fill(false);
   return status;
 }}
 
@@ -1157,6 +1179,7 @@ vlaforge::runtime::Status ModelSession::ResetEpisode(
   auto status = state_store_.ResetEpisode(new_episode, 0u);
   if (status.ok()) {{
     output_valid_.fill(false);
+    staged_output_valid_.fill(false);
 {cache_reset}
   }}
   return status;
@@ -1644,7 +1667,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
         if producer.opcode != "vla.output.group":
             raise CodegenUnsupportedError("commit input is not output.group")
         group_id = self.output_group_ids[str(producer.attributes["group"])]
-        assignments = []
+        staging = []
+        publishing = []
         for pending_buffer in producer.inputs:
             pending = self.plan.buffer(pending_buffer)
             create = self.plan.task(pending.producer_task)
@@ -1653,34 +1677,101 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             value_id = create.inputs[0]
             port = self.module.outputs[output_id]
             if isinstance(port.payload, TensorType):
-                assignments.extend(
+                size_bytes = _bytes(port.payload)
+                staging.extend(
                     (
-                        f"tensor_outputs_[{output_id}u] = "
+                        f"if (values_[{value_id}u].size_bytes != "
+                        f"{size_bytes}u) {{",
+                        "  return Fail(vlaforge::runtime::Status::Error(",
+                        "      vlaforge::runtime::StatusCode::kInternal, "
+                        f"{task.id}u, \"tensor output size changed\"));",
+                        "}",
+                        f"staged_output_slot_b_[{output_id}u] = "
+                        f"!output_slot_b_[{output_id}u];",
+                        f"auto* output_storage_{task.id}_{output_id} = "
+                        f"staged_output_slot_b_[{output_id}u] "
+                        f"? output_slots_b_[{output_id}u].get() "
+                        f": output_slots_a_[{output_id}u].get();",
+                        f"if (output_storage_{task.id}_{output_id} == "
+                        "nullptr) {",
+                        "  return Fail(vlaforge::runtime::Status::Error(",
+                        "      vlaforge::runtime::StatusCode::kInternal, "
+                        f"{task.id}u, \"tensor output storage missing\"));",
+                        "}",
+                        "status = vlaforge::runtime::CopyBytes("
+                        f"output_storage_{task.id}_{output_id}->data(), "
+                        f"{{{_device(port.device)}, "
+                        f"{_device_ordinal(port.device)}}}, "
+                        f"values_[{value_id}u].data, "
+                        f"values_[{value_id}u].device, {size_bytes}u, "
+                        f"{task.id}u);",
+                        "if (!status.ok()) { return Fail(status); }",
+                        f"staged_tensor_outputs_[{output_id}u] = "
                         "VLAForgeBoundTensor{"
                         "sizeof(VLAForgeBoundTensor), "
-                        f"values_[{value_id}u], {_layout(port.payload.layout)}, "
+                        "{"
+                        f"output_storage_{task.id}_{output_id}->data(), "
+                        f"{size_bytes}u, values_[{value_id}u].dimensions, "
+                        f"{len(port.payload.shape)}u, "
+                        f"{_dtype(port.payload.dtype)}, "
+                        f"{{{_device(port.device)}, "
+                        f"{_device_ordinal(port.device)}}}}}, "
+                        f"{_layout(port.payload.layout)}, "
                         f"{port.alignment}u}};",
+                        f"staged_scalar_outputs_[{output_id}u] = "
+                        "VLAForgeScalarValue{};",
+                        f"staged_output_valid_[{output_id}u] = true;",
+                    )
+                )
+                publishing.extend(
+                    (
+                        f"output_slot_b_[{output_id}u] = "
+                        f"staged_output_slot_b_[{output_id}u];",
+                        f"tensor_outputs_[{output_id}u] = "
+                        f"staged_tensor_outputs_[{output_id}u];",
                         f"scalar_outputs_[{output_id}u] = "
                         "VLAForgeScalarValue{};",
                     )
                 )
             else:
-                assignments.extend(
+                size_bytes = _bytes(port.payload)
+                staging.extend(
                     (
-                        f"scalar_outputs_[{output_id}u] = "
+                        f"if (values_[{value_id}u].size_bytes != "
+                        f"{size_bytes}u) {{",
+                        "  return Fail(vlaforge::runtime::Status::Error(",
+                        "      vlaforge::runtime::StatusCode::kInternal, "
+                        f"{task.id}u, \"scalar output size changed\"));",
+                        "}",
+                        f"staged_scalar_outputs_[{output_id}u] = "
                         f"VLAForgeScalarValue{{sizeof(VLAForgeScalarValue), "
                         f"{_dtype(port.payload.name)}, {{}}}};",
                         "status = vlaforge::runtime::CopyBytes("
-                        f"ScalarData(&scalar_outputs_[{output_id}u]), "
+                        f"ScalarData(&staged_scalar_outputs_[{output_id}u]), "
                         "{VLAFORGE_DEVICE_CPU, 0}, "
                         f"values_[{value_id}u].data, "
                         f"values_[{value_id}u].device, "
-                        f"values_[{value_id}u].size_bytes, {task.id}u);",
+                        f"{size_bytes}u, {task.id}u);",
                         "if (!status.ok()) { return Fail(status); }",
-                        f"tensor_outputs_[{output_id}u] = VLAForgeBoundTensor{{}};",
+                        f"staged_tensor_outputs_[{output_id}u] = "
+                        "VLAForgeBoundTensor{};",
+                        f"staged_output_valid_[{output_id}u] = true;",
                     )
                 )
-            assignments.append(f"output_valid_[{output_id}u] = true;")
+                publishing.extend(
+                    (
+                        f"scalar_outputs_[{output_id}u] = "
+                        f"staged_scalar_outputs_[{output_id}u];",
+                        f"tensor_outputs_[{output_id}u] = "
+                        "VLAForgeBoundTensor{};",
+                    )
+                )
+            publishing.extend(
+                (
+                    f"output_valid_[{output_id}u] = true;",
+                    f"staged_output_valid_[{output_id}u] = false;",
+                )
+            )
         return [
             f"bool commit_condition_{task.id} = false;",
             f"status = ReadBool(values_[{condition}u], "
@@ -1693,15 +1784,38 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             "      vlaforge::runtime::StatusCode::kValidationFailed, "
             f"{task.id}u, \"output validation failed\");",
             "}",
+            *staging,
             f"status = state_store_.Commit(&transaction_, {task.id}u);",
             "if (!status.ok()) { return Fail(status); }",
-            *assignments,
+            *publishing,
             "vlaforge::runtime::EmitTrace("
             "trace_, vlaforge::runtime::TraceEvent{"
             "vlaforge::runtime::TraceKind::kOutputGroupCommit, "
             f"{task.id}u, {group_id}u, 0u, transaction_.id(), "
             "state_store_.episode(), run_index_, 0u});",
         ]
+
+    def _output_storage_initialization(self) -> str:
+        lines = []
+        for output_id, port in enumerate(self.module.outputs):
+            if not isinstance(port.payload, TensorType):
+                continue
+            arguments = (
+                f"{_bytes(port.payload)}u, {port.alignment}u, "
+                f"VLAForgeDevice{{{_device(port.device)}, "
+                f"{_device_ordinal(port.device)}}}"
+            )
+            lines.extend(
+                (
+                    f"  output_slots_a_[{output_id}u] = "
+                    "std::make_unique<vlaforge::runtime::StaticArena>("
+                    f"{arguments});",
+                    f"  output_slots_b_[{output_id}u] = "
+                    "std::make_unique<vlaforge::runtime::StaticArena>("
+                    f"{arguments});",
+                )
+            )
+        return "\n".join(lines)
 
     def _initialize_value(self, buffer_id: int, type_: IRType) -> str:
         if isinstance(type_, TensorType):

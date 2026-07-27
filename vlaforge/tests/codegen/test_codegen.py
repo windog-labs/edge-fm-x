@@ -42,7 +42,7 @@ from vlaforge.validation import normalize_plan_trace_for_runtime
 
 
 SOURCE_GOLDEN_DIGEST = (
-    "7c48b407952fc3ea2f79b6b43fb8c2146949c3420dc6d6e4f21aa75eeb7612c1"
+    "26ec7193d8d299e42fda3de5acfd7039108fed8ab050a88566695bfd054b26b1"
 )
 
 
@@ -471,6 +471,7 @@ def test_generated_hybrid_driving_session_covers_external_region_and_io_contract
     ).stdout.lower()
     assert "python" not in linked
     assert "CACHE,1,3" in completed.stdout
+    assert "FAILED_RUN_PRESERVED,1" in completed.stdout
 
     runtime = Interpreter(
         fixture.module,
@@ -549,7 +550,8 @@ def test_generated_hybrid_driving_session_covers_external_region_and_io_contract
         for line in completed.stdout.splitlines()
         if line.startswith("TRACE,")
     )
-    assert semantic_trace == plan_trace == cpp_trace
+    assert semantic_trace == plan_trace == cpp_trace[: len(plan_trace)]
+    assert len(cpp_trace) > len(plan_trace)
 
     rows = [
         tuple(float(item) for item in line.split(",")[2:])
