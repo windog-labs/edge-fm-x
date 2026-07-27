@@ -175,3 +175,62 @@ def test_minddrive_replays_only_the_stochastic_meta_action_token() -> None:
             reference,
             allowed_token_ids=set(range(151665, 151672)),
         )
+
+
+def test_minddrive_projects_upstream_state_to_fixed_retention() -> None:
+    torch = pytest.importorskip("torch")
+    benchmark = _module()
+
+    class Payload:
+        shape = (1, 2, 3)
+
+    class Head:
+        memory = torch.arange(12).reshape(1, 4, 3)
+
+    class Model:
+        pts_bbox_head = Head()
+        map_head = Head()
+
+    result = benchmark._normalize_minddrive_upstream_state(
+        Model(),
+        (("map_memory", Payload()),),
+        {"map_memory": "map.memory"},
+    )
+
+    assert result["map_memory"] == {
+        "observed_shape": [1, 4, 3],
+        "committed_shape": [1, 2, 3],
+        "truncated": True,
+    }
+    assert tuple(Model.map_head.memory.shape) == (1, 2, 3)
+
+    Model.map_head.memory = torch.zeros(2, 2, 3)
+    with pytest.raises(RuntimeError, match="cannot project"):
+        benchmark._normalize_minddrive_upstream_state(
+            Model(),
+            (("map_memory", Payload()),),
+            {"map_memory": "map.memory"},
+        )
+
+
+def test_minddrive_clones_views_but_borrows_tensor_storage() -> None:
+    torch = pytest.importorskip("torch")
+    benchmark = _module()
+    tensor = torch.arange(3).reshape(1, 3)
+    original = {
+        "outer": [[tensor]],
+        "metadata": ({"scene": "one"},),
+    }
+
+    invocation = benchmark._clone_minddrive_invocation(original)
+    invocation["outer"][0].append("mutated")
+    invocation["metadata"][0]["scene"] = "two"
+
+    assert original["outer"] == [[tensor]]
+    assert original["metadata"][0]["scene"] == "one"
+    borrowed = invocation["outer"][0][0]
+    assert borrowed is not tensor
+    assert borrowed.data_ptr() == tensor.data_ptr()
+    borrowed.squeeze_(0)
+    assert tuple(borrowed.shape) == (3,)
+    assert tuple(tensor.shape) == (1, 3)

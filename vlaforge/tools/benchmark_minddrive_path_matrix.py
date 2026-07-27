@@ -170,6 +170,21 @@ def _report_path(
     return root / "report.json"
 
 
+def _archive_incomplete_task(task_root: Path) -> Path:
+    """Move a failed task aside so a resume preserves and retries it."""
+
+    for index in range(100):
+        archived = task_root.with_name(
+            f"{task_root.name}.failed_attempt_{index:02d}"
+        )
+        if not archived.exists():
+            task_root.rename(archived)
+            return archived
+    raise RuntimeError(
+        f"too many failed attempts beside task directory: {task_root}"
+    )
+
+
 def _telemetry() -> dict[str, Any]:
     completed = subprocess.run(
         [
@@ -329,9 +344,12 @@ def _run_tasks(
             )
             continue
         if task_root.exists() and any(task_root.iterdir()):
-            raise RuntimeError(
-                f"incomplete task directory requires inspection: {task_root}"
-            )
+            if not args.resume:
+                raise RuntimeError(
+                    "incomplete task directory requires inspection or "
+                    f"--resume: {task_root}"
+                )
+            _archive_incomplete_task(task_root)
         task_root.mkdir(parents=True, exist_ok=True)
         if task["path"] == "generated_session":
             command = _generated_command(args, task_root=task_root)

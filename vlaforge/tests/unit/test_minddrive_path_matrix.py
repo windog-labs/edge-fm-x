@@ -95,3 +95,29 @@ def test_cluster_summary_bootstraps_independent_processes() -> None:
     assert summary["process_mean_stddev_ns"] == pytest.approx(
         14.142135623730951
     )
+
+
+def test_resume_archives_incomplete_task_without_deleting_evidence(
+    tmp_path: Path,
+) -> None:
+    benchmark = _module()
+    task_root = tmp_path / "repeat_01"
+    task_root.mkdir()
+    failure_log = task_root / "process.log"
+    failure_log.write_text("failed\n", encoding="utf-8")
+
+    first = benchmark._archive_incomplete_task(task_root)
+    task_root.mkdir()
+    (task_root / "process.log").write_text(
+        "failed again\n", encoding="utf-8"
+    )
+    second = benchmark._archive_incomplete_task(task_root)
+
+    assert first.name == "repeat_01.failed_attempt_00"
+    assert first.joinpath("process.log").read_text(
+        encoding="utf-8"
+    ) == "failed\n"
+    assert second.name == "repeat_01.failed_attempt_01"
+    assert second.joinpath("process.log").read_text(
+        encoding="utf-8"
+    ) == "failed again\n"

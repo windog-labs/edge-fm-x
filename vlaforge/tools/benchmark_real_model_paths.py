@@ -23,7 +23,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_SOURCE_ROOT / "python"))
@@ -127,6 +127,82 @@ def _minddrive_meta_action_replay(
         "token_offset": int(mismatch[0]),
         "allowed_token_ids": sorted(allowed_token_ids),
     }
+
+
+def _normalize_minddrive_upstream_state(
+    model: Any,
+    state_types: tuple[tuple[str, Any], ...],
+    upstream_keys: Mapping[str, str],
+) -> dict[str, dict[str, object]]:
+    """Project upstream over-retained tensors onto the fixed deployment state."""
+
+    normalized = {}
+    heads = {
+        "detection": model.pts_bbox_head,
+        "map": model.map_head,
+    }
+    for name, payload in state_types:
+        prefix, attribute = upstream_keys[name].split(".", maxsplit=1)
+        value = getattr(heads[prefix], attribute)
+        expected = tuple(payload.shape)
+        actual = tuple(value.shape)
+        if len(actual) != len(expected):
+            raise RuntimeError(
+                f"{name}: upstream state rank changed: {actual} != {expected}"
+            )
+        if len(expected) == 1:
+            if actual != expected:
+                raise RuntimeError(
+                    f"{name}: upstream scalar state changed: "
+                    f"{actual} != {expected}"
+                )
+            projected = value
+        else:
+            if (
+                actual[0] != expected[0]
+                or actual[1] < expected[1]
+                or actual[2:] != expected[2:]
+            ):
+                raise RuntimeError(
+                    f"{name}: upstream state cannot project to fixed "
+                    f"shape: {actual} -> {expected}"
+                )
+            projected = value[:, : expected[1]].contiguous()
+            setattr(heads[prefix], attribute, projected)
+        normalized[name] = {
+            "observed_shape": list(actual),
+            "committed_shape": list(projected.shape),
+            "truncated": actual != tuple(projected.shape),
+        }
+    return normalized
+
+
+def _clone_minddrive_invocation(value: Any) -> Any:
+    """Clone mutable frontend views without copying bound tensor storage."""
+
+    if isinstance(value, dict):
+        return {
+            key: _clone_minddrive_invocation(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_clone_minddrive_invocation(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_clone_minddrive_invocation(item) for item in value)
+    try:
+        import torch
+    except ImportError:
+        torch = None
+    if torch is not None and torch.is_tensor(value):
+        # MindDrive's image frontend calls squeeze_() on its argument. Give
+        # upstream an independent TensorImpl while retaining the Session
+        # contract's zero-copy borrowed storage.
+        return value.as_strided(
+            value.size(),
+            value.stride(),
+            value.storage_offset(),
+        )
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -1089,7 +1165,11 @@ def _load_minddrive_eager(args: argparse.Namespace) -> tuple[
     import gc
 
     import torch
-    from vlaforge.adapters.minddrive_real import load_real_minddrive_model
+    from vlaforge.adapters.minddrive_real import (
+        MINDDRIVE_STATE_TYPES,
+        MINDDRIVE_UPSTREAM_STATE_KEYS,
+        load_real_minddrive_model,
+    )
 
     if (
         args.source_root is None
@@ -1261,6 +1341,13 @@ def _load_minddrive_eager(args: argparse.Namespace) -> tuple[
     _reset_model_state(model)
     frame_index = 0
     original_randn_like = torch.randn_like
+    state_normalization = {
+        "calls": 0,
+        "truncation_counts": {
+            name: 0 for name, _ in MINDDRIVE_STATE_TYPES
+        },
+        "last": {},
+    }
 
     def run() -> Any:
         nonlocal frame_index
@@ -1292,7 +1379,11 @@ def _load_minddrive_eager(args: argparse.Namespace) -> tuple[
         torch.randn_like = explicit_randn_like
         try:
             with torch.inference_mode():
-                output = model(batches[index], return_loss=False)
+                # The upstream forward normalizes nested MMCV containers in
+                # place. A Session Run receives a fresh binding view, so
+                # preserve that contract while borrowing the tensor storage.
+                invocation = _clone_minddrive_invocation(batches[index])
+                output = model(invocation, return_loss=False)
         finally:
             torch.randn_like = original_randn_like
         if noise_index != 2:
@@ -1301,6 +1392,17 @@ def _load_minddrive_eager(args: argparse.Namespace) -> tuple[
             )
         if not isinstance(output, list) or len(output) != 1:
             raise RuntimeError("MindDrive eager output contract changed")
+        normalized = _normalize_minddrive_upstream_state(
+            model,
+            MINDDRIVE_STATE_TYPES,
+            MINDDRIVE_UPSTREAM_STATE_KEYS,
+        )
+        state_normalization["calls"] += 1
+        for name, record in normalized.items():
+            state_normalization["truncation_counts"][name] += int(
+                record["truncated"]
+            )
+        state_normalization["last"] = normalized
         return output[0]["pts_bbox"]["ego_fut_preds"]
 
     def cleanup() -> None:
@@ -1335,6 +1437,7 @@ def _load_minddrive_eager(args: argparse.Namespace) -> tuple[
         "inputs": input_metadata,
         "frontend_exact_to_bundle": frontend_exact,
         "stochastic_meta_action_replay": meta_action_replay,
+        "authoritative_state_projection": state_normalization,
         "execution_contract": (
             "pinned upstream full eager forward with official offline "
             "frontend, five real frames, explicit planner noise, and "
