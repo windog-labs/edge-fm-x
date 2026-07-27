@@ -81,6 +81,13 @@ def _run(command: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _runtime_target(device: str) -> tuple[str, str | None]:
+    if device == "cpu":
+        return "cpu", None
+    major, minor = torch.cuda.get_device_capability(torch.device(device))
+    return f"sm_{major}{minor}", f"{major}.{minor}"
+
+
 def _parse_output(text: str) -> list[float]:
     line = next(
         (item for item in text.splitlines() if item.startswith("OUTPUT,")),
@@ -287,6 +294,8 @@ def _audit_generated_session(
     residency: ArtifactResidency,
     runtime_root: Path,
     source_revision: str,
+    target: str,
+    torch_cuda_arch_list: str,
 ) -> dict[str, object]:
     module = _semantic_module()
     artifact_relative = "artifacts/audit_tensor_region.pt2"
@@ -319,14 +328,14 @@ def _audit_generated_session(
         workspace=WorkspaceContract(),
         capability=BackendCapability(
             backend="aoti",
-            target="sm_86",
+            target=target,
             supported_dtypes=("f32",),
             supports_dynamic_shapes=False,
             supports_device_resident_io=True,
             requires_synchronize=True,
         ),
         effect_audit=EffectAudit(),
-        backend_variant="torch-2.10-cu128",
+        backend_variant=f"torch-{torch.__version__}",
         residency=residency,
     )
     manifest = build_artifact_compile_bundle(
@@ -359,7 +368,7 @@ return true;""",
         profile="off",
         source_revision=source_revision,
         source_dirty=False,
-        environment={"TORCH_CUDA_ARCH_LIST": "8.6"},
+        environment={"TORCH_CUDA_ARCH_LIST": torch_cuda_arch_list},
     )
     runner = bundle_root / "bin" / "vlaforge_generated_runner"
     environment = dict(os.environ)
@@ -607,6 +616,10 @@ def _audit(
     if device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA is unavailable")
 
+    expected_target, torch_cuda_arch_list = _runtime_target(device)
+    if torch_cuda_arch_list is not None:
+        os.environ["TORCH_CUDA_ARCH_LIST"] = torch_cuda_arch_list
+
     source_root = runtime_root
     package_path = root / "artifacts" / "audit_tensor_region.pt2"
     package_path.parent.mkdir(parents=True, exist_ok=True)
@@ -637,7 +650,6 @@ def _audit(
             f"AOTI package path mismatch: {actual_package} != {package_path}"
         )
 
-    expected_target = "sm_86" if device == "cuda" else "cpu"
     direct_backend = (
         _audit_direct_backend(
             root=root,
@@ -669,6 +681,8 @@ def _audit(
         ArtifactResidency.SESSION,
         runtime_root,
         source_revision,
+        expected_target,
+        torch_cuda_arch_list or "",
     )
     invocation_resident_generated_session = _audit_generated_session(
         root,
@@ -679,6 +693,8 @@ def _audit(
         ArtifactResidency.INVOCATION,
         runtime_root,
         source_revision,
+        expected_target,
+        torch_cuda_arch_list or "",
     )
 
     return {
@@ -687,6 +703,7 @@ def _audit(
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
         "target": expected_target,
+        "torch_cuda_arch_list": torch_cuda_arch_list,
         "device": (
             torch.cuda.get_device_name(0) if device == "cuda" else "cpu"
         ),
