@@ -28,9 +28,9 @@ detached worktree；同期的模型代码、测试和报告此前没有提交。
 | 检查 | 结果 |
 |---|---|
 | 第一轮整理后的 Python 全套回归 | 2317 passed、74 skipped、6 subtests passed |
-| 补齐 J6P 两模型 cache ABI 后的全套回归 | 2328 passed、74 skipped、6 subtests passed；78.82 s |
+| J6P 两模型 cache ABI 最终全套回归 | 2329 passed、74 skipped、6 subtests passed；78.81 s |
 | host-cpu CMake 构建与 CTest | 11/11 passed |
-| J6P 编排定向测试 | 16 passed；包含在全套回归中 |
+| J6P 编排定向测试 | 17 passed；包含在全套回归中 |
 | Git whitespace 检查 | passed |
 
 完整 CPU 回归从 `vlaforge/` 执行：
@@ -40,12 +40,16 @@ PATH=/home/zhangzimo/miniconda3/bin:$PATH CUDA_VISIBLE_DEVICES= \
 PYTHONPATH=python:tools \
 /home/zhangzimo/.venvs/edgefm-vla-report-py313-20260906/bin/python \
   -m pytest -q --tb=short \
-  --junitxml=../artifacts/repository-cleanup-20260921/full-cpu.xml
+  --junitxml=../artifacts/repository-cleanup-20260921/full-cpu-final.xml
 ```
 
 第一次回归的 13 个 generated-C++ 测试因子进程 PATH 缺少 Ninja 而在 CMake
 配置阶段失败。系统 GCC/G++ 已存在；补全 PATH 后全套通过，无代码绕过或测试删除。
 74 项 skip 覆盖显式 opt-in SDK/CUDA/真实 checkpoint 和缺失可选依赖，未计为通过。
+
+独立复核补充了一对一 cache 连接用例，防止同一源同时绑定 K/V 输入；该用例
+在修复前失败、修复后通过。最终 JUnit SHA256 为
+`fc1d55399b7dd81f22ecac2bdfd0bc2b61d14ab49b7cb5f3eb749b6fc69f5869`。
 
 从仓库根目录执行的本机构建命令：
 

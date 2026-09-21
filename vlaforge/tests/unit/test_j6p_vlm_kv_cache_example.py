@@ -117,6 +117,15 @@ def test_missing_feedback_binding_rejects():
         example.J6PVLMDeployment(session)
 
 
+def test_one_source_cannot_supply_two_cache_inputs():
+    with pytest.raises(ValueError, match="exactly once"):
+        example.state_order(
+            (Spec("present_k", (1,), "bf16"),),
+            (Spec("past_k", (1,), "bf16"), Spec("past_v", (1,), "bf16")),
+            {"past_k": "present_k", "past_v": "present_k"},
+        )
+
+
 def test_failure_discards_request_state_and_retry_starts_with_prefill():
     session = FakeSession(fail_position=4)
     deployment = example.J6PVLMDeployment(session)

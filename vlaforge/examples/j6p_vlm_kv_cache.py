@@ -117,7 +117,8 @@ def state_order(source: tuple[StateTensorSpec, ...], target: tuple[StateTensorSp
     if set(bindings) != {item.name for item in target}:
         raise ValueError("every decode state input needs an explicit binding")
     sources = {item.name: (index, item) for index, item in enumerate(source)}
-    if len(set(bindings.values())) != len(source) or set(bindings.values()) != set(sources):
+    if (len(bindings) != len(source) or len(set(bindings.values())) != len(source)
+            or set(bindings.values()) != set(sources)):
         raise ValueError("state bindings must use every source exactly once")
     order = []
     for port in target:
