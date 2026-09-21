@@ -158,7 +158,7 @@ The current feasibility report:
 | Finish output-crop check and timing | passed | `finish-smoke-output-check.json` and `final-finish-summary/`; exact one-sample crop plus 5120 measured calls |
 | V5 environment snapshot summary | ten before/after snapshots summarized | `prefix-v5-environment.json`; BPU 41.225-42.695 C; temperature scale checked against vendor status tool; not continuous telemetry |
 
-## Not Closed
+## Current Delivery and Subsequent Work
 
 | Item | Status | Next gate |
 |---|---|---|

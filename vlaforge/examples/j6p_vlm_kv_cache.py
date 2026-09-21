@@ -17,27 +17,29 @@ from typing import Any, Mapping, Protocol, Sequence
 
 def _bytes_for_identity(value: Any) -> bytes:
     """Get stable bytes without importing a tensor framework in the example."""
-    if isinstance(value, bytes):
-        return value
-    if isinstance(value, (bytearray, memoryview)):
-        return bytes(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return b"bytes:" + bytes(value)
     if hasattr(value, "detach"):
+        import torch
+
         value = value.detach().cpu().contiguous()
-        if hasattr(value, "numpy"):
-            return value.numpy().tobytes()
-    if hasattr(value, "tobytes"):
-        return value.tobytes()
-    return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+        # Byte view also supports BF16, which numpy() cannot encode directly.
+        raw = value.reshape(-1).view(torch.uint8).numpy().tobytes()
+    elif hasattr(value, "tobytes"):
+        raw = value.tobytes()
+    else:
+        return b"json:" + json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    metadata = json.dumps([str(value.dtype), list(value.shape)]).encode()
+    return b"tensor:" + len(metadata).to_bytes(8, "big") + metadata + raw
 
 
 def input_identity(values: Mapping[str, Any]) -> str:
-    """Hash all prompt/image/profile inputs used to create a prefill state."""
+    """Diagnostic input digest, not permission to reuse mutated decode state."""
     digest = hashlib.sha256()
     for name in sorted(values):
-        digest.update(name.encode())
-        digest.update(b"\0")
-        digest.update(_bytes_for_identity(values[name]))
-        digest.update(b"\0")
+        for part in (name.encode(), _bytes_for_identity(values[name])):
+            digest.update(len(part).to_bytes(8, "big"))
+            digest.update(part)
     return digest.hexdigest()
 
 
@@ -46,6 +48,13 @@ class StateTensorSpec:
     name: str
     shape: tuple[int, ...]
     dtype: str
+    layout: str = "contiguous"
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.dtype or not self.layout:
+            raise ValueError("state name, dtype and layout must be nonempty")
+        if any(type(size) is not int or size < 1 for size in self.shape):
+            raise ValueError("state dimensions must be positive integers")
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,28 +65,38 @@ class CompleteHbmManifest:
     hbm: Path
     input_names: tuple[str, ...]
     output_names: tuple[str, ...]
-    state_schema: tuple[StateTensorSpec, ...]
+    state_inputs: tuple[StateTensorSpec, ...]
+    state_outputs: tuple[StateTensorSpec, ...]
     supports_custom_ops: bool = False
 
     def __post_init__(self) -> None:
         if self.stage not in {"prefill", "decode"}:
             raise ValueError("stage must be prefill or decode")
-        if self.supports_custom_ops:
+        if self.supports_custom_ops is not False:
             raise ValueError("J6P manifests must reject custom operators")
+        for names in (self.input_names, self.output_names):
+            if not names or any(not name for name in names) or len(set(names)) != len(names):
+                raise ValueError("HBM port names must be nonempty and unique")
+        for states, ports in ((self.state_inputs, self.input_names),
+                              (self.state_outputs, self.output_names)):
+            names = [item.name for item in states]
+            if len(set(names)) != len(names) or not set(names) <= set(ports):
+                raise ValueError("state ports must be unique declared HBM ports")
+        if self.stage == "prefill" and self.state_inputs:
+            raise ValueError("fresh-request prefill does not accept history state")
+        if not self.state_outputs or (self.stage == "decode" and not self.state_inputs):
+            raise ValueError("explicit state ports are required")
         if not self.hbm.is_file():
             raise FileNotFoundError(self.hbm)
 
     @classmethod
     def from_json(cls, path: Path) -> "CompleteHbmManifest":
         data = json.loads(path.read_text())
-        state_schema = tuple(
-            StateTensorSpec(
-                name=str(item["name"]),
-                shape=tuple(int(size) for size in item["shape"]),
-                dtype=str(item["dtype"]),
-            )
-            for item in data.get("state_schema", ())
-        )
+        def states(field):
+            return tuple(StateTensorSpec(
+                name=item["name"], shape=tuple(item["shape"]),
+                dtype=item["dtype"], layout=item["layout"],
+            ) for item in data[field])
         hbm = Path(data["hbm"])
         if not hbm.is_absolute():
             hbm = path.parent / hbm
@@ -86,9 +105,27 @@ class CompleteHbmManifest:
             hbm=hbm,
             input_names=tuple(str(name) for name in data["inputs"]),
             output_names=tuple(str(name) for name in data["outputs"]),
-            state_schema=state_schema,
-            supports_custom_ops=bool(data.get("custom_ops", False)),
+            state_inputs=states("state_inputs"),
+            state_outputs=states("state_outputs"),
+            supports_custom_ops=data["custom_ops"],
         )
+
+
+def state_order(source: tuple[StateTensorSpec, ...], target: tuple[StateTensorSpec, ...],
+                bindings: Mapping[str, str]) -> tuple[int, ...]:
+    """Map destination port -> source port; only direct compatible binding."""
+    if set(bindings) != {item.name for item in target}:
+        raise ValueError("every decode state input needs an explicit binding")
+    sources = {item.name: (index, item) for index, item in enumerate(source)}
+    if len(set(bindings.values())) != len(source) or set(bindings.values()) != set(sources):
+        raise ValueError("state bindings must use every source exactly once")
+    order = []
+    for port in target:
+        index, incoming = sources[bindings[port.name]]
+        if (incoming.shape, incoming.dtype, incoming.layout) != (port.shape, port.dtype, port.layout):
+            raise ValueError("state ABI mismatch: export matching ports or explicitly repack in the provider")
+        order.append(index)
+    return tuple(order)
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,14 +136,14 @@ class PrefillResult:
     sampling out of this Python loop makes the J6P timing boundary explicit.
     """
 
-    first_token: Any
+    first_token: int
     rope_deltas: Any
     state: tuple[Any, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class DecodeResult:
-    next_token: Any
+    next_token: int
     state: tuple[Any, ...]
 
 
@@ -119,9 +156,12 @@ class J6PCompleteHbmProvider(Protocol):
     """
 
     model_id: str
+    prompt_length: int
     max_sequence_length: int
     prefill_manifest: CompleteHbmManifest
     decode_manifest: CompleteHbmManifest
+    prefill_to_decode: Mapping[str, str]
+    decode_to_decode: Mapping[str, str]
 
     def reset(self) -> None:
         """Discard device-side state and staged outputs for this Session."""
@@ -141,11 +181,16 @@ class J6PCompleteHbmProvider(Protocol):
         self,
         *,
         token: Any,
-        step: int,
+        cache_position: int,
         rope_deltas: Any,
         state: tuple[Any, ...],
     ) -> DecodeResult:
-        """Run exactly one token using the state returned by prefill/decode."""
+        """One complete HBM call; build RoPE/mask from cache_position.
+
+        State buffers remain valid until completion; return an owned Python int
+        token, not a view of a reused device output buffer. The provider checks
+        the physical tensors against its manifest, including quantization ABI.
+        """
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,28 +203,59 @@ class PreparedVLMInput:
     prompt_length: int
 
 
+def prepare_qwen35(processor: Any, image: Any, prompt: str) -> PreparedVLMInput:
+    """Reuse the checkpoint processor; no padding or manual vision transforms."""
+    text = processor.apply_chat_template(
+        [{"role": "user", "content": [
+            {"type": "image"}, {"type": "text", "text": prompt},
+        ]}], tokenize=False, add_generation_prompt=True,
+    )
+    values = processor(text=[text], images=[image], return_tensors="pt")
+    ids = values["input_ids"]
+    mask = values["attention_mask"]
+    if len(ids.shape) != 2 or ids.shape[0] != 1 or mask.shape != ids.shape:
+        raise ValueError("example requires a single unpadded prompt")
+    if not bool((mask == 1).all()):
+        raise ValueError("padded prompts require a separately validated prefill graph")
+    return PreparedVLMInput(
+        input_ids=ids, attention_mask=mask, pixel_values=values["pixel_values"],
+        image_grid_thw=values["image_grid_thw"],
+        mm_token_type_ids=values["mm_token_type_ids"], prompt_length=int(ids.shape[1]),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class GenerationResult:
-    tokens: tuple[Any, ...]
+    tokens: tuple[int, ...]
     cache_key: str
     prompt_length: int
 
 
 class J6PVLMDeployment:
-    """Small transactional control plane for one fixed-profile VLM Session."""
+    """Fresh-request orchestration; failure invalidates state, not rollback."""
 
     def __init__(self, session: J6PCompleteHbmProvider):
         self.session = session
         self._committed_key: str | None = None
+        self._prefill_order = state_order(
+            session.prefill_manifest.state_outputs, session.decode_manifest.state_inputs,
+            session.prefill_to_decode,
+        )
+        self._decode_order = state_order(
+            session.decode_manifest.state_outputs, session.decode_manifest.state_inputs,
+            session.decode_to_decode,
+        )
 
     def reset(self) -> None:
-        self.session.reset()
         self._committed_key = None
+        self.session.reset()
 
     def _validate_profile(self, inputs: PreparedVLMInput, new_tokens: int) -> None:
-        if inputs.prompt_length < 1:
+        if type(inputs.prompt_length) is not int or inputs.prompt_length < 1:
             raise ValueError("prompt_length must be positive")
-        if new_tokens < 1:
+        if inputs.prompt_length != self.session.prompt_length:
+            raise ValueError("prompt_length differs from the compiled profile")
+        if type(new_tokens) is not int or new_tokens < 1:
             raise ValueError("new_tokens must be positive")
         if inputs.prompt_length + new_tokens - 1 > self.session.max_sequence_length:
             raise ValueError(
@@ -210,29 +286,37 @@ class J6PVLMDeployment:
                 image_grid_thw=inputs.image_grid_thw,
                 mm_token_type_ids=inputs.mm_token_type_ids,
             )
-            self._validate_state(prefill.state)
+            self._validate_state(prefill.state, self.session.prefill_manifest.state_outputs)
+            self._validate_token(prefill.first_token)
             tokens = [prefill.first_token]
-            state = prefill.state
-            # Qwen3.5ExplicitDecodeStep uses step=1 for cache_position=prompt_length.
+            state = tuple(prefill.state[i] for i in self._prefill_order)
+            # Prefill already emitted token 1; N outputs require N-1 decode calls.
             for step in range(1, new_tokens):
                 decoded = self.session.decode(
                     token=tokens[-1],
-                    step=step,
+                    cache_position=inputs.prompt_length + step - 1,
                     rope_deltas=prefill.rope_deltas,
                     state=state,
                 )
-                self._validate_state(decoded.state)
+                self._validate_state(decoded.state, self.session.decode_manifest.state_outputs)
+                self._validate_token(decoded.next_token)
                 tokens.append(decoded.next_token)
-                state = decoded.state
+                state = tuple(decoded.state[i] for i in self._decode_order)
             self._committed_key = cache_key
             return GenerationResult(tuple(tokens), cache_key, inputs.prompt_length)
-        except Exception:
+        except BaseException:
             # A failed prefill/decode must not leave a state that can be reused.
             self.reset()
             raise
 
-    def _validate_state(self, state: Sequence[Any]) -> None:
-        expected = len(self.session.decode_manifest.state_schema)
+    @staticmethod
+    def _validate_token(token: int) -> None:
+        if type(token) is not int or token < 0:
+            raise ValueError("provider must return an owned nonnegative integer token")
+
+    @staticmethod
+    def _validate_state(state: Sequence[Any], schema: tuple[StateTensorSpec, ...]) -> None:
+        expected = len(schema)
         if len(state) != expected:
             raise ValueError(f"provider returned {len(state)} states; expected {expected}")
         if any(value is None for value in state):
@@ -248,7 +332,10 @@ class J6PCompleteHbmProviderImpl:
         prefill_manifest: CompleteHbmManifest,
         decode_manifest: CompleteHbmManifest,
         model_id: str,
+        prompt_length: int,
         max_sequence_length: int,
+        prefill_to_decode: Mapping[str, str],
+        decode_to_decode: Mapping[str, str],
     ):
         if prefill_manifest.stage != "prefill":
             raise ValueError("prefill_manifest must describe the prefill graph")
@@ -257,7 +344,13 @@ class J6PCompleteHbmProviderImpl:
         self.prefill_manifest = prefill_manifest
         self.decode_manifest = decode_manifest
         self.model_id = model_id
+        if (type(prompt_length) is not int or type(max_sequence_length) is not int
+                or not 1 <= prompt_length <= max_sequence_length):
+            raise ValueError("invalid compiled sequence profile")
+        self.prompt_length = prompt_length
         self.max_sequence_length = max_sequence_length
+        self.prefill_to_decode = dict(prefill_to_decode)
+        self.decode_to_decode = dict(decode_to_decode)
 
     def reset(self) -> None:
         raise NotImplementedError("connect reset to the J6P Session/provider implementation")
@@ -273,17 +366,25 @@ class J6PCompleteHbmProviderImpl:
         )
 
 
-def load_j6p_qwen35_08b_provider(
+def load_complete_hbm_provider(
     *,
     prefill_manifest: CompleteHbmManifest,
     decode_manifest: CompleteHbmManifest,
+    model_id: str,
+    prompt_length: int,
+    max_sequence_length: int,
+    prefill_to_decode: Mapping[str, str],
+    decode_to_decode: Mapping[str, str],
 ) -> J6PCompleteHbmProviderImpl:
     """Load metadata for two complete HBM graphs after a J6P build exists."""
     return J6PCompleteHbmProviderImpl(
         prefill_manifest=prefill_manifest,
         decode_manifest=decode_manifest,
-        model_id="Qwen3.5-0.8B",
-        max_sequence_length=384,
+        model_id=model_id,
+        prompt_length=prompt_length,
+        max_sequence_length=max_sequence_length,
+        prefill_to_decode=prefill_to_decode,
+        decode_to_decode=decode_to_decode,
     )
 
 

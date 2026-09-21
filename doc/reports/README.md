@@ -1,5 +1,9 @@
 # VLAForge Report Status
 
+Deployment design: [J6P VLM with two complete HBM models](../j6p_vlm_deployment_and_kv_cache.md)
+documents the Python example and explicit prefill/decode cache ABI. It is not
+board execution evidence.
+
 ## Current H20 Delivery
 
 Start with [the final H20 experiment delivery](h20_vla_experiment_delivery_20260910.md),

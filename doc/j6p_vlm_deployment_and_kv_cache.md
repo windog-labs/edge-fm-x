@@ -1,263 +1,235 @@
-# J6P VLM 部署与 KV Cache 设计
+# J6P VLM：两个完整 HBM 与 KV Cache
 
-本文以当前分支已有的 Qwen3.5 状态适配为基础，说明在 Horizon J6P 上部署
-一个固定 profile 的 VLM 时，Python 编排层应如何调用两个完整 HBM 图：一个
-prefill 图和一个 decode 图，并在两次模型调用之间传递显式 cache state。
+更新：2026-09-21。示例模型为 Qwen3.5-0.8B；模型名称不代表已完成 J6P 编译。
 
-本文提供的是部署接口设计和 Python 编排示例。当前分支的
-`doc/specs/board_target_handoff_v1.md` 已明确说明：仓库目前没有经过验证的
-Horizon BPU Session provider 或 J6P board driver。因此，本文不把 H20 的
-Qwen native Session 结果写成 J6P 结果，也不伪造 J6P HBM 的 `infer()` 实现。
+部署单位固定为两个完整模型：`prefill.hbm`（包含视觉编码和完整语言 prefill）
+与 `decode.hbm`（完整语言模型的单 token decode）。Python 只调用这两个模型，
+不调度 layer，不实现 attention/GEMM kernel，也不依赖自定义算子。
 
-示例文件：
+[Python 示例](../vlaforge/examples/j6p_vlm_kv_cache.py) 提供预处理、两次调用间的
+cache 映射、生成循环与失败处理；[测试](../vlaforge/tests/unit/test_j6p_vlm_kv_cache_example.py)
+只验证编排契约。目前 `J6PCompleteHbmProviderImpl` 的三个设备方法明确抛出
+`NotImplementedError`，需要接入真实 SDK。仓库还没有这两个 VLM HBM 及经过验证
+的 J6P provider，因此不能直接在板上运行本例得到文本。
 
-`vlaforge/examples/j6p_vlm_kv_cache.py`
+## 1. 两个完整模型的输入输出
 
-测试文件：
-
-`vlaforge/tests/unit/test_j6p_vlm_kv_cache_example.py`
-
-## 1. 部署对象和阶段
-
-推荐先用 Qwen3.5-0.8B 作为 J6P 首个 VLM profile。部署图只有两个可独立
-编译和审计的完整 HBM 模型：
-
-```text
-image + text tensors
-        |
-        v
-complete prefill HBM
-        |
-        +--> first_token
-        +--> rope_deltas
-        +--> explicit state S_0
-                     |
-                     v
-          complete one-token decode HBM
-                     |
-                     +--> token_(t+1)
-                     +--> explicit state S_(t+1)
-```
-
-`prefill` 只对当前图像和 prompt 执行一次。之后每生成一个 token，Python
-只推进 `step` 并再次调用完整的 decode HBM。J6P provider 应该让 BPU 负责
-每个完整图的模型计算、状态读写和必要的 token 选择；Python 只负责输入
-契约、生命周期、错误回滚和上层业务循环。
-
-这里的“两个模型”不是两个 layer 子图，也不是若干个自定义 kernel 的集合：
-
-- prefill HBM 内含视觉编码、图像 token 注入、文本 embedding、完整语言层
-  prefill、RoPE、attention/linear-attention、MLP、norm 和输出 head；
-- decode HBM 内含单 token embedding、完整语言层 decode、显式 cache 更新、
-  RoPE、attention/linear-attention、MLP、norm 和输出 head；
-- 两个 HBM 都必须是 J6P 编译器可接受的完整标准算子图，不能依赖 custom op；
-- Python 不调用任何 layer，也不在 Python 中实现 kernel。层级信息只用于生成
-  和校验 state manifest，不能成为运行时调度单元。
-
-当前 Qwen3.5 适配位于
-`vlaforge/python/vlaforge/adapters/qwen3_5/qwen3_5_state.py`，已经把
-upstream 的混合状态拆成显式 prefill/decode 接口。它没有把所有状态都称作
-KV，因为 Qwen3.5 同时包含 full-attention 和 linear-attention 层。
-
-## 2. 两个完整 HBM 的 I/O 差异
-
-prefill 和 decode 的参数不应共用一个模糊的字典。应分别保存
-`prefill_manifest.json` 和 `decode_manifest.json`，每个 manifest 至少包含
-完整 HBM 的 hash、输入/输出顺序、shape、dtype、layout、state schema hash、
-compiler/runtime 版本和 custom-op 审计结果。
-
-| 项目 | 完整 prefill HBM | 完整 decode HBM |
+| 项目 | prefill.hbm | decode.hbm |
 |---|---|---|
-| 输入 | `input_ids`、`attention_mask`、`pixel_values`、`image_grid_thw`、`mm_token_type_ids` | 当前 token、`step`/`cache_position`、`rope_deltas`、完整显式 state |
-| 序列形态 | `[B, prompt_length]`，固定 profile | `[B, 1]`，每次一个 token |
-| 视觉路径 | 包含 vision encoder 和 image token 注入 | 不重新执行 vision encoder |
-| 输出 | first token、`rope_deltas`、prefill 后 state | next token/logits、更新后的 state |
-| state 角色 | 产生 `S_prefill` | 消费并产生 `S_decode` |
-| 算子集合 | vision + prefill language graph | decode language graph + state update |
-| 自定义算子 | 必须为 0 | 必须为 0 |
+| 计算 | 视觉编码、视觉 token 注入、全部语言层、输出 head | 单 token embedding、全部语言层、cache 更新、输出 head |
+| 序列长度 | 固定 prompt 长度 P | 每次 1 个 token |
+| 新请求输入 | 图像和 prompt 的处理后张量及位置元数据 | 当前 token、cache_position、RoPE/有效长度元数据、历史 state |
+| 历史 KV 输入 | 本例没有；每个请求从空历史开始 | 必须输入当前历史缓存 |
+| 输出 | 首 token 或 logits、prefill state、位置元数据 | 下一个 token 或 logits、更新后的 state |
+| 算子集合 | 视觉与语言 prefill 图 | 单 token 语言 decode 图；不同于 prefill |
+| 编译要求 | 完整图可编译，无自定义算子 | 完整图可编译，无自定义算子 |
 
-prefill 输出 state 与 decode 输入 state 必须通过一个明确的 typed ABI 对齐。
-如果两份导出使用不同的物理布局，不能在 Python 里静默 reshape 或按 layer
-拼接；要么在导出时统一 ABI，要么由 provider 明确实现并测量 host-side
-repack/copy。不能因此引入 J6P 不支持的自定义算子，也不能把 repack 时间
-隐藏在 decode latency 中。
-
-## 3. Cache state 的真实组成
-
-每个 Transformer layer 产生两组状态，顺序由模型配置中的 `layer_types`
-固定。这个信息只用于生成两个完整 HBM 的 state ABI 和做 manifest 校验，
-不是让 J6P 在运行时逐 layer 调度。provider manifest 必须保存顺序、shape、
-dtype 和总数量；不能在 Python 侧依赖“第几个 tensor 看起来像 key”来推断。
-
-| Layer type | State | 典型布局 | 生命周期 |
-|---|---|---|---|
-| `full_attention` | key | `[B, H_kv, max_seq, D]` | prefill 写入 prompt，decode 按 `cache_position` 写入一个 token |
-| `full_attention` | value | `[B, H_kv, max_seq, D]` | 与 key 同步更新 |
-| `linear_attention` | convolution state | `[B, 3 * H_k * D_k, K]` | prefill 初始化，decode 每 token 滚动更新 |
-| `linear_attention` | recurrent state | `[B, H_v, D_k, D_v]` | prefill 初始化，decode 每 token 更新 |
-| model control | `rope_deltas` | profile-specific tensor | prefill 生成，decode 只读 |
-| runtime control | `step`, `cache_position` | `int64` scalar/tensor | Python 或 compiled loop 推进，不属于模型 cache tensor |
-
-full-attention 的物理容量应在编译时固定为 `max_sequence_length`。有效长度
-由 `prompt_length + generated_tokens - 1` 控制；未使用槽位必须由 attention
-mask 屏蔽。decode 的 `cache_position` 是逻辑 token 位置，不是“当前数组中
-第几个有效元素”。如果以后引入分页或压缩 cache，也必须同时维护逻辑位置
-和物理地址，不能只缩短 tensor 后继续使用旧的 RoPE 位置。
-
-对于 Qwen3.5，`step=1` 对应把第一个生成 token 写入
-`cache_position=prompt_length`。这是当前
-`Qwen3_5ExplicitDecodeStep` 的约定，示例也遵循这个约定。
-
-## 4. Cache key 和失效规则
-
-cache 只能在输入语义完全相同时复用。推荐 cache key 至少包含：
-
-```text
-model_id + checkpoint/artifact hash + profile
-+ input_ids + attention_mask + pixel_values + image_grid_thw
-+ mm_token_type_ids + prompt_length + dtype/layout
+```mermaid
+flowchart LR
+    A[处理后的图像和文本] --> P[prefill.hbm 完整模型]
+    P --> T[首 token]
+    P --> S[prefill state]
+    S --> B[显式 ABI 映射和必要的数据拷贝]
+    T --> D[decode.hbm 完整模型]
+    B --> D
+    D --> O[下一个 token]
+    O --> D
+    D --> C[更新后 state]
+    C --> D
 ```
 
-下列任一项变化都必须重新 prefill：
+两图使用同一 checkpoint，但输入参数、cache 形状、算子和物理内存计划可能不同。
+不要求二者共享权重内存，也不能把两个 HBM 都加载时的权重占用只计算一次。
+是否包含 argmax 由导出合同确定；若 HBM 输出 logits，provider 可在 CPU 做明确的
+greedy 选择并计入主机开销，这不是向 HBM 添加自定义算子。本例返回独立 Python
+整数 token，避免后续推理覆盖上一轮输出 buffer。
 
-- 图像内容、图像尺寸或 `image_grid_thw` 变化；
-- prompt token、padding mask 或多模态 token type 变化；
-- checkpoint、prefill/decode HBM、shape profile、dtype 或 layout 变化；
-- Session reset、用户切换、失败恢复或 batch slot 重新分配。
+## 2. Prefill 与 Decode 的 cache 参数差异
 
-因此不能把“同一张图像”简单理解为可以跨 prompt 复用完整 prefill，也不能
-把视觉 token 的混合 hidden state 当成一个只依赖文本的静态 cache。示例中的
-`input_identity()` 对所有 prefill 输入计算 SHA256；真实 provider 还应把
-artifact manifest 的 SHA256 纳入身份。
+设 P 为无 padding 的 prompt token 数（含视觉 token），C 为 decode cache 容量。
 
-## 5. Session 生命周期和事务语义
+| 接口 | 逻辑内容 | 一种可能的导出形状 |
+|---|---|---|
+| prefill 输出 K/V | P 个 prompt token 的历史 | `[B,Hkv,P,D]` 或导出时填充为 `[B,Hkv,C,D]` |
+| decode 输入 K/V | 截至当前写入位置之前的历史 | 固定 `[B,Hkv,C,D]`，另传有效长度/mask |
+| decode 输出 K/V | 本次单 token 更新后的完整缓存 | 固定 `[B,Hkv,C,D]` |
 
-一次请求应按以下顺序执行：
+有的 decode 导出只输出 `[B,Hkv,1,D]` 的增量。这需要额外的显式写回合同；不能
+把增量当完整缓存传入下一次调用。本例选择完整缓存输出，并在不兼容时拒绝。
 
-1. 创建或取得一个独占 Session，并确认 provider、HBM、runtime 和 target descriptor。
-2. 校验 batch、prompt 长度、生成长度、dtype、layout 和 state schema。
-3. `reset()` 清除旧的 device state 和上一次未提交的 output。
-4. 调用 `prefill()`，得到 first token、`rope_deltas` 和 `S_0`。
-5. 以 `step=1` 开始 decode；每次 decode 成功后才替换 Python 侧 state 引用。
-6. 完成固定长度生成后提交 output identity；失败时清除整个 Session state。
-
-不要在多个 Session 之间共享可写 cache tensor。多路并发请求应使用独立
-Session 或明确的 cache slot/ownership 协议；仅复制 Python tuple 不会复制
-device memory。
-
-当前示例把 `reset()` 放在每个新 image+prompt 请求前，并在异常路径再次调用。
-这是一种保守的 single-request 模式。要做连续对话，需要额外定义：哪些文本
-token 可以保留、图像是否保持不变、最大 context 如何增长，以及 reset 后哪些
-state 必须重新 materialize；不能通过关闭 reset 来“复用 KV”。
-
-## 6. J6P provider 的窄接口
-
-示例定义了 `J6PCompleteHbmProvider` 这个 seam：
+每个 HBM 保留自己的端口名称、顺序、shape、dtype 和 layout。使用两张映射表：
 
 ```python
-class J6PCompleteHbmProvider(Protocol):
-    model_id: str
-    max_sequence_length: int
-    prefill_manifest: CompleteHbmManifest
-    decode_manifest: CompleteHbmManifest
-
-    def reset(self) -> None: ...
-    def prefill(self, *, input_ids, attention_mask, pixel_values,
-                image_grid_thw, mm_token_type_ids) -> PrefillResult: ...
-    def decode(self, *, token, step, rope_deltas, state) -> DecodeResult: ...
+# destination port -> source port；这里只展示某个 full-attention 层的两项
+prefill_to_decode = {"past_k": "present_k", "past_v": "present_v"}
+decode_to_decode = {"past_k": "updated_k", "past_v": "updated_v"}
 ```
 
-这个接口有意比模型内部实现小，并且只暴露两个完整 HBM 的调用：
+这两张表描述整模型边界的数据连接，不是 layer 调度。真实表要列出全部状态。
+示例分别使用 `state_inputs` 和 `state_outputs`，按 decode 输入顺序重排句柄，
+校验两侧 shape/dtype/layout；名字和排列可以不同，物理表示不能静默改变。
 
-- provider 内部负责加载完整 prefill/decode 两个 HBM、绑定各自不同的输入
-  输出、分配稳定的 cache buffer、调用 HBRT/UCP，并检查实际设备和 ABI；
-- Python 负责 profile 和输入契约、cache key、请求生命周期、错误回滚；
-- model adapter 负责把 upstream Qwen3.5 的状态顺序、RoPE 和视觉输入转换成
-  两份 provider manifest，不把 Qwen 特殊分支塞入公共 runtime。
+若 prefill 输出 P 长度、decode 需要 C 长度，可在导出时用支持的标准算子填充到 C；
+也可在 provider 中明确执行一次 buffer 初始化、拷贝前 P 个位置及 layout 转换，
+并保留有效长度。后者属于主机数据搬运，不是第三个 HBM 或自定义算子。本例的
+直接映射不实现这个转换，遇到长度不匹配会报 `state ABI mismatch`。
+量化缓存还必须核对 scale、zero point、量化轴及存储格式，不能仅因都是 INT16
+就直接连接。本例元数据检查不替代 SDK 对真实 tensor 的校验。
 
-provider 的 `prefill()` 和 `decode()` 都对应一次完整 HBM 模型调用。不能把
-`decode()` 实现成“调用第 7 层、第 8 层……”的 Python 循环，也不能用
-custom op 把未支持的 layer 偷渡进 BPU。
+## 3. Qwen3.5 不只有 K/V
 
-一个合格的 J6P provider 在 `prefill()` 和 `decode()` 返回前还应记录：
-  HBM hash、输入输出 shape/dtype、state schema hash、执行设备、CPU fallback、
-  BPU completion boundary 和错误码。`reset()` 必须能证明旧 state 不会被下一
-  个请求读到。
+当前 [Qwen 状态适配器](../vlaforge/python/vlaforge/adapters/qwen3_5/qwen3_5_state.py)
+按 `layer_types` 展开状态，层级信息仅用于描述两个整模型的 ABI。
 
-## 7. Python 示例怎么接真实 HBM
+| 状态 | 逻辑布局 | 更新 |
+|---|---|---|
+| Full attention K/V | `[B,Hkv,C,D]` | 向 cache_position 写入新 K/V，屏蔽未使用槽位 |
+| Linear attention convolution | `[B,conv_dim,K]` | 滚动保存历史卷积输入 |
+| Linear attention recurrent | `[B,Hv,Dk,Dv]` | 每 token 更新完整循环状态 |
+| RoPE 元数据 | 按模型导出约定 | prefill 后保留，用于生成位置输入 |
 
-示例中的 `J6PCompleteHbmProviderImpl` 只是一个明确的待接入适配器。真实
-接入时，建议按下面顺序实现，而不是在 Python 中把所有 KV 拼成一个大字典：
+通常 `conv_dim = 2*Hk*Dk + Hv*Dv`；应读取具体模型的 `in_proj_qkv`/conv 参数
+与实际导出端口。当前 `state_spec()` 使用 `3*Hk*Dk`，隐含 key/value 总维度相等
+的假设，不能复制这个公式作为任意 Qwen 配置的通用保证。
+
+当前 H20 的正式结果来自 `Qwen3_5GenerateExact`，full-attention cache 在展开图中
+采用动态增长；固定容量的 `Qwen3_5ExplicitDecode` 使用不同的 mask/更新计算。
+已有 H20 byte-exact 结果不证明固定容量 J6P 版本也等价，更不证明两图都可编译。
+
+## 4. 一次请求的 token 位置
+
+prefill 已经产生第 1 个输出 token。生成 N 个新 token 只需要 N-1 次 decode。
 
 ```python
-prefill_manifest = CompleteHbmManifest.from_json(
-    Path("/data/models/qwen35_08b/prefill_manifest.json")
-)
-decode_manifest = CompleteHbmManifest.from_json(
-    Path("/data/models/qwen35_08b/decode_manifest.json")
-)
-provider = load_j6p_qwen35_08b_provider(
-    prefill_manifest=prefill_manifest,
-    decode_manifest=decode_manifest,
-)
-deployment = J6PVLMDeployment(provider)
-result = deployment.generate(prepared, new_tokens=16)
+prefill = provider.prefill(...)
+tokens = [prefill.first_token]
+state = bind_prefill_to_decode(prefill.state)
+for i in range(1, N):
+    result = provider.decode(
+        token=tokens[-1], cache_position=P + i - 1,
+        rope_deltas=prefill.rope_deltas, state=state,
+    )
+    tokens.append(result.next_token)
+    state = bind_decode_to_decode(result.state)
 ```
 
-`prepared` 应由 processor/预处理模块生成并固定成 target profile，至少包括：
+上段是流程说明，实际可执行编排在示例的 `generate()` 中。首个 decode 写入
+位置 P，结束时缓存有效长度为 P+N-1，最后一个输出 token 尚未写入 cache。
+必须满足 `P+N-1 <= C`。N=1 时只执行 prefill。多轮聊天继续使用最后 token
+之前必须处理这个位置约定；本例每个请求 reset，不实现多轮续写或 EOS 早停。
 
-- `input_ids`、`attention_mask`；
-- `pixel_values` 和 `image_grid_thw`；
-- `mm_token_type_ids`；
-- `prompt_length`。
+`cache_position` 与模型的 RoPE `position_ids` 不可混为一谈。Qwen 多模态位置
+还依赖图像网格和 `rope_deltas`，provider 按模型合同生成位置 tensor。
 
-J6P 上的图像 resize、patch layout、归一化和 dtype 转换必须在输入契约中明确
-记录。不能直接拿 H20 的 CUDA tensor、TorchScript bundle 或 H20 native C++
-library 当作 J6P provider。
+## 5. Python 使用方式
 
-## 8. 内存和性能边界
+从仓库根目录运行，先把 examples 加入导入路径：
 
-建议把内存拆成四项记录：
+```bash
+PYTHONPATH=vlaforge/examples python your_vlm_app.py
+```
 
-1. HBM 静态 plan：权重、常量、workspace、输入/输出和 state buffer；
-2. provider 分配的 device/cache memory；
-3. Python 进程 RSS；
-4. host-to-device、device-to-host 和 BPU completion 时间。
+`your_vlm_app.py` 的写法如下。`profile.json` 与两份 manifest 必须由自己的
+实际 J6P 导出结果提供，不能从 H20 的 TorchScript bundle 改后缀得到。
 
-不能把进程 RSS 与 HBM plan 相加作为设备总内存，也不能用 Python 文件链墙钟
-时间冒充每 token latency。正式测量至少应分别记录：prefill latency、decode
-per-token latency、固定生成长度总延迟、tokens/s、cache bytes、峰值内存和
-CDF。若 provider 含 CPU fallback，必须按 stage 记录并单独标识。
+```python
+import json
+from pathlib import Path
+from PIL import Image
+from transformers import AutoProcessor
+from j6p_vlm_kv_cache import (
+    CompleteHbmManifest, J6PVLMDeployment, load_complete_hbm_provider,
+    prepare_qwen35,
+)
 
-## 9. 例外和失败处理
+root = Path("/data/models/qwen35_08b")
+profile = json.loads((root / "profile.json").read_text())
+processor = AutoProcessor.from_pretrained(root / "processor", local_files_only=True)
+with Image.open("/data/input.jpg") as source:
+    prepared = prepare_qwen35(processor, source.convert("RGB"), "Describe this image.")
 
-| Failure | Required action |
-|---|---|
-| state 数量或 schema hash 不匹配 | 在首次 prefill 前拒绝运行 |
-| prompt + generation 超出静态容量 | 在 provider 调用前拒绝 |
-| image/prompt/profile 改变 | reset 后重新 prefill |
-| decode 失败或输出不完整 | 丢弃整次请求 state，不复用部分 cache |
-| BPU ownership 或 runtime ABI 不匹配 | 不启动模型，保留 preflight 证据 |
-| 仅有 x86/H20 artifact，没有 J6P HBM | 标记 pending，不能宣称 board deployment |
+# 本仓库此 factory 仅构造适配骨架；先补齐 SDK 方法才能运行 generate。
+provider = load_complete_hbm_provider(
+    prefill_manifest=CompleteHbmManifest.from_json(root / "prefill_manifest.json"),
+    decode_manifest=CompleteHbmManifest.from_json(root / "decode_manifest.json"),
+    model_id=profile["model_id"],
+    prompt_length=profile["prompt_length"],
+    max_sequence_length=profile["max_sequence_length"],
+    prefill_to_decode=profile["prefill_to_decode"],
+    decode_to_decode=profile["decode_to_decode"],
+)
+result = J6PVLMDeployment(provider).generate(prepared, new_tokens=16)
+print(processor.decode(list(result.tokens), skip_special_tokens=True))
+```
 
-## 10. 当前实现边界
+每份 manifest 的示例 schema 如下。端口清单省略了实际模型的全部状态；不能
+把下面片段作为完整 Qwen manifest。`state_inputs`/`state_outputs` 中每项必须
+包含 `name`、`shape`、`dtype`、`layout`，且 name 存在于对应端口清单。
 
-当前分支已经有 Qwen3.5 的显式状态拆分和 H20 固定 profile 的 native
-deployment evidence，但还缺少：
+```json
+{
+  "stage": "prefill",
+  "hbm": "prefill.hbm",
+  "inputs": ["input_ids", "attention_mask", "pixel_values"],
+  "outputs": ["first_token", "present_k"],
+  "state_inputs": [],
+  "state_outputs": [{"name": "present_k", "shape": [1, 2, 384, 128],
+                     "dtype": "fp16", "layout": "B,Hkv,C,D"}],
+  "custom_ops": false
+}
+```
 
-- J6P 的实际 BPU provider 和 board driver；
-- Qwen3.5-0.8B 的两个完整 J6P HBM（prefill 和 decode）及其 manifests；
-- J6P 上的 state layout、CPU fallback 和 runtime ABI 实测；
-- J6P prefill/decode CDF、内存和完整输出核验。
+`custom_ops: false` 是配置声明，不是编译证明。provider 必须用实际 HBM
+model_info、编译报告和 SDK 端口信息核对；完整模型合法性不能靠文件存在判定。
+生产包还需记录 checkpoint/HBM hash、processor 版本、算子放置和量化参数。
 
-所以本文和示例完成的是两个完整 HBM 的 Python 编排接口与 cache 设计，不能作为 J6P VLM
-已经部署成功的证明。J6P 实验应在 provider、HBM、target descriptor 和输入
-manifest 齐全后重新执行。
+## 6. 当前适配器的固定 profile 限制
 
-## References
+- batch=1、无 padding；示例预处理拒绝非全 1 attention mask。当前 prefill
+  的 forward 虽接收 mask，但未参与实际 attention 计算，不能靠补零支持变长。
+- 当前 prefill 构造时固定 `position_ids`、`rope_deltas` 和 vision grid 常量。
+  图像网格或视觉 token 位置变化时，reset 不会改变这些常量。provider 必须
+  比较请求的网格/位置与已编译 profile，不匹配则选择另一个完整 HBM 对或拒绝。
+- Python 接口的字段不一定都是 HBM 动态输入：固定元数据可能已经被编译进图。
+  provider 必须使用真实端口清单绑定，不能凭上述语义参数名臆造 HBRT 输入。
+- 示例校验长度与 state 连接；真实输入张量的 shape/dtype/stride、网格和位置
+  检查仍由接入的 provider 完成。不能把目前的 Python 测试当作板端验收。
 
-- [VLAForge board target handoff](specs/board_target_handoff_v1.md)
-- [Qwen3.5 explicit state adapter](../vlaforge/python/vlaforge/adapters/qwen3_5/qwen3_5_state.py)
-- [Qwen3.5 native H20 report](reports/qwen35_native_formal_20260910.md)
-- [Hugging Face cache explanation](https://huggingface.co/docs/transformers/main/en/cache_explanation)
-- [Horizon runtime development guide](https://doc.oe.horizon.auto/en/guide/model_deployment/board_deployment/runtime_dev.html)
+## 7. 所有权、reset 与缓存复用
+
+两个 HBM 在同一 Session 生命周期内常驻。cache buffer 必须在 BPU completion
+后才能读写或复用。除非 SDK 和完整图明确支持读写别名，decode 输入与输出
+使用独立 buffer，完成后切换；必要的数据搬运、同步和 cache coherency 计入
+开销。对 CPU fallback 也要用实际放置报告说明。
+
+每个 Session 的可写状态独立；不要让不同用户复用同一 KV buffer。示例每次
+请求 reset，失败或取消时丢弃请求状态并重新 prefill。这是失效恢复，**不等于**
+保留旧状态的原子回滚。`cache_key` 仅为诊断摘要，不授权跨请求命中缓存。
+
+若以后增加 prefix reuse，key 至少绑定两份 HBM/checkpoint/processor/profile
+身份以及文本、图像、mask、位置数据。缓存应保存不可变的 prefill 快照，不能
+复用已经被 decode 改写的 buffer。当前例子不实现这项优化。
+
+## 8. 内存和验收
+
+单套 full-attention cache 字节数为 `2 * L_full * B * Hkv * C * D * itemsize`。
+每层 linear state 另加 `B*conv_dim*K*conv_itemsize + B*Hv*Dk*Dv*state_itemsize`。
+双 buffer、HBM 权重/workspace、输出 logits、stride 对齐及 CPU 内存另算；实际
+端口 dtype 决定 itemsize，不假设所有循环状态都允许半精度。
+
+验收两个完整图分别编译、真实 prefill 输出连接 decode、完整 N-token 输出、
+新请求 reset 和失败重试。时延分别报告：模型加载、HBM prefill、单次 decode、
+request TTFT、固定长度总耗时。decode throughput 为 `(N-1)/decode_time`，
+N=1 时不适用；全请求吞吐为 `N/total_time`，必须明确是否包含预处理和拷贝。
+
+当前工作不新增板端实验。J6M SmolVLA 和 H20 Qwen 的既有结果不替代 J6P 验收。
+
+## 参考
+
+- [现有 Python InvocationBuilder 与状态语义](../vlaforge/spec/python-invocation.md)：
+  日后可把两个完整 HBM 包装为两个 TensorRegion；provider 在图外适配官方 runtime，
+  并非添加 HBM 自定义算子。当前编译链还不能通过设置 `device="bpu"` 自动完成。
+- [Board handoff 现状](specs/board_target_handoff_v1.md) 与
+  [H20 Qwen 固定配置结果](reports/qwen35_native_formal_20260910.md)。
+- [Hugging Face 缓存与位置说明](https://huggingface.co/docs/transformers/v4.50.0/en/cache_explanation)。
+- [Horizon 模型推理开发指南](https://doc.oe.horizon.auto/en/guide/model_deployment/board_deployment/runtime_dev.html)。

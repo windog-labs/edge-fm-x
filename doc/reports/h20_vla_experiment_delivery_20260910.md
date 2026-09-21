@@ -1,5 +1,11 @@
 # H20 Experiment Delivery
 
+This is the H20 closeout snapshot of 2026-09-10. Its deferred J6M statements
+below describe that date. Subsequent SmolVLA J6M stage measurements are in
+[the 2026-09-14 stage delivery](smolvla_j6m_performance_20260914.md);
+see [the combined summary](edgefm_h20_j6m_experiment_summary_20260914.md)
+for current platform coverage. The original H20 measurement values are retained.
+
 The H20 experiment deliverables requested for the current Goal are complete,
 including native Qwen3.5 deployment on the fixed H20 profile. This is scoped
 completion of the available-hardware work, not acceptance of the whole edge

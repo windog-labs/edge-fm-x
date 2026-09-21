@@ -15,6 +15,7 @@ Canonical design:
 - [Generic Python Invocation Interface](spec/python-invocation.md)
 - [Device-Preserving ATen Regions](spec/torchscript-aten.md)
 - [A100/H20 high-memory handoff](../doc/vlaforge_high_memory_handoff.md)
+- [J6P VLM: two complete HBMs and cache ABI](../doc/j6p_vlm_deployment_and_kv_cache.md)
 
 ## Scope
 
@@ -58,7 +59,7 @@ The deterministic interface examples are Python modules:
 
 - `examples/iterative_frontend.py` demonstrates continuous and autoregressive
   InvocationBuilder programs;
-- `examples/j6p_vlm_kv_cache.py` documents the two-complete-HBM J6P VLM seam;
+- `examples/j6p_vlm_kv_cache.py` shows the J6P VLM interface for two complete HBMs;
 - `examples/external_bev_plugin/` contains the C++ plugin fixture.
 
 The CLI operates on generated program or bundle paths produced by the build
