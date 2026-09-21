@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from vlaforge.adapters.autovla_real import (
+from vlaforge.adapters.autovla.autovla_real import (
     AUTOVLA_ACTION_START_ID,
     AUTOVLA_ACTION_VOCAB_SIZE,
     AUTOVLA_HIDDEN_SIZE,

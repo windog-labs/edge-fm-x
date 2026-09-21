@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from vlaforge.adapters.openvla_frontend import (
+from vlaforge.adapters.openvla.openvla_frontend import (
     OpenVLAFrontendConfig,
     audit_real_openvla_frontend,
 )

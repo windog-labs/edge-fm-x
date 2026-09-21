@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from vlaforge.adapters.minddrive_real import (
+from vlaforge.adapters.minddrive.minddrive_real import (
     MINDDRIVE_POSITION_BACKEND_MAX_ABS,
     MINDDRIVE_POSITION_BACKEND_NRMSE,
     MINDDRIVE_PIPELINE_ACTION_MAX_ABS,

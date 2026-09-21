@@ -10,9 +10,14 @@ from typing import Any, Mapping
 
 from vlaforge.compiler import CompilationCertificate
 from vlaforge.deployment.contract import RegionArtifactContract
-
+from vlaforge.deployment.numerical import (
+    numerical_enforcement,
+    strict_json,
+    validate_numerical_version,
+)
 
 BUNDLE_SCHEMA = "vlaforge.compile_bundle/4"
+NUMERICAL_BUNDLE_SCHEMA = "vlaforge.compile_bundle/5"
 _REQUIRED_ROLES = {
     "semantic_ir",
     "scheduled_plan",
@@ -200,8 +205,16 @@ class CompileBundleManifest:
     schema: str = BUNDLE_SCHEMA
 
     def __post_init__(self) -> None:
-        if self.schema != BUNDLE_SCHEMA:
+        if self.schema not in (BUNDLE_SCHEMA, NUMERICAL_BUNDLE_SCHEMA):
             raise ValueError(f"unsupported bundle schema: {self.schema!r}")
+        numerical = tuple(sorted(
+            (item.numerical_binding for item in self.region_artifacts if item.numerical_binding is not None),
+            key=lambda item: item.region_name,
+        ))
+        if numerical != self.compilation_certificate.numerical_bindings:
+            raise ValueError("bundle numerical bindings disagree with compilation certificate")
+        if bool(numerical) != (self.schema == NUMERICAL_BUNDLE_SCHEMA):
+            raise ValueError("numerical bundle policy requires its explicit schema")
         _validate_sha256(self.io_schema_digest)
         if (
             self.io_schema_digest
@@ -277,6 +290,7 @@ class CompileBundleManifest:
         )
 
     def verify_files(self, root: str | Path) -> None:
+        """Verify byte identity only, not runtime deployability or fidelity."""
         for record in self.file_records():
             record.verify(root)
         for artifact in self.region_artifacts:
@@ -286,6 +300,11 @@ class CompileBundleManifest:
                 sha256=artifact.artifact_sha256,
                 size_bytes=artifact.artifact_size_bytes,
             ).verify(root)
+
+    def require_runtime_deployable(self) -> None:
+        self.compilation_certificate.require_runtime_deployable()
+        for artifact in self.region_artifacts:
+            artifact.require_runtime_deployable()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -322,6 +341,12 @@ class CompileBundleManifest:
             ],
             "reproducibility": self.reproducibility.to_dict(),
             "compilation_certificate": self.compilation_certificate.to_dict(),
+            **({"numerical_bindings_sha256": {
+                item.region_name: item.digest()
+                for item in self.compilation_certificate.numerical_bindings},
+                "runtime_enforcement": numerical_enforcement(
+                    self.compilation_certificate.numerical_bindings)}
+               if self.compilation_certificate.numerical_bindings else {}),
         }
 
     def canonical_json(self, *, indent: int | None = None) -> str:
@@ -343,10 +368,19 @@ class CompileBundleManifest:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "CompileBundleManifest":
+        validate_numerical_version(
+            data, legacy_schema=BUNDLE_SCHEMA, policy_schema=NUMERICAL_BUNDLE_SCHEMA,
+            field="numerical_bindings_sha256", legacy_fields={
+                "schema", "semantic_ir_digest", "semantic_ir", "scheduled_plan", "state_schema",
+                "physical_memory_plan", "input_schema", "output_schema", "io_schema_digest",
+                "region_artifacts", "generated_sources", "binaries", "toolchain_versions",
+                "backend_versions", "reproducibility", "compilation_certificate",
+            },
+        )
         semantic_ir = FileRecord.from_dict(data["semantic_ir"])
         if str(data.get("semantic_ir_digest", semantic_ir.sha256)) != semantic_ir.sha256:
             raise ValueError("semantic_ir_digest does not match semantic IR record")
-        return cls(
+        result = cls(
             schema=str(data["schema"]),
             semantic_ir=semantic_ir,
             scheduled_plan=FileRecord.from_dict(data["scheduled_plan"]),
@@ -378,10 +412,20 @@ class CompileBundleManifest:
                 data["compilation_certificate"]
             ),
         )
+        if data["schema"] == NUMERICAL_BUNDLE_SCHEMA:
+            expected = {item.region_name: item.digest()
+                        for item in result.compilation_certificate.numerical_bindings}
+            if data["numerical_bindings_sha256"] != expected:
+                raise ValueError("bundle numerical binding digest mismatch")
+            if data["runtime_enforcement"] != numerical_enforcement(
+                result.compilation_certificate.numerical_bindings
+            ):
+                raise ValueError("bundle numerical enforcement marker mismatch")
+        return result
 
 
 def load_bundle_manifest(path: str | Path) -> CompileBundleManifest:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    data = strict_json(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("bundle manifest root must be an object")
     return CompileBundleManifest.from_dict(data)

@@ -38,6 +38,13 @@ Status CopyBytes(void* destination, VLAForgeDevice destination_device,
     return Status::Ok();
   }
 #if defined(VLAFORGE_ENABLE_CUDA_ARENA)
+  const int ordinal = IsCuda(destination_device)
+                          ? destination_device.ordinal
+                          : source_device.ordinal;
+  if (cudaSetDevice(ordinal) != cudaSuccess) {
+    return Status::Error(StatusCode::kInternal, subject_id,
+                         "CUDA device selection failed");
+  }
   if (IsCuda(destination_device) && IsCuda(source_device) &&
       destination_device.ordinal != source_device.ordinal) {
     if (cudaMemcpyPeer(destination, destination_device.ordinal, source,
@@ -45,14 +52,11 @@ Status CopyBytes(void* destination, VLAForgeDevice destination_device,
       return Status::Error(StatusCode::kInternal, subject_id,
                            "CUDA peer copy failed");
     }
+    if (cudaStreamSynchronize(nullptr) != cudaSuccess) {
+      return Status::Error(StatusCode::kInternal, subject_id,
+                           "CUDA peer copy completion failed");
+    }
     return Status::Ok();
-  }
-  const int ordinal = IsCuda(destination_device)
-                          ? destination_device.ordinal
-                          : source_device.ordinal;
-  if (cudaSetDevice(ordinal) != cudaSuccess) {
-    return Status::Error(StatusCode::kInternal, subject_id,
-                         "CUDA device selection failed");
   }
   cudaMemcpyKind kind = cudaMemcpyDefault;
   if (IsCpu(source_device)) {
@@ -65,6 +69,12 @@ Status CopyBytes(void* destination, VLAForgeDevice destination_device,
   if (cudaMemcpy(destination, source, size_bytes, kind) != cudaSuccess) {
     return Status::Error(StatusCode::kInternal, subject_id,
                          "CUDA device copy failed");
+  }
+  // cudaMemcpy D2D and pageable H2D may return before the default-stream
+  // transfer completes. Nonblocking consumers cannot rely on its ordering.
+  if (cudaStreamSynchronize(nullptr) != cudaSuccess) {
+    return Status::Error(StatusCode::kInternal, subject_id,
+                         "CUDA device copy completion failed");
   }
   return Status::Ok();
 #else

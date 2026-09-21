@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from collections import Counter
 
-from vlaforge.adapters.openvla_artifact import (
+from vlaforge.adapters.openvla.openvla_artifact import (
     FIXED_CACHE,
     OPENVLA_L4_SUPPORT_REGIONS,
     build_compiled_openvla_program,
 )
-from vlaforge.adapters.openvla_partitioned import (
+from vlaforge.adapters.openvla.openvla_partitioned import (
     decode_chunk_names,
     prefill_chunk_names,
 )

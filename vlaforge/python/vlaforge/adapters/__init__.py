@@ -1,40 +1,40 @@
 """Model adapters isolated from the model-independent Invocation IR."""
 
-from vlaforge.adapters.common import AdapterFixture, FixtureRun
-from vlaforge.adapters.autovla_real import build_real_autovla_program
-from vlaforge.adapters.driving import (
+from vlaforge.adapters.shared.fixtures import AdapterFixture, FixtureRun
+from vlaforge.adapters.autovla.autovla_real import build_real_autovla_program
+from vlaforge.adapters.shared.driving import (
     DRIVING_FIXTURES,
     build_driving_ar_fixture,
     build_driving_diffusion_fixture,
     build_driving_trajectory_fixture,
     build_hybrid_external_feature_fixture,
 )
-from vlaforge.adapters.diffusiondrive_real import (
+from vlaforge.adapters.diffusiondrive.diffusiondrive_real import (
     build_real_diffusiondrive_program,
 )
-from vlaforge.adapters.openvla import build_openvla_fixture
-from vlaforge.adapters.model_contracts import (
+from vlaforge.adapters.openvla.openvla import build_openvla_fixture
+from vlaforge.adapters.shared.model_contracts import (
     MODEL_CONTRACTS,
     UpstreamModelContract,
     model_contract,
 )
-from vlaforge.adapters.minddrive_real import build_real_minddrive_program
-from vlaforge.adapters.openvla_real import (
+from vlaforge.adapters.minddrive.minddrive_real import build_real_minddrive_program
+from vlaforge.adapters.openvla.openvla_real import (
     build_real_openvla_action_program,
 )
-from vlaforge.adapters.pi0 import build_pi0_fixture
-from vlaforge.adapters.robot_matrix import (
+from vlaforge.adapters.pi0.pi0 import build_pi0_fixture
+from vlaforge.adapters.shared.robot_matrix import (
     ROBOT_MATRIX_FIXTURES,
     build_act_like_fixture,
     build_groot_n1_like_fixture,
     build_octo_like_fixture,
     build_rt1_like_fixture,
 )
-from vlaforge.adapters.smolvla import build_smolvla_fixture
-from vlaforge.adapters.smolvla_real import (
+from vlaforge.adapters.smolvla.smolvla import build_smolvla_fixture
+from vlaforge.adapters.smolvla.smolvla_real import (
     build_real_smolvla_action_program,
 )
-from vlaforge.adapters.transactional_fallback import (
+from vlaforge.adapters.shared.transactional_fallback import (
     build_transactional_fallback_fixture,
 )
 

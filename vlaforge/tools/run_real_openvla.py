@@ -8,7 +8,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from vlaforge.adapters.openvla_real import (
+from vlaforge.adapters.openvla.openvla_real import (
     RealOpenVLAConfig,
     run_real_openvla,
 )

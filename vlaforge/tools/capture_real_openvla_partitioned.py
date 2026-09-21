@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from vlaforge.adapters.openvla_partitioned import (
+from vlaforge.adapters.openvla.openvla_partitioned import (
     OPENVLA_UPSTREAM_REVISION,
     OpenVLAPartitionCaptureConfig,
     capture_real_openvla_partitioned,

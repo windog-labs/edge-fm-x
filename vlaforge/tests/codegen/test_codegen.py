@@ -42,7 +42,7 @@ from vlaforge.validation import normalize_plan_trace_for_runtime
 
 
 SOURCE_GOLDEN_DIGEST = (
-    "26ec7193d8d299e42fda3de5acfd7039108fed8ab050a88566695bfd054b26b1"
+    "b675336d44ff5d1cd47e72ad68961a3e11973039490702b9711a66ba6c13af3c"
 )
 
 

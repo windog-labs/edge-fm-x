@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from vlaforge.adapters.minddrive_real import (
+from vlaforge.adapters.minddrive.minddrive_real import (
     load_real_minddrive_model,
     make_partitioned_minddrive_map_encoder,
 )

@@ -11,6 +11,7 @@
 .codex/
 .codegraph/
 .venv/
+tmp/
 build/
 build-*/
 vlaforge/build/
@@ -21,6 +22,8 @@ third_party/
 examples/
 !vlaforge/examples/
 vlaforge/examples/*
+!vlaforge/examples/iterative_frontend.py
+!vlaforge/examples/j6p_vlm_kv_cache.py
 !vlaforge/examples/external_bev_plugin/
 !vlaforge/examples/external_bev_plugin/**
 

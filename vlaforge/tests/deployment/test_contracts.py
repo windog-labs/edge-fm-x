@@ -5,8 +5,8 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-
 from vlaforge.compiler import (
+    NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA,
     ArenaCertificate,
     CompilationCertificate,
     CompilerProfile,
@@ -28,6 +28,16 @@ from vlaforge.deployment import (
     VersionEntry,
     WorkspaceContract,
     load_bundle_manifest,
+)
+from vlaforge.deployment.bundle import NUMERICAL_BUNDLE_SCHEMA
+from vlaforge.deployment.contract import NUMERICAL_ARTIFACT_SCHEMA
+from vlaforge.deployment.numerical import (
+    NumericalCompileRecord,
+    NumericalContractError,
+    NumericalEnforcementUnavailable,
+    NumericalPolicy,
+    NumericalRequirement,
+    RegionNumericalBinding,
 )
 from vlaforge.ir.types import TensorType
 
@@ -184,6 +194,204 @@ def test_region_artifact_round_trip_is_deterministic(tmp_path: Path) -> None:
     assert decoded.input_schema_digest == artifact.input_schema_digest
     assert decoded.output_schema_digest == artifact.output_schema_digest
     assert decoded.residency is ArtifactResidency.INVOCATION
+
+
+def _numerical_artifact(artifact: RegionArtifactContract) -> RegionArtifactContract:
+    policy = NumericalPolicy("fixture.numeric/1", (("precise", True),))
+    record = NumericalCompileRecord(
+        artifact.capability.backend, artifact.capability.target, "compiler-1",
+        "e" * 64, artifact.identity.graph_sha256, artifact.artifact_sha256,
+        artifact.artifact_size_bytes, policy, policy, policy,
+        '{"options":{"fuse":false},"rewrites":[],"versions":{"runtime":"1"}}',
+    )
+    requirement = NumericalRequirement(policy, "same-precision", policy.digest(), record.digest())
+    binding = RegionNumericalBinding(artifact.region_name, requirement, record)
+    return replace(artifact, schema=NUMERICAL_ARTIFACT_SCHEMA, numerical_binding=binding)
+
+
+def _numerical_bundle(root: Path) -> CompileBundleManifest:
+    bundle = _bundle(root)
+    artifact = _numerical_artifact(bundle.region_artifacts[0])
+    certificate = replace(
+        bundle.compilation_certificate, schema=NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA,
+        numerical_bindings=(artifact.numerical_binding,),
+    )
+    return replace(bundle, schema=NUMERICAL_BUNDLE_SCHEMA, region_artifacts=(artifact,),
+                   compilation_certificate=certificate)
+
+
+def test_policy_documents_round_trip_without_claiming_enforcement(tmp_path):
+    bundle = _numerical_bundle(tmp_path)
+    restored = CompileBundleManifest.from_dict(bundle.to_dict())
+    assert restored == bundle
+    assert restored.digest() == bundle.digest()
+    restored.verify_files(tmp_path)
+    for document in (bundle, bundle.region_artifacts[0], bundle.compilation_certificate):
+        assert document.to_dict()["runtime_enforcement"] == "unimplemented"
+        with pytest.raises(NumericalEnforcementUnavailable, match="unimplemented"):
+            document.require_runtime_deployable()
+
+
+def test_legacy_documents_have_no_new_fields_or_numerical_claims(tmp_path):
+    bundle = _bundle(tmp_path)
+    assert bundle.schema == "vlaforge.compile_bundle/4"
+    assert bundle.region_artifacts[0].schema == "vlaforge.region_artifact/3"
+    assert bundle.compilation_certificate.schema == "vlaforge.compilation_certificate/2"
+    for document in (bundle, bundle.region_artifacts[0], bundle.compilation_certificate):
+        payload = document.to_dict()
+        assert not any(key.startswith("numerical") or key == "runtime_enforcement" for key in payload)
+        assert type(document).from_dict(payload).to_dict() == payload
+        document.require_runtime_deployable()
+
+
+@pytest.mark.parametrize("kind,legacy", (("artifact", "vlaforge.region_artifact/3"),
+    ("certificate", "vlaforge.compilation_certificate/2"), ("bundle", "vlaforge.compile_bundle/4")))
+@pytest.mark.parametrize("change", ("downgrade", "missing", "claim", "unknown"))
+def test_policy_document_downgrades_and_unchecked_claims_rejected(tmp_path, kind, legacy, change):
+    bundle = _numerical_bundle(tmp_path)
+    documents = {"artifact": bundle.region_artifacts[0],
+                 "certificate": bundle.compilation_certificate, "bundle": bundle}
+    document = documents[kind]
+    payload = document.to_dict()
+    if change == "downgrade":
+        payload["schema"] = legacy
+    elif change == "missing":
+        del payload[next(key for key in payload if key.startswith("numerical"))]
+    elif change == "claim":
+        payload["runtime_enforcement"] = "verified"
+    else:
+        payload["fidelity_verified"] = True
+    with pytest.raises(NumericalContractError):
+        type(document).from_dict(payload)
+
+
+@pytest.mark.parametrize("kind,version", (("artifact", NUMERICAL_ARTIFACT_SCHEMA),
+    ("certificate", NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA), ("bundle", NUMERICAL_BUNDLE_SCHEMA)))
+def test_new_schema_cannot_omit_policy(tmp_path, kind, version):
+    bundle = _bundle(tmp_path)
+    document = {"artifact": bundle.region_artifacts[0],
+                "certificate": bundle.compilation_certificate, "bundle": bundle}[kind]
+    with pytest.raises(ValueError, match="requires its explicit schema"):
+        replace(document, schema=version)
+
+
+@pytest.mark.parametrize("field,value", (("backend", "other"), ("target", "cpu"),
+    ("graph_sha256", "f" * 64), ("artifact_sha256", "f" * 64), ("artifact_size_bytes", 99)))
+def test_numerical_compile_record_must_match_actual_artifact(tmp_path, field, value):
+    artifact = _numerical_artifact(_region(tmp_path))
+    binding = artifact.numerical_binding
+    record = replace(binding.compile_record, **{field: value})
+    binding = replace(binding, compile_record=record,
+                      requirement=replace(binding.requirement, compile_record_sha256=record.digest()))
+    with pytest.raises(ValueError, match="identity mismatch"):
+        replace(artifact, numerical_binding=binding)
+
+
+def test_numerical_region_identity_and_certificate_coverage(tmp_path):
+    bundle = _numerical_bundle(tmp_path)
+    artifact = bundle.region_artifacts[0]
+    binding = artifact.numerical_binding
+    with pytest.raises(ValueError, match="identity mismatch"):
+        replace(artifact, numerical_binding=replace(binding, region_name="other"))
+    with pytest.raises(ValueError, match="sorted and unique"):
+        replace(bundle.compilation_certificate, numerical_bindings=(binding, binding))
+    changed = replace(binding, requirement=replace(binding.requirement, execution_lane="quantized"))
+    certificate = replace(bundle.compilation_certificate, numerical_bindings=(changed,))
+    with pytest.raises(ValueError, match="disagree with compilation certificate"):
+        replace(bundle, compilation_certificate=certificate)
+
+
+def test_numerical_bundle_rejects_forged_binding_digest(tmp_path):
+    data = _numerical_bundle(tmp_path).to_dict()
+    data["numerical_bindings_sha256"]["region_0"] = "f" * 64
+    with pytest.raises(ValueError, match="numerical binding digest mismatch"):
+        CompileBundleManifest.from_dict(data)
+
+
+def test_provider_mode_roundtrip_and_outer_marker_consistency(tmp_path):
+    from vlaforge.deployment.numerical import PROVIDER_REQUIRED
+
+    bundle = _numerical_bundle(tmp_path)
+    original = bundle.region_artifacts[0]
+    binding = replace(original.numerical_binding, runtime_enforcement=PROVIDER_REQUIRED)
+    artifact = replace(original, numerical_binding=binding)
+    certificate = replace(bundle.compilation_certificate, numerical_bindings=(binding,))
+    bundle = replace(bundle, region_artifacts=(artifact,), compilation_certificate=certificate)
+    for document in (artifact, certificate, bundle):
+        data = document.to_dict()
+        assert data["runtime_enforcement"] == PROVIDER_REQUIRED
+        assert type(document).from_dict(data) == document
+        with pytest.raises(ValueError, match="enforcement marker mismatch"):
+            type(document).from_dict({**data, "runtime_enforcement": "unimplemented"})
+    # Existing AOTI/TensorRT contracts remain unsupported despite explicit mode.
+    with pytest.raises(NumericalEnforcementUnavailable, match="unsupported"):
+        artifact.require_runtime_deployable()
+
+
+def test_certificate_rejects_mixed_record_only_and_provider_modes(tmp_path):
+    from vlaforge.deployment.numerical import PROVIDER_REQUIRED
+
+    certificate = _numerical_bundle(tmp_path).compilation_certificate
+    record_only = certificate.numerical_bindings[0]
+    provider = replace(record_only, region_name="z_other", runtime_enforcement=PROVIDER_REQUIRED)
+    with pytest.raises(NumericalContractError, match="mixed"):
+        replace(certificate, numerical_bindings=(record_only, provider))
+
+
+def test_bundle_loader_rejects_duplicate_policy_keys(tmp_path):
+    bundle = _numerical_bundle(tmp_path)
+    text = bundle.canonical_json().replace('"precise":true', '"precise":true,"precise":false', 1)
+    path = tmp_path / "bundle.json"
+    path.write_text(text)
+    with pytest.raises(NumericalContractError, match="duplicate JSON key"):
+        load_bundle_manifest(path)
+
+
+def test_policy_bearing_bundle_build_fails_before_writes_or_compilation(tmp_path, monkeypatch):
+    from vlaforge.adapters import build_openvla_fixture
+    from vlaforge.deployment import build, build_artifact_compile_bundle
+
+    module = build_openvla_fixture().module
+    legacy = _region(tmp_path)
+    contracts = {region.name: _numerical_artifact(replace(legacy, region_id=index, region_name=region.name))
+                 for index, region in enumerate(module.regions)}
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("policy requirements must be rejected before compilation")
+
+    monkeypatch.setattr(build, "compile_module", forbidden)
+    output = tmp_path / "must-not-exist"
+    with pytest.raises(NumericalEnforcementUnavailable, match="unimplemented"):
+        build_artifact_compile_bundle(
+            module, output, region_artifacts=contracts,
+            artifact_sources={name: "missing-is-not-read" for name in contracts},
+            validators={}, runner_source="", runtime_root="missing", cmake_prefix_path="missing",
+            backend_versions={"fixture": "1"}, source_revision="test", source_dirty=False,
+        )
+    assert not output.exists()
+
+
+def test_policy_certificate_cannot_be_silently_dropped_by_codegen(tmp_path):
+    from vlaforge.adapters import build_openvla_fixture
+    from vlaforge.codegen import generate_compiled_cpp_session, generate_cpp_session
+    from vlaforge.codegen.cpp import CodegenUnsupportedError
+    from vlaforge.compiler import compile_module
+
+    compilation = compile_module(build_openvla_fixture().module)
+    binding = _numerical_artifact(_region(tmp_path)).numerical_binding
+    certificate = replace(compilation.certificate, schema=NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA,
+                          numerical_bindings=(binding,))
+    with pytest.raises(CodegenUnsupportedError, match="numerical runtime enforcement is unimplemented"):
+        generate_compiled_cpp_session(replace(compilation, certificate=certificate), validators={})
+    with pytest.raises(CodegenUnsupportedError, match="numerical runtime enforcement is unimplemented"):
+        generate_cpp_session(compilation.plan, compilation.module, validators={},
+                             compilation_certificate=certificate)
+    with pytest.raises(CodegenUnsupportedError, match="numerical runtime enforcement is unimplemented"):
+        generate_cpp_session(compilation.plan, compilation.module, validators={},
+                             compilation_certificate=certificate.to_dict())
+    with pytest.raises(CodegenUnsupportedError, match="numerical runtime enforcement is unimplemented"):
+        generate_cpp_session(compilation.plan, compilation.module, validators={},
+                             compilation_certificate={"numerical_bindings": []})
 
 
 def test_region_artifact_defaults_legacy_residency_to_session(

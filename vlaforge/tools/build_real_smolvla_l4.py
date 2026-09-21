@@ -24,7 +24,7 @@ _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 _REPOSITORY_ROOT = _SOURCE_ROOT.parent
 sys.path.insert(0, str(_SOURCE_ROOT / "python"))
 
-from vlaforge.adapters.smolvla_artifact import (  # noqa: E402
+from vlaforge.adapters.smolvla.smolvla_artifact import (  # noqa: E402
     build_compiled_smolvla_action_program,
     capture_smolvla_support_regions,
 )
@@ -108,7 +108,7 @@ def _run(
 
 def _git(command: list[str]) -> str:
     return _run(
-        ["git", *command],
+        ["git", "-C", str(_REPOSITORY_ROOT), *command],
         environment=dict(os.environ),
     ).stdout.strip()
 
@@ -1091,7 +1091,7 @@ return true;""",
             profile="verified",
             source_revision=revision,
             source_dirty=dirty,
-            environment={"TORCH_CUDA_ARCH_LIST": "8.6"},
+            environment={"TORCH_CUDA_ARCH_LIST": f"{major}.{minor}"},
             initial_state=initial_state,
             default_device="cuda:0",
             state_device="cuda:0",
@@ -1357,7 +1357,8 @@ def main(argv: list[str] | None = None) -> int:
         vlm_path=args.vlm_path.resolve(),
         upstream_revision=args.upstream_revision,
         target=args.target,
-        python=args.python.resolve(),
+        # Resolving a venv interpreter symlink selects the base environment.
+        python=args.python.absolute(),
         reuse_bundle=args.reuse_bundle,
     )
     text = json.dumps(report, indent=2, sort_keys=True)
@@ -1368,4 +1369,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except subprocess.CalledProcessError as error:
+        # Build subprocesses capture diagnostics and may delete temporary trees.
+        if error.stdout:
+            print(error.stdout, file=sys.stderr)
+        if error.stderr:
+            print(error.stderr, file=sys.stderr)
+        raise

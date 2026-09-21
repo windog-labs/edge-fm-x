@@ -4,6 +4,8 @@
 #include <stddef.h>
 
 #include "vlaforge/runtime/region_executable.h"
+#include "vlaforge/runtime/execution_context.h"
+#include "vlaforge/runtime/numerical.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,6 +27,18 @@ vlaforge_external_region_plugin_open(const char *path, size_t path_size,
 
 const VLAForgeRegionExecutableValueApi *
 vlaforge_external_region_plugin_api(const VLAForgeExternalRegionPlugin *plugin);
+
+/* Returns null for a legacy plugin without the optional sidecar symbol.
+ * A present but invalid sidecar causes open() to fail, not silent fallback. */
+const VLAForgeRegionExecutionExtensionApi *
+vlaforge_external_region_plugin_execution_extension_api(
+    const VLAForgeExternalRegionPlugin *plugin);
+
+/* Queried only for an explicit numerical requirement. A legacy plugin is not
+ * required to export it. A present invalid provider returns an error. */
+VLAForgeStatus vlaforge_external_region_plugin_numerical_provider(
+    const VLAForgeExternalRegionPlugin *plugin,
+    const VLAForgeNumericalProviderApi **provider);
 
 void vlaforge_external_region_plugin_close(
     VLAForgeExternalRegionPlugin *plugin);

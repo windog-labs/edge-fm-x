@@ -11,6 +11,8 @@ namespace vlaforge::runtime {
 
 // Performs one explicit synchronous copy between declared CPU/CUDA devices.
 // The function never infers ownership and never changes either allocation.
+// The caller must complete prior producers. On success the copied bytes are
+// ready for consumers on any stream. Not valid within CUDA graph capture.
 [[nodiscard]] Status CopyBytes(
     void* destination, VLAForgeDevice destination_device,
     const void* source, VLAForgeDevice source_device,

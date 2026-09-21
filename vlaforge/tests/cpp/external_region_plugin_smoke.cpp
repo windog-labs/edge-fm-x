@@ -26,7 +26,9 @@ int main(int argc, char **argv) {
       !Open(argv[1], &second, VLAFORGE_STATUS_OK) || first == nullptr ||
       second == nullptr ||
       vlaforge_external_region_plugin_api(first) == nullptr ||
-      vlaforge_external_region_plugin_api(second) == nullptr) {
+      vlaforge_external_region_plugin_api(second) == nullptr ||
+      vlaforge_external_region_plugin_execution_extension_api(first) != nullptr ||
+      vlaforge_external_region_plugin_execution_extension_api(nullptr) != nullptr) {
     return 2;
   }
 

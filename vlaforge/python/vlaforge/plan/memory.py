@@ -345,6 +345,31 @@ def _plan_arena(
         for buffer_id in task.inputs:
             consumers[buffer_id].append(task.id)
 
+    # A preheader value is needed again on every iteration, even after its
+    # last textual use in the body. Pin it through the entire structured loop.
+    def descendants(block_id: int) -> set[int]:
+        result: set[int] = set()
+        for task_id in plan.block(block_id).tasks:
+            result.add(task_id)
+            for child in plan.task(task_id).blocks:
+                result.update(descendants(child))
+        return result
+
+    for task in plan.tasks:
+        if task.opcode != "vla.for":
+            continue
+        nested = descendants(task.blocks[0])
+        end = max(nested, default=task.id)
+        pinned = set(task.outputs) | set(task.attributes.get("carry_scratch", ()))
+        pinned.update(task.attributes.get("replay_seeds", ()))
+        pinned.update(task.attributes.get("replay_staging", ()))
+        for task_id in nested:
+            for buffer_id in plan.task(task_id).inputs:
+                if plan.buffers[buffer_id].producer_task not in nested:
+                    pinned.add(buffer_id)
+        for buffer_id in pinned:
+            consumers[buffer_id].append(end)
+
     intervals = []
     for buffer in plan.buffers:
         if (

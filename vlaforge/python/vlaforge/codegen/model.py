@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Mapping
 
+from vlaforge.deployment.contract import EffectAudit
+from vlaforge.deployment.numerical import RegionNumericalBinding
+
 
 @dataclass(frozen=True, slots=True)
 class ZeroStateInitializer:
@@ -41,12 +44,30 @@ class CppArtifactRegionDefinition:
     backend_variant: str | None = None
     residency: str = "session"
     callable_abi_version: int = 2
+    supports_external_cuda_graph: bool = False
+    effect_audit: EffectAudit | None = None
+    supports_execution_context: bool = False
+    numerical_binding: RegionNumericalBinding | None = None
 
     def __post_init__(self) -> None:
+        if self.numerical_binding is not None:
+            binding = self.numerical_binding
+            if not isinstance(binding, RegionNumericalBinding):
+                raise ValueError("artifact numerical binding must be verified")
+            record = binding.compile_record
+            if (binding.region_name != self.region_name or record.backend != self.backend
+                    or record.target != self.target or record.artifact_sha256 != self.artifact_sha256
+                    or record.artifact_size_bytes != self.artifact_size_bytes):
+                raise ValueError("artifact numerical binding identity mismatch")
+            binding.require_runtime_deployable()
+            if self.residency != "session":
+                raise ValueError("numerical policy requires Session-resident Regions")
+        if self.effect_audit is not None and not isinstance(self.effect_audit, EffectAudit):
+            raise ValueError("artifact effect audit must be a verified EffectAudit descriptor")
         candidate = PurePosixPath(self.artifact_path)
         if (
             not self.region_name
-            or self.backend not in {"aoti", "tensorrt", "shared_plugin"}
+            or self.backend not in {"aoti", "tensorrt", "shared_plugin", "torchscript"}
             or not self.artifact_path
             or candidate.is_absolute()
             or ".." in candidate.parts
@@ -57,6 +78,20 @@ class CppArtifactRegionDefinition:
             or self.callable_abi_version != 2
         ):
             raise ValueError("invalid C++ artifact Region definition")
+        if self.backend == "torchscript":
+            context = self.backend_variant == "torchscript-aten-context/1"
+            if not context and self.backend_variant != "torchscript-aten/1":
+                raise ValueError("unsupported TorchScript backend variant")
+            if context:
+                if not self.device.startswith("cuda:") or not self.supports_execution_context:
+                    raise ValueError("TorchScript context variant requires CUDA and shared context")
+            elif self.supports_execution_context or self.supports_external_cuda_graph:
+                raise ValueError("TorchScript synchronous profile has no replay")
+            if self.residency != "session":
+                raise ValueError("TorchScript profile requires Session residency")
+            if not ((self.target == "cpu" and self.device == "cpu") or
+                    (self.target.startswith("sm_") and self.device.startswith("cuda:"))):
+                raise ValueError("TorchScript target and device disagree")
         if self.backend == "tensorrt" and (
             not self.target.startswith("sm_") or self.device == "cpu"
         ):

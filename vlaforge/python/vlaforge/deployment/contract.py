@@ -14,10 +14,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
+from vlaforge.deployment.numerical import (
+    RegionNumericalBinding,
+    validate_numerical_version,
+)
 from vlaforge.ir.types import IRType, TensorType, type_from_dict
 
-
 ARTIFACT_SCHEMA = "vlaforge.region_artifact/3"
+NUMERICAL_ARTIFACT_SCHEMA = "vlaforge.region_artifact/4"
 CALLABLE_ABI_VERSION = 2
 REGION_PLUGIN_ABI = "vlaforge.region_executable/2"
 
@@ -35,6 +39,7 @@ def _require_power_of_two(value: int, field: str) -> None:
 class ArtifactKind(str, Enum):
     CPU_FIXTURE = "cpu_fixture"
     AOTI_PACKAGE = "aoti_package"
+    AOTI_MATERIALIZED = "aoti_materialized"
     AOTI_SEQUENCE = "aoti_sequence"
     TORCHSCRIPT_ARCHIVE = "torchscript_archive"
     SHARED_LIBRARY = "shared_library"
@@ -313,6 +318,8 @@ class BackendCapability:
     supports_dynamic_shapes: bool = False
     supports_device_resident_io: bool = False
     requires_synchronize: bool = False
+    supports_external_cuda_graph: bool = False
+    supports_execution_context: bool = False
 
     def __post_init__(self) -> None:
         _require_nonempty(self.backend, "backend")
@@ -330,6 +337,8 @@ class BackendCapability:
             "supports_dynamic_shapes": self.supports_dynamic_shapes,
             "supports_device_resident_io": self.supports_device_resident_io,
             "requires_synchronize": self.requires_synchronize,
+            **({"supports_external_cuda_graph": True} if self.supports_external_cuda_graph else {}),
+            **({"supports_execution_context": True} if self.supports_execution_context else {}),
         }
 
     @classmethod
@@ -345,6 +354,8 @@ class BackendCapability:
                 data.get("supports_device_resident_io", False)
             ),
             requires_synchronize=bool(data.get("requires_synchronize", False)),
+            supports_external_cuda_graph=bool(data.get("supports_external_cuda_graph", False)),
+            supports_execution_context=bool(data.get("supports_execution_context", False)),
         )
 
 
@@ -422,10 +433,26 @@ class RegionArtifactContract:
     plugin_abi: str = REGION_PLUGIN_ABI
     callable_abi_version: int = CALLABLE_ABI_VERSION
     schema: str = ARTIFACT_SCHEMA
+    numerical_binding: RegionNumericalBinding | None = None
 
     def __post_init__(self) -> None:
-        if self.schema != ARTIFACT_SCHEMA:
+        if self.schema not in (ARTIFACT_SCHEMA, NUMERICAL_ARTIFACT_SCHEMA):
             raise ValueError(f"unsupported artifact schema: {self.schema!r}")
+        if (self.numerical_binding is not None) != (self.schema == NUMERICAL_ARTIFACT_SCHEMA):
+            raise ValueError("numerical artifact policy requires its explicit schema")
+        if self.numerical_binding is not None:
+            if not isinstance(self.numerical_binding, RegionNumericalBinding):
+                raise ValueError("invalid artifact numerical binding")
+            record = self.numerical_binding.compile_record
+            if (
+                self.numerical_binding.region_name != self.region_name
+                or record.backend != self.capability.backend
+                or record.target != self.capability.target
+                or record.graph_sha256 != self.identity.graph_sha256
+                or record.artifact_sha256 != self.artifact_sha256
+                or record.artifact_size_bytes != self.artifact_size_bytes
+            ):
+                raise ValueError("artifact numerical compile record identity mismatch")
         if self.callable_abi_version != CALLABLE_ABI_VERSION:
             raise ValueError(
                 f"unsupported callable ABI {self.callable_abi_version}; "
@@ -481,6 +508,13 @@ class RegionArtifactContract:
     def input_schema_digest(self) -> str:
         return _value_contract_digest(self.inputs)
 
+    def require_runtime_deployable(self) -> None:
+        """Legacy compatibility is not numerical verification."""
+        if self.numerical_binding is not None:
+            self.numerical_binding.require_runtime_deployable()
+            if self.residency is not ArtifactResidency.SESSION:
+                raise ValueError("numerical policy requires Session-resident Regions")
+
     @property
     def output_schema_digest(self) -> str:
         return _value_contract_digest(self.outputs)
@@ -507,10 +541,23 @@ class RegionArtifactContract:
             "effect_audit": self.effect_audit.to_dict(),
             "backend_variant": self.backend_variant,
             "residency": self.residency.value,
+            **({"numerical_binding": self.numerical_binding.to_dict(),
+                "runtime_enforcement": self.numerical_binding.runtime_enforcement}
+               if self.numerical_binding is not None else {}),
         }
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "RegionArtifactContract":
+        validate_numerical_version(
+            data, legacy_schema=ARTIFACT_SCHEMA, policy_schema=NUMERICAL_ARTIFACT_SCHEMA,
+            field="numerical_binding", legacy_fields={
+                "schema", "plugin_abi", "callable_abi_version", "region_id", "region_name",
+                "io_schema_digest", "input_schema_digest", "output_schema_digest", "identity",
+                "inputs", "outputs", "artifact_kind", "artifact_path", "artifact_sha256",
+                "artifact_size_bytes", "workspace", "capability", "effect_audit",
+                "backend_variant", "residency",
+            },
+        )
         artifact = cls(
             schema=str(data["schema"]),
             plugin_abi=str(data["plugin_abi"]),
@@ -540,11 +587,16 @@ class RegionArtifactContract:
             residency=ArtifactResidency(
                 str(data.get("residency", ArtifactResidency.SESSION.value))
             ),
+            numerical_binding=(RegionNumericalBinding.from_dict(data["numerical_binding"])
+                               if data["schema"] == NUMERICAL_ARTIFACT_SCHEMA else None),
         )
         if str(data["input_schema_digest"]) != artifact.input_schema_digest:
             raise ValueError("artifact input schema digest mismatch")
         if str(data["output_schema_digest"]) != artifact.output_schema_digest:
             raise ValueError("artifact output schema digest mismatch")
+        if (artifact.numerical_binding is not None and data["runtime_enforcement"]
+                != artifact.numerical_binding.runtime_enforcement):
+            raise ValueError("artifact numerical enforcement marker mismatch")
         return artifact
 
 

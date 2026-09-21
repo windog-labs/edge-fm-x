@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from vlaforge.adapters.minddrive_real import (
+from vlaforge.adapters.minddrive.minddrive_real import (
     MINDDRIVE_DECODED_BOX_MAX_ABS,
     MINDDRIVE_DECODED_BOX_NRMSE,
     MINDDRIVE_DECODED_MOTION_MAX_ABS,

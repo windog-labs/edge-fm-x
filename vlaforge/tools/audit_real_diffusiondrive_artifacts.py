@@ -14,10 +14,10 @@ _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 _REPOSITORY_ROOT = _SOURCE_ROOT.parent
 sys.path.insert(0, str(_SOURCE_ROOT / "python"))
 
-from vlaforge.adapters.diffusiondrive_artifact import (  # noqa: E402
+from vlaforge.adapters.diffusiondrive.diffusiondrive_artifact import (  # noqa: E402
     audit_real_diffusiondrive_artifacts,
 )
-from vlaforge.adapters.diffusiondrive_real import (  # noqa: E402
+from vlaforge.adapters.diffusiondrive.diffusiondrive_real import (  # noqa: E402
     DIFFUSIONDRIVE_HF_REVISION,
     DIFFUSIONDRIVE_UPSTREAM_REVISION,
     RealDiffusionDriveConfig,

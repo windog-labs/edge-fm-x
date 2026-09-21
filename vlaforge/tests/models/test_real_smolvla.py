@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from vlaforge.adapters.smolvla_real import (
+from vlaforge.adapters.smolvla.smolvla_real import (
     RealSmolVLAConfig,
     build_real_smolvla_action_program,
     run_real_smolvla,

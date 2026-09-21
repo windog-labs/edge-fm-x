@@ -4,7 +4,7 @@ import json
 import pytest
 import torch
 
-from vlaforge.adapters.smolvla_artifact import (
+from vlaforge.adapters.smolvla.smolvla_artifact import (
     build_compiled_smolvla_action_program,
     _metrics,
     _verify_artifact_chain,
@@ -46,7 +46,8 @@ def test_compiled_smolvla_program_has_flat_kv_and_adapter_owned_queue():
     assert {state.device for state in compilation.plan.states} == {"cuda:0"}
 
 
-def test_smolvla_artifact_chain_authenticates_exports_and_packages(tmp_path):
+@pytest.mark.parametrize("target", ["sm_86", "sm_90", "cpu"])
+def test_smolvla_artifact_chain_authenticates_exports_and_packages(tmp_path, target):
     exports = tmp_path / "exports"
     artifacts = tmp_path / "artifacts"
     exports.mkdir()
@@ -61,7 +62,7 @@ def test_smolvla_artifact_chain_authenticates_exports_and_packages(tmp_path):
         manifest = {
             "schema": "vlaforge.compile_artifact_result/1",
             "status": "passed",
-            "target": "sm_86",
+            "target": target,
             "graph_nodes": index + 1,
             "compile_seconds": float(index + 1),
             "exported_program": {
@@ -77,11 +78,14 @@ def test_smolvla_artifact_chain_authenticates_exports_and_packages(tmp_path):
         )
 
     export_records, artifact_records = _verify_artifact_chain(
-        exports, artifacts
+        exports, artifacts, expected_target=target
     )
     assert len(export_records) == len(artifact_records) == 3
-    assert artifact_records[0]["target"] == "sm_86"
+    assert artifact_records[0]["target"] == target
+
+    with pytest.raises(ValueError, match="invalid compile manifest"):
+        _verify_artifact_chain(exports, artifacts, expected_target="other-target")
 
     (artifacts / "solver_step.pt2").write_bytes(b"corrupted")
     with pytest.raises(ValueError, match="digest mismatch"):
-        _verify_artifact_chain(exports, artifacts)
+        _verify_artifact_chain(exports, artifacts, expected_target=target)

@@ -6,7 +6,10 @@ import hashlib
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
+
+if TYPE_CHECKING:
+    from vlaforge.deployment.numerical import RegionNumericalBinding
 
 from vlaforge.ir.program import Module
 from vlaforge.ir.serializer import io_schema_digest, module_digest
@@ -22,14 +25,15 @@ from vlaforge.transforms import (
     canonicalize,
     configure_exact_cache,
 )
-
+from vlaforge.transforms.loop_execution import configure_loop_execution
 
 COMPILATION_CERTIFICATE_SCHEMA = "vlaforge.compilation_certificate/2"
+NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA = "vlaforge.compilation_certificate/3"
 EXACT_CACHE_IDENTITIES = ("episode", "model", "artifact")
 
 
 class CompilerProfile(str, Enum):
-    """The only optimization choices exposed by the deployment compiler."""
+    """Whole-program optimization profile, separate from loop execution policy."""
 
     OFF = "off"
     VERIFIED = "verified"
@@ -205,12 +209,29 @@ class CompilationCertificate:
     loops: tuple[LoopInvariantCertificate, ...]
     arena: ArenaCertificate
     schema: str = COMPILATION_CERTIFICATE_SCHEMA
+    numerical_bindings: tuple[RegionNumericalBinding, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.schema != COMPILATION_CERTIFICATE_SCHEMA:
+        if self.schema not in (COMPILATION_CERTIFICATE_SCHEMA, NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA):
             raise ValueError(
                 f"unsupported compilation certificate schema: {self.schema}"
             )
+        if bool(self.numerical_bindings) != (self.schema == NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA):
+            raise ValueError("numerical certificate policy requires its explicit schema")
+        if type(self.numerical_bindings) is not tuple:
+            raise ValueError("certificate numerical bindings must be an immutable tuple")
+        if self.numerical_bindings:
+            from vlaforge.deployment.numerical import (
+                RegionNumericalBinding,
+                numerical_enforcement,
+            )
+
+            if any(not isinstance(item, RegionNumericalBinding) for item in self.numerical_bindings):
+                raise ValueError("invalid certificate numerical binding")
+            names = [item.region_name for item in self.numerical_bindings]
+            if names != sorted(set(names)):
+                raise ValueError("certificate numerical bindings must be sorted and unique")
+            numerical_enforcement(self.numerical_bindings)
         for value in (
             self.input_semantic_digest,
             self.compiled_semantic_digest,
@@ -233,7 +254,13 @@ class CompilationCertificate:
             None,
         )
 
+    def require_runtime_deployable(self) -> None:
+        for binding in self.numerical_bindings:
+            binding.require_runtime_deployable()
+
     def to_dict(self) -> dict[str, object]:
+        from vlaforge.deployment.numerical import numerical_enforcement
+
         return {
             "schema": self.schema,
             "profile": self.profile.value,
@@ -246,6 +273,9 @@ class CompilationCertificate:
             "caches": [item.to_dict() for item in self.caches],
             "loops": [item.to_dict() for item in self.loops],
             "arena": self.arena.to_dict(),
+            **({"numerical_bindings": [item.to_dict() for item in self.numerical_bindings],
+                "runtime_enforcement": numerical_enforcement(self.numerical_bindings)}
+               if self.numerical_bindings else {}),
         }
 
     def canonical_json(self, *, indent: int | None = None) -> str:
@@ -261,7 +291,20 @@ class CompilationCertificate:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "CompilationCertificate":
-        return cls(
+        from vlaforge.deployment.numerical import (
+            RegionNumericalBinding,
+            validate_numerical_version,
+        )
+
+        validate_numerical_version(
+            data, legacy_schema=COMPILATION_CERTIFICATE_SCHEMA,
+            policy_schema=NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA,
+            field="numerical_bindings", legacy_fields={
+                "schema", "profile", "test_only", "input_semantic_digest", "compiled_semantic_digest",
+                "io_schema_digest", "plan_digest", "passes", "caches", "loops", "arena",
+            },
+        )
+        result = cls(
             schema=str(data["schema"]),
             profile=CompilerProfile.parse(str(data["profile"])),
             test_only=bool(data["test_only"]),
@@ -282,7 +325,13 @@ class CompilationCertificate:
                 for item in data.get("loops", ())
             ),
             arena=ArenaCertificate.from_dict(data["arena"]),
+            numerical_bindings=tuple(RegionNumericalBinding.from_dict(item)
+                                     for item in data.get("numerical_bindings", ())),
         )
+        if (result.numerical_bindings and data["runtime_enforcement"]
+                != result.to_dict()["runtime_enforcement"]):
+            raise ValueError("certificate numerical enforcement marker mismatch")
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,6 +340,8 @@ class CompilationResult:
     plan: PlanModule
     baseline_plan: PlanModule
     certificate: CompilationCertificate
+    input_module: Module | None = None
+    loop_execution: str = "source"
 
 
 def compile_module(
@@ -301,6 +352,7 @@ def compile_module(
     default_device: str = "cpu",
     state_device: str = "cpu",
     allow_test_profile: bool = False,
+    loop_execution: str = "source",
 ) -> CompilationResult:
     """Compile one caller-driven VLA invocation with auditable contracts."""
 
@@ -316,6 +368,7 @@ def compile_module(
         for region in module.regions
     }
     canonical = canonicalize(module)
+    canonical, loop_count = configure_loop_execution(canonical, loop_execution)
     compiled_module = configure_exact_cache(canonical, enabled=enabled)
     loop_analysis = analyze_structured_loop_invariance(compiled_module)
     lowered = lower_to_plan(
@@ -429,6 +482,10 @@ def compile_module(
         io_schema_digest=io_schema_digest(compiled_module),
         plan_digest=compiled.digest(),
         passes=(
+            *((PassCertificate(
+                "bounded_loop_execution", True, loop_count > 0,
+                f"explicit compiler policy={loop_execution}; bounded_loops={loop_count}",
+            ),) if loop_execution != "source" else ()),
             PassCertificate(
                 "exact_cache_contract",
                 enabled,
@@ -468,4 +525,6 @@ def compile_module(
         plan=compiled,
         baseline_plan=baseline,
         certificate=certificate,
+        input_module=module if loop_execution != "source" else None,
+        loop_execution=loop_execution,
     )

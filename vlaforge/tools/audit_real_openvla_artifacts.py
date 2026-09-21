@@ -24,7 +24,7 @@ _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 _REPOSITORY_ROOT = _SOURCE_ROOT.parent
 sys.path.insert(0, str(_SOURCE_ROOT / "python"))
 
-from vlaforge.adapters.openvla_partitioned import (  # noqa: E402
+from vlaforge.adapters.openvla.openvla_partitioned import (  # noqa: E402
     OPENVLA_ACTION_DIM,
     OPENVLA_CHUNK_SIZE,
     OPENVLA_HEADS,

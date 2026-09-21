@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from vlaforge.adapters.openvla_real import (
+from vlaforge.adapters.openvla.openvla_real import (
     RealOpenVLAConfig,
     build_real_openvla_action_program,
     run_real_openvla,

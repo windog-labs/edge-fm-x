@@ -1,4 +1,4 @@
-from vlaforge.adapters.diffusiondrive_real import (
+from vlaforge.adapters.diffusiondrive.diffusiondrive_real import (
     DIFFUSIONDRIVE_UPSTREAM_REVISION,
     build_real_diffusiondrive_program,
 )

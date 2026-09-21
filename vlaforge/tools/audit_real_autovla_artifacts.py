@@ -19,7 +19,7 @@ _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 _REPOSITORY_ROOT = _SOURCE_ROOT.parent
 sys.path.insert(0, str(_SOURCE_ROOT / "python"))
 
-from vlaforge.adapters.autovla_real import (  # noqa: E402
+from vlaforge.adapters.autovla.autovla_real import (  # noqa: E402
     AUTOVLA_DECODE_STEPS,
     AUTOVLA_HIDDEN_SIZE,
 )

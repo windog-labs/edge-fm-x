@@ -1,12 +1,27 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+
+def test_source_identity_is_independent_of_the_runner_working_directory(tmp_path, monkeypatch):
+    source_root = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "smolvla_l4_tool", source_root / "tools/build_real_smolvla_l4.py"
+    )
+    tool = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tool)
+    expected = subprocess.check_output(
+        ["git", "-C", str(source_root.parent), "rev-parse", "HEAD"], text=True
+    ).strip()
+    monkeypatch.chdir(tmp_path)
+    assert tool._git(["rev-parse", "HEAD"]) == expected
 
 
 @pytest.mark.cuda_aoti

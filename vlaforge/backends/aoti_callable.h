@@ -2,6 +2,7 @@
 #define VLAFORGE_BACKENDS_AOTI_CALLABLE_H_
 
 #include <ATen/Tensor.h>
+#include <cstdint>
 
 #include <memory>
 #include <string>
@@ -24,9 +25,11 @@ class AotiCallable final {
   AotiCallable(AotiCallable&&) = delete;
   AotiCallable& operator=(AotiCallable&&) = delete;
 
-  void Load(const std::string& path);
+  void Load(const std::string& path, const std::string& extraction_root = "",
+            const std::string& sha256 = "", std::uint64_t size_bytes = 0u);
   [[nodiscard]] bool loaded() const noexcept;
-  std::vector<at::Tensor> Run(std::vector<at::Tensor>& inputs);
+  std::vector<at::Tensor> Run(std::vector<at::Tensor>& inputs,
+                              void* stream_handle = nullptr);
 
  private:
   struct Impl;

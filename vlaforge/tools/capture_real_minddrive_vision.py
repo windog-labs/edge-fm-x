@@ -18,7 +18,7 @@ import json
 import time
 from pathlib import Path
 
-from vlaforge.adapters.minddrive_real import (
+from vlaforge.adapters.minddrive.minddrive_real import (
     build_real_minddrive_program,
     compare_minddrive_vision_backends,
     load_real_minddrive_model,

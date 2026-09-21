@@ -1,7 +1,9 @@
 #include "vlaforge/backends/aoti_region_executable.h"
 
 #include "aoti_callable.h"
+#include "aoti_extracted_package.h"
 #include "aoti_sequence_runner.h"
+#include "vlaforge/runtime/artifact_verifier.h"
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContextLight.h>
@@ -15,6 +17,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <exception>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <new>
@@ -153,6 +156,9 @@ struct VLAForgeRegionExecutable {
   std::uint32_t abi_version = 0u;
   VLAForgeDeviceKind device_kind = VLAFORGE_DEVICE_CPU;
   int device_ordinal = 0;
+  std::string package_extraction_root;
+  std::optional<VLAForgeExecutionContextView> execution_context;
+  bool pending_work = false;
   std::unique_ptr<vlaforge::backends::AotiCallable> callable;
   std::unique_ptr<vlaforge::backends::AotiSequenceRunner> sequence;
   std::array<Binding, kMaximumBindings> inputs{};
@@ -178,11 +184,14 @@ bool IsLoaded(const VLAForgeRegionExecutable& executable) {
 std::vector<at::Tensor> RunLoaded(
     VLAForgeRegionExecutable& executable,
     std::vector<at::Tensor>& inputs) {
+  void* stream = executable.execution_context.has_value()
+      ? executable.execution_context->native_stream
+      : nullptr;
   if (executable.sequence != nullptr) {
-    return executable.sequence->Run(inputs);
+    return executable.sequence->Run(inputs, stream);
   }
   if (executable.callable != nullptr) {
-    return executable.callable->Run(inputs);
+    return executable.callable->Run(inputs, stream);
   }
   throw std::runtime_error("AOTI executable is not loaded");
 }
@@ -251,6 +260,14 @@ VLAForgeStatus AotiCreate(
   executable->abi_version = options->abi_version;
   executable->device_kind = options->device.kind;
   executable->device_ordinal = options->device.ordinal;
+  try {
+    executable->package_extraction_root =
+        vlaforge::backends::DefaultAotiPackageExtractionRoot();
+  } catch (...) {
+    delete executable;
+    return vlaforge_status_error(VLAFORGE_STATUS_OUT_OF_MEMORY,
+                                "AOTI configuration allocation failed");
+  }
   *output = executable;
   return vlaforge_status_ok();
 }
@@ -274,11 +291,30 @@ VLAForgeStatus AotiLoad(
                                  "AOTI executable is already loaded");
   }
   try {
+    const std::string path(artifact->path, artifact->path_size);
+    std::string sha256;
+    if (!executable->package_extraction_root.empty() ||
+        std::filesystem::path(path).extension() == ".vfaoti") {
+      if (!artifact->sha256 || !artifact->size_bytes || path.find('\0') != std::string::npos) {
+        return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                    "verified AOTI loading requires SHA-256 and size");
+      }
+      constexpr char hex[] = "0123456789abcdef";
+      for (std::size_t i = 0; i < 32u; ++i) {
+        sha256 += hex[artifact->sha256[i] >> 4u];
+        sha256 += hex[artifact->sha256[i] & 15u];
+      }
+      const auto absolute = std::filesystem::absolute(path);
+      std::string verified;
+      const auto status = vlaforge::runtime::VerifyArtifactFile(
+          absolute.parent_path().string(), absolute.filename().string(),
+          sha256, artifact->size_bytes, &verified);
+      if (!status.ok()) return executable->RecordError("AOTI artifact SHA-256/size verification failed");
+    }
     std::optional<c10::cuda::CUDAGuard> guard;
     if (executable->device_kind == VLAFORGE_DEVICE_CUDA) {
       guard.emplace(executable->device_ordinal);
     }
-    const std::string path(artifact->path, artifact->path_size);
     if (IsSequenceArtifact(*artifact)) {
       if (artifact->target == nullptr || artifact->target_size == 0u) {
         return vlaforge_status_error(
@@ -289,14 +325,18 @@ VLAForgeStatus AotiLoad(
           std::make_unique<vlaforge::backends::AotiSequenceRunner>(
               executable->device_kind, executable->device_ordinal);
       executable->sequence->Load(
-          path, std::string(artifact->target, artifact->target_size));
+          path, std::string(artifact->target, artifact->target_size),
+          executable->package_extraction_root);
     } else {
       executable->callable =
           std::make_unique<vlaforge::backends::AotiCallable>(
             executable->device_kind, executable->device_ordinal);
-      executable->callable->Load(path);
+      executable->callable->Load(path, executable->package_extraction_root,
+                                sha256, artifact->size_bytes);
     }
   } catch (const std::exception& error) {
+    executable->sequence.reset();
+    executable->callable.reset();
     return executable->RecordError(error.what());
   }
   return vlaforge_status_ok();
@@ -410,8 +450,18 @@ VLAForgeStatus AotiRun(VLAForgeRegionExecutable* executable) {
 
   try {
     std::optional<c10::cuda::CUDAGuard> guard;
+    std::optional<c10::cuda::CUDAStreamGuard> stream_guard;
     if (executable->device_kind == VLAFORGE_DEVICE_CUDA) {
       guard.emplace(executable->device_ordinal);
+      if (executable->execution_context.has_value()) {
+        stream_guard.emplace(c10::cuda::getStreamFromExternal(
+            static_cast<cudaStream_t>(
+                executable->execution_context->native_stream),
+            executable->device_ordinal));
+      }
+      // A failed call may still have enqueued work. Only synchronize clears
+      // this marker, preventing stream rebinding while storage is in flight.
+      executable->pending_work = true;
     }
     std::vector<at::Tensor> inputs;
     inputs.reserve(executable->input_count);
@@ -447,16 +497,70 @@ VLAForgeStatus AotiSynchronize(
   }
   try {
     const c10::cuda::CUDAGuard guard(executable->device_ordinal);
-    c10::cuda::device_synchronize();
+    if (executable->execution_context.has_value()) {
+      cudaStreamCaptureStatus capture_status = cudaStreamCaptureStatusNone;
+      C10_CUDA_CHECK(cudaStreamIsCapturing(
+          static_cast<cudaStream_t>(executable->execution_context->native_stream),
+          &capture_status));
+      if (capture_status != cudaStreamCaptureStatusNone) {
+        return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
+                                     "AOTI synchronize is not permitted during capture");
+      }
+      c10::cuda::getStreamFromExternal(
+          static_cast<cudaStream_t>(
+              executable->execution_context->native_stream),
+          executable->device_ordinal).synchronize();
+    } else {
+      c10::cuda::device_synchronize();
+    }
+    executable->pending_work = false;
   } catch (const std::exception& error) {
     return executable->RecordError(error.what());
   }
   return vlaforge_status_ok();
 }
 
+VLAForgeStatus AotiBindExecutionContext(
+    VLAForgeRegionExecutable* executable,
+    const VLAForgeExecutionContextView* view) {
+  if (executable == nullptr) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "AOTI executable is null");
+  }
+  if (executable->pending_work) {
+    return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
+                                 "synchronize AOTI before rebinding context");
+  }
+  if (view == nullptr) {
+    executable->execution_context.reset();
+    return vlaforge_status_ok();
+  }
+  const auto status = vlaforge_execution_context_view_validate(view);
+  if (status.code != VLAFORGE_STATUS_OK) {
+    return status;
+  }
+  if (view->device.kind != executable->device_kind ||
+      view->device.ordinal != executable->device_ordinal) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "AOTI execution context device mismatch");
+  }
+  executable->execution_context = *view;
+  return vlaforge_status_ok();
+}
+
 void AotiDestroy(VLAForgeRegionExecutable* executable) {
+  if (executable != nullptr && executable->pending_work) {
+    (void)AotiSynchronize(executable);
+  }
   delete executable;
 }
+
+const VLAForgeRegionExecutionExtensionApi kAotiExecutionExtensionApi = {
+    sizeof(VLAForgeRegionExecutionExtensionApi),
+    VLAFORGE_REGION_EXECUTION_EXTENSION_ABI_VERSION,
+    VLAFORGE_REGION_EXECUTION_CAP_SHARED_CONTEXT,
+    &AotiBindExecutionContext,
+};
 
 const VLAForgeRegionExecutableApi kAotiApi = {
     sizeof(VLAForgeRegionExecutableApi),
@@ -496,4 +600,33 @@ vlaforge_aoti_region_executable_api(void) {
 extern "C" const VLAForgeRegionExecutableValueApi*
 vlaforge_aoti_region_executable_value_api(void) {
   return &kAotiValueApi;
+}
+
+extern "C" const VLAForgeRegionExecutionExtensionApi*
+vlaforge_aoti_region_execution_extension_api(void) {
+  return &kAotiExecutionExtensionApi;
+}
+
+extern "C" VLAForgeStatus vlaforge_aoti_set_package_extraction_root(
+    VLAForgeRegionExecutable* executable, const char* path, size_t path_size) {
+  if (!executable || !path || !path_size) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                "invalid AOTI package extraction root");
+  }
+  if (IsLoaded(*executable) || executable->pending_work) {
+    return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
+                                "AOTI extraction root must be set before load");
+  }
+  try {
+    const std::string value(path, path_size);
+    if (value.find('\0') != std::string::npos ||
+        !std::filesystem::path(value).is_absolute()) {
+      return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                  "AOTI extraction root must be an absolute path");
+    }
+    executable->package_extraction_root = value;
+    return vlaforge_status_ok();
+  } catch (const std::exception& error) {
+    return executable->RecordError(error.what());
+  }
 }

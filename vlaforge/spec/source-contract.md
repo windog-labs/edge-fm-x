@@ -16,6 +16,11 @@ An Adapter declares:
 The declaration generates Semantic IR ports, stable IDs, I/O schema digest,
 generic C ABI, and model-specific typed C++ wrapper.
 
+The [Python Invocation Interface](python-invocation.md) provides a generic
+`InvocationBuilder` for annotated pure stages, variadic bounded generation,
+inferred context dependencies, and transactional state/output management.
+It lowers to this same IR and does not require Adapter-specific C++ management.
+
 The Adapter does not read sensors, synchronize timestamps, assemble a physical
 schedule, publish commands, or own middleware messages. Bottom software
 converts its objects into TensorView/ScalarValue before binding.

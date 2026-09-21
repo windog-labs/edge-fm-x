@@ -23,9 +23,11 @@ class AotiSequenceRunner final {
   AotiSequenceRunner(AotiSequenceRunner&&) = delete;
   AotiSequenceRunner& operator=(AotiSequenceRunner&&) = delete;
 
-  void Load(const std::string& manifest_path, const std::string& target);
+  void Load(const std::string& manifest_path, const std::string& target,
+            const std::string& extraction_root = "");
   [[nodiscard]] bool loaded() const noexcept;
-  std::vector<at::Tensor> Run(std::vector<at::Tensor>& inputs);
+  std::vector<at::Tensor> Run(std::vector<at::Tensor>& inputs,
+                              void* stream_handle = nullptr);
 
  private:
   struct Impl;

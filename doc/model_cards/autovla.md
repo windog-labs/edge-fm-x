@@ -8,7 +8,7 @@
 | Qwen base config | `Qwen/Qwen2.5-VL-3B-Instruct@66285546d2b821cf421d4f5eb2576359d3770cd3` |
 | Source entry | `models/autovla.py:AutoVLA.predict`、`models/action_tokenizer.py` |
 | 当前证据 | pinned L0 + executable L1 + `L2-partitioned-real-checkpoint-frontend` |
-| Adapter | fixture `build_driving_ar_fixture`；real `autovla_real.py` |
+| Adapter | fixture `build_driving_ar_fixture`；real `adapters/autovla/autovla_real.py` |
 | Core op 增量 | 0 |
 
 ## 真实 L2 分区

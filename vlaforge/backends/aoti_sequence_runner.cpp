@@ -185,7 +185,8 @@ AotiSequenceRunner::AotiSequenceRunner(
 AotiSequenceRunner::~AotiSequenceRunner() = default;
 
 void AotiSequenceRunner::Load(
-    const std::string& manifest_path, const std::string& target) {
+    const std::string& manifest_path, const std::string& target,
+    const std::string& extraction_root) {
   if (impl_->is_loaded) {
     throw std::runtime_error("AOTI sequence is already loaded");
   }
@@ -410,7 +411,7 @@ void AotiSequenceRunner::Load(
     auto callable =
         std::make_unique<AotiCallable>(
             impl_->device_kind, impl_->device_ordinal);
-    callable->Load(spec.resolved_path);
+    callable->Load(spec.resolved_path, extraction_root, spec.sha256, spec.size_bytes);
     impl_->artifacts.push_back(std::move(callable));
   }
   impl_->is_loaded = true;
@@ -421,7 +422,7 @@ bool AotiSequenceRunner::loaded() const noexcept {
 }
 
 std::vector<at::Tensor> AotiSequenceRunner::Run(
-    std::vector<at::Tensor>& inputs) {
+    std::vector<at::Tensor>& inputs, void* stream_handle) {
   if (!impl_->is_loaded) {
     throw std::runtime_error("AOTI sequence is not loaded");
   }
@@ -458,7 +459,8 @@ std::vector<at::Tensor> AotiSequenceRunner::Run(
       }
       arguments.push_back(values[value_id]);
     }
-    auto outputs = impl_->artifacts[node.artifact_id]->Run(arguments);
+    auto outputs =
+        impl_->artifacts[node.artifact_id]->Run(arguments, stream_handle);
     if (outputs.size() != node.outputs.size()) {
       throw std::runtime_error(
           "AOTI sequence physical output count mismatch");

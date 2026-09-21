@@ -51,7 +51,6 @@ from vlaforge.ir.parser import parse_module
 from vlaforge.ir.serializer import io_schema_digest, module_digest
 from vlaforge.validation import NumericContract, compare_traces
 
-
 _FIXTURES = {
     "openvla-fixture": build_openvla_fixture,
     "smolvla-fixture": build_smolvla_fixture,
@@ -410,6 +409,8 @@ def _sha256(path: Path) -> str:
 def _compile_artifact(args: argparse.Namespace) -> int:
     import torch
 
+    from vlaforge.deployment.aoti_profile import aoti_configs
+
     exported_path = Path(args.exported_program).resolve()
     output = Path(args.output).resolve()
     if output.exists():
@@ -423,39 +424,50 @@ def _compile_artifact(args: argparse.Namespace) -> int:
             target = f"sm_{major}{minor}"
         else:
             target = "cpu"
-    configs: dict[str, object] = {
-        "aot_inductor.force_mmap_weights": True,
-    }
-    if args.inductor_profile == "conservative":
-        configs.update(
-            {
-                "force_same_precision": True,
-                "max_autotune_gemm_backends": "ATEN",
-                "mixed_mm_choice": "aten",
-                "epilogue_fusion": False,
-            }
-        )
+    if target.startswith("sm_"):
+        if not torch.cuda.is_available():
+            raise ValueError("CUDA AOTI compilation requires the target GPU")
+        major, minor = torch.cuda.get_device_capability(0)
+        native_target = f"sm_{major}{minor}"
+        if target != native_target:
+            raise ValueError(f"requested {target}, current GPU is {native_target}")
+    configs = aoti_configs(args.inductor_profile)
+    from vlaforge.deployment.aoti_export import (
+        prepare_backend_options,
+        prepare_backend_program,
+    )
+
+    backend_program, program_audit = prepare_backend_program(program, configs)
+    backend_options, backend_audit = prepare_backend_options(configs)
     started = time.perf_counter()
     actual = Path(
         torch._inductor.aoti_compile_and_package(
-            program,
+            backend_program,
             package_path=str(output),
-            inductor_configs=configs,
+            inductor_configs=backend_options,
         )
     ).resolve()
     compile_seconds = time.perf_counter() - started
     if actual != output or not output.is_file():
         raise RuntimeError(f"AOTI output mismatch: {actual} != {output}")
+    from vlaforge.deployment.aoti_package import finalize_aoti_package
+
+    package_audit = finalize_aoti_package(output, configs)
     result = {
         "schema": "vlaforge.compile_artifact_result/1",
         "status": "passed",
         "evidence_level": "L3-candidate",
+        "numeric_parity_verified": False,
         "backend": "aoti",
         "target": target,
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
         "inductor_profile": args.inductor_profile,
         "inductor_configs": configs,
+        "backend_program_audit": program_audit,
+        "backend_graph_passes": backend_audit["passes"],
+        "backend_graph_rewrites": backend_audit["rewrites"],
+        "backend_package_audit": package_audit,
         "exported_program": {
             "path": str(exported_path),
             "sha256": _sha256(exported_path),
@@ -473,6 +485,57 @@ def _compile_artifact(args: argparse.Namespace) -> int:
         manifest = Path(args.manifest)
         manifest.parent.mkdir(parents=True, exist_ok=True)
         manifest.write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
+def _compile_torchscript(args: argparse.Namespace) -> int:
+    import torch
+
+    from vlaforge.deployment.torchscript_export import export_torchscript_region
+
+    exported = Path(args.exported_program).resolve()
+    output = Path(args.output).resolve()
+    manifest = None if args.manifest is None else Path(args.manifest).resolve()
+    if manifest is not None and (manifest.exists() or manifest == output):
+        raise ValueError("compile manifest must be a new, separate file")
+    started = time.perf_counter()
+    numerical = None
+    if args.numerical_context is not None:
+        from vlaforge.deployment.torchscript_export import compile_torchscript_region
+        from vlaforge.numerical_context import NumericalContext
+
+        context = NumericalContext.from_dict(
+            json.loads(Path(args.numerical_context).read_text(encoding="utf-8"))
+        )
+        numerical = compile_torchscript_region(
+            exported, output, reference_context=context, target=args.target
+        )
+        audit = numerical["region_validation"]
+    else:
+        if args.target is not None:
+            raise ValueError("--target requires --numerical-context")
+        program = torch.export.load(exported)
+        audit = export_torchscript_region(program, output)
+    result = {
+        "schema": "vlaforge.compile_artifact_result/1",
+        "status": "region_cases_passed",
+        "evidence_level": "L3-region-candidate",
+        "numeric_parity_verified": False,
+        "backend": "torchscript",
+        "exported_program": {"path": str(exported), "sha256": _sha256(exported)},
+        "artifact": {"path": str(output), "sha256": _sha256(output),
+                     "size_bytes": output.stat().st_size},
+        "compile_seconds": time.perf_counter() - started,
+        "region_validation": audit,
+    }
+    if numerical is not None:
+        result["numerical_compilation"] = numerical
+    text = json.dumps(result, indent=2, sort_keys=True)
+    if manifest is not None:
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        with manifest.open("x", encoding="utf-8") as stream:
+            stream.write(text + "\n")
     print(text)
     return 0
 
@@ -654,10 +717,18 @@ def build_parser() -> argparse.ArgumentParser:
     compile_artifact_parser.add_argument("--target")
     compile_artifact_parser.add_argument(
         "--inductor-profile",
-        choices=("default", "conservative"),
+        choices=("default", "conservative", "eager-numerics", "aten-preserving"),
         default="default",
     )
     compile_artifact_parser.set_defaults(handler=_compile_artifact)
+
+    torchscript_parser = commands.add_parser("compile-torchscript")
+    torchscript_parser.add_argument("exported_program")
+    torchscript_parser.add_argument("--output", required=True)
+    torchscript_parser.add_argument("--manifest")
+    torchscript_parser.add_argument("--numerical-context")
+    torchscript_parser.add_argument("--target")
+    torchscript_parser.set_defaults(handler=_compile_torchscript)
 
     build_bundle_parser = commands.add_parser("build-bundle")
     build_bundle_parser.add_argument("program")

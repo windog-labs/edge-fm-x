@@ -1,0 +1,302 @@
+#include "session_generated.h"
+#include "vlaforge/backends/libtorch_rng.h"
+#include <ATen/ATen.h>
+#include <c10/cuda/CUDAGuard.h>
+#include <cuda_runtime_api.h>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <string>
+#include <thread>
+#include <unistd.h>
+#include <vector>
+
+namespace {
+struct Spec {
+  const char* name;
+  VLAForgeDType dtype;
+  std::vector<std::int64_t> shape;
+  std::size_t bytes;
+};
+const std::vector<Spec> inputs = {@INPUTS@};
+const std::vector<Spec> outputs = {@OUTPUTS@};
+struct Buffer {
+  void* data = nullptr;
+  ~Buffer() { if (data) (void)cudaFree(data); }
+};
+bool Cuda(cudaError_t error) {
+  if (error == cudaSuccess) return true;
+  std::fprintf(stderr, "CUDA failure: %s\n", cudaGetErrorString(error));
+  return false;
+}
+bool Upload(const std::string& path, const Spec& spec, Buffer& buffer) {
+  std::ifstream stream(path, std::ios::binary);
+  std::vector<char> bytes(spec.bytes);
+  stream.read(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  if (stream.gcount() != static_cast<std::streamsize>(bytes.size()) ||
+      stream.peek() != std::ifstream::traits_type::eof()) return false;
+  return Cuda(cudaMemcpy(buffer.data, bytes.data(), bytes.size(), cudaMemcpyHostToDevice));
+}
+bool ReadExpected(const std::string& root, std::size_t sample, const Spec& spec,
+                  std::vector<char>& expected) {
+  if (root.empty()) return true;
+  std::ifstream stream(root + "/run-" + std::to_string(sample) + "-" + spec.name + ".bin",
+                       std::ios::binary);
+  expected.resize(spec.bytes);
+  stream.read(expected.data(), static_cast<std::streamsize>(expected.size()));
+  return stream.gcount() == static_cast<std::streamsize>(expected.size()) &&
+      stream.peek() == std::ifstream::traits_type::eof();
+}
+
+bool MatchesExpected(const std::vector<char>& expected, const std::vector<char>& actual) {
+  return expected.empty() || expected == actual;
+}
+
+std::optional<std::size_t> InputIndex(const char* name) {
+  for (std::size_t index = 0; index < inputs.size(); ++index) {
+    if (std::strcmp(inputs[index].name, name) == 0) return index;
+  }
+  return std::nullopt;
+}
+
+bool CopyCudaTensor(const at::Tensor& value, const Spec& spec, Buffer& buffer) {
+  if (!value.is_cuda() || !value.is_contiguous() || value.nbytes() != spec.bytes) return false;
+  return Cuda(cudaMemcpy(buffer.data, value.data_ptr(), spec.bytes, cudaMemcpyDeviceToDevice));
+}
+
+bool CopyState(const at::Tensor& value, const Spec& spec, Buffer& buffer) {
+  if (value.device().is_cuda() || !value.is_contiguous() || value.scalar_type() != at::kByte ||
+      value.nbytes() != spec.bytes) return false;
+  return Cuda(cudaMemcpy(buffer.data, value.data_ptr(), spec.bytes, cudaMemcpyHostToDevice));
+}
+
+bool ParseSeed(const char* text, std::uint64_t* seed) {
+  if (text == nullptr || seed == nullptr || *text == '\0') return false;
+  char* end = nullptr;
+  const auto value = std::strtoull(text, &end, 10);
+  if (end == text || *end != '\0') return false;
+  *seed = static_cast<std::uint64_t>(value);
+  return true;
+}
+
+bool GenerateCogactRng(vlaforge::CudaRngProvider& provider,
+                       std::uint64_t seed,
+                       std::vector<Buffer>& buffers) {
+  const auto initial_index = InputIndex("initial_noise");
+  const auto steps_index = InputIndex("step_noise");
+  const auto states_index = InputIndex("rng_states");
+  const auto before_index = InputIndex("rng_before");
+  if (!initial_index || !steps_index || !states_index || !before_index) return false;
+  provider.Reset(seed);
+  std::vector<at::Tensor> states;
+  states.reserve(12);
+  states.push_back(provider.State());
+  const auto initial = provider.Normal({1, 16, 7});
+  states.push_back(provider.State());
+  auto template_tensor = at::cat(at::TensorList({initial, initial}), 0);
+  std::vector<at::Tensor> steps;
+  steps.reserve(10);
+  for (int index = 0; index < 10; ++index) {
+    steps.push_back(provider.NormalLike(template_tensor));
+    states.push_back(provider.State());
+  }
+  if (states.size() != 12u || !CopyCudaTensor(initial, inputs[*initial_index], buffers[*initial_index]) ||
+      !CopyState(states.front(), inputs[*before_index], buffers[*before_index])) return false;
+  if (inputs[*steps_index].bytes != 10u * 2u * 16u * 7u * sizeof(float) ||
+      inputs[*states_index].bytes != 12u * states.front().nbytes()) return false;
+  for (std::size_t index = 0; index < steps.size(); ++index) {
+    const auto* source = steps[index].data_ptr();
+    if (!Cuda(cudaMemcpy(static_cast<char*>(buffers[*steps_index].data) +
+                         index * steps[index].nbytes(), source, steps[index].nbytes(),
+                         cudaMemcpyDeviceToDevice))) return false;
+  }
+  std::vector<std::uint8_t> state_bytes(12u * states.front().nbytes());
+  for (std::size_t index = 0; index < states.size(); ++index) {
+    std::memcpy(state_bytes.data() + index * states[index].nbytes(),
+                states[index].data_ptr<std::uint8_t>(), states[index].nbytes());
+  }
+  return Cuda(cudaMemcpy(buffers[*states_index].data, state_bytes.data(), state_bytes.size(),
+                         cudaMemcpyHostToDevice));
+}
+
+bool SeedForRun(std::size_t run, std::uint64_t* seed) {
+  const auto* text = std::getenv("VLAFORGE_RNG_SEEDS");
+  if (text == nullptr) return false;
+  std::string values(text);
+  std::size_t start = 0;
+  for (std::size_t index = 0; index <= values.size(); ++index) {
+    if (index != values.size() && values[index] != ',') continue;
+    if (run == 0) return ParseSeed(values.substr(start, index - start).c_str(), seed);
+    --run;
+    start = index + 1;
+  }
+  return false;
+}
+bool OwnerStage(const std::string& root, const char* stage) {
+  const auto path = root + "/owner-" + stage + ".json";
+  const auto temporary = path + ".tmp";
+  {
+    std::ofstream file(temporary);
+    file << "{\"pid\":" << getpid() << ",\"ordinal\":0}\n";
+    if (!file.good()) return false;
+  }
+  if (std::rename(temporary.c_str(), path.c_str()) != 0) return false;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(40);
+  while (!std::ifstream(root + "/continue-" + stage).good()) {
+    if (std::chrono::steady_clock::now() >= deadline) return false;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  return true;
+}
+}
+
+int main(int argc, char** argv) {
+  const bool formal = argc == 6;
+  if (argc != 5 && !formal) return 2;
+  char* end = nullptr;
+  const auto first_count = std::strtoull(argv[4], &end, 10);
+  if (!end || *end || first_count < 1u || first_count > 100000u || !Cuda(cudaSetDevice(0))) return 3;
+  std::size_t warmup = formal ? first_count : 0u;
+  std::size_t measured = 0u;
+  std::size_t count = formal ? warmup : first_count;
+  if (formal) {
+    const auto second_count = std::strtoull(argv[5], &end, 10);
+    if (!end || *end || second_count < 1u || second_count > 100000u) return 3;
+    measured = second_count;
+    count += measured;
+  } else if (count < 3u) return 3;
+  const bool autonomous_rng = std::getenv("VLAFORGE_RNG_SEEDS") != nullptr;
+  const auto* expected_text = std::getenv("VLAFORGE_EXPECTED_ROOT");
+  const std::string expected_root = expected_text == nullptr ? "" : expected_text;
+  std::vector<std::vector<std::vector<char>>> expected;
+  std::vector<std::ofstream> formal_archives;
+  if (formal || !expected_root.empty()) {
+    expected.resize(formal ? 3u : count, std::vector<std::vector<char>>(outputs.size()));
+    for (std::size_t sample = 0; sample < expected.size(); ++sample) {
+      for (std::size_t index = 0; index < outputs.size(); ++index) {
+        if (!ReadExpected(expected_root, sample, outputs[index], expected[sample][index])) return 16;
+      }
+    }
+  }
+  const auto* owner_root = std::getenv("COGACT_GPU_OWNER_FOLDER");
+  // The reset touches only our unused primary context, before buffers/Session exist.
+  if (owner_root && (!Cuda(cudaFree(nullptr)) || !OwnerStage(owner_root, "registered-1") ||
+      !Cuda(cudaDeviceReset()) || !OwnerStage(owner_root, "reset") ||
+      !Cuda(cudaSetDevice(0)) || !Cuda(cudaFree(nullptr)) || !OwnerStage(owner_root, "registered-2"))) return 14;
+  std::unique_ptr<vlaforge::CudaRngProvider> rng;
+  if (autonomous_rng) rng = std::make_unique<vlaforge::CudaRngProvider>(0, 0);
+  std::vector<Buffer> buffers(inputs.size());
+  for (std::size_t index = 0; index < inputs.size(); ++index) {
+    if (!Cuda(cudaMalloc(&buffers[index].data, inputs[index].bytes))) return 4;
+  }
+  if (formal) {
+    formal_archives.reserve(outputs.size());
+    for (const auto& spec : outputs) {
+      formal_archives.emplace_back(std::string(argv[3]) + "/raw-" + spec.name + ".bin",
+                                   std::ios::binary | std::ios::trunc);
+      if (!formal_archives.back().good()) return 17;
+    }
+  }
+  VLAForgeSession* session = nullptr;
+  const std::string bundle(argv[1]);
+  const auto created = vlaforge_model_session_create_from_bundle(bundle.data(), bundle.size(), &session);
+  if (created.code != VLAFORGE_STATUS_OK) {
+    std::fprintf(stderr, "Session create failed: %u\n", static_cast<unsigned>(created.code)); return 5;
+  }
+  const auto* api = vlaforge_model_session_api();
+  if (vlaforge_session_api_validate(api, vlaforge_generated::kSchemaDigest, VLAFORGE_SCHEMA_DIGEST_HEX_SIZE).code != VLAFORGE_STATUS_OK) {
+    api->destroy(session); return 6;
+  }
+  int failure = 0;
+  for (std::size_t run = 0; run < count; ++run) {
+    const auto sample = formal ? run % 3u : run;
+    const auto input_root = std::string(argv[2]) + "/sample-" + std::to_string(sample);
+    VLAForgeInputStamp stamp{};
+    stamp.struct_size = sizeof(stamp); stamp.has_revision = 1u; stamp.revision = run + 1u;
+    std::uint64_t seed = 0;
+    if (autonomous_rng && !SeedForRun(formal ? sample : run, &seed)) {
+      failure = 14;
+      break;
+    }
+    for (std::size_t index = 0; index < inputs.size(); ++index) {
+      const auto& spec = inputs[index];
+      const bool generated_rng = autonomous_rng && (std::strcmp(spec.name, "initial_noise") == 0 ||
+          std::strcmp(spec.name, "step_noise") == 0 || std::strcmp(spec.name, "rng_states") == 0 ||
+          std::strcmp(spec.name, "rng_before") == 0);
+      if (!generated_rng && !Upload(input_root + "/" + spec.name + ".bin", spec, buffers[index])) {
+        failure = 7;
+        break;
+      }
+      const VLAForgeBoundTensor tensor{sizeof(VLAForgeBoundTensor),
+          {buffers[index].data, spec.bytes, spec.shape.data(), static_cast<std::uint32_t>(spec.shape.size()), spec.dtype,
+           {VLAFORGE_DEVICE_CUDA, 0}}, VLAFORGE_LAYOUT_CONTIGUOUS, 64u};
+      if (api->bind_tensor(session, static_cast<std::uint32_t>(index), &tensor, &stamp).code != VLAFORGE_STATUS_OK) {
+        failure = 8; break;
+      }
+    }
+    if (failure || !Cuda(cudaDeviceSynchronize())) { if (!failure) failure = 9; break; }
+    // The comparison boundary starts before RNG preparation and ends after
+    // Session execution. Static input upload/bind and output copies stay out.
+    const auto start = std::chrono::steady_clock::now();
+    if (autonomous_rng && (!GenerateCogactRng(*rng, seed, buffers) ||
+                           !Cuda(cudaDeviceSynchronize()))) {
+      failure = 14; break;
+    }
+    const auto status = api->run(session);
+    if (status.code != VLAFORGE_STATUS_OK || !Cuda(cudaDeviceSynchronize())) {
+      std::fprintf(stderr, "Session run failed: %u\n", static_cast<unsigned>(status.code)); failure = 10; break;
+    }
+    const auto timed_end = std::chrono::steady_clock::now();
+    bool exact = true;
+    for (std::size_t index = 0; index < outputs.size(); ++index) {
+      const auto& spec = outputs[index];
+      VLAForgeBoundTensor tensor{};
+      if (api->read_output_tensor(session, static_cast<std::uint32_t>(index), &tensor).code != VLAFORGE_STATUS_OK ||
+          tensor.tensor.dtype != spec.dtype || tensor.tensor.device.kind != VLAFORGE_DEVICE_CUDA ||
+          tensor.tensor.device.ordinal != 0 || tensor.tensor.size_bytes != spec.bytes ||
+          tensor.tensor.rank != spec.shape.size() || tensor.layout != VLAFORGE_LAYOUT_CONTIGUOUS ||
+          !tensor.tensor.data) { failure = 11; break; }
+      for (std::size_t axis = 0; axis < spec.shape.size(); ++axis) {
+        if (tensor.tensor.dimensions[axis] != spec.shape[axis]) failure = 11;
+      }
+      if (failure) break;
+      std::vector<char> bytes(spec.bytes);
+      if (!Cuda(cudaMemcpy(bytes.data(), tensor.tensor.data, spec.bytes, cudaMemcpyDeviceToHost))) { failure = 12; break; }
+      if (formal) {
+        auto& archive = formal_archives[index];
+        archive.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+        if (!archive.good()) { failure = 13; break; }
+        exact = exact && MatchesExpected(expected[sample][index], bytes);
+      } else {
+        const auto path = std::string(argv[3]) + "/run-" + std::to_string(run) + "-" + spec.name + ".bin";
+        std::ofstream stream(path, std::ios::binary);
+        stream.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+        if (!stream.good()) { failure = 13; break; }
+        if (!expected_root.empty()) exact = exact && MatchesExpected(expected[sample][index], bytes);
+      }
+    }
+    const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(timed_end - start).count();
+    if (formal) {
+      std::printf("%zu,%zu,%u,%zu,%lld,%u\n", run, sample, static_cast<unsigned>(run >= warmup),
+                  run + 1u, static_cast<long long>(elapsed), static_cast<unsigned>(exact));
+    } else {
+      std::printf("CogACT-diagnostic-wall,%zu,%lld\n", run, static_cast<long long>(elapsed));
+    }
+    std::fflush(stdout);
+    if (failure || !exact) { if (!failure && !exact) failure = 15; break; }
+  }
+  for (auto& archive : formal_archives) {
+    archive.flush();
+    if (!archive.good() && !failure) failure = 13;
+  }
+  std::ifstream maps("/proc/self/maps");
+  std::ofstream map_output(std::string(argv[3]) + "/process-maps.txt");
+  map_output << maps.rdbuf();
+  api->destroy(session);
+  return failure;
+}

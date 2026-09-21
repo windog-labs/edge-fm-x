@@ -11,6 +11,7 @@ from vlaforge.frontend.audit_report import (
     RegionAuditRecord,
 )
 from vlaforge.frontend.builder import ModuleBuilder
+from vlaforge.frontend.invocation import InvocationBuilder, InvocationProgram, SymbolicValue
 from vlaforge.frontend.export import (
     load_exported_region,
     save_exported_region,
@@ -20,6 +21,7 @@ from vlaforge.frontend.region_capture import (
     CaptureOutcome,
     capture_annotated_region,
     capture_region,
+    exported_graph_digest,
 )
 from vlaforge.frontend.shape_profile import DynamicDimension, ShapeProfile
 from vlaforge.frontend.state_lifting import (
@@ -27,24 +29,31 @@ from vlaforge.frontend.state_lifting import (
     lift_persistent_states,
 )
 from vlaforge.frontend.unsupported import FrontendUnsupportedError
+from vlaforge.frontend.tensor_types import canonical_tensor_dtype, tensor_type_from_torch
 
 __all__ = [
     "CaptureEvidence",
     "CaptureOutcome",
     "DynamicDimension",
     "FrontendUnsupportedError",
+    "InvocationBuilder",
+    "InvocationProgram",
     "ModelFrontendAudit",
     "ModuleBuilder",
     "PersistentStateEvidence",
     "RegionAuditRecord",
     "RegionCompileRequest",
     "ShapeProfile",
+    "SymbolicValue",
     "capture_annotated_region",
     "capture_region",
+    "exported_graph_digest",
     "finalize_region_artifact",
     "lift_persistent_states",
     "load_exported_region",
     "make_compile_request",
     "save_exported_region",
     "tensor_region",
+    "canonical_tensor_dtype",
+    "tensor_type_from_torch",
 ]

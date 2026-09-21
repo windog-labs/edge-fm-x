@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <utility>
 
 int main() {
@@ -29,5 +30,20 @@ int main() {
   if (moved.Resolve(0, 4096, 256) == nullptr || arena.data() != nullptr) {
     return 5;
   }
+  void* quarantined = nullptr;
+  {
+    vlaforge::runtime::StaticArena abandoned(64, 64);
+    quarantined = abandoned.data();
+    abandoned.Abandon();
+    abandoned.Abandon();
+    if (abandoned.data() != nullptr || abandoned.size_bytes() != 0 ||
+        abandoned.Resolve(0, 0) != nullptr) return 6;
+    vlaforge::runtime::StaticArena empty(std::move(abandoned));
+    if (empty.data() != nullptr) return 7;
+  }
+  // CPU-only test owns the raw allocation after proving wrapper destruction
+  // did not free it. Actual poisoned CUDA storage stays until process exit.
+  static_cast<std::byte*>(quarantined)[0] = std::byte{1};
+  std::free(quarantined);
   return 0;
 }

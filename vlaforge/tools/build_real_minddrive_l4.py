@@ -17,7 +17,7 @@ from typing import Any
 _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_SOURCE_ROOT / "python"))
 
-from vlaforge.adapters.minddrive_real import (  # noqa: E402
+from vlaforge.adapters.minddrive.minddrive_real import (  # noqa: E402
     MINDDRIVE_CHECKPOINT_SHA256,
     MINDDRIVE_INPUT_TYPES,
     MINDDRIVE_OUTPUT_TYPES,

@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
-from typing import Mapping
 
 from vlaforge.codegen import (
     CppArtifactRegionDefinition,
@@ -17,16 +20,22 @@ from vlaforge.codegen import (
     CppValidatorDefinition,
     generate_compiled_cpp_session,
 )
-from vlaforge.compiler import CompilerProfile, compile_module
+from vlaforge.compiler import (
+    NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA,
+    CompilerProfile,
+    compile_module,
+)
 from vlaforge.deployment.bundle import (
+    BUNDLE_SCHEMA,
+    NUMERICAL_BUNDLE_SCHEMA,
     CompileBundleManifest,
     FileRecord,
     ReproducibilityManifest,
     VersionEntry,
 )
 from vlaforge.deployment.contract import (
-    ArtifactKind,
     ArtifactIdentity,
+    ArtifactKind,
     BackendCapability,
     EffectAudit,
     RegionArtifactContract,
@@ -358,6 +367,9 @@ def build_artifact_compile_bundle(
     default_device: str = "cpu",
     state_device: str = "cpu",
     auxiliary_files: Mapping[str, str | Path] | None = None,
+    loop_execution: str = "source",
+    libtorch_graph_memory_policy: str = "retain",
+    aoti_package_extraction_root: str | Path | None = None,
 ) -> CompileBundleManifest:
     """Build a self-verifying bundle backed by real compiled Region artifacts."""
 
@@ -375,8 +387,19 @@ def build_artifact_compile_bundle(
         )
     if not backend_versions:
         raise ValueError("artifact bundle requires backend versions")
+    build_configuration = _libtorch_graph_memory_configuration(
+        libtorch_graph_memory_policy, region_artifacts, backend_versions,
+    )
+    extraction_configuration = _aoti_package_extraction_configuration(
+        aoti_package_extraction_root, region_artifacts, backend_versions,
+        runtime_root=Path(runtime_root),
+    )
+    if extraction_configuration is not None:
+        build_configuration["aoti_package_extraction"] = extraction_configuration
 
     contracts = dict(region_artifacts)
+    for contract in contracts.values():
+        contract.require_runtime_deployable()
     variants = {}
     for region_id, region in enumerate(module.regions):
         contract = contracts[region.name]
@@ -403,7 +426,18 @@ def build_artifact_compile_bundle(
         allow_test_profile=allow_test_profile,
         default_device=default_device,
         state_device=state_device,
+        loop_execution=loop_execution,
     )
+    numerical_bindings = tuple(
+        contracts[name].numerical_binding for name in sorted(contracts)
+        if contracts[name].numerical_binding is not None
+    )
+    if numerical_bindings:
+        compilation = replace(compilation, certificate=replace(
+            compilation.certificate,
+            schema=NUMERICAL_COMPILATION_CERTIFICATE_SCHEMA,
+            numerical_bindings=numerical_bindings,
+        ))
     for contract in contracts.values():
         if contract.io_schema_digest != compilation.certificate.io_schema_digest:
             raise ValueError(
@@ -423,6 +457,10 @@ def build_artifact_compile_bundle(
             backend_variant=contract.backend_variant,
             residency=contract.residency.value,
             callable_abi_version=contract.callable_abi_version,
+            supports_external_cuda_graph=contract.capability.supports_external_cuda_graph,
+            effect_audit=contract.effect_audit,
+            supports_execution_context=contract.capability.supports_execution_context,
+            numerical_binding=contract.numerical_binding,
         )
         for name, contract in contracts.items()
     }
@@ -440,6 +478,12 @@ def build_artifact_compile_bundle(
     for directory in (metadata, generated, binary):
         directory.mkdir(parents=True, exist_ok=True)
     _write_compilation_metadata(compilation, metadata)
+    _write_json(metadata / "build_configuration.json", json.dumps(build_configuration, sort_keys=True, indent=2))
+    input_ir_records = []
+    if compilation.input_module is not None:
+        input_ir_records.extend(FileRecord.from_file(
+            root, f"metadata/{role}.json", role,
+        ) for role in ("input_semantic_ir", "loop_execution"))
     sources.write(generated)
 
     for name, contract in contracts.items():
@@ -458,11 +502,24 @@ def build_artifact_compile_bundle(
         shutil.copy2(source, destination)
 
     auxiliary_records = []
+    all_auxiliary = dict(auxiliary_files or {})
+    for name, contract in contracts.items():
+        if contract.artifact_kind is not ArtifactKind.AOTI_MATERIALIZED:
+            continue
+        from vlaforge.deployment.aoti_materialized import MaterializedAotiPackage
+        source = Path(artifact_sources[name]).resolve()
+        materialized = MaterializedAotiPackage.parse(source.read_text())
+        materialized.verify(source.parent)
+        for member in materialized.files:
+            relative = str(PurePosixPath(contract.artifact_path).parent / member.path)
+            if relative in all_auxiliary:
+                raise ValueError("materialized AOTI payload collides with auxiliary file: " + relative)
+            all_auxiliary[relative] = source.parent / member.path
     occupied_paths = {
         PurePosixPath(contract.artifact_path) for contract in contracts.values()
     }
     for relative_text, source_text in sorted(
-        (auxiliary_files or {}).items()
+        all_auxiliary.items()
     ):
         relative = PurePosixPath(relative_text)
         if (
@@ -493,12 +550,28 @@ def build_artifact_compile_bundle(
         )
         occupied_paths.add(relative)
 
+    for contract in contracts.values():
+        if contract.artifact_kind is ArtifactKind.AOTI_MATERIALIZED:
+            from vlaforge.deployment.aoti_materialized import MaterializedAotiPackage
+            destination = root / contract.artifact_path
+            MaterializedAotiPackage.parse(destination.read_text()).verify(destination.parent)
+
     runtime = Path(runtime_root).resolve()
     prefix = Path(cmake_prefix_path).resolve()
+    graph_memory_option = build_configuration["cmake_definition"]
+    extraction_options = [] if extraction_configuration is None else [
+        "-DVLAFORGE_AOTI_PACKAGE_EXTRACTION_ROOT=" + extraction_configuration["root"]
+    ]
     configure_command = (
         "cmake -S generated -B <build> "
         f"-DVLAFORGE_RUNTIME_ROOT={runtime} "
         f"-DCMAKE_PREFIX_PATH={prefix} "
+        f"-D{graph_memory_option} "
+        + (shlex.join(extraction_options) + " " if extraction_options else "")
+        +
+        "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON "
+        "-DCMAKE_INSTALL_RPATH='$ORIGIN/../lib' "
+        "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON "
         "-DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release"
     )
     build_command = "cmake --build <build> --parallel"
@@ -516,6 +589,11 @@ def build_artifact_compile_bundle(
                 str(build_dir),
                 f"-DVLAFORGE_RUNTIME_ROOT={runtime}",
                 f"-DCMAKE_PREFIX_PATH={prefix}",
+                f"-D{graph_memory_option}",
+                *extraction_options,
+                "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+                "-DCMAKE_INSTALL_RPATH=$ORIGIN/../lib",
+                "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON",
                 "-DBUILD_TESTING=OFF",
                 "-DCMAKE_BUILD_TYPE=Release",
             ],
@@ -541,6 +619,7 @@ def build_artifact_compile_bundle(
         if not runner.is_file():
             raise FileNotFoundError(runner)
         shutil.copy2(runner, binary / "vlaforge_generated_runner")
+        runtime_library_records = _collect_runtime_libraries(build_dir, root)
 
     required = {
         role: FileRecord.from_file(root, f"metadata/{role}.json", role)
@@ -565,6 +644,8 @@ def build_artifact_compile_bundle(
             contracts[region.name] for region in module.regions
         ),
         generated_sources=(
+            *input_ir_records,
+            FileRecord.from_file(root, "metadata/build_configuration.json", "build_configuration"),
             FileRecord.from_file(
                 root,
                 "metadata/compilation_certificate.json",
@@ -585,6 +666,7 @@ def build_artifact_compile_bundle(
                 executable=True,
             ),
             *auxiliary_records,
+            *runtime_library_records,
         ),
         toolchain_versions=(
             VersionEntry("cmake", _first_version_line(["cmake", "--version"])),
@@ -602,13 +684,124 @@ def build_artifact_compile_bundle(
             environment=tuple(sorted(build_environment.items())),
         ),
         compilation_certificate=compilation.certificate,
+        schema=NUMERICAL_BUNDLE_SCHEMA if numerical_bindings else BUNDLE_SCHEMA,
     )
     manifest.write(root / "bundle.json")
     manifest.verify_files(root)
     return manifest
 
 
+def _aoti_package_extraction_configuration(
+    root: str | Path | None,
+    contracts: Mapping[str, RegionArtifactContract],
+    backend_versions: Mapping[str, str],
+    *,
+    runtime_root: Path,
+) -> dict[str, object] | None:
+    if root is None:
+        return None
+    if not isinstance(root, (str, Path)):
+        raise ValueError("AOTI extraction root must be an absolute literal path")  # noqa: TRY004
+    value = str(root)
+    path = PurePosixPath(value)
+    if (not path.is_absolute() or str(path) != value or ".." in path.parts
+            or any(ord(ch) < 32 or ord(ch) == 127 or ch in '\\";$' for ch in value)):
+        raise ValueError("AOTI extraction root must be a canonical absolute literal path")
+    if not any(c.capability.backend == "aoti" for c in contracts.values()):
+        raise ValueError("AOTI extraction root requires an AOTI Region contract")
+    version = backend_versions.get("aoti")
+    if not isinstance(version, str) or not re.fullmatch(r"2\.10\.\d+(?:\+[A-Za-z0-9_.-]+)?", version):
+        raise ValueError("AOTI extraction root requires audited LibTorch 2.10")
+    helper_paths = (
+        "CMakeLists.txt", "backends/aoti_package_config.h.in",
+        "backends/aoti_extracted_package.h", "backends/aoti_extracted_package.cpp",
+        "backends/aoti_callable.h", "backends/aoti_callable.cpp",
+        "backends/aoti_region_executable.cpp", "backends/aoti_sequence_runner.cpp",
+        "backends/aoti_sequence_runner.h", "include/vlaforge/backends/aoti_region_executable.h",
+    )
+    return {
+        "schema": "vlaforge.aoti_package_extraction/1", "root": value,
+        "mode": "owned-private-streaming", "compiled_packages_only": True,
+        "environment_modified": False, "shared_cache": False,
+        "declared_libtorch_version": version,
+        "source_sha256": {
+            name: _sha256_file(runtime_root / name)
+            for name in helper_paths
+        },
+    }
+
+
+def _libtorch_graph_memory_configuration(
+    policy: str,
+    contracts: Mapping[str, RegionArtifactContract],
+    backend_versions: Mapping[str, str],
+) -> dict[str, object]:
+    if policy not in ("retain", "scoped-reclaim"):
+        raise ValueError("libtorch_graph_memory_policy must be retain or scoped-reclaim")
+    selected = sorted({
+        contract.capability.backend for contract in contracts.values()
+        if contract.capability.backend in {"aoti", "torchscript"}
+        and contract.capability.target.startswith("sm_")
+    })
+    declared = {name: backend_versions.get(name) for name in selected}
+    if policy == "scoped-reclaim":
+        if not selected:
+            raise ValueError("scoped-reclaim requires a CUDA LibTorch Region contract")
+        for name, version in declared.items():
+            if not isinstance(version, str) or not re.fullmatch(r"2\.10\.\d+(?:\+[A-Za-z0-9_.-]+)?", version):
+                raise ValueError(f"scoped-reclaim requires audited LibTorch 2.10 version for {name}")
+    return {
+        "schema": "vlaforge.artifact_build_configuration/1",
+        "libtorch_graph_memory_policy": policy,
+        "cmake_definition": "VLAFORGE_LIBTORCH_SCOPED_GRAPH_RECLAIM=" + (
+            "ON" if policy == "scoped-reclaim" else "OFF"
+        ),
+        "declared_libtorch_backend_versions": declared,
+        "actual_sdk_version_checked_by_cmake_and_header": policy == "scoped-reclaim",
+        "global_cache_clear": False,
+        "scoped_device_frees_possible": policy == "scoped-reclaim",
+        "destructor_status_returned_to_caller": False,
+    }
+
+
+def _collect_runtime_libraries(build_dir: Path, root: Path) -> tuple[FileRecord, ...]:
+    manifest = build_dir / "vlaforge_runtime/vlaforge-runtime-libraries-Release.txt"
+    if not manifest.is_file():
+        raise ValueError("runtime build did not emit its shared-library target manifest")
+    records = []
+    seen = {}
+    for line in manifest.read_text().splitlines():
+        source = Path(line)
+        if not source.is_absolute() or not source.resolve(strict=True).is_relative_to(build_dir.resolve()):
+            raise ValueError("runtime shared-library target is outside the isolated build")
+        if not source.is_file():
+            raise ValueError("runtime shared-library target is not a regular file")
+        if source.name in seen:
+            if source.resolve() != seen[source.name]:
+                raise ValueError("runtime shared-library target basenames collide")
+            continue
+        seen[source.name] = source.resolve()
+        relative = "lib/" + source.name
+        destination = root / relative
+        if destination.exists() or destination.is_symlink():
+            raise ValueError("runtime shared-library path collides with an existing bundle file")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        records.append(FileRecord.from_file(root, relative, "runtime_shared_library"))
+    return tuple(records)
+
+
 def _write_compilation_metadata(compilation: object, metadata: Path) -> None:
+    if getattr(compilation, "input_module", None) is not None:
+        _write_json(metadata / "input_semantic_ir.json", canonical_json(compilation.input_module))
+        _write_json(metadata / "loop_execution.json", json.dumps({
+            "schema": "vlaforge.loop_execution_selection/1",
+            "requested": compilation.loop_execution,
+            "input_semantic_digest": compilation.certificate.input_semantic_digest,
+            "compiled_semantic_digest": compilation.certificate.compiled_semantic_digest,
+            "loops": [{"task_id": task.id, "policy": task.attributes.get("replay", "off")}
+                      for task in compilation.plan.tasks if task.opcode == "vla.for"],
+        }, sort_keys=True))
     _write_json(metadata / "semantic_ir.json", canonical_json(compilation.module))
     _write_json(
         metadata / "scheduled_plan.json",

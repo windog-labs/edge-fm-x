@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from vlaforge.adapters.smolvla_frontend import audit_real_smolvla_frontend
-from vlaforge.adapters.smolvla_real import RealSmolVLAConfig
+from vlaforge.adapters.smolvla.smolvla_frontend import audit_real_smolvla_frontend
+from vlaforge.adapters.smolvla.smolvla_real import RealSmolVLAConfig
 
 
 def main() -> int:

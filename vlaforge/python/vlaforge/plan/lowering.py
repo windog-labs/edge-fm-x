@@ -68,7 +68,9 @@ def lower_to_plan(
     unknown = sorted(variants.keys() - {region.name for region in module.regions})
     if unknown:
         raise KeyError(f"artifact variants reference unknown regions: {unknown}")
-    plan = _Lowering(module, variants).run()
+    from vlaforge.plan.replay import prepare_replay_storage
+
+    plan = prepare_replay_storage(_Lowering(module, variants).run(), module)
     verify_plan(plan)
     return plan
 
@@ -256,6 +258,22 @@ class _Lowering:
                 )
                 for region_index, region in enumerate(operation.regions)
             )
+            attributes = dict(operation.attributes)
+            if operation.opcode == "vla.for" and len(output_ids) > 1:
+                # Simultaneous carry updates must also support swaps/aliases.
+                scratch = []
+                for result in operation.results:
+                    buffer_id = len(self.buffers)
+                    scratch.append(buffer_id)
+                    self.buffers.append(LogicalBuffer(
+                        id=buffer_id,
+                        name=f"{result.name}_carry_scratch",
+                        type=result.type,
+                        buffer_class=BufferClass.LOOP_CARRIED,
+                        producer_task=task_id,
+                        source=op_source,
+                    ))
+                attributes["carry_scratch"] = scratch
             self.tasks[task_id] = Task(
                 id=task_id,
                 kind=_task_kind(operation.opcode),
@@ -263,7 +281,7 @@ class _Lowering:
                 inputs=input_ids,
                 outputs=tuple(output_ids),
                 dependencies=tuple(sorted(dependencies)),
-                attributes=dict(operation.attributes),
+                attributes=attributes,
                 blocks=nested_blocks,
                 artifact_id=artifact_id,
                 workspace_buffer=workspace_buffer,

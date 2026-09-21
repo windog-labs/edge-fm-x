@@ -606,10 +606,16 @@ class _Verifier:
         definitions: Mapping[str, Value],
         validators: set[str],
     ) -> None:
-        if len(operation.regions) != 1 or len(operation.results) != 1:
+        if operation.attributes.get("replay", "off") not in ("off", "batch-only", "prefer", "required"):
+            self.error(
+                "control.for_replay", "loop replay must be off, batch-only, prefer or required",
+                invocation=invocation, operation=operation,
+            )
+        count = len(operation.results)
+        if len(operation.regions) != 1 or not count or len(operation.operands) != count:
             self.error(
                 "control.for_shape",
-                "vla.for requires one body and one carried result",
+                "vla.for requires one body and matching initial/carried results",
                 invocation=invocation,
                 operation=operation,
             )
@@ -625,7 +631,7 @@ class _Verifier:
                 operation=operation,
             )
         body = operation.regions[0]
-        if len(body.arguments) != 2:
+        if len(body.arguments) != count + 1:
             self.error(
                 "control.for_args",
                 "vla.for body requires induction and carry arguments",
@@ -633,10 +639,17 @@ class _Verifier:
                 operation=operation,
             )
             return
-        initial = self._type(operation, 0, definitions)
-        if (
-            initial != body.arguments[1].type
-            or operation.results[0].type != body.arguments[1].type
+        if body.arguments[0].type != ScalarType("index"):
+            self.error(
+                "control.for_index", "vla.for induction must have index type",
+                invocation=invocation, operation=operation,
+            )
+        if any(
+            self._type(operation, index, definitions) != argument.type
+            or result.type != argument.type
+            for index, (argument, result) in enumerate(
+                zip(body.arguments[1:], operation.results, strict=True)
+            )
         ):
             self.error(
                 "control.for_carry",
@@ -654,13 +667,17 @@ class _Verifier:
         if (
             not body.operations
             or body.operations[-1].opcode != "vla.yield"
-            or len(body.operations[-1].operands) != 1
-            or self._type_at(body.operations[-1].operands[0], nested)
-            != operation.results[0].type
+            or len(body.operations[-1].operands) != count
+            or any(
+                self._type_at(name, nested) != result.type
+                for name, result in zip(
+                    body.operations[-1].operands, operation.results
+                )
+            )
         ):
             self.error(
                 "control.for_yield",
-                "vla.for body must yield one carried value",
+                "vla.for body must yield matching carried values",
                 invocation=invocation,
                 operation=operation,
             )

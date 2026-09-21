@@ -37,6 +37,9 @@ InputStamp(revision?: u64, timestamp_ns?: u64)
 freshness metadata only; VLAForge never synchronizes it. Missing revision is
 replaced by a fresh Session-local revision on every bind/run, so unsafe
 cross-Run reuse is impossible. Optional defaults have stable revision zero.
+Cache identity distinguishes explicit revisions, automatically generated
+revisions, and optional defaults. Equal numeric values across these domains
+never establish input equivalence.
 
 External CPU/CUDA buffers are borrowed until `Run()` returns. The Session does
 not free them. A contract mismatch is either an explicit copy/preprocessing
@@ -91,6 +94,19 @@ The core control set is intentionally small:
 - structured `vla.if`;
 - statically bounded `vla.for` with loop-carried SSA;
 - `vla.yield` and `vla.return`.
+
+A bounded `vla.for` carries one or more typed SSA values simultaneously.
+Its initial operands, carried body arguments, yielded values and results have
+equal nonzero arity and pairwise equal types. The first body argument is an
+`index`. Multi-value lowering plans independent typed carry scratch, so a
+swap cannot overwrite another yield before it is copied. Values captured from
+outside the loop remain live through the entire loop body on every iteration.
+
+An optional `replay` attribute (`prefer`, `required`, or `batch-only`; absent means `off`)
+requests [whole-loop replay](bounded-replay.md) without changing these value
+semantics. Plan/backend eligibility and actual capture evidence are separate.
+Host induction, state transactions, validators and cache decisions never become
+device graph operations implicitly.
 
 Model-specific routing remains inside a captured TensorRegion when possible.
 Cross-artifact selection uses structured branch/variant metadata. A new

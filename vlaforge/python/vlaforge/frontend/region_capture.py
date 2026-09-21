@@ -20,6 +20,7 @@ from vlaforge.frontend.unsupported import (
     UnsupportedReport,
 )
 from vlaforge.ir.program import TensorRegion, Value
+from vlaforge.numerical_context import NumericalContext, snapshot
 
 
 CAPTURE_SCHEMA = "vlaforge.frontend_capture/2"
@@ -37,6 +38,7 @@ class CaptureEvidence:
     outputs: tuple[ValueContract, ...]
     effect_audit: EffectAudit
     schema: str = CAPTURE_SCHEMA
+    observed_numerical_context: NumericalContext | None = None
 
     def __post_init__(self) -> None:
         if self.schema != CAPTURE_SCHEMA:
@@ -58,6 +60,12 @@ class CaptureEvidence:
             "inputs": [item.to_dict() for item in self.inputs],
             "outputs": [item.to_dict() for item in self.outputs],
             "effect_audit": self.effect_audit.to_dict(),
+            "observed_numerical_context": (
+                self.observed_numerical_context.to_dict()
+                if self.observed_numerical_context is not None
+                else None
+            ),
+            "numerical_context_scope": "observed and checked in Python capture only; not C++ enforcement",
         }
 
 
@@ -150,6 +158,7 @@ def capture_region(
         )
 
     try:
+        numerical_context = snapshot()
         dynamic_shapes = shape_profile.torch_dynamic_shapes(region.inputs)
         export_started = time.perf_counter()
         exported = torch.export.export(
@@ -159,6 +168,7 @@ def capture_region(
             strict=strict,
         )
         export_seconds = time.perf_counter() - export_started
+        numerical_context.require_current()
     except Exception as exc:
         return _unsupported(
             region,
@@ -254,6 +264,7 @@ def capture_region(
                 absolute_tolerance=absolute_tolerance,
                 relative_tolerance=relative_tolerance,
             )
+        numerical_context.require_current()
     except Exception as exc:
         return _unsupported(
             region,
@@ -266,7 +277,7 @@ def capture_region(
 
     evidence = CaptureEvidence(
         region_name=region.name,
-        graph_digest=_graph_digest(exported),
+        graph_digest=exported_graph_digest(exported),
         torch_version=torch.__version__,
         strict_export=strict,
         export_seconds=export_seconds,
@@ -274,6 +285,7 @@ def capture_region(
         inputs=input_contracts,
         outputs=output_contracts,
         effect_audit=audit,
+        observed_numerical_context=numerical_context,
     )
     return CaptureOutcome(
         region=region,
@@ -409,7 +421,8 @@ def _maximum_absolute_error(
     return maximum
 
 
-def _graph_digest(exported: Any) -> str:
+def exported_graph_digest(exported: Any) -> str:
+    """Return the graph/signature identity used by frontend capture contracts."""
     graph = []
     for node in exported.graph_module.graph.nodes:
         graph.append(
@@ -431,6 +444,10 @@ def _graph_digest(exported: Any) -> str:
         separators=(",", ":"),
     ).encode()
     return hashlib.sha256(payload).hexdigest()
+
+
+# Preserve the existing diagnostic-tool entrypoint.
+_graph_digest = exported_graph_digest
 
 
 def _dynamic_dimension_from_tuple(

@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from vlaforge.adapters.minddrive_real import (
+from vlaforge.adapters.minddrive.minddrive_real import (
     MINDDRIVE_INPUT_TYPES,
     MINDDRIVE_OUTPUT_TYPES,
     MINDDRIVE_STATE_TYPES,

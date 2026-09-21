@@ -71,6 +71,12 @@ StaticArena::StaticArena(std::size_t size_bytes, std::size_t alignment,
 
 StaticArena::~StaticArena() { Release(); }
 
+void StaticArena::Abandon() noexcept {
+  data_ = nullptr;
+  size_bytes_ = 0;
+  allocated_bytes_ = 0;
+}
+
 StaticArena::StaticArena(StaticArena&& other) noexcept
     : data_(std::exchange(other.data_, nullptr)),
       size_bytes_(std::exchange(other.size_bytes_, 0)),

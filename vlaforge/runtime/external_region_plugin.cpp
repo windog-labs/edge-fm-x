@@ -28,6 +28,7 @@ VLAForgeStatus Error(VLAForgeStatusCode code, const char *message) noexcept {
 struct VLAForgeExternalRegionPlugin {
   void *handle = nullptr;
   const VLAForgeRegionExecutableValueApi *api = nullptr;
+  const VLAForgeRegionExecutionExtensionApi *execution_extension = nullptr;
 };
 
 extern "C" VLAForgeStatus
@@ -84,6 +85,32 @@ vlaforge_external_region_plugin_open(const char *path, std::size_t path_size,
     return Error(VLAFORGE_STATUS_UNSUPPORTED_ABI,
                  "external Region plugin value ABI is invalid");
   }
+  const VLAForgeRegionExecutionExtensionApi *extension = nullptr;
+  (void)dlerror();
+  void *extension_symbol =
+      dlsym(handle, VLAFORGE_REGION_EXECUTION_EXTENSION_API_SYMBOL);
+  const char *extension_error = dlerror();
+  if (extension_error == nullptr && extension_symbol != nullptr) {
+    VLAForgeRegionExecutionExtensionApiProviderFn extension_provider = nullptr;
+    static_assert(sizeof(extension_provider) == sizeof(extension_symbol),
+                  "function and data pointers must have equal size");
+    std::memcpy(&extension_provider, &extension_symbol,
+                sizeof(extension_provider));
+    try {
+      extension = extension_provider();
+    } catch (...) {
+      dlclose(handle);
+      return Error(VLAFORGE_STATUS_BACKEND_ERROR,
+                   "external Region execution extension provider threw");
+    }
+    const auto extension_validation =
+        vlaforge_region_execution_extension_api_validate(extension);
+    if (extension_validation.code != VLAFORGE_STATUS_OK) {
+      dlclose(handle);
+      return Error(VLAFORGE_STATUS_UNSUPPORTED_ABI,
+                   "external Region execution extension ABI is invalid");
+    }
+  }
   auto *plugin = new (std::nothrow) VLAForgeExternalRegionPlugin();
   if (plugin == nullptr) {
     dlclose(handle);
@@ -92,6 +119,7 @@ vlaforge_external_region_plugin_open(const char *path, std::size_t path_size,
   }
   plugin->handle = handle;
   plugin->api = api;
+  plugin->execution_extension = extension;
   *output = plugin;
   return vlaforge_status_ok();
 #else
@@ -108,6 +136,12 @@ vlaforge_external_region_plugin_api(
   return plugin == nullptr ? nullptr : plugin->api;
 }
 
+extern "C" const VLAForgeRegionExecutionExtensionApi *
+vlaforge_external_region_plugin_execution_extension_api(
+    const VLAForgeExternalRegionPlugin *plugin) {
+  return plugin == nullptr ? nullptr : plugin->execution_extension;
+}
+
 extern "C" void
 vlaforge_external_region_plugin_close(VLAForgeExternalRegionPlugin *plugin) {
   if (plugin == nullptr) {
@@ -119,4 +153,35 @@ vlaforge_external_region_plugin_close(VLAForgeExternalRegionPlugin *plugin) {
   }
 #endif
   delete plugin;
+}
+
+extern "C" VLAForgeStatus vlaforge_external_region_plugin_numerical_provider(
+    const VLAForgeExternalRegionPlugin* plugin,
+    const VLAForgeNumericalProviderApi** output) {
+  if (output == nullptr || plugin == nullptr) {
+    return Error(VLAFORGE_STATUS_INVALID_ARGUMENT, "invalid numerical plugin query");
+  }
+  *output = nullptr;
+#if defined(__unix__) || defined(__APPLE__)
+  (void)dlerror();
+  void* symbol = dlsym(plugin->handle, VLAFORGE_NUMERICAL_PROVIDER_API_SYMBOL);
+  const char* error = dlerror();
+  if (error != nullptr || symbol == nullptr) {
+    return Error(VLAFORGE_STATUS_NOT_FOUND, "numerical provider sidecar is absent");
+  }
+  VLAForgeNumericalProviderApiFn provider = nullptr;
+  static_assert(sizeof(provider) == sizeof(symbol));
+  std::memcpy(&provider, &symbol, sizeof(provider));
+  try {
+    const auto* api = provider();
+    const auto status = vlaforge_numerical_provider_api_validate(api);
+    if (status.code != VLAFORGE_STATUS_OK) { return status; }
+    *output = api;
+    return vlaforge_status_ok();
+  } catch (...) {
+    return Error(VLAFORGE_STATUS_BACKEND_ERROR, "numerical provider query threw");
+  }
+#else
+  return Error(VLAFORGE_STATUS_UNSUPPORTED_ABI, "numerical plugin requires dlopen");
+#endif
 }

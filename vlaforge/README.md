@@ -12,6 +12,8 @@ Canonical design:
 - [Paper design](../doc/vlaforge_paper_design.md)
 - [Model evidence matrix](../doc/vlaforge_model_adaptation_matrix.md)
 - [Model cards](../doc/model_cards/README.md)
+- [Generic Python Invocation Interface](spec/python-invocation.md)
+- [Device-Preserving ATen Regions](spec/torchscript-aten.md)
 - [A100/H20 high-memory handoff](../doc/vlaforge_high_memory_handoff.md)
 
 ## Scope
@@ -52,18 +54,16 @@ The clean generated-C++ tests intentionally run with invalid
 
 ## CLI
 
-```bash
-vlaforge verify examples/smolvla/program.vla
-vlaforge run examples/smolvla/program.vla \
-  --adapter smolvla-fixture \
-  --trace /tmp/vlaforge-smolvla-trace.json
-vlaforge compile examples/smolvla/program.vla \
-  --output /tmp/vlaforge-bundle
-```
+The deterministic interface examples are Python modules:
 
-The examples in the repository are deterministic fixtures. A fixture reaching
-generated C++ is `fixture-L4`; it is not evidence that a real checkpoint has
-reached L4.
+- `examples/iterative_frontend.py` demonstrates continuous and autoregressive
+  InvocationBuilder programs;
+- `examples/j6p_vlm_kv_cache.py` documents the two-complete-HBM J6P VLM seam;
+- `examples/external_bev_plugin/` contains the C++ plugin fixture.
+
+The CLI operates on generated program or bundle paths produced by the build
+tools; the old `examples/smolvla/program.vla` path is no longer part of the
+repository.
 
 ## Real-model evidence
 

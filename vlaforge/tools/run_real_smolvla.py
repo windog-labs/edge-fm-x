@@ -8,7 +8,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from vlaforge.adapters.smolvla_real import (
+from vlaforge.adapters.smolvla.smolvla_real import (
     RealSmolVLAConfig,
     run_real_smolvla,
 )

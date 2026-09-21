@@ -1,0 +1,115 @@
+#include "session_generated.h"
+#include <cuda_runtime_api.h>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <string>
+#include <vector>
+
+namespace {
+struct InputSpec {
+  const char* name;
+  VLAForgeDType dtype;
+  std::vector<std::int64_t> shape;
+  std::size_t bytes;
+};
+const std::vector<InputSpec> specs = {@INPUTS@};
+constexpr int kOrdinal = @ORDINAL@;
+constexpr std::size_t kSamples = @SAMPLES@u;
+constexpr std::size_t kOutputCount = @OUTPUT_COUNT@u;
+bool Cuda(cudaError_t error) {
+  if (error == cudaSuccess) return true;
+  std::fprintf(stderr, "CUDA failure: %s\n", cudaGetErrorString(error));
+  return false;
+}
+struct Buffer {
+  void* data = nullptr;
+  ~Buffer() { if (data) (void)cudaFree(data); }
+};
+std::string SampleName(std::size_t index) {
+  char name[64];
+  std::snprintf(name, sizeof(name), "sample-%06zu", index);
+  return name;
+}
+bool Upload(const std::string& root, std::size_t sample, std::size_t input, Buffer& buffer) {
+  const auto& spec = specs[input];
+  const auto path = root + "/" + SampleName(sample) + "/" + spec.name + ".bin";
+  std::ifstream stream(path, std::ios::binary);
+  std::vector<char> bytes(spec.bytes);
+  stream.read(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  if (stream.gcount() != static_cast<std::streamsize>(bytes.size()) ||
+      stream.peek() != std::ifstream::traits_type::eof()) {
+    std::fprintf(stderr, "input size mismatch: %s\n", path.c_str());
+    return false;
+  }
+  return Cuda(cudaMemcpy(buffer.data, bytes.data(), bytes.size(), cudaMemcpyHostToDevice));
+}
+}
+
+int main(int argc, char** argv) {
+  if (argc != 5) return 2;
+  char* end = nullptr;
+  const auto repetitions = std::strtoull(argv[4], &end, 10);
+  if (!end || *end || repetitions < 1u || repetitions > 100000u || !Cuda(cudaSetDevice(kOrdinal))) return 3;
+  std::vector<Buffer> buffers(specs.size());
+  for (std::size_t index = 0; index < specs.size(); ++index) {
+    if (!Cuda(cudaMalloc(&buffers[index].data, specs[index].bytes))) return 4;
+  }
+  VLAForgeSession* session = nullptr;
+  const std::string bundle(argv[1]);
+  if (vlaforge_model_session_create_from_bundle(bundle.data(), bundle.size(), &session).code != VLAFORGE_STATUS_OK) return 5;
+  const auto* api = vlaforge_model_session_api();
+  if (vlaforge_session_api_validate(api, vlaforge_generated::kSchemaDigest,
+      VLAFORGE_SCHEMA_DIGEST_HEX_SIZE).code != VLAFORGE_STATUS_OK) {
+    api->destroy(session); return 6;
+  }
+  int result = 0;
+  for (std::size_t run = 0; run < repetitions * kSamples; ++run) {
+    const auto sample = run % kSamples;
+    VLAForgeInputStamp stamp{};
+    stamp.struct_size = sizeof(stamp);
+    stamp.has_revision = 1u;
+    stamp.revision = run + 1u;
+    for (std::size_t input = 0; input < specs.size(); ++input) {
+      const auto& spec = specs[input];
+      if (!Upload(argv[2], sample, input, buffers[input])) { result = 7; break; }
+      const VLAForgeBoundTensor tensor{
+          sizeof(VLAForgeBoundTensor),
+          {buffers[input].data, spec.bytes, spec.shape.data(),
+           static_cast<std::uint32_t>(spec.shape.size()), spec.dtype,
+           {VLAFORGE_DEVICE_CUDA, kOrdinal}}, VLAFORGE_LAYOUT_CONTIGUOUS, 64u};
+      if (api->bind_tensor(session, static_cast<std::uint32_t>(input), &tensor, &stamp).code != VLAFORGE_STATUS_OK) {
+        result = 8; break;
+      }
+    }
+    if (result || !Cuda(cudaDeviceSynchronize())) { if (!result) result = 9; break; }
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = api->run(session);
+    if (status.code != VLAFORGE_STATUS_OK || !Cuda(cudaDeviceSynchronize())) {
+@REPLAY_FAILURE@      std::fprintf(stderr, "fresh Session failed: %u\n", static_cast<unsigned>(status.code));
+      result = 10; break;
+    }
+    const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now() - start).count();
+@REPLAY_AUDIT@    VLAForgeBoundTensor output{};
+    if (api->read_output_tensor(session, 0u, &output).code != VLAFORGE_STATUS_OK ||
+        output.tensor.dtype != VLAFORGE_DTYPE_F32 ||
+        output.tensor.device.kind != VLAFORGE_DEVICE_CUDA ||
+        output.tensor.size_bytes != kOutputCount * sizeof(float)) { result = 11; break; }
+    std::vector<float> action(kOutputCount);
+    if (!Cuda(cudaMemcpy(action.data(), output.tensor.data, output.tensor.size_bytes, cudaMemcpyDeviceToHost))) { result = 12; break; }
+    for (float value : action) if (!std::isfinite(value)) result = 13;
+    if (result) break;
+    const auto path = std::string(argv[3]) + "/run-" + std::to_string(run) + ".bin";
+    std::ofstream stream(path, std::ios::binary);
+    stream.write(reinterpret_cast<const char*>(action.data()), static_cast<std::streamsize>(output.tensor.size_bytes));
+    if (!stream.good()) { result = 14; break; }
+    std::printf("FRESH,%zu,%zu,%lld\n", run, sample, static_cast<long long>(elapsed));
+    std::fflush(stdout);
+  }
+  api->destroy(session);
+  return result;
+}

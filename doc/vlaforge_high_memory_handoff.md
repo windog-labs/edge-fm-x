@@ -167,7 +167,11 @@ python vlaforge/tools/probe_real_autovla_full_eager.py \
 只有后续 eager/captured Regions/Semantic IR/Plan 全部对齐后才能升级为完整
 real L2。
 
-## 6. 完整 AutoVLA 的模块落点
+## 6. 完整 AutoVLA 的历史路线图
+
+以下文件名是早期完整 AutoVLA 规划中的目标位置，不代表当前分支已经
+提供这些模块。当前可用的真实 AutoVLA 实现和工具应以
+`adapters/autovla/`、`tools/run_high_memory_autovla.py` 及对应测试为准。
 
 不要修改冻结的 15-op core。新增代码应限制在 Adapter、Region、artifact 和
 真实模型审计工具：

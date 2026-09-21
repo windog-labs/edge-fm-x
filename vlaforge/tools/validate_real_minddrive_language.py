@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from vlaforge.adapters.minddrive_real import (
+from vlaforge.adapters.minddrive.minddrive_real import (
     MINDDRIVE_DECISION_DCE_MAX_ABS,
     MINDDRIVE_DECISION_DCE_NRMSE,
 )

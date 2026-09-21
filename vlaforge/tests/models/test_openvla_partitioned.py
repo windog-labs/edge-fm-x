@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from vlaforge.adapters.openvla_partitioned import (
+from vlaforge.adapters.openvla.openvla_partitioned import (
     OPENVLA_ACTION_DIM,
     OPENVLA_CHUNK_SIZE,
     OPENVLA_HEADS,

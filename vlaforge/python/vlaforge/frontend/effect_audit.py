@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import inspect
 import operator
+from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Callable
+from typing import Any
 
 from vlaforge.deployment.contract import (
     ArtifactDiagnostic,
     DiagnosticSeverity,
     EffectAudit,
 )
-
 
 _RANDOM_TOKENS = (
     "rand",
@@ -31,9 +31,9 @@ _EXTERNAL_IO_TOKENS = (
 )
 
 
-def audit_callable_closure(function: Callable[..., object]) -> tuple[
-    ArtifactDiagnostic, ...
-]:
+def audit_callable_closure(
+    function: Callable[..., object],
+) -> tuple[ArtifactDiagnostic, ...]:
     """Reject mutable/non-serializable values captured by a plain function."""
 
     try:
@@ -64,60 +64,79 @@ def audit_exported_program(
     explicit_rng: bool = False,
     lifted_states: tuple[str, ...] = (),
 ) -> EffectAudit:
+    from torch import Tag
+    from torch.fx import GraphModule
+
     diagnostics = list(closure_diagnostics)
     hidden_mutation = False
     hidden_rng = False
     external_io = False
     local_mutations = 0
     deterministic_dropouts = 0
+    deterministic_attention = 0
 
-    for node in exported_program.graph_module.graph.nodes:
-        if node.op not in {"call_function", "call_method", "call_module"}:
-            continue
-        target = node.target
-        target_name = str(target).lower()
-        schema = getattr(target, "_schema", None)
-        if schema is not None and bool(getattr(schema, "is_mutable", False)):
-            written_values = tuple(
-                node.args[index]
-                for index, argument in enumerate(schema.arguments)
-                if index < len(node.args)
-                and argument.alias_info is not None
-                and argument.alias_info.is_write
-            )
-            if any(_aliases_external_storage(value, {}) for value in written_values):
-                hidden_mutation = True
+    root = exported_program.graph_module
+    graphs = tuple(
+        (name, module)
+        for name, module in root.named_modules()
+        if isinstance(module, GraphModule)
+    )
+    for graph_name, graph_module in graphs:
+        for node in graph_module.graph.nodes:
+            if node.op not in {"call_function", "call_method", "call_module"}:
+                continue
+            target = node.target
+            target_name = str(target).lower()
+            schema = getattr(target, "_schema", None)
+            if schema is not None and bool(getattr(schema, "is_mutable", False)):
+                written_values = tuple(
+                    node.args[index]
+                    if index < len(node.args)
+                    else node.kwargs.get(argument.name)
+                    for index, argument in enumerate(schema.arguments)
+                    if argument.alias_info is not None and argument.alias_info.is_write
+                )
+                if any(
+                    _aliases_external_storage(value, {}) for value in written_values
+                ):
+                    hidden_mutation = True
+                    diagnostics.append(
+                        ArtifactDiagnostic(
+                            "frontend.hidden_mutation",
+                            f"captured operator {target} mutates an input or module value",
+                            source=f"{graph_name}.{node.name}"
+                            if graph_name
+                            else node.name,
+                        )
+                    )
+                else:
+                    local_mutations += 1
+            if "dropout" in target_name and _dropout_training_is_false(node, schema):
+                deterministic_dropouts += 1
+            elif _sdpa_dropout_is_zero(node, schema):
+                deterministic_attention += 1
+            elif Tag.nondeterministic_seeded in getattr(target, "tags", ()) or any(
+                token in target_name for token in _RANDOM_TOKENS
+            ):
+                hidden_rng = True
                 diagnostics.append(
                     ArtifactDiagnostic(
-                        "frontend.hidden_mutation",
-                        f"captured operator {target} mutates an input or module value",
-                        source=node.name,
+                        "frontend.hidden_rng",
+                        f"captured random operator {target}",
+                        source=f"{graph_name}.{node.name}" if graph_name else node.name,
                     )
                 )
-            else:
-                local_mutations += 1
-        if "dropout" in target_name and _dropout_training_is_false(node, schema):
-            deterministic_dropouts += 1
-        elif any(token in target_name for token in _RANDOM_TOKENS):
-            hidden_rng = True
-            diagnostics.append(
-                ArtifactDiagnostic(
-                    "frontend.hidden_rng",
-                    f"captured random operator {target}",
-                    source=node.name,
+            if node.op != "call_function" and any(
+                token in target_name for token in _EXTERNAL_IO_TOKENS
+            ):
+                external_io = True
+                diagnostics.append(
+                    ArtifactDiagnostic(
+                        "frontend.external_io",
+                        f"captured possible external I/O target {target}",
+                        source=f"{graph_name}.{node.name}" if graph_name else node.name,
+                    )
                 )
-            )
-        if node.op != "call_function" and any(
-            token in target_name for token in _EXTERNAL_IO_TOKENS
-        ):
-            external_io = True
-            diagnostics.append(
-                ArtifactDiagnostic(
-                    "frontend.external_io",
-                    f"captured possible external I/O target {target}",
-                    source=node.name,
-                )
-            )
 
     if local_mutations:
         diagnostics.append(
@@ -139,7 +158,27 @@ def audit_exported_program(
             )
         )
 
-    input_specs = getattr(exported_program.graph_signature, "input_specs", ())
+    if deterministic_attention:
+        diagnostics.append(
+            ArtifactDiagnostic(
+                "frontend.zero_dropout_attention",
+                f"{deterministic_attention} SDPA operators have dropout_p=0 and consume no RNG",
+                DiagnosticSeverity.INFO,
+            )
+        )
+
+    signature = exported_program.graph_signature
+    if getattr(signature, "buffers_to_mutate", {}) or getattr(
+        signature, "user_inputs_to_mutate", {}
+    ):
+        hidden_mutation = True
+        diagnostics.append(
+            ArtifactDiagnostic(
+                "frontend.hidden_mutation",
+                "exported signature writes caller inputs or persistent buffers",
+            )
+        )
+    input_specs = getattr(signature, "input_specs", ())
     for spec in input_specs:
         kind = str(getattr(spec, "kind", ""))
         if "CUSTOM_OBJ" in kind.upper():
@@ -167,9 +206,7 @@ def _is_immutable_literal(value: object) -> bool:
         return all(_is_immutable_literal(item) for item in value)
     if isinstance(value, frozenset):
         return all(_is_immutable_literal(item) for item in value)
-    if isinstance(value, ModuleType):
-        return True
-    return False
+    return isinstance(value, ModuleType)
 
 
 def _aliases_external_storage(value: object, memo: dict[object, bool]) -> bool:
@@ -179,6 +216,10 @@ def _aliases_external_storage(value: object, memo: dict[object, bool]) -> bool:
         from torch.fx import Node
     except ImportError:
         return False
+    if isinstance(value, (tuple, list)):
+        return any(_aliases_external_storage(item, memo) for item in value)
+    if isinstance(value, dict):
+        return any(_aliases_external_storage(item, memo) for item in value.values())
     if not isinstance(value, Node):
         return False
     if value in memo:
@@ -192,8 +233,10 @@ def _aliases_external_storage(value: object, memo: dict[object, bool]) -> bool:
         return result
     schema = getattr(value.target, "_schema", None)
     if schema is None:
-        memo[value] = False
-        return False
+        # HOP/call_module returns may alias operands. Without an alias schema
+        # the audit cannot certify a subsequent write as private workspace.
+        memo[value] = True
+        return True
     return_aliases = [
         item.alias_info for item in schema.returns if item.alias_info is not None
     ]
@@ -201,19 +244,21 @@ def _aliases_external_storage(value: object, memo: dict[object, bool]) -> bool:
         memo[value] = False
         return False
     alias_sets = set().union(
-        *(
-            set(alias.before_set) | set(alias.after_set)
-            for alias in return_aliases
-        )
+        *(set(alias.before_set) | set(alias.after_set) for alias in return_aliases)
     )
     result = False
     for index, argument in enumerate(schema.arguments):
         alias = argument.alias_info
-        if alias is None or index >= len(value.args):
+        if alias is None:
             continue
         argument_sets = set(alias.before_set) | set(alias.after_set)
         if alias_sets & argument_sets:
-            result |= _aliases_external_storage(value.args[index], memo)
+            argument_value = (
+                value.args[index]
+                if index < len(value.args)
+                else value.kwargs.get(argument.name)
+            )
+            result |= _aliases_external_storage(argument_value, memo)
     memo[value] = result
     return result
 
@@ -230,4 +275,18 @@ def _dropout_training_is_false(node: object, schema: object | None) -> bool:
         else:
             value = node.kwargs.get(argument.name)
         return value is False
+    return False
+
+
+def _sdpa_dropout_is_zero(node: object, schema: object | None) -> bool:
+    if schema is None or schema.name != "aten::scaled_dot_product_attention":
+        return False
+    for index, argument in enumerate(schema.arguments):
+        if argument.name == "dropout_p":
+            value = (
+                node.args[index]
+                if index < len(node.args)
+                else node.kwargs.get(argument.name, argument.default_value)
+            )
+            return type(value) in (int, float) and value == 0
     return False

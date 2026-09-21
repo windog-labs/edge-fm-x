@@ -1,0 +1,320 @@
+#include "session_generated.h"
+@MULTI_OUTPUT_DEFINE@
+@ALLOCATOR_INCLUDE@
+#include <cuda_runtime_api.h>
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <limits>
+#include <string>
+#include <thread>
+#include <vector>
+#include <unistd.h>
+
+namespace {
+struct InputSpec { VLAForgeDType dtype; std::vector<std::int64_t> shape; std::size_t bytes; };
+const std::vector<InputSpec> specs = {@INPUTS@};
+constexpr int kOrdinal = @ORDINAL@;
+constexpr std::size_t kSamples = @SAMPLES@u;
+constexpr std::size_t kOutputCount = @OUTPUT_COUNT@u;
+constexpr std::size_t kOutputBytes = @OUTPUT_BYTES@u;
+constexpr VLAForgeDType kOutputDtype = @OUTPUT_DTYPE@;
+const std::vector<std::int64_t> output_shape = {@OUTPUT_SHAPE@};
+const std::vector<std::size_t> active_indices = {@ACTIVE_INDICES@};
+constexpr bool kOwnerHandshake = @OWNER_HANDSHAKE@;
+constexpr bool kHostIO = @HOST_IO@;
+bool Cuda(cudaError_t status) {
+  if (status == cudaSuccess) return true;
+  std::fprintf(stderr, "CUDA failure: %s\n", cudaGetErrorString(status)); return false;
+}
+struct Buffer { void* data = nullptr; ~Buffer() { if (data) (void)cudaFree(data); } };
+bool Read(const std::string& path, void* data, std::size_t bytes) {
+  std::ifstream file(path, std::ios::binary);
+  file.read(static_cast<char*>(data), static_cast<std::streamsize>(bytes));
+  return file.gcount() == static_cast<std::streamsize>(bytes) && file.peek() == std::ifstream::traits_type::eof();
+}
+bool OwnerStage(const std::string& root, const char* stage) {
+  const auto path = root + "/owner-" + stage + ".json";
+  const auto temporary = path + ".tmp";
+  {
+    std::ofstream file(temporary);
+    file << "{\"pid\":" << getpid() << ",\"ordinal\":" << kOrdinal << "}\n";
+    if (!file.good()) return false;
+  }
+  if (std::rename(temporary.c_str(), path.c_str()) != 0) return false;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+  while (std::chrono::steady_clock::now() < deadline) {
+    std::ifstream signal(root + "/continue-" + stage);
+    std::string line;
+    if (std::getline(signal, line)) return line == "continue";
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  return false;
+}
+struct Metrics { double mse = 0; double maximum = 0; double cosine = 0; bool cosine_defined = false; };
+std::vector<double> Decode(const std::vector<std::uint8_t>& bytes,
+                           VLAForgeDType dtype = kOutputDtype, std::size_t count = kOutputCount) {
+  std::vector<double> result(count);
+  for (std::size_t i = 0; i < count; ++i) {
+    if (dtype == VLAFORGE_DTYPE_F64) {
+      double value; std::memcpy(&value, bytes.data() + i * 8u, 8u); result[i] = value;
+    } else if (dtype == VLAFORGE_DTYPE_F32) {
+      float value; std::memcpy(&value, bytes.data() + i * 4u, 4u); result[i] = value;
+    } else {
+      std::uint16_t bits; std::memcpy(&bits, bytes.data() + i * 2u, 2u);
+      if (dtype == VLAFORGE_DTYPE_BF16) {
+        const std::uint32_t wide = static_cast<std::uint32_t>(bits) << 16u;
+        float value; std::memcpy(&value, &wide, 4u); result[i] = value;
+      } else {
+        const auto exponent = (bits >> 10u) & 31u, mantissa = bits & 1023u;
+        const double magnitude = exponent == 31u
+            ? (mantissa ? std::numeric_limits<double>::quiet_NaN() : std::numeric_limits<double>::infinity())
+            : (exponent ? std::ldexp(1.0 + mantissa / 1024.0, static_cast<int>(exponent) - 15)
+                        : std::ldexp(static_cast<double>(mantissa), -24));
+        result[i] = bits & 0x8000u ? -magnitude : magnitude;
+      }
+    }
+  }
+  return result;
+}
+Metrics Compare(const std::vector<double>& expected, const std::vector<double>& actual, bool active = false) {
+  Metrics result; double dot = 0, left = 0, right = 0;
+  const auto count = active ? active_indices.size() : actual.size();
+  for (std::size_t index = 0; index < count; ++index) {
+    const auto i = active ? active_indices[index] : index;
+    const double a = expected[i], b = actual[i], delta = a - b;
+    result.mse += delta * delta; result.maximum = std::max(result.maximum, std::abs(delta));
+    dot += a * b; left += a * a; right += b * b;
+  }
+  result.mse /= count;
+  result.cosine_defined = left > 1e-24 && right > 1e-24;
+  result.cosine = result.cosine_defined ? std::clamp(dot / std::sqrt(left * right), -1.0, 1.0) : 0;
+  return result;
+}
+#ifdef VLAFORGE_BENCHMARK_MULTI_OUTPUT
+struct AdditionalOutputSpec {
+  std::uint32_t index; VLAForgeDType dtype; std::vector<std::int64_t> shape;
+  std::size_t bytes, count; bool floating; const char* raw_file;
+  const char* direct_file; const char* eager_file;
+};
+const std::vector<AdditionalOutputSpec> additional_specs = {@ADDITIONAL_OUTPUT_SPECS@};
+bool ValidAdditional(const std::vector<std::uint8_t>& bytes, const AdditionalOutputSpec& spec) {
+  if (spec.floating) {
+    const auto values = Decode(bytes, spec.dtype, spec.count);
+    return std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); });
+  }
+  return spec.dtype != VLAFORGE_DTYPE_BOOL ||
+      std::all_of(bytes.begin(), bytes.end(), [](std::uint8_t value) { return value <= 1u; });
+}
+struct AdditionalOutputs {
+  std::vector<std::vector<std::vector<std::uint8_t>>> direct, eager;
+  std::vector<std::vector<std::uint8_t>> captured;
+  std::vector<std::ofstream> raw;
+  bool ready = false;
+  bool Initialize(const std::string& data_root, const std::string& output_root) {
+    for (const auto& spec : additional_specs) {
+      direct.emplace_back(kSamples, std::vector<std::uint8_t>(spec.bytes));
+      eager.emplace_back(kSamples, std::vector<std::uint8_t>(spec.bytes));
+      captured.emplace_back(spec.bytes);
+      raw.emplace_back(output_root + "/" + spec.raw_file, std::ios::binary);
+      if (!raw.back().good()) return false;
+      for (std::size_t sample = 0; sample < kSamples; ++sample) {
+        const auto root = data_root + "/" + std::to_string(sample) + "/";
+        if (!Read(root + spec.direct_file, direct.back()[sample].data(), spec.bytes) ||
+            !Read(root + spec.eager_file, eager.back()[sample].data(), spec.bytes) ||
+            !ValidAdditional(direct.back()[sample], spec) || !ValidAdditional(eager.back()[sample], spec)) return false;
+      }
+    }
+    return true;
+  }
+  bool Capture(decltype(vlaforge_model_session_api()) api, VLAForgeSession* session) {
+    ready = false;
+    for (std::size_t index = 0; index < additional_specs.size(); ++index) {
+      const auto& spec = additional_specs[index];
+      VLAForgeBoundTensor value{};
+      if (api->read_output_tensor(session, spec.index, &value).code != VLAFORGE_STATUS_OK ||
+          value.tensor.dtype != spec.dtype || value.tensor.device.kind != VLAFORGE_DEVICE_CUDA ||
+          value.tensor.device.ordinal != kOrdinal || value.tensor.rank != spec.shape.size() ||
+          value.layout != VLAFORGE_LAYOUT_CONTIGUOUS || !value.tensor.data || value.tensor.size_bytes != spec.bytes) return false;
+      for (std::size_t dim = 0; dim < spec.shape.size(); ++dim)
+        if (!value.tensor.dimensions || value.tensor.dimensions[dim] != spec.shape[dim]) return false;
+      if (!Cuda(cudaMemcpy(captured[index].data(), value.tensor.data, spec.bytes, cudaMemcpyDeviceToHost))) return false;
+    }
+    ready = true;
+    return true;
+  }
+  bool Validate(decltype(vlaforge_model_session_api()) api, VLAForgeSession* session, std::size_t sample) {
+    if ((!ready && !Capture(api, session)) || sample >= kSamples) return false;
+    ready = false;
+    for (std::size_t index = 0; index < additional_specs.size(); ++index) {
+      const auto& spec = additional_specs[index];
+      const auto& bytes = captured[index];
+      if (!ValidAdditional(bytes, spec)) return false;
+      raw[index].write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+      raw[index].flush();
+      if (!raw[index].good() || bytes != direct[index][sample] ||
+          (!spec.floating && bytes != eager[index][sample])) return false;
+    }
+    return true;
+  }
+};
+#endif
+}
+
+int main(int argc, char** argv) {
+  const std::uint16_t byte_order = 1;
+  if (*reinterpret_cast<const std::uint8_t*>(&byte_order) != 1u) return 2;
+  if (argc != 6 || !Cuda(cudaSetDevice(kOrdinal))) return 2;
+  char* end = nullptr;
+  const auto warmup = std::strtoull(argv[4], &end, 10);
+  if (!end || *end || warmup < 1u || warmup > 100000u) return 3;
+  const auto measured = std::strtoull(argv[5], &end, 10);
+  if (!end || *end || measured < 1u || measured > 100000u) return 3;
+  const std::string data_root(argv[2]), output_root(argv[3]);
+  // This reset affects only this unused process-local primary context, before tensors or Sessions exist.
+  if (kOwnerHandshake && (!Cuda(cudaFree(nullptr)) || !OwnerStage(output_root, "registered-1") ||
+      !Cuda(cudaDeviceReset()) || !OwnerStage(output_root, "reset") ||
+      !Cuda(cudaSetDevice(kOrdinal)) || !Cuda(cudaFree(nullptr)) ||
+      !OwnerStage(output_root, "registered-2"))) return 18;
+  // @NUMERICAL_WORKER_BOOTSTRAP@
+  std::vector<Buffer> buffers(kSamples * specs.size());
+  std::vector<std::vector<char>> host_inputs(kHostIO ? buffers.size() : 0u);
+  std::vector<std::vector<std::uint8_t>> direct_raw(kSamples, std::vector<std::uint8_t>(kOutputBytes));
+  std::vector<std::vector<double>> direct(kSamples), eager(kSamples);
+  for (std::size_t sample = 0; sample < kSamples; ++sample) {
+    const auto prefix = data_root + "/" + std::to_string(sample) + "/";
+    for (std::size_t input = 0; input < specs.size(); ++input) {
+      const auto& spec = specs[input]; auto& buffer = buffers[sample * specs.size() + input];
+      std::vector<char> bytes(spec.bytes);
+      if (!Read(prefix + std::to_string(input) + ".bin", bytes.data(), bytes.size()) ||
+          !Cuda(cudaMalloc(&buffer.data, spec.bytes)) ||
+          !Cuda(cudaMemcpy(buffer.data, bytes.data(), bytes.size(), cudaMemcpyHostToDevice))) return 4;
+      if (kHostIO) host_inputs[sample * specs.size() + input].swap(bytes);
+    }
+    std::vector<std::uint8_t> eager_raw(kOutputBytes);
+    if (!Read(prefix + "direct.bin", direct_raw[sample].data(), kOutputBytes) ||
+        !Read(prefix + "eager.bin", eager_raw.data(), kOutputBytes)) return 5;
+    direct[sample] = Decode(direct_raw[sample]); eager[sample] = Decode(eager_raw);
+    for (std::size_t index = 0; index < kOutputCount; ++index)
+      if (!std::isfinite(direct[sample][index]) || !std::isfinite(eager[sample][index])) return 5;
+  }
+  if (!Cuda(cudaDeviceSynchronize())) return 6;
+  VLAForgeSession* session = nullptr;
+  const std::string bundle(argv[1]);
+@SESSION_LIFECYCLE_BEGIN@
+@ALLOCATOR_BEFORE_SESSION@
+  if (vlaforge_model_session_create_from_bundle(bundle.data(), bundle.size(), &session).code != VLAFORGE_STATUS_OK) return 7;
+@ALLOCATOR_AFTER_LOAD@
+  const auto* api = vlaforge_model_session_api();
+  if (vlaforge_session_api_validate(api, vlaforge_generated::kSchemaDigest,
+      VLAFORGE_SCHEMA_DIGEST_HEX_SIZE).code != VLAFORGE_STATUS_OK) return 8;
+  std::ofstream raw(output_root + "/@OUTPUT_FILE@", std::ios::binary);
+  if (!raw.good()) return 9;
+  std::ofstream host_timing;
+  if (kHostIO) {
+    host_timing.open(output_root + "/host-timing.csv");
+    host_timing << "run,h2d_ns,bind_ns,model_ns,d2h_ns,host_call_ns\n";
+    if (!host_timing.good()) return 22;
+  }
+#ifdef VLAFORGE_BENCHMARK_MULTI_OUTPUT
+  AdditionalOutputs additional;
+  if (!additional.Initialize(data_root, output_root)) return 20;
+#endif
+  std::printf("run,sample,measured,revision,latency_ns,finite,direct_exact,direct_mse,direct_max_abs,direct_cosine,direct_cosine_defined,eager_mse,eager_max_abs,eager_cosine,eager_cosine_defined,active_eager_mse,active_eager_max_abs,active_eager_cosine,active_eager_cosine_defined\n");
+  const auto wall_start = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point measured_wall_start;
+  std::vector<std::uint8_t> action_raw(kOutputBytes);
+  for (std::size_t run = 0; run < warmup + measured; ++run) {
+@ALLOCATOR_AFTER_WARMUP@
+    if (run == warmup) measured_wall_start = std::chrono::steady_clock::now();
+    const auto sample = run % kSamples;
+    VLAForgeInputStamp stamp{}; stamp.struct_size = sizeof(stamp); stamp.has_revision = 1u; stamp.revision = run + 1u;
+    const auto transfer_start = std::chrono::steady_clock::now();
+    if (kHostIO) {
+      for (std::size_t input = 0; input < specs.size(); ++input) {
+        const auto index = sample * specs.size() + input;
+        if (!Cuda(cudaMemcpy(buffers[index].data, host_inputs[index].data(), specs[input].bytes,
+                             cudaMemcpyHostToDevice))) return 4;
+      }
+      if (!Cuda(cudaDeviceSynchronize())) return 11;
+    }
+    const auto transfer_end = std::chrono::steady_clock::now();
+    for (std::size_t input = 0; input < specs.size(); ++input) {
+      const auto& spec = specs[input]; const auto& buffer = buffers[sample * specs.size() + input];
+      const VLAForgeBoundTensor tensor{sizeof(VLAForgeBoundTensor),
+        {buffer.data, spec.bytes, spec.shape.data(), static_cast<std::uint32_t>(spec.shape.size()),
+         spec.dtype, {VLAFORGE_DEVICE_CUDA, kOrdinal}}, VLAFORGE_LAYOUT_CONTIGUOUS, 64u};
+      if (api->bind_tensor(session, static_cast<std::uint32_t>(input), &tensor, &stamp).code != VLAFORGE_STATUS_OK) return 10;
+    }
+    if (!Cuda(cudaDeviceSynchronize())) return 11;
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = api->run(session);
+    if (status.code != VLAFORGE_STATUS_OK) {
+@REPLAY_FAILURE@
+      std::fprintf(stderr, "Session failed: %u %s\n", static_cast<unsigned>(status.code),
+                   status.message == nullptr ? "<no message>" : status.message); return 12;
+    }
+    if (!Cuda(cudaDeviceSynchronize())) return 13;
+    const auto model_end = std::chrono::steady_clock::now();
+    VLAForgeBoundTensor output{};
+    if (api->read_output_tensor(session, @PRIMARY_OUTPUT_INDEX@u, &output).code != VLAFORGE_STATUS_OK ||
+        output.tensor.dtype != kOutputDtype || output.tensor.device.kind != VLAFORGE_DEVICE_CUDA ||
+        output.tensor.device.ordinal != kOrdinal || output.tensor.rank != output_shape.size() ||
+        output.layout != VLAFORGE_LAYOUT_CONTIGUOUS || !output.tensor.data ||
+        output.tensor.size_bytes != kOutputBytes) return 14;
+    for (std::size_t dim = 0; dim < output_shape.size(); ++dim)
+      if (!output.tensor.dimensions || output.tensor.dimensions[dim] != output_shape[dim]) return 14;
+    if (!Cuda(cudaMemcpy(action_raw.data(), output.tensor.data, kOutputBytes, cudaMemcpyDeviceToHost))) return 14;
+#ifdef VLAFORGE_BENCHMARK_MULTI_OUTPUT
+    if (!additional.Capture(api, session)) return 20;
+#endif
+    const auto host_end = std::chrono::steady_clock::now();
+    const auto ns = [](auto duration) { return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count(); };
+    const auto elapsed = kHostIO ? ns(host_end - transfer_start) : ns(model_end - start);
+    // Output copies finish before any reference comparisons, telemetry or file IO.
+    if (kHostIO) {
+      host_timing << run << ',' << ns(transfer_end - transfer_start) << ',' << ns(start - transfer_end)
+          << ',' << ns(model_end - start) << ',' << ns(host_end - model_end) << ',' << elapsed << '\n';
+      host_timing.flush();
+      if (!host_timing.good()) return 22;
+    }
+@REPLAY_AUDIT@
+#ifdef VLAFORGE_BENCHMARK_MULTI_OUTPUT
+    if (!additional.Validate(api, session, sample)) return 20;
+#endif
+    const auto action = Decode(action_raw);
+    bool finite = true;
+    for (double value : action) finite = finite && std::isfinite(value);
+    const bool exact = action_raw == direct_raw[sample];
+    const auto dm = Compare(direct[sample], action), em = Compare(eager[sample], action);
+    const auto am = Compare(eager[sample], action, true);
+    raw.write(reinterpret_cast<const char*>(action_raw.data()), static_cast<std::streamsize>(kOutputBytes));
+    raw.flush();
+    std::printf("%zu,%zu,%u,%llu,%lld,%u,%u,%.17g,%.17g,%.17g,%u,%.17g,%.17g,%.17g,%u,%.17g,%.17g,%.17g,%u\n", run, sample,
+        static_cast<unsigned>(run >= warmup), static_cast<unsigned long long>(stamp.revision),
+        static_cast<long long>(elapsed), static_cast<unsigned>(finite), static_cast<unsigned>(exact),
+        dm.mse, dm.maximum, dm.cosine, static_cast<unsigned>(dm.cosine_defined),
+        em.mse, em.maximum, em.cosine, static_cast<unsigned>(em.cosine_defined),
+        am.mse, am.maximum, am.cosine, static_cast<unsigned>(am.cosine_defined));
+    std::fflush(stdout);
+    if (!raw.good() || !finite || !exact || !std::isfinite(dm.mse) || !std::isfinite(em.mse) || !std::isfinite(am.mse)) return 15;
+  }
+  const auto end_time = std::chrono::steady_clock::now();
+@ALLOCATOR_AFTER_MEASURED@
+  std::fprintf(stderr, "WALL,%lld,%lld\n",
+      static_cast<long long>(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - wall_start).count()),
+      static_cast<long long>(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - measured_wall_start).count()));
+  std::ifstream maps("/proc/self/maps");
+  std::ofstream map_output(output_root + "/process-maps.txt");
+  map_output << maps.rdbuf();
+  if (!map_output.good()) return 16;
+  api->destroy(session);
+@ALLOCATOR_AFTER_DESTROY@
+@SESSION_LIFECYCLE_END@
+  return 0;
+}

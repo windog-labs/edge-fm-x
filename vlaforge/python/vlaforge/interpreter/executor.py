@@ -226,8 +226,10 @@ class Interpreter:
 
     def _resolve_bindings(self) -> dict[str, tuple[object, int, int | None]]:
         result: dict[str, tuple[object, int, int | None]] = {}
+        self._input_revision_sources: dict[str, str] = {}
         for port in self.module.inputs:
             binding = self._bindings.get(port.name)
+            source = "default" if binding is None else "explicit"
             if binding is None:
                 if port.required:
                     raise InterpreterError(
@@ -236,8 +238,10 @@ class Interpreter:
                 binding = default_binding(port)
             revision = binding.stamp.revision
             if revision is None:
+                source = "automatic"
                 revision = self._next_auto_revision
                 self._next_auto_revision += 1
+            self._input_revision_sources[port.name] = source
             try:
                 value = resolve_binding(port, binding)
             except (TypeError, ValueError) as error:
@@ -393,9 +397,7 @@ class Interpreter:
             return values
 
         if opcode == "vla.for":
-            current = operands[0]
-            induction_name = str(operation.attributes["induction"])
-            iter_name = str(operation.attributes["iter_arg"])
+            current = tuple(operands)
             body = operation.regions[0]
             for index in range(
                 int(operation.attributes["lower"]),
@@ -403,8 +405,10 @@ class Interpreter:
                 int(operation.attributes["step"]),
             ):
                 nested = dict(env)
-                nested[induction_name] = index
-                nested[iter_name] = current
+                nested.update(zip(
+                    (argument.name for argument in body.arguments),
+                    (index, *current), strict=True,
+                ))
                 try:
                     self._execute_block(
                         invocation,
@@ -414,14 +418,14 @@ class Interpreter:
                         run_index,
                     )
                 except _YieldSignal as signal:
-                    if len(signal.values) != 1:
+                    if len(signal.values) != len(current):
                         raise InterpreterError(
-                            "vla.for body must yield one iter value"
+                            "vla.for body must yield matching iter values"
                         )
-                    current = signal.values[0]
+                    current = signal.values
                 else:
                     raise InterpreterError("vla.for body did not yield")
-            return (current,)
+            return tuple(current)
 
         if opcode == "vla.if":
             block = operation.regions[0 if bool(operands[0]) else 1]
@@ -573,6 +577,7 @@ class Interpreter:
             self.state_store.episode,
             revisions,
             snapshots,
+            tuple((name, self._input_revision_sources[name]) for name, _ in revisions),
         )
 
     def _cache_identity(

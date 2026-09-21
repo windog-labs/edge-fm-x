@@ -23,7 +23,7 @@ fixture 已经生成并运行无 Python C++ Session，不表示真实 checkpoint
 共同验收路径：
 
 - fixture：`vlaforge/tests/models/test_model_fixtures.py`
-- upstream pin：`vlaforge/python/vlaforge/adapters/model_contracts.py`
+- upstream pin：`vlaforge/python/vlaforge/adapters/shared/model_contracts.py`
 - frozen-core held-out：
   `doc/reports/vlaforge_heldout_v01/heldout_audit.md`
 - 生成 C++：`vlaforge/tests/codegen/test_codegen.py`

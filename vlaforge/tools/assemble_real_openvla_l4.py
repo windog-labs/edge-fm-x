@@ -19,12 +19,12 @@ _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 _REPOSITORY_ROOT = _SOURCE_ROOT.parent
 sys.path.insert(0, str(_SOURCE_ROOT / "python"))
 
-from vlaforge.adapters.openvla_artifact import (  # noqa: E402
+from vlaforge.adapters.openvla.openvla_artifact import (  # noqa: E402
     OPENVLA_L4_SUPPORT_REGIONS,
     build_compiled_openvla_program,
     capture_openvla_l4_support_regions,
 )
-from vlaforge.adapters.openvla_partitioned import (  # noqa: E402
+from vlaforge.adapters.openvla.openvla_partitioned import (  # noqa: E402
     OPENVLA_UPSTREAM_REVISION,
     artifact_region_names,
 )

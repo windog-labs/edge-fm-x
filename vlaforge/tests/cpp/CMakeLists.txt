@@ -2,6 +2,19 @@ add_executable(vlaforge_region_c_abi_smoke region_c_abi_smoke.c)
 target_link_libraries(vlaforge_region_c_abi_smoke PRIVATE vlaforge_runtime)
 add_test(NAME vlaforge_region_c_abi_smoke COMMAND vlaforge_region_c_abi_smoke)
 
+add_executable(vlaforge_execution_context_smoke execution_context_smoke.c)
+target_link_libraries(vlaforge_execution_context_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_execution_context_smoke
+    COMMAND vlaforge_execution_context_smoke)
+
+add_executable(vlaforge_numerical_smoke numerical_smoke.cpp)
+target_link_libraries(vlaforge_numerical_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_numerical_smoke COMMAND vlaforge_numerical_smoke)
+
+add_executable(vlaforge_bounded_replay_smoke bounded_replay_smoke.cpp)
+target_link_libraries(vlaforge_bounded_replay_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_bounded_replay_smoke COMMAND vlaforge_bounded_replay_smoke)
+
 add_executable(vlaforge_region_value_c_abi_smoke region_value_c_abi_smoke.c)
 target_link_libraries(vlaforge_region_value_c_abi_smoke PRIVATE
     vlaforge_runtime)
@@ -65,7 +78,71 @@ add_test(NAME vlaforge_external_region_plugin_smoke
         $<TARGET_FILE:vlaforge_external_region_bad_abi_plugin>
         $<TARGET_FILE:vlaforge_external_region_missing_symbol_plugin>)
 
+if(TARGET vlaforge_aoti_backend OR TARGET vlaforge_tensorrt_backend)
+    add_executable(vlaforge_cuda_device_copy_smoke cuda_device_copy_smoke.cpp)
+    target_link_libraries(vlaforge_cuda_device_copy_smoke PRIVATE vlaforge_runtime)
+    if(NOT VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY)
+        add_test(NAME vlaforge_cuda_device_copy_smoke
+            COMMAND vlaforge_cuda_device_copy_smoke)
+    endif()
+endif()
+
+if(TARGET vlaforge_libtorch_numerical_backend)
+    find_package(Threads REQUIRED)
+    add_executable(vlaforge_libtorch_numerical_smoke libtorch_numerical_smoke.cpp)
+    target_link_libraries(vlaforge_libtorch_numerical_smoke PRIVATE
+        vlaforge_libtorch_numerical_backend Threads::Threads)
+    target_compile_options(vlaforge_libtorch_numerical_smoke PRIVATE
+        ${VLAFORGE_TORCH_CXX_FLAGS})
+    if(MSVC)
+        target_compile_options(vlaforge_libtorch_numerical_smoke PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_libtorch_numerical_smoke PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    add_test(NAME vlaforge_libtorch_numerical_smoke
+        COMMAND vlaforge_libtorch_numerical_smoke)
+    if(UNIX AND NOT APPLE)
+        add_library(vlaforge_libtorch_numerical_fault_injection SHARED
+            libtorch_numerical_fault_injection.cpp)
+        target_link_libraries(vlaforge_libtorch_numerical_fault_injection PRIVATE
+            ${TORCH_LIBRARIES} ${CMAKE_DL_LIBS})
+        target_compile_options(vlaforge_libtorch_numerical_fault_injection PRIVATE
+            ${VLAFORGE_TORCH_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
+
 if(TARGET vlaforge_aoti_backend)
+    add_executable(vlaforge_aoti_extraction_smoke aoti_extraction_smoke.cpp)
+    target_link_libraries(vlaforge_aoti_extraction_smoke PRIVATE vlaforge_aoti_backend)
+    target_compile_options(vlaforge_aoti_extraction_smoke PRIVATE ${VLAFORGE_TORCH_CXX_FLAGS})
+    add_executable(vlaforge_aoti_bounded_replay_smoke
+        aoti_bounded_replay_smoke.cpp)
+    target_link_libraries(vlaforge_aoti_bounded_replay_smoke PRIVATE
+        vlaforge_aoti_backend)
+    target_compile_options(vlaforge_aoti_bounded_replay_smoke PRIVATE
+        ${VLAFORGE_TORCH_CXX_FLAGS})
+    if(MSVC)
+        target_compile_options(vlaforge_aoti_bounded_replay_smoke PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_aoti_bounded_replay_smoke PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+
+    add_executable(vlaforge_aoti_execution_context_smoke
+        aoti_execution_context_smoke.cpp)
+    target_link_libraries(vlaforge_aoti_execution_context_smoke PRIVATE
+        vlaforge_aoti_backend)
+    target_compile_options(vlaforge_aoti_execution_context_smoke PRIVATE
+        ${VLAFORGE_TORCH_CXX_FLAGS})
+    if(MSVC)
+        target_compile_options(vlaforge_aoti_execution_context_smoke PRIVATE
+            /W4 /WX)
+    else()
+        target_compile_options(vlaforge_aoti_execution_context_smoke PRIVATE
+            -Wall -Wextra -Wpedantic -Werror)
+    endif()
+
     add_executable(vlaforge_cuda_state_store_smoke
         cuda_state_store_smoke.cpp)
     target_link_libraries(vlaforge_cuda_state_store_smoke PRIVATE
@@ -87,6 +164,23 @@ if(TARGET vlaforge_aoti_backend)
 endif()
 
 if(TARGET vlaforge_torchscript_backend)
+    if(VLAFORGE_TORCHSCRIPT_ENABLE_CUDA)
+        add_executable(vlaforge_libtorch_rng_smoke libtorch_rng_smoke.cpp)
+        target_link_libraries(vlaforge_libtorch_rng_smoke PRIVATE
+            vlaforge_torchscript_backend ${TORCH_LIBRARIES} CUDA::cudart)
+        target_compile_options(vlaforge_libtorch_rng_smoke PRIVATE
+            ${VLAFORGE_TORCH_CXX_FLAGS} -Wall -Wextra -Wpedantic -Werror)
+        add_executable(vlaforge_torchscript_bounded_replay_smoke aoti_bounded_replay_smoke.cpp)
+        target_link_libraries(vlaforge_torchscript_bounded_replay_smoke PRIVATE vlaforge_torchscript_backend)
+        target_compile_definitions(vlaforge_torchscript_bounded_replay_smoke PRIVATE VLAFORGE_REPLAY_TEST_TORCHSCRIPT=1)
+        target_compile_options(vlaforge_torchscript_bounded_replay_smoke PRIVATE ${VLAFORGE_TORCH_CXX_FLAGS})
+    endif()
+    add_executable(vlaforge_torchscript_value_smoke torchscript_value_smoke.cpp)
+    target_link_libraries(vlaforge_torchscript_value_smoke PRIVATE vlaforge_torchscript_backend)
+    target_compile_options(vlaforge_torchscript_value_smoke PRIVATE ${VLAFORGE_TORCH_CXX_FLAGS})
+    add_test(NAME vlaforge_torchscript_value_smoke
+        COMMAND vlaforge_torchscript_value_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/torchscript-native-cpu.pt" cpu)
     add_executable(vlaforge_torchscript_region_smoke
         torchscript_region_smoke.cpp)
     target_link_libraries(vlaforge_torchscript_region_smoke PRIVATE

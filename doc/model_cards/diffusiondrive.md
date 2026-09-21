@@ -7,7 +7,7 @@
 | Checkpoint | `hustvl/DiffusionDrive@8e3cc29cfdb5aa1a4c0818012f9a250d5153bc71`，SHA256 `008ffc39cc6c57ff9007025217e601f408818afa036c0bae4e543907993a005b` |
 | Source entry | `transfuser_agent.py`、`V2TransfuserModel`、`TrajectoryHead.forward_test` |
 | 当前证据 | L0 + L1 + real L2 + real Host-CUDA L3 + real Host-CUDA L4 |
-| Real Adapter | `diffusiondrive_real.py`，1,241 LOC，复用 `DiffusionPlanner` template |
+| Real Adapter | `adapters/diffusiondrive/diffusiondrive_real.py`，复用 `DiffusionPlanner` template |
 | Core op 增量 | 0 |
 
 源码审计确认 feature builder 生成 camera/lidar/status tensors；推理 head 使用

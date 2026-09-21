@@ -6,10 +6,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from vlaforge.adapters.smolvla_artifact import (
+from vlaforge.adapters.smolvla.smolvla_artifact import (
     audit_real_smolvla_artifacts,
 )
-from vlaforge.adapters.smolvla_real import RealSmolVLAConfig
+from vlaforge.adapters.smolvla.smolvla_real import RealSmolVLAConfig
 
 
 def main() -> int:

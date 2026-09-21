@@ -31,6 +31,10 @@ class StaticArena final {
   [[nodiscard]] std::size_t alignment() const noexcept { return alignment_; }
   [[nodiscard]] VLAForgeDevice device() const noexcept { return device_; }
 
+  // Fatal-only quarantine when completion cannot be established. Storage is
+  // deliberately retained until process exit; Resolve becomes unavailable.
+  void Abandon() noexcept;
+
  private:
   void Release() noexcept;
 

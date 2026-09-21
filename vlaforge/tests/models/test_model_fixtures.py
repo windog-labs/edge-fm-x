@@ -103,6 +103,25 @@ def test_smolvla_queue_is_adapter_state_consumed_across_runs():
     assert len(refills) == 2
 
 
+def test_pi0_python_frontend_preserves_fixture_outputs_and_prefix_dependencies():
+    fixture = build_pi0_fixture()
+    runtime = Interpreter(
+        fixture.module, regions=fixture.regions, validators=fixture.validators,
+    )
+    result = runtime.run(inputs=fixture.runs[0].inputs)
+    expected = (
+        (0.10464653125, -0.030089437500000003),
+        (0.18609715625, -0.0952499375),
+        (0.26754778125, -0.16041043749999997),
+        (0.34899840625000006, -0.22557093749999996),
+    )
+    for actual, row in zip(result.committed_outputs.output("action_chunk"), expected, strict=True):
+        assert actual == pytest.approx(row)
+    prefix = next(r for r in fixture.module.regions if r.metadata.get("memoize"))
+    assert prefix.metadata["cache_input_ports"] == ["image", "instruction"]
+    assert prefix.metadata["cache_state_slots"] == []
+
+
 def test_robot_matrix_covers_declared_paradigms_without_core_extensions():
     expected = {
         "RT-1-like",

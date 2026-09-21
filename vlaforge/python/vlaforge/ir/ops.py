@@ -114,6 +114,7 @@ def for_loop(
     lower: int,
     upper: int,
     step: int = 1,
+    replay: str = "off",
 ) -> Operation:
     return op(
         "vla.for",
@@ -125,8 +126,47 @@ def for_loop(
             "lower": lower,
             "upper": upper,
             "step": step,
+            **({"replay": replay} if replay != "off" else {}),
         },
         regions=(Block((induction, iter_arg), body.operations),),
+    )
+
+
+def for_loop_values(
+    results: Iterable[Value],
+    initial: Iterable[str],
+    induction: Value,
+    iter_args: Iterable[Value],
+    body: Block,
+    *,
+    lower: int,
+    upper: int,
+    step: int = 1,
+    replay: str = "off",
+) -> Operation:
+    """Carry heterogeneous SSA values without making them persistent state."""
+
+    outputs, inputs, arguments = tuple(results), tuple(initial), tuple(iter_args)
+    if not outputs or len(outputs) != len(inputs) or len(outputs) != len(arguments):
+        raise ValueError("loop results, initial values, and arguments must match")
+    if len(outputs) == 1:
+        return for_loop(
+            outputs[0], inputs[0], induction, arguments[0], body,
+            lower=lower, upper=upper, step=step, replay=replay,
+        )
+    return op(
+        "vla.for",
+        results=outputs,
+        operands=inputs,
+        attributes={
+            "induction": induction.name,
+            "iter_args": [value.name for value in arguments],
+            "lower": lower,
+            "upper": upper,
+            "step": step,
+            **({"replay": replay} if replay != "off" else {}),
+        },
+        regions=(Block((induction, *arguments), body.operations),),
     )
 
 

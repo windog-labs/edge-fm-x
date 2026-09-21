@@ -14,6 +14,8 @@ from vlaforge.codegen.model import (
     GeneratedSources,
     ZeroStateInitializer,
 )
+from vlaforge.codegen.numerical import NumericalCodegen, validate_bindings
+from vlaforge.codegen.replay import ReplayCodegen, ReplayCodegenError
 from vlaforge.ir.program import InputPort, Module
 from vlaforge.ir.serializer import io_schema_digest, module_digest
 from vlaforge.ir.types import (
@@ -72,6 +74,10 @@ def generate_cpp_session(
 
     inline_regions = dict(regions or {})
     compiled_regions = dict(artifact_regions or {})
+    try:
+        validate_bindings(compilation_certificate, compiled_regions)
+    except (ValueError, NotImplementedError) as error:
+        raise CodegenUnsupportedError(str(error)) from error
     if inline_regions and compiled_regions:
         raise CodegenUnsupportedError(
             "static C++ v0.2 does not mix inline and artifact Regions"
@@ -119,6 +125,10 @@ def generate_cpp_session(
             artifact_backends=frozenset(
                 item.backend for item in compiled_regions.values()
             ),
+            torchscript_cuda=any(
+                item.backend == "torchscript" and item.device.startswith("cuda:")
+                for item in compiled_regions.values()
+            ),
         ),
         "memory_constants.h": emit_memory_constants(
             plan, namespace=namespace
@@ -128,6 +138,8 @@ def generate_cpp_session(
     }
     if runner_source is not None:
         files["runner.cpp"] = runner_source
+    if emitter.replay.decisions:
+        files["replay_analysis.json"] = emitter.replay.report()
     return GeneratedSources(tuple(sorted(files.items())))
 
 
@@ -180,6 +192,14 @@ class _Emitter:
         self.regions = dict(regions)
         self.artifact_regions = dict(artifact_regions)
         self.artifact_mode = bool(self.artifact_regions)
+        self.numerical = NumericalCodegen(module, self.artifact_regions)
+        try:
+            self.replay = ReplayCodegen(plan, module, self.artifact_regions)
+        except ReplayCodegenError as error:
+            raise CodegenUnsupportedError(str(error)) from error
+        self.execution_context_devices = tuple(sorted({
+            artifact.device for artifact in self.artifact_regions.values()
+        }))
         self.validators = dict(validators)
         self.namespace = namespace
         self.initial_state = dict(initial_state)
@@ -285,6 +305,7 @@ class _Emitter:
             if self.artifact_mode
             else ""
         )
+        artifact_include += self.replay.header_include()
         constructors = (
             """  explicit ModelSession(const char* bundle_root = ".");
   ~ModelSession() override;"""
@@ -296,6 +317,8 @@ class _Emitter:
             """  vlaforge::runtime::Status InitializeRegions(
       const char* bundle_root) noexcept;
   vlaforge::runtime::Status LoadRegion(std::size_t slot) noexcept;
+  vlaforge::runtime::Status EnsureExecutionContext(
+      std::size_t slot, VLAForgeDevice device) noexcept;
   vlaforge::runtime::Status FailArtifactRegion(
       vlaforge::runtime::Status status, std::size_t slot) noexcept;
   void DestroyRegion(std::size_t slot) noexcept;
@@ -303,17 +326,27 @@ class _Emitter:
             if self.artifact_mode
             else ""
         )
+        artifact_methods += self.replay.private_declarations()
+        artifact_methods += self.numerical.declarations()
         artifact_fields = (
             f"""  std::array<VLAForgeRegionExecutable*,
              {len(self.module.regions)}> region_executables_{{}};
   std::array<const VLAForgeRegionExecutableValueApi*,
              {len(self.module.regions)}> region_apis_{{}};
+  std::array<const VLAForgeRegionExecutionExtensionApi*,
+             {len(self.module.regions)}> region_execution_extensions_{{}};
+  std::array<VLAForgeExecutionContext*,
+             {len(self.execution_context_devices)}> execution_contexts_{{}};
+  std::array<VLAForgeExecutionContextView,
+             {len(self.execution_context_devices)}> execution_context_views_{{}};
   std::array<VLAForgeExternalRegionPlugin*,
              {len(self.module.regions)}> region_plugins_{{}};
   std::array<std::string, {len(self.module.regions)}> region_paths_{{}};"""
             if self.artifact_mode
             else ""
         )
+        artifact_fields += self.replay.fields()
+        artifact_fields += self.numerical.fields(len(self.module.regions))
         bundle_factory = (
             """extern "C" VLAForgeStatus vlaforge_model_session_create_from_bundle(
     const char* bundle_root, size_t bundle_root_size,
@@ -394,9 +427,13 @@ class ModelSession final : public vlaforge::runtime::Session {{
       const VLAForgeBoundTensor& value) noexcept;
   vlaforge::runtime::Status InitializeStateScalar(
       std::uint32_t state_id,
-      const VLAForgeScalarValue& value) noexcept;
+      const VLAForgeScalarValue& value) noexcept;{self.replay.public_declaration()}
 
  private:
+  enum class InputRevisionSource : std::uint8_t {{
+    kAutomatic, kExplicit, kDefault
+  }};
+
   struct BoundInput final {{
     bool bound = false;
     bool tensor = false;
@@ -427,6 +464,8 @@ class ModelSession final : public vlaforge::runtime::Session {{
              {max(len(self.plan.buffers), 1)}> snapshots_{{}};
   std::array<std::uint64_t, {max(len(self.module.inputs), 1)}>
       input_revisions_{{}};
+  std::array<InputRevisionSource, {max(len(self.module.inputs), 1)}>
+      input_revision_sources_{{}};
   std::array<std::uint64_t, {max(len(self.module.states), 1)}>
       state_versions_{{}};
   std::array<VLAForgeBoundTensor, {max(len(self.module.outputs), 1)}>
@@ -462,7 +501,7 @@ using GeneratedSession = ModelSession;
 extern "C" VLAForgeStatus vlaforge_model_session_create(
     VLAForgeSession** session);
 {bundle_factory}
-extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
+extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);{self.replay.c_declaration()}
 
 #endif  // VLAFORGE_GENERATED_SESSION_H_
 """
@@ -480,10 +519,19 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
             artifact_headers.append(
                 '#include "vlaforge/backends/tensorrt_region_executable.h"'
             )
+        if "torchscript" in artifact_backends:
+            artifact_headers.append(
+                '#include "vlaforge/backends/torchscript_region_executable.h"'
+            )
         if self.artifact_mode:
             artifact_headers.append(
                 '#include "vlaforge/runtime/artifact_verifier.h"'
             )
+        if any(item.requested != "batch-only" for item in self.replay.candidates.values()):
+            artifact_headers.append('#include "vlaforge/backends/libtorch_graph.h"')
+        if any(item.numerical_binding is not None and item.backend in ("aoti", "torchscript")
+               for item in self.artifact_regions.values()):
+            artifact_headers.append('#include "vlaforge/backends/libtorch_numerical.h"')
         return "\n".join(
             (
                 '#include "session_generated.h"',
@@ -504,7 +552,7 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);
                 "",
                 "namespace {",
                 self._support_tables(),
-                self._artifact_tables(),
+                self._artifact_tables() + ("\n" + self.numerical.tables() if self.numerical.enabled else ""),
                 self._support_functions(),
                 self._region_functions(),
                 self._validator_functions(),
@@ -637,7 +685,7 @@ T* Output(VLAForgeRegionExecutable* executable, std::size_t index) {
   return static_cast<T*>(executable->outputs[index].data);
 }
 
-bool CheckTensor(const VLAForgeTensorView& view, VLAForgeDType dtype,
+[[maybe_unused]] bool CheckTensor(const VLAForgeTensorView& view, VLAForgeDType dtype,
                  std::size_t elements) {
   std::size_t element_size = 0;
   switch (dtype) {
@@ -659,7 +707,7 @@ bool CheckTensor(const VLAForgeTensorView& view, VLAForgeDType dtype,
         )
         return inline_helpers + """
 
-vlaforge::runtime::Status FromCStatus(VLAForgeStatus status,
+[[maybe_unused]] vlaforge::runtime::Status FromCStatus(VLAForgeStatus status,
                                      std::uint32_t subject) {
   using vlaforge::runtime::Status;
   using vlaforge::runtime::StatusCode;
@@ -794,6 +842,8 @@ vlaforge::runtime::Status ReadBool(
         if not self.artifact_mode:
             return ""
         verify = []
+        file_verify = []
+        initial_loads = []
         load_cases = []
         for index, region in enumerate(self.module.regions):
             artifact = self.artifact_regions[region.name]
@@ -801,6 +851,7 @@ vlaforge::runtime::Status ReadBool(
                 "aoti": "AOTI",
                 "tensorrt": "TensorRT",
                 "shared_plugin": "shared plugin",
+                "torchscript": "TorchScript",
             }[artifact.backend]
             if artifact.backend == "shared_plugin":
                 api_setup = f"""    if (region_plugins_[{index}u] == nullptr) {{
@@ -816,17 +867,29 @@ vlaforge::runtime::Status ReadBool(
       }}
     }}
     const auto* api = vlaforge_external_region_plugin_api(
-        region_plugins_[{index}u]);"""
+        region_plugins_[{index}u]);
+    const auto* execution_extension =
+        vlaforge_external_region_plugin_execution_extension_api(
+            region_plugins_[{index}u]);"""
             else:
                 backend_api = {
                     "aoti": "vlaforge_aoti_region_executable_value_api()",
                     "tensorrt": (
                         "vlaforge_tensorrt_region_executable_value_api()"
                     ),
+                    "torchscript": "vlaforge_torchscript_region_executable_value_api()",
                 }[artifact.backend]
-                api_setup = f"    const auto* api = {backend_api};"
+                extension_api = "nullptr"
+                if artifact.backend == "aoti":
+                    extension_api = "vlaforge_aoti_region_execution_extension_api()"
+                elif artifact.backend == "torchscript" and artifact.supports_execution_context:
+                    extension_api = "vlaforge_torchscript_region_execution_extension_api()"
+                api_setup = f"""    const auto* api = {backend_api};
+    const VLAForgeRegionExecutionExtensionApi* execution_extension =
+        {extension_api};"""
             kind = _device(artifact.device)
             ordinal = _device_ordinal(artifact.device)
+            context_slot = self.execution_context_devices.index(artifact.device)
             variant_pointer = (
                 f"kArtifactVariant{index}"
                 if artifact.backend_variant is not None
@@ -837,7 +900,7 @@ vlaforge::runtime::Status ReadBool(
                 if artifact.backend_variant is not None
                 else "0u"
             )
-            verify.append(
+            file_block = (
                 f"""  {{
     const char* resolved_path = nullptr;
     const char* verify_message = nullptr;
@@ -857,6 +920,19 @@ vlaforge::runtime::Status ReadBool(
                                     : "artifact verification failed");
     }}
     region_paths_[{index}u] = resolved_path;
+  }}"""
+            )
+            file_verify.append(file_block)
+            initial_load = f"""    if (!kArtifactInvocationResident{index}) {{
+      auto load_status = LoadRegion({index}u);
+      if (!load_status.ok()) {{
+        DestroyRegions();
+        return load_status;
+      }}
+    }}"""
+            initial_loads.append(initial_load)
+            verify.append(
+                f"""  {{
 {api_setup}
     auto c_status = vlaforge_region_executable_value_api_validate(api);
     if (c_status.code != VLAFORGE_STATUS_OK) {{
@@ -866,13 +942,19 @@ vlaforge::runtime::Status ReadBool(
           "{backend_label} Region value ABI validation failed");
     }}
     region_apis_[{index}u] = api;
-    if (!kArtifactInvocationResident{index}) {{
-      auto load_status = LoadRegion({index}u);
-      if (!load_status.ok()) {{
+    if (execution_extension != nullptr) {{
+      c_status = vlaforge_region_execution_extension_api_validate(
+          execution_extension);
+      if (c_status.code != VLAFORGE_STATUS_OK) {{
         DestroyRegions();
-        return load_status;
+        return vlaforge::runtime::Status::Error(
+            vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+            "{backend_label} Region execution extension is invalid");
       }}
     }}
+    region_execution_extensions_[{index}u] = execution_extension;
+{self.numerical.preflight(index)}
+{initial_load if not self.numerical.enabled else ''}
   }}"""
             )
             load_cases.append(
@@ -898,7 +980,25 @@ vlaforge::runtime::Status ReadBool(
           vlaforge::runtime::StatusCode::kInternal, {index}u,
           "{backend_label} Region creation failed");
     }}
-    const VLAForgeArtifactDescriptor descriptor{{
+    const auto* execution_extension = region_execution_extensions_[{index}u];
+    if (execution_extension != nullptr) {{
+      auto context_status = EnsureExecutionContext(
+          {context_slot}u, {{{kind}, {ordinal}}});
+      if (!context_status.ok()) {{
+        DestroyRegion({index}u);
+        return context_status;
+      }}
+      c_status = execution_extension->bind_context(
+          region_executables_[{index}u],
+          &execution_context_views_[{context_slot}u]);
+      if (c_status.code != VLAFORGE_STATUS_OK) {{
+        DestroyRegion({index}u);
+        return vlaforge::runtime::Status::Error(
+            vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+            "{backend_label} Region execution context binding failed");
+      }}
+    }}
+{self.numerical.bind(index)}    const VLAForgeArtifactDescriptor descriptor{{
         sizeof(VLAForgeArtifactDescriptor),
         VLAFORGE_REGION_EXECUTABLE_VALUE_ABI_VERSION,
         region_paths_[{index}u].data(), region_paths_[{index}u].size(),
@@ -913,6 +1013,7 @@ vlaforge::runtime::Status ReadBool(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
           "{backend_label} Region load failed");
     }}
+{f'    numerical_region_loaded_[{index}u] = true;' if self.numerical.enabled else ''}
     VLAForgeWorkspaceRequirement requirement{{}};
     c_status = api->query_workspace(region_executables_[{index}u],
                                     &requirement);
@@ -944,19 +1045,62 @@ void ModelSession::DestroyRegion(std::size_t slot) noexcept {{
       region_executables_[slot] != nullptr) {{
     region_apis_[slot]->destroy(region_executables_[slot]);
     region_executables_[slot] = nullptr;
+{('    numerical_region_loaded_[slot] = false;' if self.numerical.enabled else '')}
   }}
 }}
 
 void ModelSession::DestroyRegions() noexcept {{
-  for (std::size_t index = region_executables_.size(); index > 0u; --index) {{
+{self.numerical.destruction_prefix()}{self.replay.destruction_prefix(abandon_extra='    numerical_leases_.Abandon();' if self.numerical.enabled else '')}  for (std::size_t index = region_executables_.size(); index > 0u; --index) {{
     DestroyRegion(index - 1u);
   }}
+  for (std::size_t index = execution_contexts_.size(); index > 0u; --index) {{
+    const auto slot = index - 1u;
+    vlaforge_execution_context_destroy(execution_contexts_[slot]);
+    execution_contexts_[slot] = nullptr;
+    execution_context_views_[slot] = VLAForgeExecutionContextView{{}};
+  }}
+{('  numerical_leases_.Clear();' if self.numerical.enabled else '')}
   for (std::size_t index = region_plugins_.size(); index > 0u; --index) {{
     const auto slot = index - 1u;
     vlaforge_external_region_plugin_close(region_plugins_[slot]);
     region_plugins_[slot] = nullptr;
     region_apis_[slot] = nullptr;
+    region_execution_extensions_[slot] = nullptr;
   }}
+}}
+
+vlaforge::runtime::Status ModelSession::EnsureExecutionContext(
+    std::size_t slot, VLAForgeDevice device) noexcept {{
+  if (slot >= execution_contexts_.size()) {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
+        "execution context slot is out of range");
+  }}
+  if (execution_contexts_[slot] != nullptr) {{
+    return vlaforge::runtime::Status::Ok();
+  }}
+  const VLAForgeExecutionContextOptions options{{
+      sizeof(VLAForgeExecutionContextOptions),
+      VLAFORGE_EXECUTION_CONTEXT_ABI_VERSION, device}};
+  auto status = vlaforge_execution_context_create(
+      &options, &execution_contexts_[slot]);
+  if (status.code != VLAFORGE_STATUS_OK) {{
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kFailedPrecondition, 0u,
+        "execution context creation failed");
+  }}
+  execution_context_views_[slot].struct_size =
+      sizeof(VLAForgeExecutionContextView);
+  status = vlaforge_execution_context_get_view(
+      execution_contexts_[slot], &execution_context_views_[slot]);
+  if (status.code != VLAFORGE_STATUS_OK) {{
+    vlaforge_execution_context_destroy(execution_contexts_[slot]);
+    execution_contexts_[slot] = nullptr;
+    return vlaforge::runtime::Status::Error(
+        vlaforge::runtime::StatusCode::kFailedPrecondition, 0u,
+        "execution context view failed");
+  }}
+  return vlaforge::runtime::Status::Ok();
 }}
 
 vlaforge::runtime::Status ModelSession::FailArtifactRegion(
@@ -983,7 +1127,10 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
         vlaforge::runtime::StatusCode::kInvalidArgument, 0u,
         "bundle root is empty");
   }}
-{chr(10).join(verify)}
+{chr(10).join(file_verify) if self.numerical.enabled else ''}
+{chr(10).join(verify) if self.numerical.enabled else chr(10).join(a + chr(10) + b for a, b in zip(file_verify, verify, strict=True))}
+{self.numerical.acquire()}{chr(10).join(initial_loads) if self.numerical.enabled else ''}
+{self.numerical.after_load()}
   return vlaforge::runtime::Status::Ok();
 }}"""
 
@@ -1049,6 +1196,20 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
             else ""
         )
         artifact_methods = self._artifact_session_methods()
+        artifact_methods += self.replay.methods()
+        artifact_methods += self.numerical.methods(
+            cache_reset, "DestroyReplays();" if self.replay.candidates else ""
+        )
+        output_initialize = (
+            """  try {
+    InitializeOutputStorage();
+  } catch (...) {
+    DestroyRegions();
+    throw;
+  }"""
+            if self.artifact_mode
+            else "  InitializeOutputStorage();"
+        )
         return f"""
 {constructor_signature}
     : arena_(kArenaSize, kArenaAlignment,
@@ -1063,7 +1224,7 @@ vlaforge::runtime::Status ModelSession::InitializeRegions(
   initialization_status_ = state_store_.initialization_status();
 {initial_state}
 {artifact_initialize}
-  InitializeOutputStorage();
+{output_initialize}
 }}
 
 {artifact_methods}
@@ -1137,14 +1298,14 @@ vlaforge::runtime::Status ModelSession::Fail(
 }}
 
 vlaforge::runtime::Status ModelSession::Run() noexcept {{
-  struct BindingReset final {{
+{self.replay.guard()}  struct BindingReset final {{
     ModelSession* session;
     ~BindingReset() {{ session->ClearBindings(); }}
   }} reset{{this}};
   if (!initialization_status_.ok()) {{
     return initialization_status_;
   }}
-  state_store_.SetRunIndex(run_index_);
+{self.numerical.run_entry()}  state_store_.SetRunIndex(run_index_);
   auto status = PrepareInputs();
   if (!status.ok()) {{
     return status;
@@ -1173,7 +1334,7 @@ vlaforge::runtime::Status ModelSession::Run(
 vlaforge::runtime::Status ModelSession::ReadOutputTensor(
     std::uint32_t output_id,
     VLAForgeBoundTensor* output) const noexcept {{
-  if (output == nullptr || output_id >= output_valid_.size() ||
+{self.replay.guard()}  if (output == nullptr || output_id >= output_valid_.size() ||
       !output_valid_[output_id]) {{
     return vlaforge::runtime::Status::Error(
         vlaforge::runtime::StatusCode::kNotFound, output_id,
@@ -1191,7 +1352,7 @@ vlaforge::runtime::Status ModelSession::ReadOutputTensor(
 vlaforge::runtime::Status ModelSession::ReadOutputScalar(
     std::uint32_t output_id,
     VLAForgeScalarValue* output) const noexcept {{
-  if (output == nullptr || output_id >= output_valid_.size() ||
+{self.replay.guard()}  if (output == nullptr || output_id >= output_valid_.size() ||
       !output_valid_[output_id]) {{
     return vlaforge::runtime::Status::Error(
         vlaforge::runtime::StatusCode::kNotFound, output_id,
@@ -1208,7 +1369,7 @@ vlaforge::runtime::Status ModelSession::ReadOutputScalar(
 
 vlaforge::runtime::Status ModelSession::ResetEpisode(
     std::uint64_t new_episode) noexcept {{
-  auto status = state_store_.ResetEpisode(new_episode, 0u);
+{self.replay.reset_prefix()}  auto status = state_store_.ResetEpisode(new_episode, 0u);
   if (status.ok()) {{
     output_valid_.fill(false);
     staged_output_valid_.fill(false);
@@ -1226,7 +1387,7 @@ void ModelSession::SetTraceSink(
 vlaforge::runtime::Status ModelSession::InitializeStateTensor(
     std::uint32_t state_id,
     const VLAForgeBoundTensor& value) noexcept {{
-  (void)value;
+{self.replay.guard()}  (void)value;
   switch (state_id) {{
 {state_init_tensor}
     default:
@@ -1239,7 +1400,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateTensor(
 vlaforge::runtime::Status ModelSession::InitializeStateScalar(
     std::uint32_t state_id,
     const VLAForgeScalarValue& value) noexcept {{
-  (void)value;
+{self.replay.guard()}  (void)value;
   switch (state_id) {{
 {state_init_scalar}
     default:
@@ -1449,7 +1610,9 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             return run
         equal_inputs = " && ".join(
             f"cache_{task.id}_revisions_[{index}u] == "
-            f"input_revisions_[{index}u]"
+            f"input_revisions_[{index}u] && "
+            f"cache_{task.id}_revision_sources_[{index}u] == "
+            f"input_revision_sources_[{index}u]"
             for index in cache.input_ids
         ) or "true"
         equal_states = " && ".join(
@@ -1465,6 +1628,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             "state_store_.episode(), run_index_, 0u});",
             *run,
             f"cache_{task.id}_revisions_ = input_revisions_;",
+            f"cache_{task.id}_revision_sources_ = input_revision_sources_;",
             f"cache_{task.id}_state_versions_ = state_versions_;",
             f"cache_{task.id}_episode_ = state_store_.episode();",
             f"cache_{task.id}_valid_ = true;",
@@ -1638,7 +1802,9 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             return run
         equal_inputs = " && ".join(
             f"cache_{task.id}_revisions_[{index}u] == "
-            f"input_revisions_[{index}u]"
+            f"input_revisions_[{index}u] && "
+            f"cache_{task.id}_revision_sources_[{index}u] == "
+            f"input_revision_sources_[{index}u]"
             for index in cache.input_ids
         ) or "true"
         equal_states = " && ".join(
@@ -1663,6 +1829,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             "state_store_.episode(), run_index_, 0u});",
             *_indent_lines(run, 2),
             f"  cache_{task.id}_revisions_ = input_revisions_;",
+            f"  cache_{task.id}_revision_sources_ = input_revision_sources_;",
             f"  cache_{task.id}_state_versions_ = state_versions_;",
             f"  cache_{task.id}_episode_ = state_store_.episode();",
             f"  cache_{task.id}_valid_ = true;",
@@ -1670,6 +1837,11 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
         ]
 
     def _emit_for(self, task: Any) -> list[str]:
+        replay = self.replay.emit_for(task)
+        if replay is not None:
+            return replay
+        if len(task.outputs) > 1:
+            return self._emit_variadic_for(task)
         body = self.plan.block(task.blocks[0])
         if len(body.arguments) != 2 or not body.tasks:
             raise CodegenUnsupportedError("bounded for has invalid body")
@@ -1698,6 +1870,49 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             "}",
         ]
         return lines
+
+    def _emit_variadic_for(self, task: Any) -> list[str]:
+        body = self.plan.block(task.blocks[0])
+        terminal = self.plan.task(body.tasks[-1])
+        scratch = tuple(task.attributes.get("carry_scratch", ()))
+        count = len(task.outputs)
+        if (
+            len(body.arguments) != count + 1
+            or len(task.inputs) != count
+            or terminal.opcode != "vla.yield"
+            or len(terminal.inputs) != count
+            or len(scratch) != count
+        ):
+            raise CodegenUnsupportedError("invalid variadic for carry layout")
+
+        def copies(sources: Any, destinations: Any, indent: str = "") -> list[str]:
+            result = []
+            for source, destination in zip(sources, destinations, strict=True):
+                result.extend((
+                    f"{indent}status = CopyValue(values_[{source}u], "
+                    f"values_[{destination}u]);",
+                    f"{indent}if (!status.ok()) {{ return Fail(status); }}",
+                ))
+            return result
+
+        return [
+            *copies(task.inputs, task.outputs),
+            f"for (std::int64_t loop_{task.id} = {int(task.attributes['lower'])}; "
+            f"loop_{task.id} < {int(task.attributes['upper'])}; "
+            f"loop_{task.id} += {int(task.attributes['step'])}) {{",
+            f"  VLAForgeScalarValue induction_{task.id}{{"
+            "sizeof(VLAForgeScalarValue), VLAFORGE_DTYPE_I64, {}};",
+            f"  induction_{task.id}.value.i64 = loop_{task.id};",
+            f"  values_[{body.arguments[0]}u] = ScalarView(&induction_{task.id});",
+            *(
+                f"  values_[{argument}u] = values_[{output}u];"
+                for argument, output in zip(body.arguments[1:], task.outputs, strict=True)
+            ),
+            self._emit_block_without_terminal(body.id, indent=2),
+            *copies(terminal.inputs, scratch, "  "),
+            *copies(scratch, task.outputs, "  "),
+            "}",
+        ]
 
     def _emit_if(self, task: Any) -> list[str]:
         lines = [
@@ -1866,6 +2081,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             f"{task.id}u, \"output validation failed\");",
             "}",
             *staging,
+            *self.numerical.before_commit(),
             f"status = state_store_.Commit(&transaction_, {task.id}u);",
             "if (!status.ok()) { return Fail(status); }",
             *publishing,
@@ -1951,6 +2167,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
       inputs_[{port.input_id}u].bound = true;
       inputs_[{port.input_id}u].tensor = true;
       inputs_[{port.input_id}u].tensor_value = input;
+      input_revision_sources_[{port.input_id}u] = stamp != nullptr && stamp->has_revision
+          ? InputRevisionSource::kExplicit : InputRevisionSource::kAutomatic;
       inputs_[{port.input_id}u].revision =
           stamp != nullptr && stamp->has_revision
               ? stamp->revision : next_auto_revision_++;
@@ -1979,6 +2197,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
       inputs_[{port.input_id}u].bound = true;
       inputs_[{port.input_id}u].tensor = false;
       inputs_[{port.input_id}u].scalar_value = input;
+      input_revision_sources_[{port.input_id}u] = stamp != nullptr && stamp->has_revision
+          ? InputRevisionSource::kExplicit : InputRevisionSource::kAutomatic;
       inputs_[{port.input_id}u].revision =
           stamp != nullptr && stamp->has_revision
               ? stamp->revision : next_auto_revision_++;
@@ -2008,6 +2228,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                             {_dtype(port.payload.name)}, {{}}}};
     inputs_[{port.input_id}u].scalar_value.value.{member} = {value};
     inputs_[{port.input_id}u].revision = 0u;
+    input_revision_sources_[{port.input_id}u] = InputRevisionSource::kDefault;
   }}"""
         assert isinstance(port.payload, TensorType)
         values = ", ".join(
@@ -2027,6 +2248,7 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
           {_dtype(port.payload.dtype)}, {{{_device(port.device)}, 0}}}},
         {_layout(port.payload.layout)}, {port.alignment}u}};
     inputs_[{port.input_id}u].revision = 0u;
+    input_revision_sources_[{port.input_id}u] = InputRevisionSource::kDefault;
   }}"""
 
     def _typed_input_field(self, port: InputPort) -> str:
@@ -2081,6 +2303,8 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
   std::uint64_t cache_{cache.task_id}_episode_ = 0;
   std::array<std::uint64_t, {max(len(self.module.inputs), 1)}>
       cache_{cache.task_id}_revisions_{{}};
+  std::array<InputRevisionSource, {max(len(self.module.inputs), 1)}>
+      cache_{cache.task_id}_revision_sources_{{}};
   std::array<std::uint64_t, {max(len(self.module.states), 1)}>
       cache_{cache.task_id}_state_versions_{{}};"""
 
@@ -2221,7 +2445,7 @@ extern "C" VLAForgeStatus vlaforge_model_session_create_from_bundle(
             else ""
         )
         return f"""
-{session_struct}
+{session_struct}{self.replay.c_definition()}
 
 namespace {{
 
@@ -2456,6 +2680,7 @@ def _cmake_source(
     has_runner: bool,
     *,
     artifact_backends: frozenset[str] = frozenset(),
+    torchscript_cuda: bool = False,
 ) -> str:
     runner = """
 add_executable(vlaforge_generated_runner runner.cpp)
@@ -2466,6 +2691,7 @@ target_link_libraries(vlaforge_generated_runner PRIVATE
         "aoti",
         "tensorrt",
         "shared_plugin",
+        "torchscript",
     }
     if unknown_backends:
         raise CodegenUnsupportedError(
@@ -2485,6 +2711,16 @@ target_link_libraries(vlaforge_generated_runner PRIVATE
             'set(VLAFORGE_BUILD_TENSORRT_BACKEND ON CACHE BOOL "" FORCE)'
         )
         backend_libraries.append("vlaforge_tensorrt_backend")
+    if "torchscript" in artifact_backends:
+        backend_options.append(
+            'set(VLAFORGE_BUILD_TORCHSCRIPT_BACKEND ON CACHE BOOL "" FORCE)'
+        )
+        enabled = "ON" if torchscript_cuda else "OFF"
+        backend_options.append(
+            f'set(VLAFORGE_TORCHSCRIPT_ENABLE_CUDA {enabled} CACHE BOOL "" FORCE)'
+        )
+        backend_finds.append("find_package(Torch REQUIRED CONFIG)")
+        backend_libraries.append("vlaforge_torchscript_backend")
     backend_option = "\n".join(backend_options)
     backend_find = "\n".join(backend_finds)
     backend_library = "".join(
@@ -2502,11 +2738,20 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(VLAFORGE_GENERATED_SHARED "Build the generated Session as a shared library" OFF)
+if(VLAFORGE_GENERATED_SHARED)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 {backend_option}
 {backend_find}
 add_subdirectory("${{VLAFORGE_RUNTIME_ROOT}}"
                  "${{CMAKE_CURRENT_BINARY_DIR}}/vlaforge_runtime")
-add_library(vlaforge_generated_session STATIC session_generated.cpp)
+if(VLAFORGE_GENERATED_SHARED)
+  add_library(vlaforge_generated_session SHARED session_generated.cpp)
+else()
+  add_library(vlaforge_generated_session STATIC session_generated.cpp)
+endif()
 target_include_directories(vlaforge_generated_session PUBLIC
     "${{CMAKE_CURRENT_SOURCE_DIR}}")
 target_link_libraries(vlaforge_generated_session PUBLIC

@@ -155,6 +155,7 @@ def verify_plan(
             artifact_map,
             diagnostics,
         )
+        diagnostics.extend(_verify_replay_storage(plan, task))
 
     diagnostics.extend(_verify_dependency_cycles(task_map))
     diagnostics.extend(_verify_state_layout(plan))
@@ -164,6 +165,60 @@ def verify_plan(
     if result and raise_on_error:
         raise PlanVerificationError(plan, result)
     return result
+
+
+def _verify_replay_storage(plan: PlanModule, task: Task) -> tuple[PlanDiagnostic, ...]:
+    from vlaforge.plan.replay import REPLAY_MODES, analyze_replay_structure
+
+    fields = {name for name in task.attributes if name.startswith("replay")}
+    if not fields:
+        return ()
+
+    def error(message: str) -> tuple[PlanDiagnostic, ...]:
+        return (PlanDiagnostic("replay.storage_contract", message, task.id),)
+
+    mode = task.attributes.get("replay", "off")
+    if task.opcode != "vla.for" or mode not in REPLAY_MODES:
+        return error("replay request requires a loop and a valid mode")
+    if mode == "off":
+        return () if fields <= {"replay"} else error("disabled replay has storage metadata")
+    reasons = task.attributes.get("replay_reasons")
+    if not isinstance(reasons, (tuple, list)) or any(not isinstance(item, str) for item in reasons):
+        return error("replay requires recorded structural analysis")
+    try:
+        analysis = analyze_replay_structure(plan, task)
+        if set(analysis.reasons) - set(reasons):
+            return error("replay analysis hides a structural rejection")
+        if reasons:
+            if fields - {"replay", "replay_reasons"}:
+                return error("rejected replay unexpectedly owns capture storage")
+            return ()
+        seeds = task.attributes.get("replay_seeds")
+        liveins = task.attributes.get("replay_liveins")
+        staging = task.attributes.get("replay_staging")
+        if any(not isinstance(items, (tuple, list)) for items in (seeds, liveins, staging)):
+            return error("replay seeds/live-ins/staging must be explicit buffer lists")
+        if tuple(liveins) != analysis.liveins or len(seeds) != len(task.inputs) or len(staging) != len(liveins):
+            return error("replay storage arity or live-in set differs from loop data flow")
+        reserved = tuple(seeds) + tuple(staging)
+        if any(not isinstance(index, int) or isinstance(index, bool) for index in reserved):
+            return error("replay storage IDs must be integers")
+        if len(set(reserved)) != len(reserved) or set(reserved).intersection(
+            task.inputs + task.outputs + tuple(task.attributes.get("carry_scratch", ())) + tuple(liveins)
+        ):
+            return error("replay seeds/staging must use independent owned buffers")
+        for source, destination in zip(task.inputs + tuple(liveins), reserved, strict=True):
+            buffer = plan.buffer(destination)
+            if buffer.type != plan.buffer(source).type or buffer.external or buffer.producer_task != task.id or buffer.buffer_class is not BufferClass.LOOP_CARRIED:
+                return error("replay staging must match source type and loop ownership")
+        if plan.arena is not None:
+            physical = {index: item for item in plan.arena.physical_buffers for index in item.logical_buffers}
+            last = max(plan.block(task.blocks[0]).tasks)
+            if any(index not in physical or physical[index].first_task > task.id or physical[index].last_task < last for index in reserved):
+                return error("replay reset storage is not live through the full loop")
+    except (KeyError, IndexError, TypeError, ValueError):
+        return error("replay metadata references malformed loop or buffer IDs")
+    return ()
 
 
 def _verify_task(
@@ -233,6 +288,47 @@ def _verify_task(
                     task.id,
                 )
             )
+
+    if task.opcode == "vla.for" and len(task.blocks) == 1 and task.blocks[0] in block_map:
+        body = block_map[task.blocks[0]]
+        count = len(task.outputs)
+        terminal = task_map.get(body.tasks[-1]) if body.tasks else None
+        if (
+            not count or len(task.inputs) != count
+            or len(body.arguments) != count + 1
+            or terminal is None or terminal.opcode != "vla.yield"
+            or len(terminal.inputs) != count
+        ):
+            diagnostics.append(PlanDiagnostic(
+                "loop.carry_shape", "loop inputs, arguments, yields and outputs must match", task.id,
+            ))
+        else:
+            for ids in zip(task.inputs, body.arguments[1:], terminal.inputs, task.outputs):
+                values = [buffer_map.get(index) for index in ids]
+                if any(v is None for v in values) or len({v.type for v in values}) != 1:
+                    diagnostics.append(PlanDiagnostic(
+                        "loop.carry_type", "loop carried types must match", task.id,
+                    ))
+        if count > 1:
+            scratch = task.attributes.get("carry_scratch", ())
+            valid = isinstance(scratch, (tuple, list)) and len(scratch) == count
+            if valid:
+                valid = all(isinstance(index, int) and index in buffer_map for index in scratch)
+            if valid:
+                valid = len(set(scratch)) == count and not set(scratch).intersection(task.inputs + task.outputs)
+            if valid:
+                valid = all(
+                    output in buffer_map
+                    and buffer_map[index].type == buffer_map[output].type
+                    and buffer_map[index].producer_task == task.id
+                    and buffer_map[index].buffer_class is BufferClass.LOOP_CARRIED
+                    and not buffer_map[index].external
+                    for index, output in zip(scratch, task.outputs)
+                )
+            if not valid:
+                diagnostics.append(PlanDiagnostic(
+                    "loop.carry_scratch", "variadic carry requires independent typed scratch buffers", task.id,
+                ))
 
     if task.kind is TaskKind.REGION:
         artifact = (

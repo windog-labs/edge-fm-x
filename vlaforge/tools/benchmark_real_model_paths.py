@@ -697,7 +697,7 @@ def _load_diffusiondrive_eager(args: argparse.Namespace) -> tuple[
     dict[str, object],
 ]:
     import torch
-    from vlaforge.adapters.diffusiondrive_real import (
+    from vlaforge.adapters.diffusiondrive.diffusiondrive_real import (
         RealDiffusionDriveConfig,
         load_real_diffusiondrive_regions,
     )
@@ -797,7 +797,7 @@ def _load_diffusiondrive_direct(args: argparse.Namespace) -> tuple[
 ]:
     import torch
     import torch._inductor.codecache  # noqa: F401
-    from vlaforge.adapters.diffusiondrive_artifact import (
+    from vlaforge.adapters.diffusiondrive.diffusiondrive_artifact import (
         DIFFUSIONDRIVE_REGIONS,
     )
 
@@ -1024,7 +1024,7 @@ def _load_minddrive_direct(args: argparse.Namespace) -> tuple[
 
     import torch
     import torch._inductor.codecache  # noqa: F401
-    from vlaforge.adapters.minddrive_real import (
+    from vlaforge.adapters.minddrive.minddrive_real import (
         MINDDRIVE_STATE_TYPES,
         make_minddrive_torch_initial_state,
     )
@@ -1165,7 +1165,7 @@ def _load_minddrive_eager(args: argparse.Namespace) -> tuple[
     import gc
 
     import torch
-    from vlaforge.adapters.minddrive_real import (
+    from vlaforge.adapters.minddrive.minddrive_real import (
         MINDDRIVE_STATE_TYPES,
         MINDDRIVE_UPSTREAM_STATE_KEYS,
         load_real_minddrive_model,
