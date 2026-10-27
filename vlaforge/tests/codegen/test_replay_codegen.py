@@ -101,6 +101,25 @@ def test_generator_owns_replay_callbacks_and_uses_real_effect_audit(kind):
     assert "vlaforge::runtime::TraceKind::kRegion" not in callback
 
 
+@pytest.mark.parametrize("mode", ["batch-only", "required"])
+def test_tensorrt_uses_native_cuda_provider_without_libtorch(mode):
+    program, compilation, definitions = capture_cpu_case("continuous", mode)
+    definitions = {name: replace(item, backend="tensorrt", backend_variant="tensorrt-8.5.2-cu114",
+                                 supports_execution_context=True)
+                   for name, item in definitions.items()}
+    sources = generate_compiled_cpp_session(compilation, artifact_regions=definitions,
+                                            validators=program.cpp_validators()).as_dict()
+    source = sources["session_generated.cpp"]
+    assert "vlaforge_tensorrt_region_execution_extension_api()" in source
+    assert "libtorch_graph" not in source and "aoti_region_executable" not in source
+    assert ("vlaforge_cuda_graph_backend_api()" in source) == (mode == "required")
+    assert ('#include "vlaforge/runtime/cuda_graph.h"' in source) == (mode == "required")
+    assert "VLAFORGE_BUILD_AOTI_BACKEND ON" not in sources["CMakeLists.txt"]
+    assert json.loads(sources["replay_analysis.json"])["loops"][0]["candidate"]
+    with pytest.raises(ValueError, match="explicit shared execution context"):
+        replace(next(iter(definitions.values())), supports_execution_context=False)
+
+
 @pytest.mark.parametrize(
     "change",
     [

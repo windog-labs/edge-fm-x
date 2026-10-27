@@ -147,8 +147,25 @@ def test_host_io_requires_explicit_boolean(host_io):
         render_resident_tensor_runner(module, template, outputs=outputs, samples=1, host_io=host_io)
 
 
+@pytest.mark.parametrize("collect_outputs_only", [None, 1, "true"])
+def test_collect_only_requires_explicit_boolean(collect_outputs_only):
+    module, outputs, template = example()
+    with pytest.raises(ValueError, match="collect-only mode"):
+        render_resident_tensor_runner(module, template, outputs=outputs, samples=1,
+                                      collect_outputs_only=collect_outputs_only)
+
+
+def test_collect_only_rejects_template_without_explicit_support():
+    module, outputs, template = example()
+    legacy = template.replace("#ifndef VLAFORGE_COLLECT_OUTPUTS_ONLY", "#if 1")
+    with pytest.raises(ValueError, match="explicitly support collect-only"):
+        render_resident_tensor_runner(module, legacy, outputs=outputs, samples=1,
+                                      collect_outputs_only=True)
+
+
 @pytest.mark.parametrize("host_io", [False, True])
-def test_actual_cpp_runner_transfer_counts_and_timing_boundary(tmp_path, host_io):
+@pytest.mark.parametrize("collect_outputs_only", [False, True])
+def test_actual_cpp_runner_transfer_counts_and_timing_boundary(tmp_path, host_io, collect_outputs_only):
     """Execute the entire runner with delayed host ABI stubs, never GPU evidence."""
     import csv
     import io
@@ -162,7 +179,7 @@ def test_actual_cpp_runner_transfer_counts_and_timing_boundary(tmp_path, host_io
         pytest.skip("host C++ compiler unavailable")
     module, outputs, template = example()
     source, contract = render_resident_tensor_runner(module, template, outputs=outputs,
-        samples=2, owner_handshake=False, host_io=host_io)
+        samples=2, owner_handshake=False, host_io=host_io, collect_outputs_only=collect_outputs_only)
     (tmp_path / "runner.cpp").write_text(source)
     (tmp_path / "cuda_runtime_api.h").write_text(r'''
 #pragma once
@@ -227,6 +244,7 @@ extern "C" inline VLAForgeStatus vlaforge_session_api_validate(const VLAForgeSes
     include = Path(__file__).resolve().parents[2] / "include"
     subprocess.run([compiler, "-std=c++17", "-I", str(tmp_path), "-I", str(include),
                     str(tmp_path / "runner.cpp"), "-o", str(tmp_path / "runner")], check=True, capture_output=True)
+    expected_outputs = {}
     for sample in range(2):
         folder = tmp_path / "data" / str(sample)
         folder.mkdir(parents=True)
@@ -235,17 +253,24 @@ extern "C" inline VLAForgeStatus vlaforge_session_api_validate(const VLAForgeSes
         (folder / "1.bin").write_bytes(b'\1')
         for spec in contract['outputs']:
             raw = struct.pack('<12f', *values) if spec['index'] == 0 else struct.pack('<6d', *values[:6])
+            expected_outputs[sample, spec['name']] = raw
             for name in ('direct_file', 'eager_file'):
-                (folder / spec[name]).write_bytes(raw)
+                if not collect_outputs_only:
+                    (folder / spec[name]).write_bytes(raw)
     out = tmp_path / "out"
     out.mkdir()
     result = subprocess.run([str(tmp_path / "runner"), "fixture", str(tmp_path / "data"),
                              str(out), "2", "2"], check=True, capture_output=True, text=True)
     assert f"COPIES,{12 if host_io else 4},8" in result.stderr
     rows = list(csv.DictReader(io.StringIO(result.stdout)))
-    assert len(rows) == 4 and all(row['direct_exact'] == '1' for row in rows)
+    assert len(rows) == 4
+    if collect_outputs_only:
+        assert all(row['reference_checked'] == '0' and 'direct_exact' not in row for row in rows)
+        assert not list((tmp_path / 'data').glob('*/direct*'))
+    else:
+        assert all(row['direct_exact'] == '1' for row in rows)
     for spec in contract['outputs']:
-        expected = b''.join((tmp_path / 'data' / str(i % 2) / spec['direct_file']).read_bytes() for i in range(4))
+        expected = b''.join(expected_outputs[i % 2, spec['name']] for i in range(4))
         assert (out / spec['raw_file']).read_bytes() == expected
     if host_io:
         with (out / 'host-timing.csv').open() as stream:

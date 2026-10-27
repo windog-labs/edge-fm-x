@@ -57,16 +57,47 @@ def tensor_shape(value: Any) -> tuple[int, ...] | None:
     return tuple(dimensions)
 
 
+def _constant_index_values(model: Any) -> set[str]:
+    """Prove independence from runtime values, using declared static shapes.
+
+    Empirical equality on a few feeds is not a constantness proof. Only
+    initializers without runtime overrides, deterministic constant dataflow,
+    and Shape/Size of fixed-profile graph inputs may seed this set. Static
+    intermediate annotations alone are not a shape-independence proof.
+    """
+    import onnx
+
+    inputs = {value.name for value in model.graph.input}
+    constant = {value.name for value in model.graph.initializer if value.name not in inputs}
+    fixed_shapes = {
+        value.name for value in model.graph.input
+        if value.type.HasField("tensor_type") and value.type.tensor_type.HasField("shape")
+        and all(dim.HasField("dim_value") and dim.dim_value >= 0 for dim in value.type.tensor_type.shape.dim)
+    }
+    fixed_shapes.update(value.name for value in model.graph.initializer if value.name not in inputs)
+    pure = {"Constant", "Identity", "Cast", "CastLike", "Add", "Sub", "Mul", "Div", "Mod", "Pow",
+            "Neg", "Abs", "Min", "Max", "Floor", "Ceil", "Round", "Equal", "Less", "LessOrEqual",
+            "Greater", "GreaterOrEqual", "And", "Or", "Not", "Where", "Concat", "Unsqueeze", "Squeeze",
+            "Reshape", "Transpose", "Expand", "Tile", "Slice", "Gather", "GatherElements", "GatherND",
+            "Range", "ConstantOfShape", "CumSum", "ReduceSum", "ReduceProd", "ReduceMin", "ReduceMax"}
+    for node in model.graph.node:
+        if node.domain not in ("", "ai.onnx") or any(attr.type in (onnx.AttributeProto.GRAPH, onnx.AttributeProto.GRAPHS) for attr in node.attribute):
+            continue
+        shape_only = node.op_type in ("Shape", "Size") and len(node.input) == 1 and (node.input[0] in fixed_shapes or node.input[0] in constant)
+        if shape_only or (node.op_type in pure and all(name in constant for name in node.input if name)):
+            constant.update(name for name in node.output if name)
+    return constant
+
+
 def _static_scatter_indices(
     input_path: Path,
     scatter_nodes: list[Any],
 ) -> dict[str, dict[str, Any]]:
-    """Evaluate ScatterND index tensors on shape-compatible probe inputs.
+    """Evaluate only value-independent ScatterND index tensors.
 
-    The probe is deliberately conservative: an index tensor is considered
-    static only when three distinct input patterns produce exactly the same
-    tensor. The probe model is written next to symlinked external weights so
-    large models are not duplicated in memory.
+    Constant/static-shape dependency proof is mandatory. Literal indices are
+    read directly; computed indices get three additional consistency feeds,
+    never a probe-only staticness proof. SSA outputs identify optional names.
     """
     import numpy as np
     import onnx
@@ -76,9 +107,12 @@ def _static_scatter_indices(
         return {}
 
     probe = onnx.load(str(input_path), load_external_data=False)
+    constant_indices = _constant_index_values(probe)
     probe_nodes = {
-        node.name: node for node in probe.graph.node if node.op_type == "ScatterND"
+        node.output[0]: node for node in probe.graph.node if node.op_type == "ScatterND"
     }
+    for index, node in enumerate(probe.graph.node):
+        node.name = f"__vf_probe_source_node_{index}"
     value_types = {
         value.name: (
             int(value.type.tensor_type.elem_type),
@@ -95,11 +129,30 @@ def _static_scatter_indices(
             int(initializer.data_type),
             tuple(int(value) for value in initializer.dims),
         )
+    initializers = {value.name: value for value in probe.graph.initializer}
+    direct: dict[str, dict[str, Any]] = {}
+    for original in scatter_nodes:
+        node = probe_nodes.get(original.output[0])
+        if node is None or node.input[1] not in constant_indices:
+            continue
+        tensor = initializers.get(node.input[1])
+        if tensor is None or tensor.data_type != onnx.TensorProto.INT64:
+            continue
+        updates = value_types.get(node.input[2])
+        output = value_types.get(node.output[0])
+        if updates is None or output is None or updates[1] is None or output[1] is None:
+            continue
+        direct[node.output[0]] = {
+            "indices": onnx.numpy_helper.to_array(tensor, base_dir=str(input_path.parent)),
+            "updates_shape": updates[1], "output_shape": output[1],
+            "value_independence_proven": True, "evaluation": "initializer",
+        }
     index_output_names: dict[str, str] = {}
     metadata_output_names: dict[str, tuple[str, str]] = {}
     for index, original in enumerate(scatter_nodes):
-        node = probe_nodes.get(original.name)
-        if node is None:
+        key = original.output[0]
+        node = probe_nodes.get(key)
+        if key in direct or node is None or node.input[1] not in constant_indices:
             continue
         required = [node.input[1], node.input[2], node.output[0]]
         if any(name not in value_types for name in required):
@@ -139,11 +192,11 @@ def _static_scatter_indices(
                     name, element_type, shape
                 )
             )
-        index_output_names[original.name] = indices_name
-        metadata_output_names[original.name] = (updates_name, output_name)
+        index_output_names[key] = indices_name
+        metadata_output_names[key] = (updates_name, output_name)
 
     if not index_output_names:
-        return {}
+        return direct
 
     with tempfile.TemporaryDirectory(prefix="vlaforge-scatter-probe-") as temp:
         root = Path(temp)
@@ -213,7 +266,7 @@ def _static_scatter_indices(
 
         requested = list(index_output_names.values())
         values = [session.run(requested, feed) for feed in feeds]
-        results: dict[str, dict[str, Any]] = {}
+        results: dict[str, dict[str, Any]] = dict(direct)
         for output_index, node_name in enumerate(index_output_names):
             arrays = [np.asarray(run[output_index]) for run in values]
             if any(array.shape != arrays[0].shape for array in arrays[1:]):
@@ -229,6 +282,8 @@ def _static_scatter_indices(
                 "indices": arrays[0],
                 "updates_shape": tuple(int(value) for value in updates_shape),
                 "output_shape": tuple(int(value) for value in output_shape),
+                "value_independence_proven": True,
+                "evaluation": "constant-dataflow-probe",
             }
         return results
 
@@ -283,6 +338,7 @@ def lower(
         if name
     }
     existing_names.update(initializer.name for initializer in model.graph.initializer)
+    existing_names.update(node.name for node in model.graph.node if node.name)
     counters: Counter[str] = Counter()
 
     def unique_name(stem: str) -> str:
@@ -520,7 +576,7 @@ def lower(
                 skipped_static_scatter += 1
                 rebuilt.append(node)
                 continue
-            probe = scatter_probes.get(node.name)
+            probe = scatter_probes.get(node.output[0])
             if probe is None:
                 skipped_static_scatter += 1
                 rebuilt.append(node)
@@ -618,7 +674,7 @@ def lower(
                             steps_name,
                         ],
                         [before],
-                        name=f"{node.name}__vf_scatter_before_slice",
+                        name=unique_name(f"{node.name or 'ScatterND'}__vf_scatter_before_slice"),
                     )
                 )
                 pieces.append(before)
@@ -650,7 +706,7 @@ def lower(
                             steps_name,
                         ],
                         [after],
-                        name=f"{node.name}__vf_scatter_after_slice",
+                        name=unique_name(f"{node.name or 'ScatterND'}__vf_scatter_after_slice"),
                     )
                 )
                 pieces.append(after)
@@ -660,7 +716,7 @@ def lower(
                         "Identity",
                         pieces,
                         [node.output[0]],
-                        name=f"{node.name}__vf_scatter_identity",
+                        name=unique_name(f"{node.name or 'ScatterND'}__vf_scatter_identity"),
                     )
                 )
             else:
@@ -670,7 +726,7 @@ def lower(
                         pieces,
                         [node.output[0]],
                         axis=rank - 1,
-                        name=f"{node.name}__vf_scatter_concat",
+                        name=unique_name(f"{node.name or 'ScatterND'}__vf_scatter_concat"),
                     )
                 )
             lowered_static_scatter += 1
@@ -721,6 +777,9 @@ def lower(
         "lowered_static_scatter": lowered_static_scatter,
         "skipped_static_scatter": skipped_static_scatter,
         "static_scatter_probe_count": len(scatter_probes),
+        "static_scatter_value_independence_required": True,
+        "static_scatter_initializer_tensor_count": sum(value["evaluation"] == "initializer" for value in scatter_probes.values()),
+        "static_scatter_numeric_probe_tensor_count": sum(value["evaluation"] == "constant-dataflow-probe" for value in scatter_probes.values()),
         "op_counts": dict(sorted(op_counts.items())),
         "requires_numerical_verification": True,
     }

@@ -39,8 +39,17 @@ where = ["python"]
   "runtime/*.cpp",
 ]
 "share/vlaforge/backends" = [
+  "backends/*.c",
   "backends/*.cpp",
+  "backends/*.cu",
   "backends/*.h",
+]
+"share/vlaforge/backends/hf_tokenizer" = [
+  "backends/hf_tokenizer/Cargo.toml",
+  "backends/hf_tokenizer/Cargo.lock",
+]
+"share/vlaforge/backends/hf_tokenizer/src" = [
+  "backends/hf_tokenizer/src/*.rs",
 ]
 "share/vlaforge/include/vlaforge/runtime" = [
   "include/vlaforge/runtime/*.h",

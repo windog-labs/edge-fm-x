@@ -3,6 +3,12 @@
 #include <NvInfer.h>
 #include <NvInferVersion.h>
 #include <cuda_runtime_api.h>
+#if defined(VLAFORGE_TENSORRT_BFLOAT16_PLUGIN)
+#include "vlaforge/backends/tensorrt_precision_plugins.h"
+#endif
+#if defined(VLAFORGE_TENSORRT_STANDARD_PLUGINS)
+#include <NvInferPlugin.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -16,6 +22,7 @@
 #include <new>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -23,6 +30,8 @@ namespace {
 
 constexpr std::size_t kMaximumBindings = 128u;
 constexpr std::size_t kErrorCapacity = 512u;
+using TensorRTDimension =
+    std::remove_reference_t<decltype(nvinfer1::Dims{}.d[0])>;
 
 class Logger final : public nvinfer1::ILogger {
  public:
@@ -115,6 +124,12 @@ bool ValidTensor(const VLAForgeBoundTensor& value, int device_ordinal) {
   }
   const auto address =
       reinterpret_cast<std::uintptr_t>(view.data);
+  for (std::uint32_t index = 0; index < view.rank; ++index) {
+    if (view.dimensions[index] >
+        std::numeric_limits<TensorRTDimension>::max()) {
+      return false;
+    }
+  }
   return address % value.alignment == 0u;
 }
 
@@ -130,13 +145,13 @@ bool MatchesDataType(nvinfer1::DataType type, VLAForgeDType dtype) {
       return dtype == VLAFORGE_DTYPE_BOOL;
     case nvinfer1::DataType::kUINT8:
       return dtype == VLAFORGE_DTYPE_U8;
+#if NV_TENSORRT_MAJOR >= 9
     case nvinfer1::DataType::kBF16:
       return dtype == VLAFORGE_DTYPE_BF16;
     case nvinfer1::DataType::kINT64:
       return dtype == VLAFORGE_DTYPE_I64;
-    case nvinfer1::DataType::kINT8:
-    case nvinfer1::DataType::kFP8:
-    case nvinfer1::DataType::kINT4:
+#endif
+    default:
       return false;
   }
   return false;
@@ -233,6 +248,9 @@ struct VLAForgeRegionExecutable {
   std::uint32_t abi_version = 0u;
   int device_ordinal = 0;
   cudaStream_t stream = nullptr;
+  cudaStream_t borrowed_stream = nullptr;
+  bool pending_work = false;
+  bool poisoned = false;
   TrtUniquePtr<nvinfer1::IRuntime> runtime;
   TrtUniquePtr<nvinfer1::ICudaEngine> engine;
   TrtUniquePtr<nvinfer1::IExecutionContext> context;
@@ -260,6 +278,11 @@ struct VLAForgeRegionExecutable {
 };
 
 namespace {
+
+cudaStream_t ActiveStream(const VLAForgeRegionExecutable& executable) {
+  return executable.borrowed_stream != nullptr
+      ? executable.borrowed_stream : executable.stream;
+}
 
 VLAForgeStatus Create(const VLAForgeRegionCreateOptions* options,
                       VLAForgeRegionExecutable** output) {
@@ -326,6 +349,11 @@ bool TargetMatches(VLAForgeRegionExecutable& executable,
 
 VLAForgeStatus LoadImpl(VLAForgeRegionExecutable* executable,
                         const VLAForgeArtifactDescriptor* artifact) {
+  if (executable != nullptr && (executable->pending_work || executable->poisoned)) {
+    return vlaforge_status_error(
+        VLAFORGE_STATUS_FAILED_PRECONDITION,
+        "TensorRT reload requires a healthy synchronized executable");
+  }
   if (executable == nullptr || artifact == nullptr ||
       artifact->struct_size < sizeof(*artifact) ||
       artifact->callable_abi_version != executable->abi_version ||
@@ -358,6 +386,19 @@ VLAForgeStatus LoadImpl(VLAForgeRegionExecutable* executable,
           &engine_data)) {
     return executable->RecordError("TensorRT engine read failed");
   }
+#if defined(VLAFORGE_TENSORRT_STANDARD_PLUGINS)
+  static const bool standard_plugins_ready =
+      initLibNvInferPlugins(&GlobalLogger(), "");
+  if (!standard_plugins_ready) {
+    return executable->RecordError(
+        "TensorRT standard plugin registration failed");
+  }
+#endif
+#if defined(VLAFORGE_TENSORRT_BFLOAT16_PLUGIN)
+  if (vlaforge_register_tensorrt_precision_plugins() != 1) {
+    return executable->RecordError("TensorRT precision plugin registration failed");
+  }
+#endif
   executable->runtime.reset(
       nvinfer1::createInferRuntime(GlobalLogger()));
   if (executable->runtime == nullptr) {
@@ -595,7 +636,7 @@ VLAForgeStatus BindOne(VLAForgeRegionExecutable& executable,
 
 VLAForgeStatus Run(VLAForgeRegionExecutable* executable) {
   if (executable == nullptr || executable->engine == nullptr ||
-      executable->context == nullptr || executable->stream == nullptr) {
+      executable->context == nullptr || executable->stream == nullptr || executable->poisoned) {
     return vlaforge_status_error(
         VLAFORGE_STATUS_FAILED_PRECONDITION,
         "TensorRT executable is not loaded");
@@ -613,6 +654,12 @@ VLAForgeStatus Run(VLAForgeRegionExecutable* executable) {
       return result;
     }
   }
+  // Named bindings require inferShapes; the legacy binding-index query does
+  // not observe dimensions supplied through setInputShape.
+  if (executable->context->inferShapes(0, nullptr) != 0) {
+    return executable->RecordError(
+        "TensorRT input dimensions or shape bindings are incomplete");
+  }
   for (std::size_t index = 0;
        index < executable->output_names.size(); ++index) {
     const auto result = BindOne(
@@ -622,11 +669,8 @@ VLAForgeStatus Run(VLAForgeRegionExecutable* executable) {
       return result;
     }
   }
-  if (!executable->context->allInputDimensionsSpecified()) {
-    return executable->RecordError(
-        "TensorRT input dimensions are incomplete");
-  }
-  if (!executable->context->enqueueV3(executable->stream)) {
+  executable->pending_work = true;
+  if (!executable->context->enqueueV3(ActiveStream(*executable))) {
     return executable->RecordError("TensorRT enqueueV3 failed");
   }
   return vlaforge_status_ok();
@@ -638,11 +682,33 @@ VLAForgeStatus Synchronize(VLAForgeRegionExecutable* executable) {
         VLAFORGE_STATUS_INVALID_ARGUMENT,
         "TensorRT executable is null");
   }
-  const auto status = cudaStreamSynchronize(executable->stream);
+  if (executable->poisoned) {
+    return executable->RecordError("TensorRT execution is poisoned");
+  }
+  auto status = cudaSetDevice(executable->device_ordinal);
   if (status != cudaSuccess) {
+    executable->poisoned = true;
+    return executable->RecordCuda(status, "CUDA device selection failed");
+  }
+  const auto stream = ActiveStream(*executable);
+  cudaStreamCaptureStatus capture = cudaStreamCaptureStatusNone;
+  status = cudaStreamIsCapturing(stream, &capture);
+  if (status != cudaSuccess) {
+    executable->poisoned = true;
+    return executable->RecordCuda(status, "CUDA capture status query failed");
+  }
+  if (capture != cudaStreamCaptureStatusNone) {
+    return vlaforge_status_error(
+        VLAFORGE_STATUS_FAILED_PRECONDITION,
+        "TensorRT synchronize is not permitted during capture");
+  }
+  status = cudaStreamSynchronize(stream);
+  if (status != cudaSuccess) {
+    executable->poisoned = true;
     return executable->RecordCuda(
         status, "TensorRT stream synchronization failed");
   }
+  executable->pending_work = false;
   return vlaforge_status_ok();
 }
 
@@ -650,7 +716,11 @@ void Destroy(VLAForgeRegionExecutable* executable) {
   if (executable == nullptr) {
     return;
   }
-  cudaSetDevice(executable->device_ordinal);
+  if (Synchronize(executable).code != VLAFORGE_STATUS_OK) {
+    // Unknown completion must not release engine storage or a borrowed stream.
+    std::fprintf(stderr, "VLAForge TensorRT: retaining executable after failed drain\n");
+    return;
+  }
   executable->context.reset();
   executable->engine.reset();
   executable->runtime.reset();
@@ -660,6 +730,37 @@ void Destroy(VLAForgeRegionExecutable* executable) {
   }
   delete executable;
 }
+
+VLAForgeStatus BindExecutionContext(VLAForgeRegionExecutable* executable,
+                                    const VLAForgeExecutionContextView* view) {
+  if (executable == nullptr) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "TensorRT executable is null");
+  }
+  if (executable->pending_work || executable->poisoned) {
+    return vlaforge_status_error(VLAFORGE_STATUS_FAILED_PRECONDITION,
+                                 "synchronize TensorRT before changing execution context");
+  }
+  if (view == nullptr) {
+    executable->borrowed_stream = nullptr;
+    return vlaforge_status_ok();
+  }
+  const auto status = vlaforge_execution_context_view_validate(view);
+  if (status.code != VLAFORGE_STATUS_OK) { return status; }
+  if (view->device.kind != VLAFORGE_DEVICE_CUDA ||
+      view->device.ordinal != executable->device_ordinal) {
+    return vlaforge_status_error(VLAFORGE_STATUS_INVALID_ARGUMENT,
+                                 "TensorRT execution context device mismatch");
+  }
+  executable->borrowed_stream = static_cast<cudaStream_t>(view->native_stream);
+  return vlaforge_status_ok();
+}
+
+const VLAForgeRegionExecutionExtensionApi kExecutionExtension{
+    sizeof(VLAForgeRegionExecutionExtensionApi),
+    VLAFORGE_REGION_EXECUTION_EXTENSION_ABI_VERSION,
+    VLAFORGE_REGION_EXECUTION_CAP_SHARED_CONTEXT, &BindExecutionContext,
+};
 
 const VLAForgeRegionExecutableApi kApi{
     sizeof(VLAForgeRegionExecutableApi),
@@ -699,4 +800,9 @@ vlaforge_tensorrt_region_executable_api(void) {
 extern "C" const VLAForgeRegionExecutableValueApi*
 vlaforge_tensorrt_region_executable_value_api(void) {
   return &kValueApi;
+}
+
+extern "C" const VLAForgeRegionExecutionExtensionApi*
+vlaforge_tensorrt_region_execution_extension_api(void) {
+  return &kExecutionExtension;
 }

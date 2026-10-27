@@ -300,6 +300,7 @@ def test_actual_cpp_secondary_gate_preserves_integer_bytes_and_rejects_bad_metad
 #define VLAFORGE_BENCHMARK_MULTI_OUTPUT 1
 const VLAForgeSessionApi* vlaforge_model_session_api();
 constexpr auto kOutputDtype = VLAFORGE_DTYPE_F32;
+constexpr bool kCollectOutputsOnly = false;
 constexpr std::size_t kOutputCount = 1u, kSamples = 1u;
 constexpr int kOrdinal = 0;
 const std::vector<std::size_t> active_indices = {0};

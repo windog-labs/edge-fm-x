@@ -7,10 +7,13 @@ int main() {
   const auto* tensor_api = vlaforge_tensorrt_region_executable_api();
   const auto* value_api =
       vlaforge_tensorrt_region_executable_value_api();
+  const auto* extension = vlaforge_tensorrt_region_execution_extension_api();
   if (vlaforge_region_executable_api_validate(tensor_api).code !=
           VLAFORGE_STATUS_OK ||
       vlaforge_region_executable_value_api_validate(value_api).code !=
-          VLAFORGE_STATUS_OK) {
+          VLAFORGE_STATUS_OK ||
+      vlaforge_region_execution_extension_api_validate(extension).code != VLAFORGE_STATUS_OK ||
+      extension->bind_context(nullptr, nullptr).code != VLAFORGE_STATUS_INVALID_ARGUMENT) {
     return 1;
   }
 

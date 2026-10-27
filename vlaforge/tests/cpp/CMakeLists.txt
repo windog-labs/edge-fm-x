@@ -15,6 +15,30 @@ add_executable(vlaforge_bounded_replay_smoke bounded_replay_smoke.cpp)
 target_link_libraries(vlaforge_bounded_replay_smoke PRIVATE vlaforge_runtime)
 add_test(NAME vlaforge_bounded_replay_smoke COMMAND vlaforge_bounded_replay_smoke)
 
+add_executable(vlaforge_cuda_graph_contract_smoke cuda_graph_contract_smoke.cpp)
+target_link_libraries(vlaforge_cuda_graph_contract_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_cuda_graph_contract_smoke COMMAND vlaforge_cuda_graph_contract_smoke)
+
+add_executable(vlaforge_host_preprocessing_smoke host_preprocessing_smoke.cpp)
+target_link_libraries(vlaforge_host_preprocessing_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_host_preprocessing_smoke COMMAND vlaforge_host_preprocessing_smoke)
+
+add_executable(vlaforge_host_patchify_smoke host_patchify_smoke.cpp)
+target_link_libraries(vlaforge_host_patchify_smoke PRIVATE vlaforge_runtime)
+add_test(NAME vlaforge_host_patchify_smoke COMMAND vlaforge_host_patchify_smoke)
+
+if(TARGET vlaforge_hf_tokenizer_backend)
+    add_executable(vlaforge_huggingface_tokenizer_smoke huggingface_tokenizer_smoke.cpp)
+    target_link_libraries(vlaforge_huggingface_tokenizer_smoke PRIVATE vlaforge_hf_tokenizer_backend)
+    add_test(NAME vlaforge_huggingface_tokenizer_smoke COMMAND vlaforge_huggingface_tokenizer_smoke)
+endif()
+
+if(TARGET vlaforge_pillow_image_backend)
+    add_executable(vlaforge_pillow_image_smoke pillow_image_smoke.cpp)
+    target_link_libraries(vlaforge_pillow_image_smoke PRIVATE vlaforge_pillow_image_backend Threads::Threads)
+    add_test(NAME vlaforge_pillow_image_smoke COMMAND vlaforge_pillow_image_smoke)
+endif()
+
 add_executable(vlaforge_region_value_c_abi_smoke region_value_c_abi_smoke.c)
 target_link_libraries(vlaforge_region_value_c_abi_smoke PRIVATE
     vlaforge_runtime)
@@ -197,6 +221,17 @@ if(TARGET vlaforge_torchscript_backend)
 endif()
 
 if(TARGET vlaforge_tensorrt_backend)
+    if(TARGET vlaforge_tensorrt_precision_plugins)
+        add_executable(vlaforge_tensorrt_precision_plugin_smoke tensorrt_precision_plugin_smoke.cu)
+        set_target_properties(vlaforge_tensorrt_precision_plugin_smoke PROPERTIES
+            CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        target_link_libraries(vlaforge_tensorrt_precision_plugin_smoke PRIVATE
+            vlaforge_tensorrt_precision_plugins)
+        if(NOT VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY)
+            add_test(NAME vlaforge_tensorrt_precision_plugin_smoke
+                COMMAND vlaforge_tensorrt_precision_plugin_smoke)
+        endif()
+    endif()
     add_executable(vlaforge_tensorrt_region_contract_smoke
         tensorrt_region_contract_smoke.cpp)
     target_link_libraries(vlaforge_tensorrt_region_contract_smoke PRIVATE
@@ -224,5 +259,13 @@ if(TARGET vlaforge_tensorrt_backend)
             COMMAND vlaforge_tensorrt_region_contract_smoke)
         add_test(NAME vlaforge_tensorrt_region_on_device_smoke
             COMMAND vlaforge_tensorrt_region_on_device_smoke)
+        add_test(NAME vlaforge_tensorrt_region_dynamic_on_device_smoke
+            COMMAND vlaforge_tensorrt_region_on_device_smoke --dynamic)
+        add_test(NAME vlaforge_tensorrt_region_context_on_device_smoke
+            COMMAND vlaforge_tensorrt_region_on_device_smoke --context)
+        if(VLAFORGE_TENSORRT_STANDARD_PLUGINS)
+            add_test(NAME vlaforge_tensorrt_region_plugin_on_device_smoke
+                COMMAND vlaforge_tensorrt_region_on_device_smoke --plugin)
+        endif()
     endif()
 endif()

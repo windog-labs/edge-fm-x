@@ -10,6 +10,8 @@ from vlaforge.transforms.loop_invariant import (
     LoopInvariantDecision,
     analyze_structured_loop_invariance,
 )
+from vlaforge.transforms.region_interface import project_region_inputs, reorder_region_interface
+from vlaforge.transforms.region_partition import split_region_invocation
 
 __all__ = [
     "analyze_structured_loop_invariance",
@@ -18,4 +20,7 @@ __all__ = [
     "ExactCacheContractError",
     "LoopInvariantAnalysis",
     "LoopInvariantDecision",
+    "project_region_inputs",
+    "reorder_region_interface",
+    "split_region_invocation",
 ]

@@ -15,6 +15,7 @@ POLICIES = ("off", "batch-only", "required")
 BOUNDARY = "model-tensor: resident CUDA inputs through Session run and completion"
 HOST_BOUNDARY = "host-model-tensor: H2D, input binding, Session run, completion and complete D2H"
 HOST_TIMING_SEGMENTS = ("h2d_ns", "bind_ns", "model_ns", "d2h_ns")
+RAW_OBSERVATION_TIMING_SEGMENTS = ("preprocess_ns", *HOST_TIMING_SEGMENTS)
 DTYPE_BYTES = {"f32": 4, "f16": 2, "bf16": 2, "f64": 8,
                "i64": 8, "i32": 4, "u64": 8, "u8": 1, "bool": 1}
 OUTPUT_DTYPES = ("f32", "f16", "bf16")
@@ -59,6 +60,26 @@ def validate_host_timing(timings, rows):
             raise ValueError("host timing segments do not conserve complete call time")
         if values["host_call_ns"] != int(row["latency_ns"]):
             raise ValueError("latency CSV does not match the host timing boundary")
+
+
+def validate_raw_observation_timing(rows, *, warmup, measured, samples):
+    """Validate contiguous per-request original-observation timings, not stage averages."""
+    if any(type(value) is not int or value <= 0 for value in (warmup, measured, samples)):
+        raise ValueError("raw observation counts must be explicit positive integers")
+    if len(rows) != warmup + measured:
+        raise ValueError("raw observation rows are missing or incomplete")
+    keys = {"run", "sample", "measured", "latency_ns", "finite", "direct_exact", *RAW_OBSERVATION_TIMING_SEGMENTS}
+    for index, row in enumerate(rows):
+        if set(row) != keys or any(type(value) not in (int, str) or not str(value).isdecimal() for value in row.values()):
+            raise ValueError("raw observation columns require nonnegative integer values")
+        values = {key: int(value) for key, value in row.items()}
+        if (values["run"] != index or values["sample"] != index % samples
+                or values["measured"] != int(index >= warmup)):
+            raise ValueError("raw observation order or measurement labels differ")
+        if (values["preprocess_ns"] <= 0 or values["model_ns"] <= 0 or values["d2h_ns"] <= 0
+                or values["finite"] != 1 or values["direct_exact"] != 1
+                or sum(values[key] for key in RAW_OBSERVATION_TIMING_SEGMENTS) != values["latency_ns"]):
+            raise ValueError("raw observation boundary, output quality or contiguous timing conservation failed")
 
 
 def numerical_worker_bootstrap(protocol):

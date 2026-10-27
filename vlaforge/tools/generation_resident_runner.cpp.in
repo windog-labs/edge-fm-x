@@ -1,0 +1,200 @@
+#include "session_generated.h"
+#include "vlaforge/runtime/host_preprocessing.h"
+#include "vlaforge/backends/huggingface_tokenizer.h"
+#include <cuda_runtime_api.h>
+#include <dlfcn.h>
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <iterator>
+#include <string>
+#include <vector>
+
+namespace {
+constexpr std::size_t kHeight = @HEIGHT@, kWidth = @WIDTH@, kIds = @IDS@;
+constexpr std::size_t kPixels = @PIXELS@, kVocabulary = @VOCABULARY@, kTokens = @TOKENS@;
+constexpr std::size_t kRegions = @REGIONS@, kFirstRegion = @FIRST_REGION@, kFirstOutput = @FIRST_OUTPUT@;
+constexpr std::size_t kSamples = @SAMPLES@, kImageRepeats = @IMAGE_REPEATS@;
+const std::array<unsigned, kRegions> expected_counts{@COUNTS@};
+using Clock = std::chrono::steady_clock;
+bool Cuda(cudaError_t value) {
+  if (value == cudaSuccess) return true;
+  std::cerr << cudaGetErrorString(value) << '\n';
+  return false;
+}
+bool Read(const std::string& path, void* data, std::size_t size) {
+  std::ifstream input(path, std::ios::binary);
+  input.read(static_cast<char*>(data), static_cast<std::streamsize>(size));
+  return input.gcount() == static_cast<std::streamsize>(size) && input.peek() == std::ifstream::traits_type::eof();
+}
+bool Write(const std::string& path, const void* data, std::size_t size) {
+  std::ofstream output(path, std::ios::binary);
+  output.write(static_cast<const char*>(data), static_cast<std::streamsize>(size));
+  return output.good();
+}
+bool Text(const std::string& path, std::string* text) {
+  std::ifstream stream(path, std::ios::binary);
+  if (!stream) return false;
+  text->assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+  return !stream.bad() && text->size() <= (1u << 20);
+}
+struct Sample {
+  std::vector<std::uint8_t> rgb;
+  std::vector<std::int32_t> expected_ids;
+  std::string instruction;
+};
+struct Buffer {
+  void* data = nullptr;
+  ~Buffer() { if (data != nullptr) (void)cudaFree(data); }
+};
+struct Completion {
+  std::array<unsigned, kRegions> counts{};
+  bool valid = true, first_seen = false;
+  std::int64_t first_token = -1;
+  Clock::time_point first_time;
+};
+void Completed(void* opaque, const vlaforge::runtime::TraceEvent* event,
+    const VLAForgeValueView* const* outputs, std::size_t count) noexcept {
+  auto& state = *static_cast<Completion*>(opaque);
+  if (event == nullptr || event->subject_id >= kRegions) { state.valid = false; return; }
+  ++state.counts[event->subject_id];
+  if (event->subject_id != kFirstRegion) return;
+  if (state.first_seen || count <= kFirstOutput || outputs == nullptr || outputs[kFirstOutput] == nullptr ||
+      outputs[kFirstOutput]->kind != VLAFORGE_VALUE_TENSOR) { state.valid = false; return; }
+  const auto& t = outputs[kFirstOutput]->value.tensor.tensor;
+  if (t.data == nullptr || t.dtype != VLAFORGE_DTYPE_I32 || t.size_bytes != sizeof(std::int32_t) ||
+      t.device.kind != VLAFORGE_DEVICE_CUDA || t.device.ordinal != 0) { state.valid = false; return; }
+  std::int32_t token;
+  if (cudaMemcpy(&token, t.data, sizeof(token), cudaMemcpyDeviceToHost) != cudaSuccess) { state.valid = false; return; }
+  state.first_token = token;
+  state.first_time = Clock::now();
+  state.first_seen = true;
+}
+}
+
+int main(int argc, char** argv) {
+  if (argc != 7) return 1;
+  const std::string bundle = argv[1], data = argv[2], output = argv[3];
+  const auto warmup = std::stoul(argv[5]), measured = std::stoul(argv[6]);
+  if (warmup > 128 || measured == 0 || measured > 1024 || !Cuda(cudaSetDevice(0))) return 2;
+  const auto repetitions = warmup + measured;
+  void* library = dlopen(argv[4], RTLD_NOW | RTLD_GLOBAL);
+  if (library == nullptr) return 3;
+  auto initialize = reinterpret_cast<int (*)()>(dlsym(library, "vlaforge_register_tensorrt_precision_plugins"));
+  if (initialize == nullptr || initialize() != 1) return 4;
+  std::vector<std::int32_t> ids, tokens(kTokens);
+  std::vector<std::int64_t> widened(kTokens);
+  std::array<Sample, kSamples> samples;
+  for (std::size_t i = 0; i < kSamples; ++i) {
+    auto& sample = samples[i];
+    sample.rgb.resize(kHeight * kWidth * 3);
+    sample.expected_ids.resize(kIds);
+    const auto directory = data + "/sample-" + (i < 10 ? "0" : "") + std::to_string(i);
+    if (!Read(directory + "/expected-ids.bin", sample.expected_ids.data(), kIds * sizeof(std::int32_t)) ||
+        !Read(directory + "/image.rgb", sample.rgb.data(), sample.rgb.size()) ||
+        !Text(directory + "/instruction.txt", &sample.instruction)) return 5;
+  }
+  std::string tokenizer_json, prefix_text, repeated_text, middle_text, suffix_text;
+  if (!Text(data + "/tokenizer.json", &tokenizer_json)) {
+    // Tokenizer vocabularies are larger than bounded instruction/template files.
+    std::ifstream file(data + "/tokenizer.json", std::ios::binary);
+    if (!file) return 5;
+    tokenizer_json.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    if (file.bad() || tokenizer_json.size() > (32u << 20)) return 5;
+  }
+  if (!Text(data + "/prefix.txt", &prefix_text) || !Text(data + "/repeat.txt", &repeated_text) ||
+      !Text(data + "/middle.txt", &middle_text) || !Text(data + "/suffix.txt", &suffix_text)) return 5;
+  std::unique_ptr<vlaforge::backends::HuggingFaceTokenizer> tokenizer;
+  const auto token_init = vlaforge::backends::HuggingFaceTokenizer::Create(tokenizer_json, &tokenizer);
+  if (!token_init.ok()) { std::cerr << token_init.message << '\n'; return 5; }
+  std::vector<float> values(kHeight * kWidth * 3), standardized(values.size()), chw(values.size()), pixels(kPixels), logits(kVocabulary);
+  const std::array<float, 3> means{@MEANS@}, stddev{@STDDEVS@};
+  const vlaforge::runtime::PatchifySpec patch{1, 3, kHeight, kWidth, @PATCH_HEIGHT@, @PATCH_WIDTH@,
+      @TEMPORAL_PATCH@, @SPATIAL_MERGE@, true};
+  Buffer id_device, pixel_device;
+  if (!Cuda(cudaMalloc(&id_device.data, kIds * sizeof(std::int32_t))) ||
+      !Cuda(cudaMalloc(&pixel_device.data, pixels.size() * sizeof(float)))) return 6;
+  vlaforge_generated::ModelSession session(bundle.c_str());
+  if (!session.initialization_status().ok()) {
+    std::cerr << session.initialization_status().message << '\n'; return 7;
+  }
+  std::ifstream maps("/proc/self/maps");
+  const std::string loaded((std::istreambuf_iterator<char>(maps)), std::istreambuf_iterator<char>());
+  if (loaded.find("libpython") != std::string::npos || loaded.find("libtorch") != std::string::npos ||
+      !Write(output + "/native.maps", loaded.data(), loaded.size())) return 8;
+  const std::int64_t id_shape[]{1, static_cast<std::int64_t>(kIds)}, pixel_shape[]{@PIXEL_SHAPE@};
+  const VLAForgeBoundTensor input_ids{sizeof(input_ids), {id_device.data, kIds * sizeof(std::int32_t), id_shape, 2,
+      VLAFORGE_DTYPE_I32, {VLAFORGE_DEVICE_CUDA, 0}}, VLAFORGE_LAYOUT_CONTIGUOUS, 256};
+  const VLAForgeBoundTensor input_pixels{sizeof(input_pixels), {pixel_device.data, pixels.size() * sizeof(float), pixel_shape, 2,
+      VLAFORGE_DTYPE_F32, {VLAFORGE_DEVICE_CUDA, 0}}, VLAFORGE_LAYOUT_CONTIGUOUS, 256};
+  std::ofstream csv(output + "/pilot.csv");
+  csv << "call,phase,sample,ttft_ms,full16_ms,first_token,all_finite,all_region_counts_valid,all_ids_equal,tokens\n" << std::setprecision(12);
+  for (std::size_t call = 0; call < repetitions; ++call) {
+    const auto sample_index = call % kSamples;
+    const auto& sample = samples[sample_index];
+    if (!session.ResetEpisode(call + 1).ok()) return 9;
+    Completion completion;
+    session.SetRegionCompletionSink({&completion, &Completed});
+    VLAForgeInputStamp stamp{};
+    stamp.struct_size = sizeof(stamp); stamp.has_revision = 1; stamp.revision = call + 1;
+    const auto begin = Clock::now();
+    std::string formatted = prefix_text;
+    for (std::size_t repeat = 0; repeat < kImageRepeats; ++repeat) formatted += repeated_text;
+    formatted += middle_text;
+    formatted += sample.instruction;
+    formatted += suffix_text;
+    const auto encoded = tokenizer->Encode(formatted, false, &ids);
+    if (!encoded.ok() || ids.size() != kIds) { std::cerr << "native tokenizer failed or shape mismatch\n"; return 10; }
+    if (!vlaforge::runtime::ScaleU8ToF32(sample.rgb.data(), sample.rgb.size(), 1.0F, values.data()).ok() ||
+        !vlaforge::runtime::StandardizeF32(values.data(), kHeight * kWidth, 3, means.data(), stddev.data(), 0,
+            standardized.data()).ok()) return 10;
+    for (std::size_t c = 0; c < 3; ++c)
+      for (std::size_t i = 0; i < kHeight * kWidth; ++i) chw[c * kHeight * kWidth + i] = standardized[i * 3 + c];
+    if (!vlaforge::runtime::PatchifyF32(chw.data(), chw.size(), patch, pixels.data(), pixels.size()).ok() ||
+        !Cuda(cudaMemcpy(id_device.data, ids.data(), ids.size() * sizeof(ids[0]), cudaMemcpyHostToDevice)) ||
+        !Cuda(cudaMemcpy(pixel_device.data, pixels.data(), pixels.size() * sizeof(float), cudaMemcpyHostToDevice))) return 11;
+    if (!session.BindTensor(0, input_ids, &stamp).ok() || !session.BindTensor(1, input_pixels, &stamp).ok()) return 12;
+    const auto result = session.Run();
+    if (!result.ok()) { std::cerr << result.message << '\n'; return 13; }
+    VLAForgeBoundTensor token_view{}, logits_view{};
+    if (!session.ReadOutputTensor(0, &token_view).ok() || !session.ReadOutputTensor(1, &logits_view).ok() ||
+        token_view.tensor.dtype != VLAFORGE_DTYPE_I32 || token_view.tensor.size_bytes != tokens.size() * sizeof(tokens[0]) ||
+        logits_view.tensor.dtype != VLAFORGE_DTYPE_F32 || logits_view.tensor.size_bytes != logits.size() * sizeof(float)) return 14;
+    if (!Cuda(cudaMemcpy(tokens.data(), token_view.tensor.data, tokens.size() * sizeof(tokens[0]), cudaMemcpyDeviceToHost)) ||
+        !Cuda(cudaMemcpy(logits.data(), logits_view.tensor.data, logits.size() * sizeof(float), cudaMemcpyDeviceToHost))) return 15;
+    std::copy(tokens.begin(), tokens.end(), widened.begin());
+    const auto end = Clock::now();
+    const auto prefix = output + "/call-" + std::to_string(call);
+    if (!Write(prefix + "-tokens.bin", widened.data(), widened.size() * sizeof(widened[0]))) return 17;
+    if ((call < kSamples || call >= repetitions - std::min(repetitions, kSamples)) &&
+        (!Write(prefix + "-logits.bin", logits.data(), logits.size() * sizeof(float)) ||
+         !Write(prefix + "-ids.bin", ids.data(), ids.size() * sizeof(ids[0])))) return 17;
+    const bool finite = std::all_of(logits.begin(), logits.end(), [](float x) { return std::isfinite(x); });
+    const bool ids_equal = ids == sample.expected_ids;
+    if (!ids_equal || !finite || !completion.valid || !completion.first_seen || completion.first_token != tokens.front() ||
+        completion.counts != expected_counts || !std::all_of(tokens.begin(), tokens.end(), [](std::int32_t t) {
+          return t >= 0 && static_cast<std::size_t>(t) < kVocabulary; })) {
+      std::cerr << "completion validation: finite=" << finite << " valid=" << completion.valid
+                << " first_seen=" << completion.first_seen << " observed_first=" << completion.first_token
+                << " output_first=" << tokens.front() << " counts=";
+      for (auto n : completion.counts) std::cerr << n << ',';
+      std::cerr << " expected=";
+      for (auto n : expected_counts) std::cerr << n << ',';
+      std::cerr << '\n';
+      return 16;
+    }
+    const double ttft = std::chrono::duration<double, std::milli>(completion.first_time - begin).count();
+    const double elapsed = std::chrono::duration<double, std::milli>(end - begin).count();
+    csv << call << ',' << (call < warmup ? "warmup" : "measured") << ',' << sample_index << ',' << ttft << ','
+        << elapsed << ',' << completion.first_token << ",1,1,1,";
+    for (std::size_t i = 0; i < tokens.size(); ++i) csv << (i == 0 ? "" : ":") << tokens[i];
+    csv << '\n' << std::flush;
+  }
+  std::cout << "RESIDENT_GENERATION_COMPLETE,online-native-tokenizer," << repetitions << '\n';
+  return csv.good() ? 0 : 18;
+}

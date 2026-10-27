@@ -66,6 +66,17 @@ def test_built_wheel_contains_private_aoti_backend_header(
         entry.endswith("/share/vlaforge/backends/aoti_callable.h")
         for entry in entries
     )
+    for source in (
+        "backends/tensorrt_precision_plugins.cu",
+        "backends/hf_tokenizer/Cargo.toml",
+        "backends/hf_tokenizer/Cargo.lock",
+        "backends/hf_tokenizer/src/lib.rs",
+        "backends/pillow_image.cpp",
+        "backends/pillow_image_c.c",
+        "backends/pillow_image_internal.h",
+        "include/vlaforge/backends/image_preprocessing.h",
+    ):
+        assert any(entry.endswith("/share/vlaforge/" + source) for entry in entries)
 
 
 def test_artifact_evaluation_markdown_has_claim_boundaries() -> None:

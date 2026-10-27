@@ -173,7 +173,8 @@ def test_codegen_emits_bundle_loaded_aoti_regions() -> None:
         )
 
 
-def test_codegen_emits_bundle_loaded_tensorrt_regions() -> None:
+@pytest.mark.parametrize("shared_context", [False, True])
+def test_codegen_emits_bundle_loaded_tensorrt_regions(shared_context) -> None:
     fixture = build_driving_trajectory_fixture()
     compilation = compile_module(
         fixture.module,
@@ -191,6 +192,7 @@ def test_codegen_emits_bundle_loaded_tensorrt_regions() -> None:
             target="sm_87",
             device="cuda:0",
             backend_variant="tensorrt-10.3-cu126",
+            supports_execution_context=shared_context,
         )
         for index, region in enumerate(compilation.module.regions)
     }
@@ -212,6 +214,8 @@ def test_codegen_emits_bundle_loaded_tensorrt_regions() -> None:
     assert "vlaforge_tensorrt_region_executable_value_api" in source
     assert "TensorRT Region load failed" in source
     assert "aoti_region_executable.h" not in source
+    assert ("vlaforge_tensorrt_region_execution_extension_api()" in source) == shared_context
+    assert "libtorch_graph.h" not in source
     assert "VLAFORGE_BUILD_TENSORRT_BACKEND ON" in cmake
     assert "vlaforge_tensorrt_backend" in cmake
     assert "VLAFORGE_BUILD_AOTI_BACKEND ON" not in cmake

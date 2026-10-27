@@ -12,8 +12,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
 
 
@@ -41,7 +44,8 @@ def tensor_element_type(value: Any) -> int | None:
 
 def tensor_shape(value: Any) -> tuple[int, ...] | None:
     value_type = value.type
-    if value_type.WhichOneof("value") != "tensor_type":
+    if (value_type.WhichOneof("value") != "tensor_type"
+            or not value_type.tensor_type.HasField("shape")):
         return None
     dimensions = []
     for dimension in value_type.tensor_type.shape.dim:
@@ -49,6 +53,88 @@ def tensor_shape(value: Any) -> tuple[int, ...] | None:
             return None
         dimensions.append(int(dimension.dim_value))
     return tuple(dimensions)
+
+
+def tensor_messages(message):
+    """Include sparse tensors, nested graph attributes, and local functions."""
+    import onnx
+
+    if isinstance(message, onnx.TensorProto):
+        yield message
+        return
+    for field, value in message.ListFields():
+        if field.message_type is not None:
+            for child in value if field.is_repeated else (value,):
+                yield from tensor_messages(child)
+
+
+def external_helpers():
+    # Also work when this script is loaded directly with importlib by callers.
+    spec = importlib.util.spec_from_file_location(
+        "_vf_sequence_export_helpers",
+        Path(__file__).with_name("export_torchscript_region_onnx.py"),
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.external_files, module.publish_files
+
+
+def external_span(tensor, root: Path) -> tuple[Path, int, int]:
+    entries = {entry.key: entry.value for entry in tensor.external_data}
+    if len(entries) != len(tensor.external_data):
+        raise ValueError(f"{tensor.name}: duplicate external data keys")
+    for key in ("offset", "length"):
+        if key in entries and (not entries[key].isascii() or not entries[key].isdigit()):
+            raise ValueError(f"{tensor.name}: invalid external {key}")
+    source = root / entries["location"]
+    offset = int(entries.get("offset", "0"))
+    size = source.stat().st_size
+    length = int(entries["length"]) if "length" in entries else size - offset
+    if offset > size or length < 0 or length > size - offset:
+        raise ValueError(f"{tensor.name}: external byte range exceeds file size")
+    if any(tensor.HasField(key) for key in ("raw_data", "segment")) or any(
+        getattr(tensor, key) for key in (
+            "float_data", "int32_data", "string_data", "int64_data", "double_data", "uint64_data"
+        )
+    ):
+        raise ValueError(f"{tensor.name}: external tensor also has inline data or segment")
+    return source, offset, length
+
+
+def publication_paths(output: Path, sidecars: list[Path]) -> None:
+    paths = [*sidecars, Path(output.name)]
+    if len(set(paths)) != len(paths) or any(
+        left in right.parents for left in paths for right in paths if left != right
+    ):
+        raise ValueError("external tensor location aliases the ONNX graph or another file")
+    for relative in paths:
+        destination = output.parent / relative
+        if os.path.lexists(destination):
+            raise FileExistsError(destination)
+        for parent in relative.parents:
+            candidate = output.parent / parent
+            if parent != Path(".") and candidate.is_symlink():
+                raise ValueError("external tensor destination must not use symlinks")
+
+
+def copy_external(source: Path, destination: Path, location: Path) -> dict[str, Any]:
+    before = source.stat()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    checksum = hashlib.sha256()
+    with source.open("rb") as reader, destination.open("xb") as writer:
+        for block in iter(lambda: reader.read(8 << 20), b""):
+            checksum.update(block)
+            writer.write(block)
+    after = source.stat()
+    if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+        after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns
+    ):
+        raise ValueError(f"external source changed while copying: {source}")
+    copied_hash = digest(destination)
+    if copied_hash != checksum.hexdigest():
+        raise ValueError(f"external copy checksum mismatch: {source}")
+    return {"location": str(location), "size_bytes": before.st_size,
+            "source_sha256": checksum.hexdigest(), "output_sha256": copied_hash}
 
 
 def lower(
@@ -65,10 +151,121 @@ def lower(
     import numpy as np
     from onnx import helper, numpy_helper
 
-    model = onnx.load(str(input_path), load_external_data=True)
-    model = onnx.shape_inference.infer_shapes(
-        model, strict_mode=False, data_prop=True
-    )
+    input_path = input_path.resolve(strict=True)
+    output_path = output_path.absolute()
+    if os.path.lexists(output_path):
+        raise FileExistsError(output_path)
+    source_hash = digest(input_path)
+    model = onnx.load(str(input_path), load_external_data=False)
+    if digest(input_path) != source_hash:
+        raise ValueError("source ONNX graph changed while loading")
+    external_files, publish_files = external_helpers()
+    sidecars = external_files(model, input_path.parent)
+    publication_paths(output_path, sidecars)
+    external_tensors = []
+    for tensor in tensor_messages(model):
+        if tensor.data_location == onnx.TensorProto.EXTERNAL:
+            external_span(tensor, input_path.parent)
+            external_tensors.append(tensor.SerializeToString())
+        elif tensor.external_data:
+            raise ValueError(f"{tensor.name}: external metadata without EXTERNAL data location")
+    if sidecars and any((demote_f64_island, promote_bfloat16_to_f32,
+                         demote_spurious_complex_casts, normalize_cumsum_bool)):
+        raise ValueError("dtype-changing flags are unsupported with external tensors; "
+                         "use an explicit precision conversion before structural lowering")
+
+    # Index tensor metadata; only SplitToSequence/SequenceAt scalar controls
+    # are decoded. In particular, do not convert neural weights to NumPy.
+    constants = {value.name: value for value in model.graph.initializer}
+    for node in model.graph.node:
+        if node.domain not in ("", "ai.onnx") or node.op_type != "Constant" or len(node.output) != 1:
+            continue
+        for attribute in node.attribute:
+            if attribute.name == "value" and attribute.type == onnx.AttributeProto.TENSOR:
+                constants[node.output[0]] = attribute.t
+            elif attribute.name == "value_int":
+                constants[node.output[0]] = helper.make_tensor(
+                    node.output[0], onnx.TensorProto.INT64, [], [attribute.i]
+                )
+    controls: dict[str, int] = {}
+    external_controls: dict[str, tuple[Path, int, bytes]] = {}
+    external_control_bytes = 0
+    graph_input_names = {value.name for value in model.graph.input}
+    for node in model.graph.node:
+        if (node.domain not in ("", "ai.onnx")
+                or node.op_type not in ("SplitToSequence", "SequenceAt") or len(node.input) < 2):
+            continue
+        name = node.input[1]
+        if name in graph_input_names:
+            raise ValueError(f"{name}: sequence control is a runtime graph input, not a constant")
+        if name in controls or name not in constants:
+            continue
+        control = constants[name]
+        if control.dims or control.data_type not in (onnx.TensorProto.INT32, onnx.TensorProto.INT64):
+            raise ValueError(f"{name}: sequence control must be a scalar integer tensor")
+        size = 8 if control.data_type == onnx.TensorProto.INT64 else 4
+        if control.data_location == onnx.TensorProto.EXTERNAL:
+            source, offset, length = external_span(control, input_path.parent)
+            if length != size:
+                raise ValueError(f"{name}: external scalar byte length must be {size}")
+            with source.open("rb") as stream:
+                stream.seek(offset)
+                raw = stream.read(size)
+            if len(raw) != size:
+                raise ValueError(f"{name}: truncated external scalar")
+            controls[name] = int.from_bytes(raw, byteorder="little", signed=True)
+            external_controls[name] = (source.relative_to(input_path.parent), offset, raw)
+            external_control_bytes += size
+        else:
+            if control.HasField("raw_data") and len(control.raw_data) != size:
+                raise ValueError(f"{name}: invalid inline scalar byte length")
+            if len(control.int32_data) + len(control.int64_data) > 1:
+                raise ValueError(f"{name}: invalid scalar payload")
+            controls[name] = scalar_constant(numpy_helper.to_array(control))
+
+    def infer_metadata(current):
+        # Shape inference may need the split size. Inline only the already
+        # resolved scalar controls in a metadata copy, then restore descriptors.
+        probe = onnx.ModelProto()
+        probe.CopyFrom(current)
+        for initializer in probe.graph.initializer:
+            if initializer.name in controls:
+                initializer.CopyFrom(helper.make_tensor(
+                    initializer.name, initializer.data_type, [], [controls[initializer.name]]
+                ))
+        for node in probe.graph.node:
+            if node.op_type == "Constant" and len(node.output) == 1 and node.output[0] in controls:
+                for attribute in node.attribute:
+                    if attribute.name == "value":
+                        attribute.t.CopyFrom(helper.make_tensor(
+                            attribute.t.name, attribute.t.data_type, [], [controls[node.output[0]]]
+                        ))
+        inferred = onnx.shape_inference.infer_shapes(probe, strict_mode=False, data_prop=False)
+        for initializer in inferred.graph.initializer:
+            if initializer.name in controls:
+                initializer.CopyFrom(constants[initializer.name])
+        for node in inferred.graph.node:
+            if node.op_type == "Constant" and len(node.output) == 1 and node.output[0] in controls:
+                for attribute in node.attribute:
+                    if attribute.name == "value":
+                        attribute.t.CopyFrom(constants[node.output[0]])
+        return inferred
+
+    source_ports = ([value.SerializeToString() for value in model.graph.input],
+                    [value.SerializeToString() for value in model.graph.output])
+    model = infer_metadata(model)
+
+    occupied = {value.name for value in (*model.graph.input, *model.graph.output, *model.graph.value_info)}
+    occupied.update(value.name for value in model.graph.initializer)
+    for node in model.graph.node:
+        occupied.update((*node.input, *node.output, node.name))
+
+    def unique(name):
+        actual = name
+        while actual in occupied:
+            actual += "_"
+        occupied.add(actual)
+        return actual
 
     element_types: dict[str, int] = {}
     shapes: dict[str, tuple[int, ...]] = {}
@@ -88,20 +285,13 @@ def lower(
             element_types[initializer.name] = int(initializer.data_type)
         shapes[initializer.name] = tuple(int(value) for value in initializer.dims)
 
-    initializers = {
-        initializer.name: numpy_helper.to_array(initializer)
-        for initializer in model.graph.initializer
-    }
-    constants = dict(initializers)
     for node in model.graph.node:
         if node.op_type != "Constant" or len(node.output) != 1:
             continue
         for attribute in node.attribute:
             if attribute.name == "value":
-                value = numpy_helper.to_array(attribute.t)
-                constants[node.output[0]] = value
                 element_types.setdefault(node.output[0], int(attribute.t.data_type))
-                shapes.setdefault(node.output[0], tuple(value.shape))
+                shapes.setdefault(node.output[0], tuple(attribute.t.dims))
 
     bfloat16_values = {
         name
@@ -266,13 +456,13 @@ def lower(
             ):
                 rebuilt.append(node)
                 continue
-            cast_output = f"{node.name}_input_int64"
+            cast_output = unique(f"{node.name}_input_int64")
             rebuilt.append(
                 helper.make_node(
                     "Cast",
                     [node.input[0]],
                     [cast_output],
-                    name=f"{node.name}_bool_to_int64",
+                    name=unique(f"{node.name}_bool_to_int64"),
                     to=onnx.TensorProto.INT64,
                 )
             )
@@ -303,27 +493,42 @@ def lower(
     def constant_node(name: str, value) -> Any:
         nonlocal counter
         counter += 1
-        actual = f"{name}_{counter}"
+        actual = unique(f"{name}_{counter}")
         return helper.make_node(
             "Constant",
             [],
             [actual],
-            name=f"{actual}_node",
+            name=unique(f"{actual}_node"),
             value=numpy_helper.from_array(value, name=f"{actual}_value"),
         )
 
-    replacements: dict[int, Any] = {}
+    replacements: dict[str, Any] = {}
     split_nodes = set()
     lowered = 0
     slices = 0
     for split in model.graph.node:
-        if split.op_type != "SplitToSequence":
+        if split.domain not in ("", "ai.onnx") or split.op_type != "SplitToSequence":
             continue
         uses = consumers.get(split.output[0], [])
-        if not uses or any(node.op_type != "SequenceAt" for node in uses):
+        if (not uses or any(node.domain not in ("", "ai.onnx") or node.op_type != "SequenceAt"
+                            or node.input[0] != split.output[0] for node in uses)):
             raise ValueError(
                 f"{split.name}: only constant SequenceAt consumers are supported"
             )
+        if split.output[0] in {value.name for value in model.graph.output}:
+            raise ValueError(f"{split.name}: sequence is exposed as a graph output")
+
+        def nested_uses(message):
+            if isinstance(message, onnx.NodeProto) and split.output[0] in message.input:
+                return True
+            for field, value in message.ListFields():
+                if field.message_type is not None:
+                    if any(nested_uses(child) for child in (value if field.is_repeated else (value,))):
+                        return True
+            return False
+
+        if any(nested_uses(attribute) for node in model.graph.node for attribute in node.attribute):
+            raise ValueError(f"{split.name}: nested sequence captures are unsupported")
         attributes = {
             attribute.name: helper.get_attribute_value(attribute)
             for attribute in split.attribute
@@ -332,24 +537,29 @@ def lower(
         keepdims = int(attributes.get("keepdims", 1))
         if keepdims != 1:
             raise ValueError(f"{split.name}: keepdims={keepdims} is unsupported")
-        if len(split.input) < 2 or split.input[1] not in constants:
+        if len(split.input) < 2 or split.input[1] not in controls:
             raise ValueError(f"{split.name}: split size is not a constant")
-        split_size = scalar_constant(constants[split.input[1]])
+        split_size = controls[split.input[1]]
         if split_size <= 0:
             raise ValueError(f"{split.name}: split size must be positive")
 
         for sequence_at in uses:
-            if len(sequence_at.input) != 2 or sequence_at.input[1] not in constants:
+            if len(sequence_at.input) != 2 or sequence_at.input[1] not in controls:
                 raise ValueError(
                     f"{sequence_at.name}: sequence index is not a constant"
                 )
-            index = scalar_constant(constants[sequence_at.input[1]])
+            index = controls[sequence_at.input[1]]
             if index < 0:
                 raise ValueError(
                     f"{sequence_at.name}: negative sequence index unsupported"
                 )
             start = index * split_size
             end = start + split_size
+            shape = shapes.get(split.input[0])
+            if shape is None or not -len(shape) <= axis < len(shape):
+                raise ValueError(f"{split.name}: split axis extent must be statically known")
+            if start >= shape[axis]:
+                raise ValueError(f"{sequence_at.name}: sequence index is out of range")
             starts = constant_node(
                 f"vlaforge_slice_starts_{lowered}_{index}",
                 np.asarray([start], dtype=np.int64),
@@ -366,38 +576,35 @@ def lower(
                 f"vlaforge_slice_steps_{lowered}_{index}",
                 np.asarray([1], dtype=np.int64),
             )
-            replacements[id(sequence_at)] = [
+            replacements[sequence_at.output[0]] = [
                 starts,
                 ends,
                 axes,
                 steps,
                 helper.make_node(
-                "Slice",
-                [
-                    split.input[0],
-                    starts.output[0],
-                    ends.output[0],
-                    axes.output[0],
-                    steps.output[0],
-                ],
-                list(sequence_at.output),
-                name=f"vlaforge_lower_{sequence_at.name}",
+                    "Slice",
+                    [
+                        split.input[0],
+                        starts.output[0],
+                        ends.output[0],
+                        axes.output[0],
+                        steps.output[0],
+                    ],
+                    list(sequence_at.output),
+                    name=unique(f"vlaforge_lower_{sequence_at.name}"),
                 ),
             ]
             slices += 1
-        split_nodes.add(id(split))
+        split_nodes.add(split.output[0])
         lowered += 1
 
-    old_values = set()
-    for node in model.graph.node:
-        if id(node) in split_nodes:
-            old_values.update(node.output)
+    old_values = split_nodes
 
     rebuilt = []
     for node in model.graph.node:
-        if id(node) in split_nodes:
+        if any(name in split_nodes for name in node.output):
             continue
-        replacement = replacements.get(id(node))
+        replacement = replacements.get(node.output[0]) if node.output else None
         if replacement is not None:
             rebuilt.extend(replacement)
             continue
@@ -413,6 +620,9 @@ def lower(
     normalized_cast = 0
     rebuilt = []
     for node in model.graph.node:
+        if node.domain not in ("", "ai.onnx"):
+            rebuilt.append(node)
+            continue
         if node.op_type == "ScatterND":
             attributes = {
                 attribute.name: helper.get_attribute_value(attribute)
@@ -454,7 +664,7 @@ def lower(
                     "Constant",
                     [],
                     list(node.output),
-                    name=f"vlaforge_lower_{node.name}",
+                    name=unique(f"vlaforge_lower_{node.name}"),
                     value=numpy_helper.from_array(
                         value, name=f"vlaforge_shape_{lowered_shape}"
                     ),
@@ -477,7 +687,7 @@ def lower(
                         "Identity",
                         [node.input[0]],
                         list(node.output),
-                        name=f"vlaforge_lower_{node.name}",
+                        name=unique(f"vlaforge_lower_{node.name}"),
                     )
                 )
                 normalized_cast += 1
@@ -504,7 +714,7 @@ def lower(
                 "Identity",
                 [node.input[0]],
                 list(node.output),
-                name=f"vlaforge_lower_{node.name}",
+                name=unique(f"vlaforge_lower_{node.name}"),
             )
             cast_like_to_identity += 1
         else:
@@ -512,7 +722,7 @@ def lower(
                 "Cast",
                 [node.input[0]],
                 list(node.output),
-                name=f"vlaforge_lower_{node.name}",
+                name=unique(f"vlaforge_lower_{node.name}"),
                 to=target_type,
             )
             cast_like_to_cast += 1
@@ -541,9 +751,7 @@ def lower(
         if tensor_element_type(value) == onnx.TensorProto.BFLOAT16
     )
 
-    model = onnx.shape_inference.infer_shapes(
-        model, strict_mode=False, data_prop=True
-    )
+    model = infer_metadata(model)
 
     reserved_names = {
         value.name for value in model.graph.input
@@ -568,43 +776,40 @@ def lower(
     del model.graph.value_info[:]
     model.graph.value_info.extend(retained_value_info)
 
-    materialized_constants = 0
-    for index, initializer in enumerate(model.graph.initializer):
-        array = numpy_helper.to_array(initializer)
-        if array.flags.c_contiguous:
-            continue
-        model.graph.initializer[index].CopyFrom(
-            numpy_helper.from_array(
-                np.ascontiguousarray(array), name=initializer.name
-            )
-        )
-        materialized_constants += 1
-    for node in model.graph.node:
-        if node.op_type != "Constant":
-            continue
-        for index, attribute in enumerate(node.attribute):
-            if attribute.name != "value":
-                continue
-            array = numpy_helper.to_array(attribute.t)
-            if array.flags.c_contiguous:
-                continue
-            node.attribute[index].t.CopyFrom(
-                numpy_helper.from_array(
-                    np.ascontiguousarray(array), name=attribute.t.name
-                )
-            )
-            materialized_constants += 1
-
-    onnx.checker.check_model(model)
+    # TensorProto stores contiguous bytes already. A NumPy contiguity sweep
+    # would load every external weight and can exceed protobuf's 2 GiB limit.
+    if not any((demote_f64_island, promote_bfloat16_to_f32,
+                demote_spurious_complex_casts, normalize_cumsum_bool)):
+        for values, original in zip((model.graph.input, model.graph.output), source_ports):
+            del values[:]
+            values.extend(onnx.ValueInfoProto.FromString(value) for value in original)
+    if external_tensors != [tensor.SerializeToString() for tensor in tensor_messages(model)
+                            if tensor.data_location == onnx.TensorProto.EXTERNAL]:
+        raise ValueError("structural lowering changed an external tensor descriptor")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    if output_path.exists():
-        raise FileExistsError(output_path)
-    onnx.save_model(model, str(output_path), save_as_external_data=False)
+    external_data = []
+    with tempfile.TemporaryDirectory(prefix=".sequence-lowering-", dir=output_path.parent) as directory:
+        staged = Path(directory) / output_path.name
+        for location in sidecars:
+            external_data.append(copy_external(input_path.parent / location, staged.parent / location, location))
+        # Bind specialization to the actual staged weight snapshot, even if
+        # a control changed before the copy's own consistency window began.
+        for name, (location, offset, expected) in external_controls.items():
+            with (staged.parent / location).open("rb") as stream:
+                stream.seek(offset)
+                if stream.read(len(expected)) != expected:
+                    raise ValueError(f"{name}: external scalar control changed between resolution and staging")
+        onnx.save_model(model, str(staged))
+        onnx.checker.check_model(str(staged))
+        if digest(input_path) != source_hash:
+            raise ValueError("source ONNX graph changed during lowering")
+        publication_paths(output_path, sidecars)
+        publish_files(staged, output_path, sidecars)
     return {
         "schema": "vlaforge.onnx_split_sequence_lowering/1",
         "status": "passed",
         "source": str(input_path.resolve()),
-        "source_sha256": digest(input_path),
+        "source_sha256": source_hash,
         "output": str(output_path.resolve()),
         "output_sha256": digest(output_path),
         "lowered_split_to_sequence": lowered,
@@ -637,7 +842,19 @@ def lower(
         "node_count": len(model.graph.node),
         "initializer_count": len(model.graph.initializer),
         "removed_value_info": removed_value_info,
-        "materialized_contiguous_constants": materialized_constants,
+        "materialized_contiguous_constants": 0,
+        "external_data": external_data,
+        "external_tensor_count": len(external_tensors),
+        "external_data_policy": "streamed-byte-preserving-copy",
+        "external_scalar_control_bytes_read": external_control_bytes,
+        "staged_external_scalar_controls_verified": len(external_controls),
+        "scalar_controls_resolved": len(controls),
+        "weights_materialized": False,
+        "checker": "filename",
+        "typed_ports_preserved": source_ports == (
+            [value.SerializeToString() for value in model.graph.input],
+            [value.SerializeToString() for value in model.graph.output],
+        ),
         "shape_inference": True,
         "full_model_output_verified": False,
     }
@@ -683,6 +900,10 @@ def main() -> int:
         help="Insert the implicit bool-to-int64 promotion required by ONNX CumSum.",
     )
     args = parser.parse_args()
+    if os.path.lexists(args.report):
+        raise FileExistsError(args.report)
+    if args.report.absolute() == args.output.absolute():
+        raise ValueError("report location aliases the ONNX graph")
     result = lower(
         args.input,
         args.output,
@@ -693,9 +914,8 @@ def main() -> int:
         normalize_cumsum_bool=args.normalize_cumsum_bool,
     )
     args.report.parent.mkdir(parents=True, exist_ok=True)
-    args.report.write_text(
-        json.dumps(result, indent=2, allow_nan=False) + "\n"
-    )
+    with args.report.open("x") as stream:
+        stream.write(json.dumps(result, indent=2, allow_nan=False) + "\n")
     print(json.dumps(result, indent=2, allow_nan=False))
     return 0
 

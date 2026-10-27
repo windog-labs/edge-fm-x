@@ -1,0 +1,11 @@
+[package]
+name = "vlaforge-hf-tokenizer"
+version = "0.2.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+tokenizers = { version = "=0.21.2", default-features = false, features = ["onig"] }

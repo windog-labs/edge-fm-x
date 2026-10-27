@@ -34,9 +34,57 @@ option(VLAFORGE_LIBTORCH_SCOPED_GRAPH_RECLAIM
        "Experimental LibTorch 2.10 owned graph-pool reclaim after checked destruction" OFF)
 option(VLAFORGE_BUILD_TENSORRT_BACKEND
        "Build the optional CUDA TensorRT RegionExecutable backend" OFF)
+option(VLAFORGE_TENSORRT_STANDARD_PLUGINS
+       "Register installed standard TensorRT plugins before loading engines" OFF)
+option(VLAFORGE_TENSORRT_BFLOAT16_PLUGIN
+       "Build/register the optional TensorRT 8 FLOAT-carrier BF16 rounding plugin" OFF)
+option(VLAFORGE_BUILD_HF_TOKENIZER "Build the optional native Hugging Face tokenizer bridge" OFF)
+option(VLAFORGE_BUILD_PILLOW_IMAGE "Build the optional native image preprocessing bridge" OFF)
+set(VLAFORGE_PILLOW_CORE_LIBRARY "" CACHE FILEPATH "Prebuilt standalone pinned Pillow imaging core")
+set(VLAFORGE_PILLOW_CORE_INCLUDE "" CACHE PATH "Matching pinned imaging core headers")
+set(VLAFORGE_PILLOW_PYTHON_INCLUDE "" CACHE PATH "Compile-time platform headers for the standalone image C library")
+set(VLAFORGE_HF_TOKENIZER_LIBRARY "" CACHE FILEPATH "Prebuilt native Rust tokenizer static library")
 option(VLAFORGE_TENSORRT_DRIVERLESS_COMPILE_ONLY
        "Do not register TensorRT runtime tests in a driverless L4T container"
        OFF)
+if(VLAFORGE_TENSORRT_STANDARD_PLUGINS AND NOT VLAFORGE_BUILD_TENSORRT_BACKEND)
+    message(FATAL_ERROR "VLAFORGE_TENSORRT_STANDARD_PLUGINS requires the TensorRT backend")
+endif()
+if(VLAFORGE_BUILD_PILLOW_IMAGE)
+    if(NOT IS_ABSOLUTE "${VLAFORGE_PILLOW_CORE_LIBRARY}" OR
+       NOT EXISTS "${VLAFORGE_PILLOW_CORE_LIBRARY}" OR
+       NOT IS_ABSOLUTE "${VLAFORGE_PILLOW_CORE_INCLUDE}" OR
+       NOT EXISTS "${VLAFORGE_PILLOW_CORE_INCLUDE}/Imaging.h" OR
+       NOT IS_ABSOLUTE "${VLAFORGE_PILLOW_PYTHON_INCLUDE}" OR
+       NOT EXISTS "${VLAFORGE_PILLOW_PYTHON_INCLUDE}/pyconfig.h")
+        message(FATAL_ERROR "Set the matching standalone Pillow core archive and headers")
+    endif()
+    find_package(Threads REQUIRED)
+    add_library(vlaforge_pillow_image_backend SHARED
+        backends/pillow_image.cpp backends/pillow_image_c.c)
+    target_include_directories(vlaforge_pillow_image_backend PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>)
+    target_include_directories(vlaforge_pillow_image_backend SYSTEM PRIVATE
+        "${VLAFORGE_PILLOW_CORE_INCLUDE}" "${VLAFORGE_PILLOW_PYTHON_INCLUDE}")
+    target_compile_definitions(vlaforge_pillow_image_backend PRIVATE
+        VLAFORGE_PILLOW_IMAGE_BUILD=1 HAVE_PROTOTYPES=1 STDC_HEADERS=1)
+    set_target_properties(vlaforge_pillow_image_backend PROPERTIES
+        C_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
+    target_link_libraries(vlaforge_pillow_image_backend PRIVATE
+        "${VLAFORGE_PILLOW_CORE_LIBRARY}" Threads::Threads)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(vlaforge_pillow_image_backend PRIVATE m)
+    endif()
+    if(MSVC)
+        target_compile_options(vlaforge_pillow_image_backend PRIVATE /W4 /WX)
+    else()
+        target_compile_options(vlaforge_pillow_image_backend PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endif()
+if(VLAFORGE_TENSORRT_BFLOAT16_PLUGIN AND NOT VLAFORGE_BUILD_TENSORRT_BACKEND)
+    message(FATAL_ERROR "VLAFORGE_TENSORRT_BFLOAT16_PLUGIN requires the TensorRT backend")
+endif()
 
 if(VLAFORGE_LIBTORCH_SCOPED_GRAPH_RECLAIM AND NOT
    (VLAFORGE_BUILD_AOTI_BACKEND OR
@@ -47,9 +95,11 @@ endif()
 add_library(vlaforge_runtime STATIC
     runtime/artifact_verifier.cpp
     runtime/bounded_replay.cpp
+    runtime/cuda_graph.cpp
     runtime/device_copy.cpp
     runtime/execution_context.cpp
     runtime/external_region_plugin.cpp
+    runtime/host_preprocessing.cpp
     runtime/numerical.cpp
     runtime/region_executable.c
     runtime/session_c.c
@@ -63,6 +113,19 @@ target_include_directories(vlaforge_runtime
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+if(VLAFORGE_BUILD_HF_TOKENIZER)
+    if(NOT IS_ABSOLUTE "${VLAFORGE_HF_TOKENIZER_LIBRARY}" OR
+       NOT EXISTS "${VLAFORGE_HF_TOKENIZER_LIBRARY}")
+        message(FATAL_ERROR "Set VLAFORGE_HF_TOKENIZER_LIBRARY to the native Rust static library")
+    endif()
+    find_package(Threads REQUIRED)
+    add_library(vlaforge_hf_tokenizer_backend STATIC backends/huggingface_tokenizer.cpp)
+    target_link_libraries(vlaforge_hf_tokenizer_backend PUBLIC vlaforge_runtime
+        "${VLAFORGE_HF_TOKENIZER_LIBRARY}" Threads::Threads ${CMAKE_DL_LIBS})
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(vlaforge_hf_tokenizer_backend PUBLIC m)
+    endif()
+endif()
 if(MSVC)
     target_compile_options(vlaforge_runtime PRIVATE /W4 /WX)
 else()
@@ -192,6 +255,40 @@ if(VLAFORGE_BUILD_TENSORRT_BACKEND)
     target_link_libraries(vlaforge_tensorrt_backend
         PUBLIC vlaforge_runtime TensorRT::nvinfer CUDA::cudart
     )
+    if(VLAFORGE_TENSORRT_BFLOAT16_PLUGIN)
+        enable_language(CUDA)
+        add_library(vlaforge_tensorrt_precision_plugins SHARED
+            backends/tensorrt_precision_plugins.cu)
+        set_target_properties(vlaforge_tensorrt_precision_plugins PROPERTIES
+            CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON)
+        target_include_directories(vlaforge_tensorrt_precision_plugins PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>)
+        target_link_libraries(vlaforge_tensorrt_precision_plugins PUBLIC
+            TensorRT::nvinfer CUDA::cudart)
+        target_link_libraries(vlaforge_tensorrt_precision_plugins PRIVATE CUDA::cublas)
+        target_link_libraries(vlaforge_tensorrt_backend PUBLIC vlaforge_tensorrt_precision_plugins)
+        target_compile_definitions(vlaforge_tensorrt_backend PRIVATE VLAFORGE_TENSORRT_BFLOAT16_PLUGIN=1)
+    endif()
+    if(VLAFORGE_TENSORRT_STANDARD_PLUGINS)
+        find_library(VLAFORGE_TENSORRT_PLUGIN_LIBRARY
+            NAMES nvinfer_plugin
+            PATH_SUFFIXES aarch64-linux-gnu x86_64-linux-gnu)
+        if(NOT VLAFORGE_TENSORRT_PLUGIN_LIBRARY OR
+           NOT EXISTS "${VLAFORGE_TENSORRT_INCLUDE_DIR}/NvInferPlugin.h")
+            message(FATAL_ERROR
+                "VLAFORGE_TENSORRT_STANDARD_PLUGINS requires NvInferPlugin.h and libnvinfer_plugin")
+        endif()
+        if(NOT TARGET TensorRT::nvinfer_plugin)
+            add_library(TensorRT::nvinfer_plugin UNKNOWN IMPORTED)
+            set_target_properties(TensorRT::nvinfer_plugin PROPERTIES
+                IMPORTED_LOCATION "${VLAFORGE_TENSORRT_PLUGIN_LIBRARY}")
+        endif()
+        target_link_libraries(vlaforge_tensorrt_backend PUBLIC
+            TensorRT::nvinfer_plugin)
+        target_compile_definitions(vlaforge_tensorrt_backend PUBLIC
+            VLAFORGE_TENSORRT_STANDARD_PLUGINS=1)
+    endif()
     # L4T development containers intentionally omit several board driver
     # libraries that satisfy indirect TensorRT/DLA symbols on the real Orin.
     # Permit unresolved symbols in those shared dependencies while still
@@ -251,6 +348,11 @@ install(TARGETS vlaforge_runtime
     EXPORT VLAForgeRuntimeTargets
     ARCHIVE DESTINATION lib
 )
+if(TARGET vlaforge_pillow_image_backend)
+    install(TARGETS vlaforge_pillow_image_backend
+        EXPORT VLAForgeRuntimeTargets
+        LIBRARY DESTINATION lib RUNTIME DESTINATION bin ARCHIVE DESTINATION lib)
+endif()
 if(TARGET vlaforge_aoti_backend)
     install(TARGETS vlaforge_aoti_backend
         EXPORT VLAForgeRuntimeTargets
@@ -281,6 +383,13 @@ if(TARGET vlaforge_tensorrt_backend)
         ARCHIVE DESTINATION lib
     )
 endif()
+if(TARGET vlaforge_tensorrt_precision_plugins)
+    install(TARGETS vlaforge_tensorrt_precision_plugins
+        EXPORT VLAForgeRuntimeTargets
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib)
+endif()
 install(DIRECTORY include/ DESTINATION include)
 if(VLAFORGE_BUILD_AOTI_BACKEND OR VLAFORGE_BUILD_TENSORRT_BACKEND OR
    (VLAFORGE_BUILD_TORCHSCRIPT_BACKEND AND VLAFORGE_TORCHSCRIPT_ENABLE_CUDA))
@@ -289,6 +398,7 @@ else()
     set(VLAFORGE_CONFIG_HAS_CUDA OFF)
 endif()
 set(VLAFORGE_CONFIG_HAS_TENSORRT ${VLAFORGE_BUILD_TENSORRT_BACKEND})
+set(VLAFORGE_CONFIG_HAS_TENSORRT_PLUGINS ${VLAFORGE_TENSORRT_STANDARD_PLUGINS})
 if(VLAFORGE_BUILD_AOTI_BACKEND OR VLAFORGE_BUILD_TORCHSCRIPT_BACKEND)
     set(VLAFORGE_CONFIG_HAS_TORCH ON)
 else()

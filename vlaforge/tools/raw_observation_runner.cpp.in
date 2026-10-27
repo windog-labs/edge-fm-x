@@ -1,0 +1,219 @@
+#include "session_generated.h"
+#include "host_profile.h"
+#include "model_output_profile.h"
+#include "vlaforge/backends/huggingface_tokenizer.h"
+#include <cuda_runtime_api.h>
+
+#include <chrono>
+#include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <memory>
+#include <stdexcept>
+
+namespace {
+using Clock = std::chrono::steady_clock;
+using Buffer = vlaforge::tools::HostTensorBuffer;
+
+void require(bool condition, const char* message) {
+  if (!condition) { throw std::runtime_error(message); }
+}
+void cuda_check(cudaError_t code) {
+  if (code != cudaSuccess) {
+    std::cerr << "CUDA worker failure: " << cudaGetErrorString(code) << std::endl;
+    std::_Exit(10);
+  }
+}
+void check(VLAForgeStatus status) {
+  if (status.code != VLAFORGE_STATUS_OK) {
+    throw std::runtime_error(status.message == nullptr ? "native Session error" : status.message);
+  }
+}
+struct DeviceBuffer {
+  void* data = nullptr;
+  ~DeviceBuffer() { if (data) { cudaFree(data); } }
+};
+struct RawObservation { std::vector<Buffer> tensors; std::vector<std::string> text; };
+
+std::string read_text(const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  require(file.good(), "host asset/text unavailable");
+  return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+}
+std::vector<char> read_bytes(const std::string& path, std::size_t count) {
+  std::vector<char> result(count);
+  std::ifstream file(path, std::ios::binary);
+  file.read(result.data(), static_cast<std::streamsize>(count));
+  require(file.gcount() == static_cast<std::streamsize>(count) && file.peek() == std::ifstream::traits_type::eof(),
+          "raw/reference byte count differs");
+  return result;
+}
+
+std::int64_t ns(Clock::duration duration) {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+}
+
+bool finite(const Buffer& buffer) {
+  if (buffer.dtype == VLAFORGE_DTYPE_F32) {
+    const auto* values = static_cast<const float*>(buffer.data());
+    for (std::size_t i = 0; i < buffer.count; ++i) { if (!std::isfinite(values[i])) { return false; } }
+  } else if (buffer.dtype == VLAFORGE_DTYPE_F64) {
+    const auto* values = static_cast<const double*>(buffer.data());
+    for (std::size_t i = 0; i < buffer.count; ++i) { if (!std::isfinite(values[i])) { return false; } }
+  } else if (buffer.dtype == VLAFORGE_DTYPE_BOOL) {
+    const auto* values = static_cast<const std::uint8_t*>(buffer.data());
+    for (std::size_t i = 0; i < buffer.count; ++i) { if (values[i] > 1u) { return false; } }
+  }
+  return true;
+}
+}  // namespace
+
+int main(int argc, char** argv) {
+  try {
+    require(argc == 7, "usage: runner bundle raw_root reference_root output_root warmup measured");
+    char* end = nullptr;
+    const auto warmup = std::strtoull(argv[5], &end, 10);
+    require(end && !*end && warmup > 0 && warmup <= 100000, "invalid warmup");
+    const auto measured = std::strtoull(argv[6], &end, 10);
+    require(end && !*end && measured > 0 && measured <= 1000000, "invalid measured count");
+    cuda_check(cudaSetDevice(0));
+    std::unique_ptr<vlaforge::backends::HuggingFaceTokenizer> tokenizer;
+    const auto tokenizer_status = vlaforge::backends::HuggingFaceTokenizer::Create(
+        read_text(std::string(argv[2]) + "/tokenizer.json"), &tokenizer);
+    require(tokenizer_status.ok(), tokenizer_status.message);
+    vlaforge::tools::ImageResizeFn image_resize;
+#if VLAFORGE_NATIVE_PROFILE_HAS_IMAGES
+    image_resize = vlaforge::backends::ResizeRgbWithPillow;
+#endif
+    vlaforge::tools::DeclaredHostPipeline pipeline(operations,
+        [&](std::string_view text, bool special, std::vector<std::int32_t>* ids) {
+          return tokenizer->Encode(text, special, ids);
+        }, image_resize);
+    std::vector<RawObservation> observations;
+    std::vector<std::vector<std::vector<char>>> reference(sample_count);
+    for (std::size_t sample = 0; sample < sample_count; ++sample) {
+      observations.emplace_back();
+      auto& observation = observations.back();
+      for (std::size_t input = 0; input < raw_specs.size(); ++input) {
+        observation.tensors.emplace_back(raw_specs[input]);
+        auto& value = observation.tensors.back();
+        const auto data = read_bytes(std::string(argv[2]) + "/raw/" + std::to_string(sample) + '/' +
+                                     std::to_string(input) + ".bin", value.bytes());
+        std::memcpy(value.data(), data.data(), value.bytes());
+      }
+      for (std::size_t text = 0; text < text_count; ++text) {
+        observation.text.push_back(read_text(std::string(argv[2]) + "/raw/" + std::to_string(sample) +
+                                             "/text-" + std::to_string(text) + ".txt"));
+      }
+      for (const auto& spec : model_output_specs) {
+        Buffer value(spec.tensor);
+        reference[sample].push_back(read_bytes(std::string(argv[3]) + '/' + std::to_string(sample) + '/' +
+                                              spec.direct_file, value.bytes()));
+      }
+    }
+    std::vector<Buffer> prepared, outputs;
+    std::vector<std::unique_ptr<DeviceBuffer>> device;
+    for (const auto& spec : output_specs) {
+      prepared.emplace_back(spec);
+      auto value = std::make_unique<DeviceBuffer>();
+      cuda_check(cudaMalloc(&value->data, prepared.back().bytes()));
+      device.push_back(std::move(value));
+    }
+    std::vector<std::ofstream> files;
+    for (const auto& spec : model_output_specs) {
+      outputs.emplace_back(spec.tensor);
+      files.emplace_back(std::string(argv[4]) + '/' + spec.raw_file, std::ios::binary);
+      require(files.back().good(), "cannot create action output");
+    }
+    const auto* api = vlaforge_model_session_api();
+    check(vlaforge_session_api_validate(api, vlaforge_generated::kSchemaDigest, VLAFORGE_SCHEMA_DIGEST_HEX_SIZE));
+    VLAForgeSession* instance = nullptr;
+    const std::string bundle(argv[1]);
+    check(vlaforge_model_session_create_from_bundle(bundle.data(), bundle.size(), &instance));
+    std::unique_ptr<VLAForgeSession, VLAForgeSessionDestroyFn> session(instance, api->destroy);
+    check(api->reset_episode(session.get(), 1));
+    cuda_check(cudaDeviceSynchronize());
+    std::ofstream maps(std::string(argv[4]) + "/process-maps.txt");
+    maps << read_text("/proc/self/maps");
+    require(maps.good(), "cannot preserve process maps");
+    std::cout << "run,sample,measured,preprocess_ns,h2d_ns,bind_ns,model_ns,d2h_ns,latency_ns,finite,direct_exact\n";
+    for (std::size_t run = 0; run < warmup + measured; ++run) {
+      const auto sample = run % sample_count;
+      const auto start = Clock::now();
+      const auto preparation_status = pipeline.Prepare(observations[sample].tensors, observations[sample].text, &prepared);
+      require(preparation_status.ok(), preparation_status.message);
+      const auto prepared_end = Clock::now();
+      for (std::size_t input = 0; input < prepared.size(); ++input) {
+        cuda_check(cudaMemcpy(device[input]->data, prepared[input].data(), prepared[input].bytes(), cudaMemcpyHostToDevice));
+      }
+      cuda_check(cudaDeviceSynchronize());
+      const auto h2d_end = Clock::now();
+      VLAForgeInputStamp stamp{};
+      stamp.struct_size = sizeof(stamp);
+      stamp.has_revision = 1;
+      stamp.revision = run + 1;
+      for (std::size_t input = 0; input < prepared.size(); ++input) {
+        const auto& spec = output_specs[input];
+        const VLAForgeBoundTensor tensor{sizeof(VLAForgeBoundTensor),
+            {device[input]->data, prepared[input].bytes(), spec.shape.data(), static_cast<std::uint32_t>(spec.shape.size()),
+             spec.dtype, {VLAFORGE_DEVICE_CUDA, 0}}, VLAFORGE_LAYOUT_CONTIGUOUS, 64u};
+        check(api->bind_tensor(session.get(), input, &tensor, &stamp));
+      }
+      const auto bound_end = Clock::now();
+      const auto run_status = api->run(session.get());
+      if (run_status.code != VLAFORGE_STATUS_OK) {
+        // Completion/capture health is not proven: retain external storages
+        // until process exit instead of invoking potentially unsafe cleanup.
+        std::cerr << "Session worker failure: " << (run_status.message == nullptr ? "unknown" : run_status.message) << std::endl;
+        std::_Exit(11);
+      }
+      cuda_check(cudaDeviceSynchronize());
+      const auto model_end = Clock::now();
+      for (std::size_t index = 0; index < outputs.size(); ++index) {
+        VLAForgeBoundTensor tensor{};
+        check(api->read_output_tensor(session.get(), index, &tensor));
+        const auto& spec = model_output_specs[index].tensor;
+        require(tensor.tensor.dtype == spec.dtype && tensor.tensor.size_bytes == outputs[index].bytes() &&
+                tensor.tensor.device.kind == VLAFORGE_DEVICE_CUDA && tensor.tensor.device.ordinal == 0 &&
+                tensor.layout == VLAFORGE_LAYOUT_CONTIGUOUS && tensor.tensor.rank == spec.shape.size() &&
+                tensor.tensor.data != nullptr, "complete output contract differs");
+        for (std::size_t dimension = 0; dimension < spec.shape.size(); ++dimension) {
+          require(tensor.tensor.dimensions != nullptr && tensor.tensor.dimensions[dimension] == spec.shape[dimension],
+                  "complete output shape differs");
+        }
+        cuda_check(cudaMemcpy(outputs[index].data(), tensor.tensor.data, outputs[index].bytes(), cudaMemcpyDeviceToHost));
+      }
+      const auto end_time = Clock::now();
+      bool all_finite = true, exact = true;
+      for (std::size_t index = 0; index < outputs.size(); ++index) {
+        all_finite = all_finite && finite(outputs[index]);
+        exact = exact && std::memcmp(outputs[index].data(), reference[sample][index].data(), outputs[index].bytes()) == 0;
+        files[index].write(static_cast<const char*>(outputs[index].data()), static_cast<std::streamsize>(outputs[index].bytes()));
+        files[index].flush();
+        require(files[index].good(), "complete output write failed");
+      }
+#if VLAFORGE_RAW_BENCH_HAS_REPLAY
+      for (const auto& expected : replay_expectations) {
+        VLAForgeBoundedReplayInfo info{};
+        info.struct_size = sizeof(info);
+        check(vlaforge_model_session_get_replay_info(session.get(), expected.task, &info));
+        std::cerr << "REPLAY," << run << ',' << expected.task << ',' << info.state << ','
+                  << info.captured_steps << ',' << info.replay_count << ',' << info.ordinary_count << '\n';
+        require(expected.graph ? (info.state == VLAFORGE_REPLAY_READY && info.captured_steps == expected.steps &&
+                    info.replay_count == run + 1 && info.ordinary_count == 0)
+                : (info.replay_count == 0 && info.ordinary_count == run + 1), "runtime replay/fallback count differs");
+      }
+#endif
+      std::cout << run << ',' << sample << ',' << (run >= warmup) << ',' << ns(prepared_end - start) << ','
+                << ns(h2d_end - prepared_end) << ',' << ns(bound_end - h2d_end) << ',' << ns(model_end - bound_end) << ','
+                << ns(end_time - model_end) << ',' << ns(end_time - start) << ',' << all_finite << ',' << exact << std::endl;
+      require(all_finite && exact, "complete action is nonfinite or differs from conventional Orin reference");
+    }
+    return 0;
+  } catch (const std::exception& error) {
+    std::cerr << "raw observation runner failed: " << error.what() << '\n';
+    return 1;
+  }
+}

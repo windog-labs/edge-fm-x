@@ -64,6 +64,8 @@ _TEXT_SUFFIXES = {
     ".cmake",
     ".cpp",
     ".cxx",
+    ".cu",
+    ".cuh",
     ".h",
     ".hpp",
     ".py",
@@ -92,6 +94,12 @@ _FORBIDDEN_PATTERNS: Mapping[str, re.Pattern[str]] = {
     "python_runtime": re.compile(
         r"\bPython\.h\b|\bPy_Initialize\b|\blibpython\b"
     ),
+}
+_OPTIONAL_CUDA_PROVIDERS = {
+    "vlaforge/backends/tensorrt_precision_plugins.cu": (
+        "vlaforge/CMakeLists.txt", "vlaforge_tensorrt_precision_plugins"),
+    "vlaforge/tests/cpp/tensorrt_precision_plugin_smoke.cu": (
+        "vlaforge/tests/cpp/CMakeLists.txt", "vlaforge_tensorrt_precision_plugin_smoke"),
 }
 _MIGRATION_MAP = (
     {
@@ -214,6 +222,31 @@ def _cmake_invocations(
 
 
 def _audit_cmake() -> dict[str, Any]:
+    provider_cmake = (_SOURCE_ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+    test_cmake = (_SOURCE_ROOT / "tests/cpp/CMakeLists.txt").read_text(encoding="utf-8")
+    options = [tokens for _, tokens in _cmake_invocations(provider_cmake, ("option",))
+               if tokens and tokens[0] == "VLAFORGE_TENSORRT_BFLOAT16_PLUGIN"]
+    provider_block = re.search(
+        r"(?is)\bif\s*\(\s*VLAFORGE_TENSORRT_BFLOAT16_PLUGIN\s*\)(.*?)\bendif\s*\(", provider_cmake)
+    test_block = re.search(
+        r"(?is)\bif\s*\(\s*TARGET\s+vlaforge_tensorrt_precision_plugins\s*\)(.*?)\bendif\s*\(", test_cmake)
+    provider_guarded = (len(options) == 1 and options[0][-1] == "OFF"
+                        and provider_block is not None and test_block is not None)
+    guarded_edges = set()
+    if provider_guarded:
+        for relative, block in (("vlaforge/CMakeLists.txt", provider_block),
+                                ("vlaforge/tests/cpp/CMakeLists.txt", test_block)):
+            for _, tokens in _cmake_invocations(block.group(1), ("add_library", "add_executable")):
+                for token in tokens[1:]:
+                    source = (_REPOSITORY_ROOT / relative).parent / token
+                    if source.resolve().is_relative_to(_REPOSITORY_ROOT):
+                        guarded_edges.add((relative, tokens[0], _relative(source.resolve())))
+
+    def allowed_cuda(record):
+        pair = _OPTIONAL_CUDA_PROVIDERS.get(record["source"])
+        edge = (record["cmake"], record["target"], record["source"])
+        return pair == (record["cmake"], record["target"]) and edge in guarded_edges
+
     cmake_files = tuple(
         path
         for path in _tracked_files(("vlaforge",))
@@ -254,7 +287,7 @@ def _audit_cmake() -> dict[str, Any]:
                 if (
                     not source.is_relative_to(_SOURCE_ROOT)
                     or not source.is_file()
-                    or suffix in {".cu", ".cuh"}
+                    or (suffix in {".cu", ".cuh"} and not allowed_cuda(record))
                 ):
                     invalid_edges.append(record)
         for _, tokens in _cmake_invocations(text, ("add_subdirectory",)):
@@ -301,6 +334,8 @@ def _audit_cmake() -> dict[str, Any]:
         for path in _tracked_files(("vlaforge",))
         if path.suffix.lower() in {".cu", ".cuh", ".ptx"}
     ]
+    allowed_declared_cuda = {record["source"] for record in declared_sources if allowed_cuda(record)}
+    unsupported_cuda_sources = set(tracked_cuda_sources) - allowed_declared_cuda
     vlaforge_cmake = (_SOURCE_ROOT / "CMakeLists.txt").read_text(
         encoding="utf-8"
     )
@@ -317,7 +352,7 @@ def _audit_cmake() -> dict[str, Any]:
     ]
     if (
         invalid_edges
-        or tracked_cuda_sources
+        or unsupported_cuda_sources
         or forbidden_build_references
         or not root_drives_vlaforge
         or root_legacy_references
@@ -331,14 +366,16 @@ def _audit_cmake() -> dict[str, Any]:
         "declared_sources": declared_sources,
         "subdirectories": subdirectories,
         "invalid_edges": [],
-        "tracked_cuda_sources": [],
+        "tracked_cuda_sources": tracked_cuda_sources,
+        "optional_cuda_providers": sorted(allowed_declared_cuda),
         "forbidden_build_references": [],
         "root_build_drives_vlaforge": True,
         "root_legacy_build_references": [],
         "retired_tracked_files": [],
         "optional_cuda_contract": (
-            "C++ AOTI backend links CUDA::cudart and executes external "
-            "compiled artifacts; VLAForge declares no CUDA kernel source"
+            "Core runtime declares no CUDA kernels; only the explicitly OFF-by-default "
+            "TensorRT precision provider and its dedicated test may declare audited CUDA sources. "
+            "All other CUDA sources and links into core/model targets remain forbidden."
         ),
         "passed": True,
     }

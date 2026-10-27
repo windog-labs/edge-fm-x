@@ -1,0 +1,67 @@
+#include "host_profile.h"
+#include "vlaforge/backends/huggingface_tokenizer.h"
+
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <memory>
+#include <stdexcept>
+
+namespace {
+std::string read_text(const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  if (!file.good()) { throw std::runtime_error("cannot read host asset/text"); }
+  return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+}
+void read_tensor(const std::string& path, vlaforge::tools::HostTensorBuffer* tensor) {
+  std::ifstream file(path, std::ios::binary);
+  file.read(static_cast<char*>(tensor->data()), static_cast<std::streamsize>(tensor->bytes()));
+  if (file.gcount() != static_cast<std::streamsize>(tensor->bytes()) || file.peek() != std::ifstream::traits_type::eof()) {
+    throw std::runtime_error("raw host tensor byte count mismatch");
+  }
+}
+}
+
+int main(int argc, char** argv) {
+  try {
+    if (argc != 4) { throw std::runtime_error("usage: probe assets raw_inputs outputs"); }
+    std::unique_ptr<vlaforge::backends::HuggingFaceTokenizer> tokenizer;
+    auto status = vlaforge::backends::HuggingFaceTokenizer::Create(read_text(std::string(argv[1]) + "/tokenizer.json"), &tokenizer);
+    if (!status.ok()) { throw std::runtime_error(status.message); }
+    vlaforge::tools::ImageResizeFn image_resize;
+#if VLAFORGE_NATIVE_PROFILE_HAS_IMAGES
+    image_resize = vlaforge::backends::ResizeRgbWithPillow;
+#endif
+    vlaforge::tools::DeclaredHostPipeline pipeline(operations,
+        [&](std::string_view text, bool special, std::vector<std::int32_t>* result) {
+          return tokenizer->Encode(text, special, result);
+        }, image_resize);
+    std::vector<vlaforge::tools::HostTensorBuffer> output;
+    for (const auto& spec : output_specs) { output.emplace_back(spec); }
+    for (std::size_t sample = 0; sample < sample_count; ++sample) {
+      std::vector<vlaforge::tools::HostTensorBuffer> raw;
+      for (std::size_t index = 0; index < raw_specs.size(); ++index) {
+        raw.emplace_back(raw_specs[index]);
+        read_tensor(std::string(argv[2]) + '/' + std::to_string(sample) + '/' + std::to_string(index) + ".bin", &raw.back());
+      }
+      std::vector<std::string> text;
+      for (std::size_t index = 0; index < text_count; ++index) {
+        text.push_back(read_text(std::string(argv[2]) + '/' + std::to_string(sample) + "/text-" + std::to_string(index) + ".txt"));
+      }
+      status = pipeline.Prepare(raw, text, &output);
+      if (!status.ok()) { throw std::runtime_error(status.message); }
+      for (std::size_t index = 0; index < output.size(); ++index) {
+        const auto& tensor = output[index];
+        const auto name = std::string(argv[3]) + '/' + std::to_string(sample) + '-' + std::to_string(index) + ".bin";
+        std::ofstream file(name, std::ios::binary);
+        file.write(static_cast<const char*>(tensor.data()), static_cast<std::streamsize>(tensor.bytes()));
+        if (!file.good()) { throw std::runtime_error("host output write failed"); }
+      }
+      std::cout << "sample," << sample << ",outputs," << output.size() << std::endl;
+    }
+    return 0;
+  } catch (const std::exception& error) {
+    std::cerr << "native preprocessing probe failed: " << error.what() << '\n';
+    return 1;
+  }
+}

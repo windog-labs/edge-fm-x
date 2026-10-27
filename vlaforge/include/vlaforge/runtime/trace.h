@@ -2,6 +2,9 @@
 #define VLAFORGE_RUNTIME_TRACE_H_
 
 #include <cstdint>
+#include <cstddef>
+
+#include "vlaforge/runtime/region_executable.h"
 
 namespace vlaforge::runtime {
 
@@ -39,6 +42,15 @@ using TraceEmitFn = void (*)(void* context, const TraceEvent* event);
 struct TraceSink final {
   void* context = nullptr;
   TraceEmitFn emit = nullptr;
+};
+
+// Synchronous artifact completion only. Views are borrowed for this callback;
+// observers must not mutate storage, retain pointers or reenter the Session.
+struct RegionCompletionSink final {
+  void* context = nullptr;
+  void (*emit)(void* context, const TraceEvent* event,
+               const VLAForgeValueView* const* outputs,
+               std::size_t output_count) noexcept = nullptr;
 };
 
 inline void EmitTrace(const TraceSink& sink,

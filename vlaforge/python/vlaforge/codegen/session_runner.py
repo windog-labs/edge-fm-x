@@ -20,6 +20,7 @@ def render_resident_tensor_runner(
     module, template, *, outputs, samples, owner_handshake=True,
     numerical_bindings=(), acknowledge_exclusive_process=False,
     acknowledge_calling_thread=False, replay_policy="off", host_io=False,
+    collect_outputs_only=False,
 ):
     """Render all typed outputs, optionally bootstrapping an exclusive worker.
 
@@ -31,6 +32,8 @@ def render_resident_tensor_runner(
     formal benchmark, including application warmups. No allocator queries run.
     With host_io enabled, inputs are recopied from host storage for every call;
     timing includes binding and complete output copies, excluding validation IO.
+    Explicit collect-only workers save complete finite outputs without reference
+    files and emit a separate non-fidelity CSV schema. They are not formal gates.
     """
     if type(samples) is not int or not 1 <= samples <= 100000:
         raise ValueError("runner sample count must be an explicit bounded positive integer")
@@ -38,6 +41,10 @@ def render_resident_tensor_runner(
         raise ValueError("runner owner handshake must be boolean")
     if type(host_io) is not bool:
         raise ValueError("runner host IO must be boolean")
+    if type(collect_outputs_only) is not bool:
+        raise ValueError("runner collect-only mode must be boolean")
+    if collect_outputs_only and template.count("#ifndef VLAFORGE_COLLECT_OUTPUTS_ONLY") != 1:
+        raise ValueError("runner template does not explicitly support collect-only mode")
     contract = benchmark_output_contract(module, {"schema": MULTI_SCHEMA, "outputs": list(outputs)})
     declarations, ordinal, count = input_specs(module, contract=contract)
     additional = []
@@ -114,6 +121,8 @@ def render_resident_tensor_runner(
     marker = "// @NUMERICAL_WORKER_BOOTSTRAP@"
     if template.count(marker) != 1:
         raise ValueError("runner template needs one post-handshake numerical initialization marker")
-    if bindings:
-        return initializer + template.replace(marker, call), contract
-    return template.replace("@NUMERICAL_WORKER_BOOTSTRAP@", ""), contract
+    source = (initializer + template.replace(marker, call) if bindings
+              else template.replace("@NUMERICAL_WORKER_BOOTSTRAP@", ""))
+    if collect_outputs_only:
+        source = "#define VLAFORGE_COLLECT_OUTPUTS_ONLY 1\n" + source
+    return source, contract

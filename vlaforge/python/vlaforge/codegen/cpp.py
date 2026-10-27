@@ -51,7 +51,10 @@ def generate_cpp_session(
     namespace: str = "vlaforge_generated",
     compilation_certificate: object | None = None,
     initial_state: Mapping[str, object] | None = None,
+    observe_region_completion: bool = False,
 ) -> GeneratedSources:
+    if type(observe_region_completion) is not bool:
+        raise ValueError("region completion observation requires an explicit boolean")
     verify_plan(plan)
     if plan.arena is None:
         raise ValueError("C++ codegen requires a physicalized plan")
@@ -74,6 +77,11 @@ def generate_cpp_session(
 
     inline_regions = dict(regions or {})
     compiled_regions = dict(artifact_regions or {})
+    if observe_region_completion and (not compiled_regions or any(
+        item.supports_execution_context or item.supports_external_cuda_graph
+        for item in compiled_regions.values()
+    )):
+        raise CodegenUnsupportedError("region completion views require synchronous artifact Regions")
     try:
         validate_bindings(compilation_certificate, compiled_regions)
     except (ValueError, NotImplementedError) as error:
@@ -118,6 +126,7 @@ def generate_cpp_session(
         validators,
         namespace,
         dict(initial_state or {}),
+        observe_region_completion,
     )
     files = {
         "CMakeLists.txt": _cmake_source(
@@ -154,6 +163,7 @@ def generate_compiled_cpp_session(
     runner_source: str | None = None,
     namespace: str = "vlaforge_generated",
     initial_state: Mapping[str, object] | None = None,
+    observe_region_completion: bool = False,
 ) -> GeneratedSources:
     return generate_cpp_session(
         compilation.plan,
@@ -165,6 +175,7 @@ def generate_compiled_cpp_session(
         namespace=namespace,
         compilation_certificate=getattr(compilation, "certificate", None),
         initial_state=initial_state,
+        observe_region_completion=observe_region_completion,
     )
 
 
@@ -186,6 +197,7 @@ class _Emitter:
         validators: Mapping[str, CppValidatorDefinition],
         namespace: str,
         initial_state: Mapping[str, object],
+        observe_region_completion: bool = False,
     ):
         self.plan = plan
         self.module = module
@@ -203,6 +215,7 @@ class _Emitter:
         self.validators = dict(validators)
         self.namespace = namespace
         self.initial_state = dict(initial_state)
+        self.observe_region_completion = observe_region_completion
         unknown_initial = sorted(
             set(self.initial_state) - {state.name for state in module.states}
         )
@@ -347,6 +360,10 @@ class _Emitter:
         )
         artifact_fields += self.replay.fields()
         artifact_fields += self.numerical.fields(len(self.module.regions))
+        completion_methods = ("\n  void SetRegionCompletionSink(vlaforge::runtime::RegionCompletionSink sink) noexcept {\n"
+            "    region_completion_ = sink;\n  }" if self.observe_region_completion else "")
+        completion_fields = ("\n  vlaforge::runtime::RegionCompletionSink region_completion_{};"
+            if self.observe_region_completion else "")
         bundle_factory = (
             """extern "C" VLAForgeStatus vlaforge_model_session_create_from_bundle(
     const char* bundle_root, size_t bundle_root_size,
@@ -417,7 +434,7 @@ class ModelSession final : public vlaforge::runtime::Session {{
     return kSchemaDigest;
   }}
   void SetTraceSink(
-      vlaforge::runtime::TraceSink trace) noexcept override;
+      vlaforge::runtime::TraceSink trace) noexcept override;{completion_methods}
   [[nodiscard]] vlaforge::runtime::Status initialization_status()
       const noexcept {{
     return initialization_status_;
@@ -456,7 +473,7 @@ class ModelSession final : public vlaforge::runtime::Session {{
   vlaforge::runtime::StaticArena state_arena_;
   vlaforge::runtime::StateStore state_store_;
   vlaforge::runtime::Transaction transaction_;
-  vlaforge::runtime::TraceSink trace_{{}};
+  vlaforge::runtime::TraceSink trace_{{}};{completion_fields}
   vlaforge::runtime::Status initialization_status_{{}};
   std::array<BoundInput, {len(self.module.inputs)}> inputs_{{}};
   std::array<VLAForgeTensorView, {len(self.plan.buffers)}> values_{{}};
@@ -527,8 +544,7 @@ extern "C" const VLAForgeSessionApi* vlaforge_model_session_api(void);{self.repl
             artifact_headers.append(
                 '#include "vlaforge/runtime/artifact_verifier.h"'
             )
-        if any(item.requested != "batch-only" for item in self.replay.candidates.values()):
-            artifact_headers.append('#include "vlaforge/backends/libtorch_graph.h"')
+        artifact_headers.extend(self.replay.provider_headers())
         if any(item.numerical_binding is not None and item.backend in ("aoti", "torchscript")
                for item in self.artifact_regions.values()):
             artifact_headers.append('#include "vlaforge/backends/libtorch_numerical.h"')
@@ -853,6 +869,30 @@ vlaforge::runtime::Status ReadBool(
                 "shared_plugin": "shared plugin",
                 "torchscript": "TorchScript",
             }[artifact.backend]
+            binding = next(
+                item for item in self.plan.artifacts
+                if item.region_name == region.name
+            )
+            workspace_check = (
+                f"requirement.size_bytes != {binding.workspace_size_bytes}u"
+            )
+            workspace_bind = ""
+            if binding.workspace_size_bytes:
+                workspace_check += (
+                    f" || requirement.alignment != {binding.workspace_alignment}u"
+                    f" || requirement.device.kind != {_device(binding.workspace_device)}"
+                    f" || requirement.device.ordinal != {_device_ordinal(binding.workspace_device)}"
+                )
+            else:
+                workspace_bind = f"""    c_status = api->bind_workspace(region_executables_[{index}u],
+                                   nullptr, 0u);
+    if (c_status.code != VLAFORGE_STATUS_OK) {{
+        DestroyRegion({index}u);
+      return vlaforge::runtime::Status::Error(
+          vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
+          "{backend_label} Region workspace binding failed");
+    }}
+"""
             if artifact.backend == "shared_plugin":
                 api_setup = f"""    if (region_plugins_[{index}u] == nullptr) {{
       const auto plugin_status =
@@ -882,6 +922,8 @@ vlaforge::runtime::Status ReadBool(
                 extension_api = "nullptr"
                 if artifact.backend == "aoti":
                     extension_api = "vlaforge_aoti_region_execution_extension_api()"
+                elif artifact.backend == "tensorrt" and artifact.supports_execution_context:
+                    extension_api = "vlaforge_tensorrt_region_execution_extension_api()"
                 elif artifact.backend == "torchscript" and artifact.supports_execution_context:
                     extension_api = "vlaforge_torchscript_region_execution_extension_api()"
                 api_setup = f"""    const auto* api = {backend_api};
@@ -1018,21 +1060,13 @@ vlaforge::runtime::Status ReadBool(
     c_status = api->query_workspace(region_executables_[{index}u],
                                     &requirement);
     if (c_status.code != VLAFORGE_STATUS_OK ||
-        requirement.size_bytes != 0u) {{
+        {workspace_check}) {{
         DestroyRegion({index}u);
       return vlaforge::runtime::Status::Error(
           vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
           "{backend_label} Region workspace contract mismatch");
     }}
-    c_status = api->bind_workspace(region_executables_[{index}u],
-                                   nullptr, 0u);
-    if (c_status.code != VLAFORGE_STATUS_OK) {{
-        DestroyRegion({index}u);
-      return vlaforge::runtime::Status::Error(
-          vlaforge::runtime::StatusCode::kFailedPrecondition, {index}u,
-          "{backend_label} Region workspace binding failed");
-    }}
-      return vlaforge::runtime::Status::Ok();
+{workspace_bind}      return vlaforge::runtime::Status::Ok();
     }}"""
             )
         return f"""ModelSession::~ModelSession() {{ DestroyRegions(); }}
@@ -1692,6 +1726,37 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
             "  VLAForgeStatus region_status{};",
             )
         )
+        binding = self.plan.artifacts[task.artifact_id]
+        if binding.workspace_size_bytes:
+            physical = self.physical.get(task.workspace_buffer)
+            if (
+                physical is None
+                or physical.device != binding.workspace_device
+                or physical.size_bytes < binding.workspace_size_bytes
+                or physical.alignment < binding.workspace_alignment
+                or physical.offset % binding.workspace_alignment
+            ):
+                raise CodegenUnsupportedError(
+                    f"artifact task {task.id}: workspace physical contract mismatch"
+                )
+            workspace = f"region_{task.id}_workspace"
+            run.extend(
+                (
+                    f"  auto* {workspace} = BufferData({task.workspace_buffer}u);",
+                    f"  if ({workspace} == nullptr || "
+                    f"reinterpret_cast<std::uintptr_t>({workspace}) % "
+                    f"{binding.workspace_alignment}u != 0u) {{",
+                    "    status = vlaforge::runtime::Status::Error("
+                    "vlaforge::runtime::StatusCode::kFailedPrecondition, "
+                    f'{task.id}u, "artifact workspace pointer contract mismatch");',
+                    f"    return {fail_status};",
+                    "  }",
+                    f"  region_status = api->bind_workspace(executable, {workspace}, "
+                    f"{binding.workspace_size_bytes}u);",
+                    f"  status = FromCStatus(region_status, {task.id}u);",
+                    f"  if (!status.ok()) {{ return {fail_status}; }}",
+                )
+            )
         scalar_output_copyback: list[str] = []
         for category, buffers in (
             ("input", task.inputs),
@@ -1791,6 +1856,18 @@ vlaforge::runtime::Status ModelSession::InitializeStateScalar(
                 "state_store_.episode(), run_index_, 0u});",
             )
         )
+        if self.observe_region_completion:
+            references = ", ".join(f"&region_{task.id}_output_{i}" for i in range(len(task.outputs)))
+            run.extend((
+                "  if (region_completion_.emit != nullptr) {",
+                f"    const std::array<const VLAForgeValueView*, {len(task.outputs)}u> completion_outputs{{{{{references}}}}};",
+                "    const vlaforge::runtime::TraceEvent completion_event{",
+                "        vlaforge::runtime::TraceKind::kRegion, "
+                f"{task.id}u, {region_id}u, 0u, transaction_.id(), state_store_.episode(), run_index_, 0u}};",
+                "    region_completion_.emit(region_completion_.context, &completion_event,",
+                "                            completion_outputs.data(), completion_outputs.size());",
+                "  }",
+            ))
         if invocation_resident:
             run.append(f"  DestroyRegion({region_id}u);")
         run.append("}")

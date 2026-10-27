@@ -28,6 +28,10 @@ const std::vector<std::int64_t> output_shape = {@OUTPUT_SHAPE@};
 const std::vector<std::size_t> active_indices = {@ACTIVE_INDICES@};
 constexpr bool kOwnerHandshake = @OWNER_HANDSHAKE@;
 constexpr bool kHostIO = @HOST_IO@;
+#ifndef VLAFORGE_COLLECT_OUTPUTS_ONLY
+#define VLAFORGE_COLLECT_OUTPUTS_ONLY 0
+#endif
+constexpr bool kCollectOutputsOnly = VLAFORGE_COLLECT_OUTPUTS_ONLY != 0;
 bool Cuda(cudaError_t status) {
   if (status == cudaSuccess) return true;
   std::fprintf(stderr, "CUDA failure: %s\n", cudaGetErrorString(status)); return false;
@@ -123,7 +127,7 @@ struct AdditionalOutputs {
       captured.emplace_back(spec.bytes);
       raw.emplace_back(output_root + "/" + spec.raw_file, std::ios::binary);
       if (!raw.back().good()) return false;
-      for (std::size_t sample = 0; sample < kSamples; ++sample) {
+      for (std::size_t sample = 0; !kCollectOutputsOnly && sample < kSamples; ++sample) {
         const auto root = data_root + "/" + std::to_string(sample) + "/";
         if (!Read(root + spec.direct_file, direct.back()[sample].data(), spec.bytes) ||
             !Read(root + spec.eager_file, eager.back()[sample].data(), spec.bytes) ||
@@ -157,8 +161,8 @@ struct AdditionalOutputs {
       if (!ValidAdditional(bytes, spec)) return false;
       raw[index].write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
       raw[index].flush();
-      if (!raw[index].good() || bytes != direct[index][sample] ||
-          (!spec.floating && bytes != eager[index][sample])) return false;
+      if (!raw[index].good() || (!kCollectOutputsOnly && (bytes != direct[index][sample] ||
+          (!spec.floating && bytes != eager[index][sample])))) return false;
     }
     return true;
   }
@@ -196,12 +200,14 @@ int main(int argc, char** argv) {
           !Cuda(cudaMemcpy(buffer.data, bytes.data(), bytes.size(), cudaMemcpyHostToDevice))) return 4;
       if (kHostIO) host_inputs[sample * specs.size() + input].swap(bytes);
     }
-    std::vector<std::uint8_t> eager_raw(kOutputBytes);
-    if (!Read(prefix + "direct.bin", direct_raw[sample].data(), kOutputBytes) ||
-        !Read(prefix + "eager.bin", eager_raw.data(), kOutputBytes)) return 5;
-    direct[sample] = Decode(direct_raw[sample]); eager[sample] = Decode(eager_raw);
-    for (std::size_t index = 0; index < kOutputCount; ++index)
-      if (!std::isfinite(direct[sample][index]) || !std::isfinite(eager[sample][index])) return 5;
+    if (!kCollectOutputsOnly) {
+      std::vector<std::uint8_t> eager_raw(kOutputBytes);
+      if (!Read(prefix + "direct.bin", direct_raw[sample].data(), kOutputBytes) ||
+          !Read(prefix + "eager.bin", eager_raw.data(), kOutputBytes)) return 5;
+      direct[sample] = Decode(direct_raw[sample]); eager[sample] = Decode(eager_raw);
+      for (std::size_t index = 0; index < kOutputCount; ++index)
+        if (!std::isfinite(direct[sample][index]) || !std::isfinite(eager[sample][index])) return 5;
+    }
   }
   if (!Cuda(cudaDeviceSynchronize())) return 6;
   VLAForgeSession* session = nullptr;
@@ -225,7 +231,11 @@ int main(int argc, char** argv) {
   AdditionalOutputs additional;
   if (!additional.Initialize(data_root, output_root)) return 20;
 #endif
-  std::printf("run,sample,measured,revision,latency_ns,finite,direct_exact,direct_mse,direct_max_abs,direct_cosine,direct_cosine_defined,eager_mse,eager_max_abs,eager_cosine,eager_cosine_defined,active_eager_mse,active_eager_max_abs,active_eager_cosine,active_eager_cosine_defined\n");
+  if (kCollectOutputsOnly) {
+    std::printf("run,sample,measured,revision,latency_ns,finite,reference_checked\n");
+  } else {
+    std::printf("run,sample,measured,revision,latency_ns,finite,direct_exact,direct_mse,direct_max_abs,direct_cosine,direct_cosine_defined,eager_mse,eager_max_abs,eager_cosine,eager_cosine_defined,active_eager_mse,active_eager_max_abs,active_eager_cosine,active_eager_cosine_defined\n");
+  }
   const auto wall_start = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point measured_wall_start;
   std::vector<std::uint8_t> action_raw(kOutputBytes);
@@ -290,6 +300,16 @@ int main(int argc, char** argv) {
     const auto action = Decode(action_raw);
     bool finite = true;
     for (double value : action) finite = finite && std::isfinite(value);
+    if (kCollectOutputsOnly) {
+      raw.write(reinterpret_cast<const char*>(action_raw.data()), static_cast<std::streamsize>(kOutputBytes));
+      raw.flush();
+      std::printf("%zu,%zu,%u,%llu,%lld,%u,0\n", run, sample,
+          static_cast<unsigned>(run >= warmup), static_cast<unsigned long long>(stamp.revision),
+          static_cast<long long>(elapsed), static_cast<unsigned>(finite));
+      std::fflush(stdout);
+      if (!raw.good() || !finite) return 15;
+      continue;
+    }
     const bool exact = action_raw == direct_raw[sample];
     const auto dm = Compare(direct[sample], action), em = Compare(eager[sample], action);
     const auto am = Compare(eager[sample], action, true);

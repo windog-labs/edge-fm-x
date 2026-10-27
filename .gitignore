@@ -17,6 +17,8 @@ build-*/
 vlaforge/build/
 
 artifacts/
+paper_handoff/*.zip
+vlaforge/backends/hf_tokenizer/target/
 deliverables/
 third_party/
 examples/

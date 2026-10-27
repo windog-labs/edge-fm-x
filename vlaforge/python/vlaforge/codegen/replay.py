@@ -13,6 +13,12 @@ from vlaforge.plan.replay import ReplayArtifactFacts, analyze_replay
 _GRAPH_PROVIDERS = {
     "aoti": "vlaforge_libtorch_graph_backend_api",
     "torchscript": "vlaforge_libtorch_graph_backend_api",
+    "tensorrt": "vlaforge_cuda_graph_backend_api",
+}
+
+_GRAPH_HEADERS = {
+    "vlaforge_libtorch_graph_backend_api": "vlaforge/backends/libtorch_graph.h",
+    "vlaforge_cuda_graph_backend_api": "vlaforge/runtime/cuda_graph.h",
 }
 
 
@@ -89,6 +95,14 @@ class ReplayCodegen:
         return (
             '\n#include "vlaforge/runtime/bounded_replay.h"' if self.decisions else ""
         )
+
+    def provider_headers(self) -> tuple[str, ...]:
+        providers = {
+            _GRAPH_PROVIDERS[self.artifacts[str(self.plan.task(task_id).attributes["region"])].backend]
+            for decision in self.candidates.values() if decision.requested != "batch-only"
+            for task_id in decision.region_tasks
+        }
+        return tuple(f'#include "{_GRAPH_HEADERS[name]}"' for name in sorted(providers))
 
     def public_declaration(self) -> str:
         if not self.decisions:

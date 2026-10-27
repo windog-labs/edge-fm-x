@@ -105,6 +105,8 @@ class CppArtifactRegionDefinition:
             raise ValueError(
                 "TensorRT artifact Regions require a TensorRT backend variant"
             )
+        if self.backend == "tensorrt" and self.supports_external_cuda_graph and not self.supports_execution_context:
+            raise ValueError("TensorRT graph capture requires explicit shared execution context")
         if self.backend == "shared_plugin" and (
             self.backend_variant is None
             or not self.backend_variant.startswith("shared-plugin/")
