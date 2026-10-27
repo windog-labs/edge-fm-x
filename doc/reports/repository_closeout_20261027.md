@@ -16,10 +16,16 @@ Date: 2026-10-27, Asia/Shanghai.
 
 The older main working directory was behind the remote by three commits.
 385 pending files matched the retained historical snapshot `191692d`; the
-remaining difference was an obsolete codegen golden digest. These legacy
-files must not replace the reorganized adapters already committed upstream.
-Preserve them in a named local Git stash before fast-forwarding the main
-checkout. Do not force-push or rewrite the remote branch.
+remaining difference was an obsolete codegen golden digest. The complete
+legacy working copy was preserved in local stash
+`6b6e03fc502dc1304c7ce8a99efc7ad83bc8b451` before the main checkout was
+fast-forwarded to the reorganized tree. Do not blindly apply that legacy
+stash over the current adapters. The original handoff ZIP was restored from
+the stash and retains its original SHA256; no user changes were discarded.
+
+Runtime `a61917d` and delivery `6214dbd` have been pushed normally to
+`origin/codex/vlaforge-paper-artifact`. No force-push or remote history rewrite
+was used. The final documentation checkpoint records the completed checks.
 
 ## Verification
 
@@ -32,6 +38,16 @@ checkout. Do not force-push or rewrite the remote branch.
 | Browser workflows and desktop/tablet/390px/320px views | 11 passed |
 | Standalone paper verifier | 272 files, 282 relative links passed |
 | Source and delivery secret-pattern scan | No credential/key candidates found |
+| Independent clean Git clone | The same 3060 Python, 16 Node, 11 browser checks and the paper verifier passed |
+
+The first plain archive exported inside the older parent repository produced
+three architecture-test failures: those checks read the ancestor Git index
+rather than a checkout of the candidate tree. The failed result was retained.
+A real independent Git clone under `/tmp` passed the unchanged architecture
+checks and the complete suite; no test or acceptance gate was disabled.
+The clone installed its four Node packages from the lockfile with offline
+`npm ci --ignore-scripts`, and its browser suite started its own test server
+without a machine-local launch receipt or experiment artifacts.
 
 The skipped Python checks require optional packages, SDK compilation or
 opt-in model assets. Local Cargo is unavailable, so the optional Rust bridge

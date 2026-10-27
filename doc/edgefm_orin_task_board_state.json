@@ -5,7 +5,7 @@
     "title": "EdgeFM / Orin",
     "status": "done",
     "subtitle": "ICRA 2027 · VLA 部署补充实验",
-    "verifiedAt": "2026-10-27T02:22:35+00:00",
+    "verifiedAt": "2026-10-27T02:35:27+00:00",
     "evidenceRetirement": {
       "authorizedAt": "2026-10-26T03:37:05+00:00",
       "noticeEvidenceId": "local-bulk-cleanup-report20261026",
@@ -19,7 +19,7 @@
     },
     "currentTaskId": "qwen08",
     "currentModel": "qwen08",
-    "currentStage": "已选实验验收与边界不变。运行时代码已提交a61917d；文档、看板及自包含数据包已整理，3060 Python/14 CTest/16 Node/11浏览器检查通过，交付提交与远端同步处理中。旧实验根已退役，45小型记录与13原图提供版本化入口。",
+    "currentStage": "已选实验验收与边界不变。运行时a61917d与交付6214dbd已推送origin/codex/vlaforge-paper-artifact；独立Git检出3060 Python/16 Node/11浏览器及272文件包核验通过，CPU CTest14通过。旧主目录完整stash备份后已快进；旧实验根退役，45小型记录与13原图提供版本化入口。",
     "scope": "已选范围完成：五个必需VLA+Qwen3.5-0.8B；2B用户取消，不计测试或通过。数据交付完成不代表全部论文主张通过，私有GPU峰值/第二功耗模式/机器人任务质量仍有明确边界。",
     "acceptance": "同一 Orin、同精度 / 输入 / noise：标准化完整 action 主门槛 MSE < 1e-5、cosine > 0.9999；native 误差和 H20 差异单列。Runtime 对照固定 engine，图消融显式记录 engine 差异。",
     "device": "Jetson AGX Orin",
@@ -9496,6 +9496,13 @@
     }
   ],
   "events": [
+    {
+      "id": "repository-commits-pushed-and-clean-checkout-verified20261027",
+      "at": "2026-10-27T02:35:27+00:00",
+      "title": "运行时和交付已正常推送，独立Git检出复核通过",
+      "detail": "a61917d/6214dbd已推送既有origin/codex/vlaforge-paper-artifact，远端与主目录0/0且无force push。385旧文件及唯一旧golden差异完整保存于stash 6b6e03fc后再快进，不复活已重构adapters；原ZIP从备份恢复且SHA8d70859f不变。最初普通archive在旧父仓库下的3个架构检查因读父Git索引失败，负记录保留；真正独立Git clone的同套3060 Python/57skip/17deselected、16 Node/11浏览器/272文件282链接全通过，原检查不改。Cargo未安装，硬件/Rust编译不复测，平台数字与验收门槛不变。",
+      "evidenceIds": ["repository-closeout20261027", "repository-retained-index20261027", "three-platform-paper-handoff20261026"]
+    },
     {
       "id": "repository-source-and-delivery-checked20261027",
       "at": "2026-10-27T02:22:35+00:00",
