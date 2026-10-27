@@ -1,0 +1,3190 @@
+{
+  "schema": "edgefm.released_model_payload_plan/1",
+  "created_utc": "2026-10-26T02:58:04.587988+00:00",
+  "root": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs",
+  "host": {
+    "pid": 1372147,
+    "host": "di-20260920190358-fnp7f",
+    "machine": "x86_64",
+    "argv": [
+      "python3",
+      "-B",
+      "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/maintenance/20261026/retire_final_payloads.py",
+      "plan",
+      "--root",
+      "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs",
+      "--authorization",
+      "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/maintenance/20261026/remote-authorization-001.json",
+      "--package-gate",
+      "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/maintenance/20261026/handoff-closeout-003.json",
+      "--output",
+      "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/maintenance/20261026/nas-plan-001.json"
+    ],
+    "start_ticks": "575779814",
+    "boot_id": "3baa1d68-9b97-4a6e-b229-d659572b39a3"
+  },
+  "minimum_bytes": 67108864,
+  "files": [
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-001/graph-identity-probe-001/data/saved.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856989173,
+        "bytes": 356736299,
+        "mtime_ns": 1788864755136404000,
+        "ctime_ns": 1788864755136404000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356737024
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-001/traces/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856977972,
+        "bytes": 356062795,
+        "mtime_ns": 1788864383630262000,
+        "ctime_ns": 1788864386954037718,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/builds/batch-only/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904859468355,
+        "bytes": 356062795,
+        "mtime_ns": 1788865011033437000,
+        "ctime_ns": 1788866255190407469,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/builds/batch-only/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904859585910,
+        "bytes": 29580187290,
+        "mtime_ns": 1788865137077235000,
+        "ctime_ns": 1788866305810986823,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580189696
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/builds/off/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904858209962,
+        "bytes": 356062795,
+        "mtime_ns": 1788865011033437000,
+        "ctime_ns": 1788865964489549249,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/builds/off/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904858325530,
+        "bytes": 29580187290,
+        "mtime_ns": 1788865137077235000,
+        "ctime_ns": 1788866013276160006,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580189696
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/builds/required/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904860060560,
+        "bytes": 356062795,
+        "mtime_ns": 1788865011033437000,
+        "ctime_ns": 1788866560109728263,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/builds/required/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904860061686,
+        "bytes": 29580187290,
+        "mtime_ns": 1788865137077235000,
+        "ctime_ns": 1788866611993300573,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580189696
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/traces/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856995894,
+        "bytes": 356062795,
+        "mtime_ns": 1788865011033437000,
+        "ctime_ns": 1788865014472564705,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-numerical-h20-20260908-002/traces/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856997238,
+        "bytes": 29580187290,
+        "mtime_ns": 1788865137077235000,
+        "ctime_ns": 1788865454599280559,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580189696
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-001/variants/batch-only/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904847488133,
+        "bytes": 356062517,
+        "mtime_ns": 1788705702995434000,
+        "ctime_ns": 1788843670450275978,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-001/variants/batch-only/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904847590739,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788843720751881653,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-001/variants/off/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904846676762,
+        "bytes": 356062517,
+        "mtime_ns": 1788705702995434000,
+        "ctime_ns": 1788843396151874794,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-001/variants/off/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904846682775,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788843439877602220,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-001/variants/required/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904848605063,
+        "bytes": 356062517,
+        "mtime_ns": 1788705702995434000,
+        "ctime_ns": 1788843939448272845,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-001/variants/required/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904848714386,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788843992006821275,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-002/fold-step-001/exports/control.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850307576,
+        "bytes": 361453614,
+        "mtime_ns": 1788847924347353000,
+        "ctime_ns": 1788847924347353000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 361455616
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-002/fold-step-001/exports/folded.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850308135,
+        "bytes": 361452606,
+        "mtime_ns": 1788847926861419000,
+        "ctime_ns": 1788847926861419000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 361455616
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-002/fold-step-002/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850351170,
+        "bytes": 356062573,
+        "mtime_ns": 1788848142552846000,
+        "ctime_ns": 1788848144163117807,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-002/fold-step-002/recaptured.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850350894,
+        "bytes": 356736978,
+        "mtime_ns": 1788848141605368000,
+        "ctime_ns": 1788848141605368000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356737024
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-002/fold-step-002/exports/control.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850347906,
+        "bytes": 361453614,
+        "mtime_ns": 1788848127033259000,
+        "ctime_ns": 1788848127033259000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 361455616
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-002/fold-step-002/exports/folded.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850348360,
+        "bytes": 361452606,
+        "mtime_ns": 1788848129448315000,
+        "ctime_ns": 1788848129448315000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 361455616
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/base-build-001/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850749570,
+        "bytes": 356062573,
+        "mtime_ns": 1788849289268326000,
+        "ctime_ns": 1788849779373474220,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/base-build-001/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850755276,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788849831058292718,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/fold-step-001/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850625924,
+        "bytes": 356062573,
+        "mtime_ns": 1788849289268326000,
+        "ctime_ns": 1788849290943649634,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/fold-step-001/recaptured.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850625655,
+        "bytes": 356736978,
+        "mtime_ns": 1788849288292003000,
+        "ctime_ns": 1788849288292003000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356737024
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/fold-step-001/exports/control.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850623328,
+        "bytes": 361453614,
+        "mtime_ns": 1788849276000380000,
+        "ctime_ns": 1788849276000380000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 361455616
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/fold-step-001/exports/folded.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850623651,
+        "bytes": 361452606,
+        "mtime_ns": 1788849277410055000,
+        "ctime_ns": 1788849277410055000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 361455616
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/variants/required/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850825046,
+        "bytes": 356062573,
+        "mtime_ns": 1788849289268326000,
+        "ctime_ns": 1788850127556541777,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-003/variants/required/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904850831827,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788850176287586222,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-004/variants/batch-only/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904851838617,
+        "bytes": 356062573,
+        "mtime_ns": 1788849289268326000,
+        "ctime_ns": 1788852388681072752,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-004/variants/batch-only/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904851839683,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788852439469405619,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-004/variants/off/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904851746694,
+        "bytes": 356062573,
+        "mtime_ns": 1788849289268326000,
+        "ctime_ns": 1788852126889668463,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-004/variants/off/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904851768930,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788852178507443023,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-004/variants/required/bundle/artifacts/cogact_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904851849325,
+        "bytes": 356062573,
+        "mtime_ns": 1788849289268326000,
+        "ctime_ns": 1788852640923491409,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 356065280
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/cogact-replay-20260908-004/variants/required/bundle/artifacts/vf_cached_cogact_prefix_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904851850671,
+        "bytes": 29580184174,
+        "mtime_ns": 1788705376136296000,
+        "ctime_ns": 1788852690725524936,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 29580185600
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/numerical-probes-h20-firstvision-conservative/compiled.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904754448497,
+        "bytes": 607734437,
+        "mtime_ns": 1788680535707164000,
+        "ctime_ns": 1788680535707164000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 607735808
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/numerical-probes-h20-firstvision-conservative/probe.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904754431822,
+        "bytes": 918919257,
+        "mtime_ns": 1788680356642853000,
+        "ctime_ns": 1788680356642853000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 918921216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-deploy-001/compile/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763707525,
+        "bytes": 638889454,
+        "mtime_ns": 1788711601098200000,
+        "ctime_ns": 1788711601173136616,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 638889984
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-deploy-001/compile/openpi_step.unfinalized.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763706488,
+        "bytes": 638932830,
+        "mtime_ns": 1788711596750333000,
+        "ctime_ns": 1788711596833953299,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 638935040
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-deploy-001/compile/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763689768,
+        "bytes": 5855379010,
+        "mtime_ns": 1788711491127402000,
+        "ctime_ns": 1788711491555987290,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855379456
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-deploy-001/compile/vf_cached_openpi_prefix_59.unfinalized.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763689664,
+        "bytes": 5855491118,
+        "mtime_ns": 1788711456835940000,
+        "ctime_ns": 1788711457207494563,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855494144
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-native-002/native/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763827107,
+        "bytes": 638889454,
+        "mtime_ns": 1788711601098200000,
+        "ctime_ns": 1788712255683762806,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 638889984
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-native-002/native/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763825878,
+        "bytes": 5855379010,
+        "mtime_ns": 1788711491127402000,
+        "ctime_ns": 1788712254402197039,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855379456
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-native-004/native/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763888609,
+        "bytes": 638889454,
+        "mtime_ns": 1788711601098200000,
+        "ctime_ns": 1788714031704028227,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 638889984
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-pi0-v2-native-004/native/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763888517,
+        "bytes": 5855379010,
+        "mtime_ns": 1788711491127402000,
+        "ctime_ns": 1788714030350344850,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855379456
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-unused-state-001/openpi_step/pruned/program.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763834538,
+        "bytes": 654827105,
+        "mtime_ns": 1788712467861140000,
+        "ctime_ns": 1788712467861140000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 654827520
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/openpi-unused-state-001/vf_cached_openpi_prefix_59/pruned/program.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904763828840,
+        "bytes": 5861691046,
+        "mtime_ns": 1788712346893666000,
+        "ctime_ns": 1788712346893666000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5861691392
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-qwen2b-cpu-export-preparation-20261025-001/source/tail.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909891765308,
+        "bytes": 4432171758,
+        "mtime_ns": 1792875156000000000,
+        "ctime_ns": 1792877323249352199,
+        "mode": 436,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4432175104
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/native-bf16-matmul-v2/vision/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909358050997,
+        "bytes": 1651954824,
+        "mtime_ns": 1792573368845835000,
+        "ctime_ns": 1792573378484326833,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1651957760
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/rdt_denoiser/carrier-v1.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909323956022,
+        "bytes": 4828332032,
+        "mtime_ns": 1792558788339021000,
+        "ctime_ns": 1792558798180932999,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4828332032
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/rdt_denoiser/opmath-v1/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909338510882,
+        "bytes": 4828332032,
+        "mtime_ns": 1792563636247651000,
+        "ctime_ns": 1792563646913048567,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4828332032
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/rdt_denoiser/opmath-v2/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909348414708,
+        "bytes": 4828332032,
+        "mtime_ns": 1792568949961092000,
+        "ctime_ns": 1792568959624400734,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4828332032
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_conditions_25/carrier-v1.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909316337958,
+        "bytes": 112254976,
+        "mtime_ns": 1792555880526947000,
+        "ctime_ns": 1792555880714743434,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 112254976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_conditions_25/opmath-v1/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909347786103,
+        "bytes": 112254976,
+        "mtime_ns": 1792568519087335000,
+        "ctime_ns": 1792568519265021016,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 112254976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_text_17/split-v1/carriers-v1/part-000/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909323019650,
+        "bytes": 5157101568,
+        "mtime_ns": 1792558481672953000,
+        "ctime_ns": 1792558492043721517,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5157101568
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_text_17/split-v1/carriers-v1/part-001/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909323251749,
+        "bytes": 4630708224,
+        "mtime_ns": 1792558556602764000,
+        "ctime_ns": 1792558560486609902,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4630708224
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_text_17/split-v1/carriers-v1/part-002/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909323491820,
+        "bytes": 4630708224,
+        "mtime_ns": 1792558630379342000,
+        "ctime_ns": 1792558634358462927,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4630708224
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_text_17/split-v1/carriers-v1/part-003/carrier.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909323741895,
+        "bytes": 4630724608,
+        "mtime_ns": 1792558704218656000,
+        "ctime_ns": 1792558708089777323,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4630724608
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_vision_20/carrier-opmath-v1.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909329769926,
+        "bytes": 1651954824,
+        "mtime_ns": 1792560702099012000,
+        "ctime_ns": 1792560706242380304,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1651957760
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_vision_20/carrier-v1.onnx.data",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909319610646,
+        "bytes": 1651954824,
+        "mtime_ns": 1792557241580003000,
+        "ctime_ns": 1792557245716273484,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1651957760
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_vision_20/source-bf16.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909311267286,
+        "bytes": 826130890,
+        "mtime_ns": 1792554102753421000,
+        "ctime_ns": 1792554114864206168,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 826134528
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/orin-trt-prep-20261021/vf_cached_rdt_vision_20/source-opmath-v1.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466909329043413,
+        "bytes": 826134795,
+        "mtime_ns": 1792560461021516000,
+        "ctime_ns": 1792560474539625939,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 826138624
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants/batch-only/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904894063778,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788923871444025290,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants/batch-only/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904894066454,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788923883196273344,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants/off/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904894006239,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788923725418784877,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants/off/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904894008565,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788923737149535838,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants/required/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904894112852,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788924020775123516,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants/required/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904894118323,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788924032628100171,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-cmake-prefix/off/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893164873,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788922512239292331,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-cmake-prefix/off/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893187191,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788922524648587495,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-owner/batch-only/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893638361,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788922767088920022,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-owner/batch-only/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893640242,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788922778749853279,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-owner/off/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893377290,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788922572454920217,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-owner/off/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893403160,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788922583280610407,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-owner/required/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893711841,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788922911285198408,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-normalized-variants-failed-owner/required/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904893714960,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788922922981111830,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-capture-20260908/exported_regions/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904891874738,
+        "bytes": 7496199504,
+        "mtime_ns": 1788919119755992000,
+        "ctime_ns": 1788919119755992000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 7496200192
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-capture-20260908/exported_regions/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904891872978,
+        "bytes": 7486168202,
+        "mtime_ns": 1788919076250554000,
+        "ctime_ns": 1788919076250554000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 7486169088
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-compile-20260908/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904892372060,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788920097909743199,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-compile-20260908/openpi_step.unfinalized.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904892371570,
+        "bytes": 1100880222,
+        "mtime_ns": 1788920090864450000,
+        "ctime_ns": 1788920091026724358,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100881920
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-compile-20260908/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904892363083,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788919979910990930,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-compile-20260908/vf_cached_openpi_prefix_59.unfinalized.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904892359545,
+        "bytes": 5855492270,
+        "mtime_ns": 1788919942580963000,
+        "ctime_ns": 1788919943230792267,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855494144
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-native-session-20260908/bundle/artifacts/openpi_step.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904892456884,
+        "bytes": 1100825275,
+        "mtime_ns": 1788920097777956000,
+        "ctime_ns": 1788921300185587162,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1100828672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/pi05-h20-20260908-001/pi05-h20-v2-native-session-20260908/bundle/artifacts/vf_cached_openpi_prefix_59.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904892455680,
+        "bytes": 5855380164,
+        "mtime_ns": 1788919979257074000,
+        "ctime_ns": 1788921297923815060,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 5855383552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-exact-native-build-0p8-20260910-004/bundle/artifacts/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905051511690,
+        "bytes": 1710043879,
+        "mtime_ns": 1789030080437436000,
+        "ctime_ns": 1789031168127976290,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1710047232
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-exact-native-build-0p8-20260910-005/bundle/artifacts/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905051665687,
+        "bytes": 1710043879,
+        "mtime_ns": 1789030080437436000,
+        "ctime_ns": 1789031433313347084,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1710047232
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-exact-native-build-0p8-20260910-006/bundle/artifacts/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905071419553,
+        "bytes": 1710043879,
+        "mtime_ns": 1789030080437436000,
+        "ctime_ns": 1789041402045410501,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1710047232
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-exact-native-build-0p8-20260910-007/bundle/artifacts/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905072474132,
+        "bytes": 1710043879,
+        "mtime_ns": 1789030080437436000,
+        "ctime_ns": 1789041704872709005,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1710047232
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-exact-native-build-2b-20260910-001/bundle/artifacts/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905073386666,
+        "bytes": 4431187611,
+        "mtime_ns": 1789041961140165000,
+        "ctime_ns": 1789042150769156325,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4431187968
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-explicit-trace-20260910-002/decode.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905040278231,
+        "bytes": 1706898125,
+        "mtime_ns": 1789023499539723000,
+        "ctime_ns": 1789023499539723000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1706901504
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-explicit-trace-20260910-002/prefill.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905040275674,
+        "bytes": 1707855645,
+        "mtime_ns": 1789023496730080000,
+        "ctime_ns": 1789023496730080000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1707855872
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-explicit-trace-20260910-003/decode.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905040316889,
+        "bytes": 4427612617,
+        "mtime_ns": 1789023617324215000,
+        "ctime_ns": 1789023617324215000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4427616256
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-explicit-trace-20260910-003/prefill.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905040312882,
+        "bytes": 4428805013,
+        "mtime_ns": 1789023611015420000,
+        "ctime_ns": 1789023611015420000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4428808192
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-first-token-build-0p8-20260910-001/bundle/artifacts/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905073944293,
+        "bytes": 1708456987,
+        "mtime_ns": 1789042433176962000,
+        "ctime_ns": 1789042554948655475,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1708457984
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-first-token-build-2b-20260910-001/bundle/artifacts/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905074373771,
+        "bytes": 4429593051,
+        "mtime_ns": 1789042741220937000,
+        "ctime_ns": 1789042878536876084,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4429594624
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-2b-20260910-001/candidate.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904984296534,
+        "bytes": 4430479004,
+        "mtime_ns": 1788985127787214000,
+        "ctime_ns": 1788985127787214000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4430479360
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-2b-20260910-002/candidate.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904985593361,
+        "bytes": 1017123618,
+        "mtime_ns": 1788985905876984000,
+        "ctime_ns": 1788985905876984000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1017126912
+      },
+      "payload_role": "PyTorch-tensor-weight-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-2b-20260910-003/candidate.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904985986178,
+        "bytes": 4430479004,
+        "mtime_ns": 1788986227527701000,
+        "ctime_ns": 1788986227527701000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4430479360
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-006/bundle/artifacts/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905043684594,
+        "bytes": 1706663919,
+        "mtime_ns": 1789024442928199000,
+        "ctime_ns": 1789025712680476786,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1706663936
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-006/bundle/artifacts/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905043678271,
+        "bytes": 1707531800,
+        "mtime_ns": 1789024423476423000,
+        "ctime_ns": 1789025709250935107,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1707532288
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-007/bundle/artifacts/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905043834182,
+        "bytes": 4427340883,
+        "mtime_ns": 1789024730345841000,
+        "ctime_ns": 1789025910724875032,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4427341824
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-007/bundle/artifacts/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905043829451,
+        "bytes": 4428347516,
+        "mtime_ns": 1789024690084713000,
+        "ctime_ns": 1789025901818254277,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4428349440
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-008/bundle/artifacts/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905046211555,
+        "bytes": 1706664623,
+        "mtime_ns": 1789027310379441000,
+        "ctime_ns": 1789027686239826649,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1706668032
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-008/bundle/artifacts/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905046210408,
+        "bytes": 1707532440,
+        "mtime_ns": 1789027290784820000,
+        "ctime_ns": 1789027682842988347,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1707536384
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-009/bundle/artifacts/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905046293130,
+        "bytes": 4427341587,
+        "mtime_ns": 1789027576904070000,
+        "ctime_ns": 1789027851811555574,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4427341824
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-build-20260910-009/bundle/artifacts/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905046290484,
+        "bytes": 4428348284,
+        "mtime_ns": 1789027543946540000,
+        "ctime_ns": 1789027844079895402,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4428349440
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-exact-trace-0p8-20260910-001/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905049001631,
+        "bytes": 1710043879,
+        "mtime_ns": 1789030080437436000,
+        "ctime_ns": 1789030080437436000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1710047232
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-exact-trace-2b-20260910-001/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905072871678,
+        "bytes": 4431187611,
+        "mtime_ns": 1789041961140165000,
+        "ctime_ns": 1789041961140165000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4431187968
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-feasibility-20260909-003/candidate.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904924800823,
+        "bytes": 1709842181,
+        "mtime_ns": 1788957932243931000,
+        "ctime_ns": 1788957932243931000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1709842432
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-feasibility-20260909-004/candidate.ts",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904925578197,
+        "bytes": 1709138712,
+        "mtime_ns": 1788958913595916000,
+        "ctime_ns": 1788958913595916000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1709142016
+      },
+      "payload_role": "TorchScript-model-archive-not-TypeScript-source"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-first-token-0p8-20260910-001/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905073749865,
+        "bytes": 1708456987,
+        "mtime_ns": 1789042433176962000,
+        "ctime_ns": 1789042433176962000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1708457984
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-native-first-token-2b-20260910-001/qwen_generate_exact.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905074134439,
+        "bytes": 4429593051,
+        "mtime_ns": 1789042741220937000,
+        "ctime_ns": 1789042741220937000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4429594624
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-006/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905040999185,
+        "bytes": 1706663919,
+        "mtime_ns": 1789024442928199000,
+        "ctime_ns": 1789024450262072742,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1706663936
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-006/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905040958369,
+        "bytes": 1707531800,
+        "mtime_ns": 1789024423476423000,
+        "ctime_ns": 1789024436564794610,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1707532288
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-007/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905041527872,
+        "bytes": 4427340883,
+        "mtime_ns": 1789024730345841000,
+        "ctime_ns": 1789024758997873494,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4427341824
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-007/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905041207892,
+        "bytes": 4428347516,
+        "mtime_ns": 1789024690084713000,
+        "ctime_ns": 1789024719560507535,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4428349440
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-008/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905045894516,
+        "bytes": 1706664623,
+        "mtime_ns": 1789027310379441000,
+        "ctime_ns": 1789027318353825992,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1706668032
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-008/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905045747871,
+        "bytes": 1707532440,
+        "mtime_ns": 1789027290784820000,
+        "ctime_ns": 1789027303392662157,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1707536384
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-009/qwen_decode.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905046113626,
+        "bytes": 4427341587,
+        "mtime_ns": 1789027576904070000,
+        "ctime_ns": 1789027606094443887,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4427341824
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/qwen-region-capture-20260910-009/qwen_prefill.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905046042782,
+        "bytes": 4428348284,
+        "mtime_ns": 1789027543946540000,
+        "ctime_ns": 1789027565595780602,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 4428349440
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-dual-output-003/build/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904770855388,
+        "bytes": 2419079745,
+        "mtime_ns": 1788726560759616000,
+        "ctime_ns": 1788751518326223609,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-dual-output-003/build/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904770860078,
+        "bytes": 9525089154,
+        "mtime_ns": 1788726627023468000,
+        "ctime_ns": 1788751537239797931,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525092352
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-dual-output-003/build/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904770865453,
+        "bytes": 856906002,
+        "mtime_ns": 1788726537306647000,
+        "ctime_ns": 1788751538944488527,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/artifacts/rdt_denoiser.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904757839302,
+        "bytes": 2420884249,
+        "mtime_ns": 1788688999689524000,
+        "ctime_ns": 1788688999689524000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2420887552
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/artifacts/vf_cached_rdt_text_17.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904757389918,
+        "bytes": 9526319373,
+        "mtime_ns": 1788688285923745000,
+        "ctime_ns": 1788688285923745000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9526321152
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/artifacts/vf_cached_rdt_vision_20.pt2",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904757589920,
+        "bytes": 828124343,
+        "mtime_ns": 1788688520673842000,
+        "ctime_ns": 1788688520673842000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 828125184
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/extracted/rdt_denoiser/rdt_denoiser/data/aotinductor/model/cxo76gjolrm5nyiptj3deefczlzrtgq6e52ydunelnw4qfs3346n.wrapper.so",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904758170895,
+        "bytes": 2419464456,
+        "mtime_ns": 1788690149180721000,
+        "ctime_ns": 1788690149180721000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419466240
+      },
+      "payload_role": "AOTInductor-model-wrapper-ELF"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/extracted/vf_cached_rdt_text_17/vf_cached_rdt_text_17/data/aotinductor/model/c32fc4wrmzncbh5g3jcnwinb4jnwzy6rd76g5fk6c2oklg3zgyww.wrapper.so",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904758165177,
+        "bytes": 9525456904,
+        "mtime_ns": 1788690119806601000,
+        "ctime_ns": 1788690119806601000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525460992
+      },
+      "payload_role": "AOTInductor-model-wrapper-ELF"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/extracted/vf_cached_rdt_vision_20/vf_cached_rdt_vision_20/data/aotinductor/model/cmqcomlerzly5b2prrowh7ebf3lipxuzaidivg6ecfv2zx2strlf.wrapper.so",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904758169908,
+        "bytes": 826914224,
+        "mtime_ns": 1788690138618538000,
+        "ctime_ns": 1788690138618538000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 826916864
+      },
+      "payload_role": "AOTInductor-model-wrapper-ELF"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/failed-loader-temp/dz8d4Q/vf_cached_rdt_text_17/data/aotinductor/model/c32fc4wrmzncbh5g3jcnwinb4jnwzy6rd76g5fk6c2oklg3zgyww.wrapper.so",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904758082270,
+        "bytes": 7928086528,
+        "mtime_ns": 1788689500439822000,
+        "ctime_ns": 1788689637272689507,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 7928086528
+      },
+      "payload_role": "AOTInductor-model-wrapper-ELF"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/session/bundle/artifacts/rdt_denoiser/rdt_denoiser/data/aotinductor/model/cxo76gjolrm5nyiptj3deefczlzrtgq6e52ydunelnw4qfs3346n.wrapper.so",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904758519029,
+        "bytes": 2419464456,
+        "mtime_ns": 1788690149180721000,
+        "ctime_ns": 1788690680971711342,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419466240
+      },
+      "payload_role": "AOTInductor-model-wrapper-ELF"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/session/bundle/artifacts/vf_cached_rdt_text_17/vf_cached_rdt_text_17/data/aotinductor/model/c32fc4wrmzncbh5g3jcnwinb4jnwzy6rd76g5fk6c2oklg3zgyww.wrapper.so",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904758516825,
+        "bytes": 9525456904,
+        "mtime_ns": 1788690119806601000,
+        "ctime_ns": 1788690674481355171,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525460992
+      },
+      "payload_role": "AOTInductor-model-wrapper-ELF"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-full-aoti-0940/session/bundle/artifacts/vf_cached_rdt_vision_20/vf_cached_rdt_vision_20/data/aotinductor/model/cmqcomlerzly5b2prrowh7ebf3lipxuzaidivg6ecfv2zx2strlf.wrapper.so",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904758518415,
+        "bytes": 826914224,
+        "mtime_ns": 1788690138618538000,
+        "ctime_ns": 1788690676221215389,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 826916864
+      },
+      "payload_role": "AOTInductor-model-wrapper-ELF"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-gpu1-torch210-capture-0908/capture/exports/rdt_denoiser.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904756413720,
+        "bytes": 2440607290,
+        "mtime_ns": 1788685720243173000,
+        "ctime_ns": 1788685720243173000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2440609792
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-gpu1-torch210-capture-0908/capture/exports/vf_cached_rdt_text_17.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904756414969,
+        "bytes": 9528862030,
+        "mtime_ns": 1788685750792996000,
+        "ctime_ns": 1788685750792996000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9528864768
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-gpu1-torch210-capture-0908/capture/exports/vf_cached_rdt_vision_20.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904756412476,
+        "bytes": 865202564,
+        "mtime_ns": 1788685705749156000,
+        "ctime_ns": 1788685705749156000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 865206272
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-gpu1-torch210-capture-0923/capture/exports/rdt_denoiser.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904757066355,
+        "bytes": 2440607226,
+        "mtime_ns": 1788686580894349000,
+        "ctime_ns": 1788686580894349000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2440609792
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-gpu1-torch210-capture-0923/capture/exports/vf_cached_rdt_text_17.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904757068669,
+        "bytes": 9528862030,
+        "mtime_ns": 1788686622749071000,
+        "ctime_ns": 1788686622749071000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9528864768
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-gpu1-torch210-capture-0923/capture/exports/vf_cached_rdt_vision_20.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904757065507,
+        "bytes": 864576900,
+        "mtime_ns": 1788686567958957000,
+        "ctime_ns": 1788686567958957000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 864579584
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-001/variants/off/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904834911865,
+        "bytes": 2419078833,
+        "mtime_ns": 1788697441771240000,
+        "ctime_ns": 1788827512007752711,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-001/variants/off/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904834929941,
+        "bytes": 9525087244,
+        "mtime_ns": 1788697527803517000,
+        "ctime_ns": 1788827529156369811,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525088256
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-001/variants/off/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904834946146,
+        "bytes": 856905788,
+        "mtime_ns": 1788697403138536000,
+        "ctime_ns": 1788827530904725989,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-002/variants/off/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837337605,
+        "bytes": 2419078833,
+        "mtime_ns": 1788697441771240000,
+        "ctime_ns": 1788833464846120232,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-002/variants/off/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837340037,
+        "bytes": 9525087244,
+        "mtime_ns": 1788697527803517000,
+        "ctime_ns": 1788833481375624412,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525088256
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-002/variants/off/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837341934,
+        "bytes": 856905788,
+        "mtime_ns": 1788697403138536000,
+        "ctime_ns": 1788833483091545749,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/batch-only/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837485211,
+        "bytes": 2419079745,
+        "mtime_ns": 1788726560759616000,
+        "ctime_ns": 1788833794895481831,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/batch-only/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837488374,
+        "bytes": 9525089154,
+        "mtime_ns": 1788726627023468000,
+        "ctime_ns": 1788833812484447468,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525092352
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/batch-only/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837490698,
+        "bytes": 856906002,
+        "mtime_ns": 1788726537306647000,
+        "ctime_ns": 1788833814104612865,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/off/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837375387,
+        "bytes": 2419079745,
+        "mtime_ns": 1788726560759616000,
+        "ctime_ns": 1788833619023624371,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/off/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837379557,
+        "bytes": 9525089154,
+        "mtime_ns": 1788726627023468000,
+        "ctime_ns": 1788833636133856470,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525092352
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/off/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837382832,
+        "bytes": 856906002,
+        "mtime_ns": 1788726537306647000,
+        "ctime_ns": 1788833637713854764,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/required/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837529620,
+        "bytes": 2419079745,
+        "mtime_ns": 1788726560759616000,
+        "ctime_ns": 1788833965362362187,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/required/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837532184,
+        "bytes": 9525089154,
+        "mtime_ns": 1788726627023468000,
+        "ctime_ns": 1788833983383903107,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525092352
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-replay-20260908-003/variants/required/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904837536377,
+        "bytes": 856906002,
+        "mtime_ns": 1788726537306647000,
+        "ctime_ns": 1788833984939678325,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-retrace-v2-002/trace/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765278629,
+        "bytes": 2419079745,
+        "mtime_ns": 1788726560759616000,
+        "ctime_ns": 1788726578003311435,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-retrace-v2-002/trace/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765289686,
+        "bytes": 9525089154,
+        "mtime_ns": 1788726627023468000,
+        "ctime_ns": 1788726667309927705,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525092352
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-retrace-v2-002/trace/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765274613,
+        "bytes": 856906002,
+        "mtime_ns": 1788726537306647000,
+        "ctime_ns": 1788726543218101967,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-series16-v2/native-build/session/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760277927,
+        "bytes": 2419078833,
+        "mtime_ns": 1788697441771240000,
+        "ctime_ns": 1788701560937984344,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-series16-v2/native-build/session/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760277658,
+        "bytes": 9525087244,
+        "mtime_ns": 1788697527803517000,
+        "ctime_ns": 1788701554032599552,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525088256
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-series16-v2/native-build/session/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760277847,
+        "bytes": 856905788,
+        "mtime_ns": 1788697403138536000,
+        "ctime_ns": 1788701555823617654,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-v1/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760069919,
+        "bytes": 2419078833,
+        "mtime_ns": 1788697441771240000,
+        "ctime_ns": 1788697457281563401,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-v1/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760070592,
+        "bytes": 9525087244,
+        "mtime_ns": 1788697527803517000,
+        "ctime_ns": 1788697568476615519,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525088256
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-v1/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760069632,
+        "bytes": 856905788,
+        "mtime_ns": 1788697403138536000,
+        "ctime_ns": 1788697408934014755,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-v1/session/bundle/artifacts/rdt_denoiser.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760074875,
+        "bytes": 2419078833,
+        "mtime_ns": 1788697441771240000,
+        "ctime_ns": 1788698022049657022,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 2419081216
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-v1/session/bundle/artifacts/vf_cached_rdt_text_17.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760074781,
+        "bytes": 9525087244,
+        "mtime_ns": 1788697527803517000,
+        "ctime_ns": 1788698015166947567,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 9525088256
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/rdt-torchscript-v1/session/bundle/artifacts/vf_cached_rdt_vision_20.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904760074860,
+        "bytes": 856905788,
+        "mtime_ns": 1788697403138536000,
+        "ctime_ns": 1788698016988626799,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 856907776
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/asset-fetch-002/download/SmolVLA-Base/model.safetensors",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856485055,
+        "bytes": 906712520,
+        "mtime_ns": 1788863493309180000,
+        "ctime_ns": 1788863496726784101,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 2,
+        "allocated_bytes": 906715136
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/asset-fetch-002/download/SmolVLM2-500M-Video-Instruct/model.safetensors",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856486281,
+        "bytes": 2029990624,
+        "mtime_ns": 1788863697690644000,
+        "ctime_ns": 1788863705280608192,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 2,
+        "allocated_bytes": 2029993984
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/capture-001/exports/smolvla_fresh_step.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856606275,
+        "bytes": 913470098,
+        "mtime_ns": 1788863908436168000,
+        "ctime_ns": 1788863908436168000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 913473536
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/capture-001/exports/vf_cached_smolvla_fresh_prefix_51.pt2e",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856588093,
+        "bytes": 919046053,
+        "mtime_ns": 1788863899737316000,
+        "ctime_ns": 1788863899737316000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 919048192
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/builds/batch-only/bundle/artifacts/smolvla_fresh_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856975064,
+        "bytes": 907358260,
+        "mtime_ns": 1788864056681553000,
+        "ctime_ns": 1788864248774852655,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/builds/batch-only/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856975008,
+        "bytes": 907390075,
+        "mtime_ns": 1788864040127033000,
+        "ctime_ns": 1788864246902124847,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/builds/off/bundle/artifacts/smolvla_fresh_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856943731,
+        "bytes": 907358260,
+        "mtime_ns": 1788864056681553000,
+        "ctime_ns": 1788864124514307468,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/builds/off/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856942316,
+        "bytes": 907390075,
+        "mtime_ns": 1788864040127033000,
+        "ctime_ns": 1788864122775647792,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/builds/required/bundle/artifacts/smolvla_fresh_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856977498,
+        "bytes": 907358260,
+        "mtime_ns": 1788864056681553000,
+        "ctime_ns": 1788864370656671052,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/builds/required/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856977479,
+        "bytes": 907390075,
+        "mtime_ns": 1788864040127033000,
+        "ctime_ns": 1788864368858043122,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/traces/smolvla_fresh_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856888036,
+        "bytes": 907358260,
+        "mtime_ns": 1788864056681553000,
+        "ctime_ns": 1788864061364947917,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/complete-001/traces/vf_cached_smolvla_fresh_prefix_51.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904856866190,
+        "bytes": 907390075,
+        "mtime_ns": 1788864040127033000,
+        "ctime_ns": 1788864044501506733,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/j6m-full-chain-export-20260911/vf_cached_smolvla_fresh_prefix_51-f32-deploy-v2.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905185862718,
+        "bytes": 1297403068,
+        "mtime_ns": 1789116786237719000,
+        "ctime_ns": 1789116786237719000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1297403904
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/j6m-full-chain-export-20260911/vf_cached_smolvla_fresh_prefix_51.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905171485921,
+        "bytes": 659456436,
+        "mtime_ns": 1789112986326010000,
+        "ctime_ns": 1789112991513309009,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 659460096
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/j6m-full-chain-export-20260911/prefix-hmct-fp16-linear-int16-h20-lowered-v2/vf_cached_smolvla_fresh_prefix_51-horizon-lowered-v1-float16-calibrated.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905210008466,
+        "bytes": 1797397448,
+        "mtime_ns": 1789123545180923000,
+        "ctime_ns": 1789123545180923000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1797398528
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/j6m-full-chain-export-20260911/prefix-hmct-fp16-linear-int16-h20-v1/vf_cached_smolvla_fresh_prefix_51-f32-deploy-v2-float16-calibrated.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905188685409,
+        "bytes": 1797192540,
+        "mtime_ns": 1789117542007776000,
+        "ctime_ns": 1789117542007776000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1797193728
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/j6m-full-chain-export-20260911/prefix-hmct-fp16-linear-int16-lowered-v5-b1/vf_cached_smolvla_fresh_prefix_51-horizon-lowered-v4-float16-calibrated.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905226626941,
+        "bytes": 1679898096,
+        "mtime_ns": 1789130119060656000,
+        "ctime_ns": 1789130119060656000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 1679900672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/j6m-full-chain-export-20260911/prefix-horizon-lowering-v2-h20/vf_cached_smolvla_fresh_prefix_51-horizon-lowered-v1.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905207988329,
+        "bytes": 122878139,
+        "mtime_ns": 1789122978330900000,
+        "ctime_ns": 1789122978330900000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 122880000
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/smolvla-h20-20260908-001/j6m-full-chain-export-20260911/prefix-horizon-lowering-v5/vf_cached_smolvla_fresh_prefix_51-horizon-lowered-v4.onnx",
+      "before": {
+        "device": 1048743,
+        "inode": 310466905224649541,
+        "bytes": 122908365,
+        "mtime_ns": 1789129532989410000,
+        "ctime_ns": 1789129532989410000,
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 122908672
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/builds/control/bundle/artifacts/smolvla_fresh_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765199888,
+        "bytes": 907358324,
+        "mtime_ns": 1788726027790733000,
+        "ctime_ns": 1788726172509261786,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/builds/control/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765199519,
+        "bytes": 907390307,
+        "mtime_ns": 1788726009568975000,
+        "ctime_ns": 1788726170715918252,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/builds/original/bundle/artifacts/smolvla_fresh_step.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765232216,
+        "bytes": 907358324,
+        "mtime_ns": 1788726048594401000,
+        "ctime_ns": 1788726329837655847,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/builds/original/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765231835,
+        "bytes": 907390307,
+        "mtime_ns": 1788726009568975000,
+        "ctime_ns": 1788726328055253745,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/builds/partitioned-solver/bundle/artifacts/smolvla_fresh_step__terminal_prefix.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765258063,
+        "bytes": 907358063,
+        "mtime_ns": 1788726069464110000,
+        "ctime_ns": 1788726451828514742,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907358208
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/builds/partitioned-solver/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765257669,
+        "bytes": 907390307,
+        "mtime_ns": 1788726009568975000,
+        "ctime_ns": 1788726449998178750,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/traces/perception.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765167512,
+        "bytes": 907390307,
+        "mtime_ns": 1788726009568975000,
+        "ctime_ns": 1788726013685531360,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907390976
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/traces/step-control.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765171292,
+        "bytes": 907358324,
+        "mtime_ns": 1788726027790733000,
+        "ctime_ns": 1788726034432278256,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/traces/step-original.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765175519,
+        "bytes": 907358324,
+        "mtime_ns": 1788726048594401000,
+        "ctime_ns": 1788726055305063552,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907362304
+      },
+      "payload_role": "model-or-compiled-payload"
+    },
+    {
+      "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/runs/terminal-tail-native-v1/attempt-001/traces/step-prefix.pt",
+      "before": {
+        "device": 1048743,
+        "inode": 310466904765179028,
+        "bytes": 907358063,
+        "mtime_ns": 1788726069464110000,
+        "ctime_ns": 1788726073811098760,
+        "mode": 384,
+        "uid": 0,
+        "gid": 0,
+        "nlink": 1,
+        "allocated_bytes": 907358208
+      },
+      "payload_role": "model-or-compiled-payload"
+    }
+  ],
+  "skipped_open_paths": [],
+  "proc_directories_unreadable": 0,
+  "require_target_idle": false,
+  "estimated_reclaimed_allocated_bytes": 856811888640,
+  "authorization": "\u5bf9\u5e94\u7684orin\u548cnas\u76f8\u5173\u7684\u7ed3\u679c\u4e5f\u6e05\u7406\u4e00\u4e0b\u5427\u3002",
+  "retained": [
+    "unique original measurements, action/logit/reference arrays, quality/negative evidence and CDFs",
+    "source, protocols, configurations, build/failure logs and cleanup journal",
+    "shared model library, unrelated projects and all environments",
+    "local laptop directories pending user review"
+  ],
+  "rebuild_payload_backup_promised": false,
+  "authorization_record": {
+    "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/maintenance/20261026/remote-authorization-001.json",
+    "sha256": "29a6875a7c550dbf7836a4a38aef1f4b80132a861ab1e4ed39bd6bb57f0d5328"
+  },
+  "verified_package_gate": {
+    "path": "/xs-train-nas/zzm/repos/edgefm-vla-goal-20260906/maintenance/20261026/handoff-closeout-003.json",
+    "sha256": "390e96fb2f9e77138fbed551a8c939c7395a7160ad5c67208beec622ae7fe502"
+  },
+  "external_index": null,
+  "external_index_sha256": null,
+  "model_status_scope": "completed H20/Orin results; Orin2B cancelled preparation, not a tested result",
+  "final_cleanup_source_sha256": "beddb1f105271e028a54089cefe9d3739fc5cbfd00df3291f00dccf25ae12534",
+  "inherited_safety_source_sha256": "f54d0c5e2d29e3122dab0f70864719c78b68f2e181a2fe29ae36e0590e42981c"
+}

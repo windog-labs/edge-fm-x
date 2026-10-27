@@ -1,0 +1,163 @@
+{
+  "schema": "edgefm.reused_operator_evidence/1",
+  "status": "verified-existing-files",
+  "source": "PROVENANCE_da38d72322cba5ca",
+  "source_sha256": "1d848937934bb87a76123eb9355ab5d82749e6192b76f0afe0de8e7f5cad8198",
+  "rows": [
+    {
+      "name": "attention",
+      "precision": "f32",
+      "latency_ms": 29.12383460998535,
+      "frames": 200,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 5,
+      "hbm": "PROVENANCE_66442b41ebd8c08e",
+      "hbm_sha256": "d269c1ced353c496c1a862673f385cb300cdadda2f807439b091ea18f79fa63d",
+      "profile": "PROVENANCE_9106c877ab9f8b0c",
+      "profile_sha256": "68788b7fd4194422f7c2ab77cfc602eaba3e987fc9f85ccc45e71327b8ffa305"
+    },
+    {
+      "name": "gemm_ln_embedding",
+      "precision": "f32",
+      "latency_ms": 7.3846001625061035,
+      "frames": 100,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 4,
+      "hbm": "PROVENANCE_474cd6a679312676",
+      "hbm_sha256": "4875c5ea8e067c5c2056e83377d23988fcdf8c4ad816f6e0f32ce54297ae1cc6",
+      "profile": "PROVENANCE_fcb66be8177f00aa",
+      "profile_sha256": "fa7c641cddfa92e1a1cef205773f77a590e1f3e31a065ba67b85ff070d27f814"
+    },
+    {
+      "name": "rmsnorm",
+      "precision": "f32",
+      "latency_ms": 0.8747100234031677,
+      "frames": 100,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 0,
+      "hbm": "PROVENANCE_3f3fa03bb0a0db59",
+      "hbm_sha256": "06c61ca1efbce7dd75734010365032b51c74e581a1a244c49650f5f698a1ea05",
+      "profile": "PROVENANCE_9525eb8b56e4c43c",
+      "profile_sha256": "da95067b8a917da7b962f86c4517691ab31ba933b47223dc00997055b29f3e9c"
+    },
+    {
+      "name": "rope",
+      "precision": "f32",
+      "latency_ms": 0.24337999522686005,
+      "frames": 100,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 0,
+      "hbm": "PROVENANCE_c2cdeeb0911e71c1",
+      "hbm_sha256": "f97237a55e953b06a9a068abdafe475369f0604c6df074bb82db4cb34197ff86",
+      "profile": "PROVENANCE_291cddbf6820ed87",
+      "profile_sha256": "0eb802c4c8f340aafe16c955e7ccdd05001393a1a3b9698fa98ed90f69da9776"
+    },
+    {
+      "name": "conv_vision",
+      "precision": "f32",
+      "latency_ms": 133.2159423828125,
+      "frames": 100,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 5,
+      "hbm": "PROVENANCE_d870cc0b594ecba4",
+      "hbm_sha256": "b6963ac16a20acfdf9bd169b7317ea75e3a06c8975b9591396642a726289e098",
+      "profile": "PROVENANCE_732bbff9464e5c16",
+      "profile_sha256": "f23be3cf694a8e373eac5b3f416893931bb59100c4e29f41ab54fd65cc8ee156"
+    },
+    {
+      "name": "flow_step",
+      "precision": "f32",
+      "latency_ms": 0.7003700137138367,
+      "frames": 100,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 2,
+      "hbm": "PROVENANCE_9cd600aa72ceb6aa",
+      "hbm_sha256": "ac68ce6d63729e9f8e4aa7c37c13feba20bfc7fce9fa5d89db77e5b38b3ba146",
+      "profile": "PROVENANCE_79ffaf20859ec415",
+      "profile_sha256": "94bc291338dbf765de6f7d25d15638dd98453907a5c43dad1946060720503c59"
+    },
+    {
+      "name": "attention",
+      "precision": "int8",
+      "latency_ms": 0.2579599916934967,
+      "frames": 200,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 0,
+      "hbm": "PROVENANCE_1bb4563339d0aeeb",
+      "hbm_sha256": "827eb08083543a9bbece05c656b468f3d88459471e6a075d02ba8fe5dd444b18",
+      "profile": "PROVENANCE_09f08ae3042175d3",
+      "profile_sha256": "6e868bdc77bbce059364c41863546fc45a1f280933d7f75434dd56fc505c7208"
+    },
+    {
+      "name": "gemm_ln_embedding",
+      "precision": "int8",
+      "latency_ms": 0.31468498706817627,
+      "frames": 200,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 1,
+      "hbm": "PROVENANCE_b7c816cfaacdb7d0",
+      "hbm_sha256": "681398225829846c3bd352ef3c6960e40653b75e6922784be7846d528b689317",
+      "profile": "PROVENANCE_d0f79aa57792706b",
+      "profile_sha256": "86d9580ff95e31f9a12b83491b04664ccbe9049537a44111824c250f107cbcb9"
+    },
+    {
+      "name": "rmsnorm",
+      "precision": "int8",
+      "latency_ms": 0.43278998136520386,
+      "frames": 200,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 0,
+      "hbm": "PROVENANCE_d4b882895a8beaa6",
+      "hbm_sha256": "abe7de443edf59500bda6e767e60a3fec5ae511d425714e88ddccb6ebc8667dc",
+      "profile": "PROVENANCE_21903a3d5562021d",
+      "profile_sha256": "bd857326cbb4c2b02d56ec64d96ee26c4796268866f55c1485df79be005e81ff"
+    },
+    {
+      "name": "rope",
+      "precision": "int8",
+      "latency_ms": 0.26728999614715576,
+      "frames": 200,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 0,
+      "hbm": "PROVENANCE_27facd5f2e311b25",
+      "hbm_sha256": "97fcde2044808655222fd0b8b3751e2bcf0d2a94266c72b0e42b4bfc0d431821",
+      "profile": "PROVENANCE_fbad36befdbfc93e",
+      "profile_sha256": "142ff7d438dcab902744086cb9b748cdaab1f56a70fd8e357cf0e3b75f03461b"
+    },
+    {
+      "name": "conv_vision",
+      "precision": "int8",
+      "latency_ms": 0.41256001591682434,
+      "frames": 200,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 0,
+      "hbm": "PROVENANCE_f6fc9fe42ba1b36a",
+      "hbm_sha256": "bf4d1f99f40d050af81a0fb7b79d4c6fde2b2351399f85dc8b0eaa68ccba5142",
+      "profile": "PROVENANCE_29e45cc74841c853",
+      "profile_sha256": "ad9aacdeaba28f792ee14959125e02d82d2624732d910f443a79fdcd87467786"
+    },
+    {
+      "name": "flow_step",
+      "precision": "int8",
+      "latency_ms": 0.27612000703811646,
+      "frames": 200,
+      "threads": 1,
+      "cpu_fallback_nodes_compiler": 0,
+      "hbm": "PROVENANCE_ef39c8e294f93f78",
+      "hbm_sha256": "839374fd28eb88b1cb9c42adc920deae7a314f0c3fd4602e197fb5d4c354b4ec",
+      "profile": "PROVENANCE_0dad3e2aaf117108",
+      "profile_sha256": "8034c91ee01f6416ca1e6748d1eac31320b8a1b5ede29714f791b80af33ed7b5"
+    }
+  ],
+  "new_board_runs": 0,
+  "new_quantization_runs": 0,
+  "scope": "synthetic fixed-shape probes; historical FP32 vs INT8 recipe",
+  "protocol_limit": "attention uses 200/200 frames; other listed families use FP32 100 vs INT8 200 frames; not a matched five-process protocol",
+  "coverage_limit": "GEMM/LayerNorm/Embedding are one combined probe; not independent rows",
+  "model_recipe": "current SmolVLA uses FP16 body and INT16 linear, not this probe INT8 recipe",
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

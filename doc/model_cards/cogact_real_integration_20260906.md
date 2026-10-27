@@ -1,5 +1,12 @@
 # CogACT Real Integration
 
+> Historical integration checkpoint. Later H20 autonomous RNG and boundary-aligned
+> measurements are in the [2026-09-10 report](../reports/cogact_timing_boundary_formal_20260910.md).
+> That C++ RNG path still uses LibTorch; absence of Python is not TRT-only Orin
+> support. See the [current source assessment](../reports/orin_source_asset_assessment_20261022.md)
+> before interpreting older pending/implemented statements below. The actual
+> 7.63B identity and public-dependency qualifications remain unchanged.
+
 ## Identity
 
 This is the official-code **public-dependency candidate**, not a claim that the

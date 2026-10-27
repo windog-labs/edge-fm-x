@@ -1,0 +1,101 @@
+{
+  "schema": "vlaforge.hbm_campaign_summary/1",
+  "status": "measured",
+  "campaign_sha256": "22d6d0cda34a57e09af5e0798430f54ac738ec67180a8bd1a916116c62f7b7b2",
+  "manifest_sha256": "c249126664cabf419fe5bbe7521873c1afd9b4a0a8d61f950a54cd2b6fe60f03",
+  "source_script_sha256": "d5403825aeeefa22e1affd39c600c083a0556696d4b01199a7e62571a59e1222",
+  "campaign_status_at_audit": "completed",
+  "whole_campaign_audited": true,
+  "audited_stages": [
+    "finish-crop"
+  ],
+  "stages": [
+    {
+      "stage": "finish-crop",
+      "scope": "output handling only",
+      "performance_status": "measured",
+      "hbm_sha256": "15113d7781fdf675a7425db85cd550b52636265f16fe46b0623d7173e120af30",
+      "samples": 5120,
+      "mean_ms": 0.2611845703125,
+      "min_ms": 0.226,
+      "p50_ms": 0.254,
+      "p95_ms": 0.304,
+      "p99_ms": 0.373,
+      "max_ms": 1.154,
+      "std_ms": 0.03499662534248472,
+      "inverse_mean_stage_calls_per_s": 3828.7100911188136,
+      "peak_process_rss_mib": 27.0625,
+      "model_load_ms_by_process": [
+        [
+          383.005
+        ],
+        [
+          387.776
+        ],
+        [
+          375.238
+        ],
+        [
+          383.208
+        ],
+        [
+          378.696
+        ]
+      ],
+      "copy_sync_timing": "not independently exposed by hrt_model_exec",
+      "summary": "PROVENANCE_0ce9a2277da84dc4",
+      "cdf_csv": "PROVENANCE_dd8938cda55b0f3d",
+      "fidelity_status": "separate limited check; no accuracy claim from timing"
+    }
+  ],
+  "processes_sequential": true,
+  "board_identity": {
+    "serial_number": "0e190a0d3392371c"
+  },
+  "resource_evidence_by_process": [
+    {
+      "stage": "finish-crop",
+      "label": "run-1",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 2
+    },
+    {
+      "stage": "finish-crop",
+      "label": "run-2",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 2
+    },
+    {
+      "stage": "finish-crop",
+      "label": "run-3",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 2
+    },
+    {
+      "stage": "finish-crop",
+      "label": "run-4",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 2
+    },
+    {
+      "stage": "finish-crop",
+      "label": "run-5",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 2
+    }
+  ],
+  "rejected_processes": [],
+  "reused_processes": [],
+  "outliers_removed": false,
+  "full_chain_e2e": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

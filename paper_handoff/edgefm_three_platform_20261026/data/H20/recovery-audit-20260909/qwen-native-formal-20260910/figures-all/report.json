@@ -1,0 +1,50 @@
+{
+  "schema": "vlaforge.latency_cdf_figure/1",
+  "status": "rendered",
+  "series": [
+    {
+      "label": "0.8B first",
+      "source": "PROVENANCE_fb4739c449c2821e",
+      "source_sha256": "4422b5e8828b7cd02af28ea6d9cec257dde9783f7458f899361eac73d22c0655",
+      "samples": 5120,
+      "minimum_ns": 80832063,
+      "maximum_ns": 167637292,
+      "outliers_removed": false
+    },
+    {
+      "label": "0.8B full",
+      "source": "PROVENANCE_6bad43d30698feaf",
+      "source_sha256": "160a9fe9bc7ba787110c3d8eff6774988f76026f8ce3ff9e08471ca113f0c6c2",
+      "samples": 5120,
+      "minimum_ns": 305230021,
+      "maximum_ns": 1097094486,
+      "outliers_removed": false
+    },
+    {
+      "label": "2B first",
+      "source": "PROVENANCE_a2f4e691d43e2a09",
+      "source_sha256": "b112366e3aa3fec33b39996d2b57bba98923061e52b3580fe4a1da1796cb7de5",
+      "samples": 5120,
+      "minimum_ns": 83383348,
+      "maximum_ns": 169666646,
+      "outliers_removed": false
+    },
+    {
+      "label": "2B full",
+      "source": "PROVENANCE_f92d82d063f74eba",
+      "source_sha256": "ab7eec793d38882f698552fea9c49bd725c89f00b9a02940885e4e9fc4cb6f34",
+      "samples": 5120,
+      "minimum_ns": 308535606,
+      "maximum_ns": 1005713665,
+      "outliers_removed": false
+    }
+  ],
+  "png_sha256": "d88e50d26b059959ecf5264cd0bddc82c275f714744c67d942dd160ec0974ead",
+  "pdf_sha256": "f09b381c0a0904715d64cb41970b0d2f36b0788977bc8472a5d944b5dc470ee6",
+  "outliers_removed": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

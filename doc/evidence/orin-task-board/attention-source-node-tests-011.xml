@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="required models, frozen protocol and evidence remain intact" time="0.039229" classname="test"/>
+	<testcase name="model coverage advances in an isolated fixture without completing the project" time="0.008272" classname="test"/>
+	<testcase name="live heading uses current owner/counts without inferring formal acceptance" time="0.001463" classname="test"/>
+	<testcase name="schema rejects narrowed scope, invalid counters and dangling evidence" time="0.005458" classname="test"/>
+	<testcase name="one structured state renders a consistent Markdown checkpoint" time="0.014977" classname="test"/>
+	<testcase name="evidence is a whitelist, not an arbitrary file reader" time="0.001457" classname="test"/>
+	<testcase name="local HTTP serves state/assets, rejects writes, rebinding and unknown evidence" time="0.043743" classname="test"/>
+	<testcase name="state endpoint reads new checkpoints without rebuilding or mutating evidence" time="0.017472" classname="test"/>
+	<!-- tests 8 -->
+	<!-- suites 0 -->
+	<!-- pass 8 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 184.112072 -->
+</testsuites>

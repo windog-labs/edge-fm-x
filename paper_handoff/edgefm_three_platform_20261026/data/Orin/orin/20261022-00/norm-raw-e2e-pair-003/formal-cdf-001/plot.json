@@ -1,0 +1,12 @@
+{
+  "schema": "edgefm.raw_model_pair_cdf/1",
+  "audit_sha256": "0e154ce073d7e47fb7a526452e79b2eec5594466a4fb3a06242f97a3c376c282",
+  "csv_sha256": "2307d1226ca4c2e2483f7d616f153564ef6457dd48463fa32e109fb8eb9af29a",
+  "measured": 10240,
+  "tails_retained": true,
+  "source_sha256": "109396d2cd4afb3eb9a79f1759f4804f63d1a33964549206f0d8d753a90b77b4",
+  "files": {
+    "raw-model-pair-cdf.png": "88b4565c0ac754b21841cf4992bfe8a7805475ca0914f8595b83c8dfd2980e9c",
+    "raw-model-pair-cdf.pdf": "b2e5181800e341879e1ba9aff3b628f735f8a477c69a593c0d4da61a3ddd7aaa"
+  }
+}

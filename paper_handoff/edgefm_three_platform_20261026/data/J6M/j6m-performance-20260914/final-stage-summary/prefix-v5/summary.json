@@ -1,0 +1,127 @@
+{
+  "schema": "vlaforge.hrt_latency_summary/1",
+  "status": "passed",
+  "warmup_per_process": 128,
+  "processes": [
+    {
+      "label": "run-1",
+      "source": "PROVENANCE_38a96d685e7b3aad",
+      "source_sha256": "6809a7b001037966da56412414049a2ed34adb08d41b8655d073bc9b810c3ef1",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 553938837.890625,
+        "min_ns": 552154000,
+        "p50_ns": 553806000,
+        "p95_ns": 555556000,
+        "p99_ns": 556520000,
+        "max_ns": 557797000,
+        "std_ns": 846314.7957386634
+      },
+      "cdf_csv": "PROVENANCE_2194d95270873b6a",
+      "cdf_csv_sha256": "9bfaeea852d0f83d21664d526249a75e3e7a709d3a92fa54ac5bb9dc5f2c6fc6"
+    },
+    {
+      "label": "run-2",
+      "source": "PROVENANCE_d080db30c441dc83",
+      "source_sha256": "bcb53a58fd40caa10ca4975225ad7d8823fcbd71fe3d6437bfd6c56a62b1659b",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 553981405.2734375,
+        "min_ns": 551976000,
+        "p50_ns": 553861000,
+        "p95_ns": 555377000,
+        "p99_ns": 557300000,
+        "max_ns": 558686000,
+        "std_ns": 886460.5294787543
+      },
+      "cdf_csv": "PROVENANCE_8c5dd20e770be871",
+      "cdf_csv_sha256": "452b215722a9fc8346a0622cc80a3fcb5be7be0d9e7163872f983466d07e0c4c"
+    },
+    {
+      "label": "run-3",
+      "source": "PROVENANCE_4edd8ef81fb09caa",
+      "source_sha256": "6bd5230510cab5dd7c151e40fbb9470180c8683448f2164ec5b49108b6bb2e9d",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 553858250.9765625,
+        "min_ns": 551615000,
+        "p50_ns": 553734000,
+        "p95_ns": 555343000,
+        "p99_ns": 556893000,
+        "max_ns": 559062000,
+        "std_ns": 912753.2239071811
+      },
+      "cdf_csv": "PROVENANCE_ca214434d97794c6",
+      "cdf_csv_sha256": "1af4b7f0f7515e485e064aebc3b9d4004e6939597cfbed94830d3ef35d50032e"
+    },
+    {
+      "label": "run-4",
+      "source": "PROVENANCE_08d6f8d8a1b99dfc",
+      "source_sha256": "6735b5384e99f474d071d0ab50735aa3da4fa8bc17733a0a6a64d22652186072",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 553996183.59375,
+        "min_ns": 551780000,
+        "p50_ns": 553899000,
+        "p95_ns": 555403000,
+        "p99_ns": 557261000,
+        "max_ns": 558809000,
+        "std_ns": 858084.592254872
+      },
+      "cdf_csv": "PROVENANCE_ba0a474df3330937",
+      "cdf_csv_sha256": "8be0dc541a0cce651db19e20191e5d0861612f15483635e3a6873d50b8f912c5"
+    },
+    {
+      "label": "run-5",
+      "source": "PROVENANCE_82d0a12ce3aedf01",
+      "source_sha256": "e73fa747023a12a3db48eb70b652b4fbc31f0ad15544600a1b9c1dd6ae420a5a",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 553873663.0859375,
+        "min_ns": 551798000,
+        "p50_ns": 553751000,
+        "p95_ns": 555437000,
+        "p99_ns": 557183000,
+        "max_ns": 570170000,
+        "std_ns": 1018862.2344065227
+      },
+      "cdf_csv": "PROVENANCE_457e18d1640af6fa",
+      "cdf_csv_sha256": "36183f634330474413b6a401ebe47a1190ba888e73eb4ef849655cbe0c09e0ad"
+    }
+  ],
+  "pooled": {
+    "samples": 5120,
+    "mean_ns": 553929668.1640625,
+    "min_ns": 551615000,
+    "p50_ns": 553805000,
+    "p95_ns": 555397000,
+    "p99_ns": 557017000,
+    "max_ns": 570170000,
+    "std_ns": 908294.1120509772
+  },
+  "measured_csv": "PROVENANCE_3a9ebdf2637af0be",
+  "measured_csv_sha256": "021f3ce7b092de963176c204680d911a4842d13f72ac8602138661f7b4963a52",
+  "cdf_csv": "PROVENANCE_aec72bcb9962c4fb",
+  "cdf_csv_sha256": "e398c9607a887b1ee81187dfd6a1fd4523f6c08984c27433b8be3962609b952d",
+  "outliers_removed": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

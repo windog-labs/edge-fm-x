@@ -1,0 +1,2 @@
+stage,scope,samples,mean_ms,p50_ms,p95_ms,p99_ms,max_ms,std_ms,inverse_mean_stage_calls_per_s,peak_process_rss_mib
+finish-crop,output handling only,5120,0.2611845703125,0.254,0.304,0.373,1.154,0.03499662534248472,3828.7100911188136,27.0625

@@ -1,0 +1,256 @@
+{
+  "schema": "edgefm.native_session_campaign_audit/1",
+  "status": "passed",
+  "formal_experiment_complete": true,
+  "campaign": "PROVENANCE_33ba20203e86587a",
+  "model": "PROVENANCE_aa1939f10181f300",
+  "protocol_sha256": "29c481c61968a076d9ea16631c4c286ed0a4f24f086124bd0a209d5d88c5ceef",
+  "prepared_sha256": "34c5512502aa257d9e2b43357ac7a0422707523eda0363606c4587ad46143013",
+  "frozen_files_sha256": "b959fea24886a8b60ab8329675b886ba2f687adedfaa4d0383106a25d5c1d8f0",
+  "aggregate_report_sha256": "450a939a03cedcbd64d21f375099ce4ed427d65fa6d4d9935c2674ce1a375b75",
+  "tensor_contract_sha256": "e22be1155c575c122a57122f8eeb5fbbdaff053e4b5b62c2af1547e870454f1c",
+  "processes": [
+    {
+      "repeat": 0,
+      "policy": "off",
+      "pid": 348719,
+      "nvml_pid": 195356,
+      "calls": 1152,
+      "measured": 1024,
+      "complete_output_tensors": 2304,
+      "complete_output_values": 286065792,
+      "all_outputs_exact": true,
+      "latency": {
+        "count": 1024,
+        "mean_ns": 90747980.71386719,
+        "min_ns": 84435276,
+        "max_ns": 147281174,
+        "std_ns": 14823086.238394242,
+        "sequential_calls_per_second": 11.019528943052174,
+        "p50_ns": 85549687,
+        "p90_ns": 97776838,
+        "p95_ns": 135893421,
+        "p99_ns": 138020555
+      },
+      "peak_sampled_device_used_mib": 4983,
+      "hardware": {
+        "name": "NVIDIA H20",
+        "uuid": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+        "driver_version": "535.161.08"
+      },
+      "files": {
+        "runs/00-off/report.json": "db93817b0f5242040fb36e51fddea1882837c333de61d259a101ce0de02549f0",
+        "runs/00-off/execution.json": "cd2e1b006474ece08b4a52c281319a4f92c69e7b0ef704c15dc449446a43b4bd",
+        "runs/00-off/samples.csv": "833d774f18a5b3520fb067aeb0d4f89ebec30158cf3b3c2f69cb73333c787ce6",
+        "runs/00-off/process-maps.txt": "357a624f68c9430f66e0e6cc7ba24ebfd72bb9e0e0ba5573fad9658201f106eb",
+        "runs/00-off/allocator-snapshots.jsonl": "4e604d8d6e454750bfd02678f873ac2e38607d5c613ab312a499f6cbc4a5d5ab",
+        "runs/00-off/allocator-report.json": "45b287d0e4be5ee587ad5b797ecbe12cd4a76f6e46afe4f884e3fe21d6cae2af",
+        "runs/00-off/multi-output-fidelity.json": "4fa23dc3c3cda621eda81dade479c92e6e32f7711b39fee6da3baeeefd7dbf8b",
+        "runs/00-off/telemetry.jsonl": "cbe7a19996a70f6a33fe3590df2594d365ae789477971938c84ed4901f7da30f",
+        "runs/00-off/output-0.i64": "c20d5fe5ee5ec60c2d9d6f068c0b62676ba236892177735880ad3559b6e0283c",
+        "runs/00-off/outputs.bf16": "f94c33bfa0007fa34cfd438f2494675edc631f46197010e2573c76f4dc959b5a"
+      }
+    },
+    {
+      "repeat": 1,
+      "policy": "off",
+      "pid": 350985,
+      "nvml_pid": 214107,
+      "calls": 1152,
+      "measured": 1024,
+      "complete_output_tensors": 2304,
+      "complete_output_values": 286065792,
+      "all_outputs_exact": true,
+      "latency": {
+        "count": 1024,
+        "mean_ns": 90457770.57519531,
+        "min_ns": 83383348,
+        "max_ns": 146248907,
+        "std_ns": 12147257.810645994,
+        "sequential_calls_per_second": 11.054882224504137,
+        "p50_ns": 86137567,
+        "p90_ns": 96481969,
+        "p95_ns": 134120385,
+        "p99_ns": 138000037
+      },
+      "peak_sampled_device_used_mib": 4983,
+      "hardware": {
+        "name": "NVIDIA H20",
+        "uuid": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+        "driver_version": "535.161.08"
+      },
+      "files": {
+        "runs/01-off/report.json": "10b4868c5e7bd21d3daf699795feddde8bb223077b98b4aab32d1b82d6806bad",
+        "runs/01-off/execution.json": "bb699203ea241e2a41cf9e5d2625f887daa6d733bb861e23c8693b6fed4742dc",
+        "runs/01-off/samples.csv": "f09f95d6b0c2d1d13509e3ca2255514f424a487095f52835a463a7b955aa3747",
+        "runs/01-off/process-maps.txt": "f88dbd3748eb8df79c958f44f6f8208fb03cc9c6db1dd6265676c24c05e13d9a",
+        "runs/01-off/allocator-snapshots.jsonl": "4e604d8d6e454750bfd02678f873ac2e38607d5c613ab312a499f6cbc4a5d5ab",
+        "runs/01-off/allocator-report.json": "551b59ec4b1b646408c5a798b24551570d471c73f805c2299f939d249b85854f",
+        "runs/01-off/multi-output-fidelity.json": "41c7a67430a24beb185e28131afd7d82476d62487f638c4488f2654b7708aabf",
+        "runs/01-off/telemetry.jsonl": "01a03126726e73baa03f3161f283be003d28302ddbc7fa203c98f6ee1d25c034",
+        "runs/01-off/output-0.i64": "c20d5fe5ee5ec60c2d9d6f068c0b62676ba236892177735880ad3559b6e0283c",
+        "runs/01-off/outputs.bf16": "f94c33bfa0007fa34cfd438f2494675edc631f46197010e2573c76f4dc959b5a"
+      }
+    },
+    {
+      "repeat": 2,
+      "policy": "off",
+      "pid": 353312,
+      "nvml_pid": 233448,
+      "calls": 1152,
+      "measured": 1024,
+      "complete_output_tensors": 2304,
+      "complete_output_values": 286065792,
+      "all_outputs_exact": true,
+      "latency": {
+        "count": 1024,
+        "mean_ns": 85761596.55859375,
+        "min_ns": 84344859,
+        "max_ns": 114496577,
+        "std_ns": 1711476.5169697437,
+        "sequential_calls_per_second": 11.660230687482402,
+        "p50_ns": 85264378,
+        "p90_ns": 87411117,
+        "p95_ns": 88556440,
+        "p99_ns": 91095244
+      },
+      "peak_sampled_device_used_mib": 4983,
+      "hardware": {
+        "name": "NVIDIA H20",
+        "uuid": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+        "driver_version": "535.161.08"
+      },
+      "files": {
+        "runs/02-off/report.json": "38c389497b00f84c2fe439b0a885616da15dcbe026f4a0bb8913624279ef7248",
+        "runs/02-off/execution.json": "a1dea3d8b33a35ae4f9135b2063d3b12e5ec2c2e126023a91aac95e3a3004a4b",
+        "runs/02-off/samples.csv": "6f39dba25e473891bd67b071aa10e7de07c5c45eb43b1f88d18bd70a031d4a78",
+        "runs/02-off/process-maps.txt": "8af8fe6eac078724ff47e440e1eebffa7fbf85e83ddd942d1ce73996f5b327d1",
+        "runs/02-off/allocator-snapshots.jsonl": "4e604d8d6e454750bfd02678f873ac2e38607d5c613ab312a499f6cbc4a5d5ab",
+        "runs/02-off/allocator-report.json": "98a1ca61b0a37044d430e2ef03266c233b4af8a6d229cf2ef68a398a95eef769",
+        "runs/02-off/multi-output-fidelity.json": "d574ee08b77fecf6a76d7961241ab26381160f0f7a817fe2ca62f39a332d4f1d",
+        "runs/02-off/telemetry.jsonl": "e4f87944ea6bef363ee4bb67625c85aa5231ca100690882facdf88200c2426ea",
+        "runs/02-off/output-0.i64": "c20d5fe5ee5ec60c2d9d6f068c0b62676ba236892177735880ad3559b6e0283c",
+        "runs/02-off/outputs.bf16": "f94c33bfa0007fa34cfd438f2494675edc631f46197010e2573c76f4dc959b5a"
+      }
+    },
+    {
+      "repeat": 3,
+      "policy": "off",
+      "pid": 356462,
+      "nvml_pid": 253606,
+      "calls": 1152,
+      "measured": 1024,
+      "complete_output_tensors": 2304,
+      "complete_output_values": 286065792,
+      "all_outputs_exact": true,
+      "latency": {
+        "count": 1024,
+        "mean_ns": 101356297.02441406,
+        "min_ns": 85544352,
+        "max_ns": 169666646,
+        "std_ns": 8432935.354055623,
+        "sequential_calls_per_second": 9.866185223391955,
+        "p50_ns": 103065477,
+        "p90_ns": 104852592,
+        "p95_ns": 107286982,
+        "p99_ns": 140228120
+      },
+      "peak_sampled_device_used_mib": 4983,
+      "hardware": {
+        "name": "NVIDIA H20",
+        "uuid": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+        "driver_version": "535.161.08"
+      },
+      "files": {
+        "runs/03-off/report.json": "9c0cd999ad90a2571db239df68a28d46de17e6752efcab437403a0057628da52",
+        "runs/03-off/execution.json": "4cc251e2eaa89b629f39cc0f50b32e3632410fe7e19d4560ad7c866c93ff6c15",
+        "runs/03-off/samples.csv": "6cd9fcc32d80cd9cd5b0e85acf08960fe69a1d70594a425c3fbe697298ddc9a3",
+        "runs/03-off/process-maps.txt": "659dcce677eaf67bc1f14710c8c4264f1f5f5e535d3bcb91235127682e6777aa",
+        "runs/03-off/allocator-snapshots.jsonl": "4e604d8d6e454750bfd02678f873ac2e38607d5c613ab312a499f6cbc4a5d5ab",
+        "runs/03-off/allocator-report.json": "5de286f2d8cebd10334be986fcb0b4685856ebd0bba0774f61d11221d73c2c8f",
+        "runs/03-off/multi-output-fidelity.json": "9a61c3dfb72e3810c5c105d82c0ff75757dee816aeaebd31c642f6ebd9b75dd2",
+        "runs/03-off/telemetry.jsonl": "88d3f5a0f6205de6ef289353284d85fdb4149a4fb713d2c1210be0aee9d2ff93",
+        "runs/03-off/output-0.i64": "c20d5fe5ee5ec60c2d9d6f068c0b62676ba236892177735880ad3559b6e0283c",
+        "runs/03-off/outputs.bf16": "f94c33bfa0007fa34cfd438f2494675edc631f46197010e2573c76f4dc959b5a"
+      }
+    },
+    {
+      "repeat": 4,
+      "policy": "off",
+      "pid": 358914,
+      "nvml_pid": 275348,
+      "calls": 1152,
+      "measured": 1024,
+      "complete_output_tensors": 2304,
+      "complete_output_values": 286065792,
+      "all_outputs_exact": true,
+      "latency": {
+        "count": 1024,
+        "mean_ns": 84966019.20117188,
+        "min_ns": 83493579,
+        "max_ns": 98976206,
+        "std_ns": 1251850.2875503823,
+        "sequential_calls_per_second": 11.769410988083665,
+        "p50_ns": 84690771,
+        "p90_ns": 86042192,
+        "p95_ns": 86390922,
+        "p99_ns": 90018919
+      },
+      "peak_sampled_device_used_mib": 4983,
+      "hardware": {
+        "name": "NVIDIA H20",
+        "uuid": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+        "driver_version": "535.161.08"
+      },
+      "files": {
+        "runs/04-off/report.json": "1b3894e2abaa088fa3e3d9d76b98713c626fc2efdc898152f8e707c127fe299f",
+        "runs/04-off/execution.json": "a01ec43fa1e10889c93b6dd3327bebe477c9d3a8cabd7e4f128afa23056e2646",
+        "runs/04-off/samples.csv": "20eac2db258a80d794c0801acdf257653486d7c652b8a20b8bce0aea29a25eca",
+        "runs/04-off/process-maps.txt": "2ef8c0c2c7ddd2c5609a29655e4fdc12eddcb1b11272dd768d653c70eafa044d",
+        "runs/04-off/allocator-snapshots.jsonl": "4e604d8d6e454750bfd02678f873ac2e38607d5c613ab312a499f6cbc4a5d5ab",
+        "runs/04-off/allocator-report.json": "93224a00a771e5dfc97f9f9c0e044d3b0f831db966199558d1c41c6909adea07",
+        "runs/04-off/multi-output-fidelity.json": "9d5cc58537c500ebcb7112025d98f1bd8edc9f4951b064456e3b1f699f60ec4f",
+        "runs/04-off/telemetry.jsonl": "5896ed6099f938bf2218546e8b0cc09ec5ff2236c46d6e5de11dedd38c1f7cd2",
+        "runs/04-off/output-0.i64": "c20d5fe5ee5ec60c2d9d6f068c0b62676ba236892177735880ad3559b6e0283c",
+        "runs/04-off/outputs.bf16": "f94c33bfa0007fa34cfd438f2494675edc631f46197010e2573c76f4dc959b5a"
+      }
+    }
+  ],
+  "measured_calls": 5120,
+  "complete_output_tensors": 11520,
+  "complete_output_values": 1430328960,
+  "all_outputs_exact": true,
+  "latency": {
+    "count": 5120,
+    "mean_ns": 90657932.81464843,
+    "min_ns": 83383348,
+    "max_ns": 169666646,
+    "std_ns": 11079400.681193177,
+    "sequential_calls_per_second": 11.030474322026686,
+    "p50_ns": 85696679,
+    "p90_ns": 103533009,
+    "p95_ns": 104990503,
+    "p99_ns": 137604724
+  },
+  "peak_sampled_device_used_mib": 4983,
+  "hardware": {
+    "name": "NVIDIA H20",
+    "uuid": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+    "driver_version": "535.161.08"
+  },
+  "boundary": "host-model-tensor: H2D, input binding, Session run, completion and complete D2H",
+  "reference_limitations": [
+    "fixed prompt length 327",
+    "fixed image tensor shape 1200x1536",
+    "fixed generation length",
+    "16 frozen validation images"
+  ],
+  "outliers_removed": false,
+  "python_in_worker_maps": false,
+  "full_paper_acceptance": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

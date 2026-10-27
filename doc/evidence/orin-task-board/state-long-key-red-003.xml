@@ -1,0 +1,41 @@
+<testsuites id="" name="" tests="1" failures="1" skipped="0" errors="0" time="1.073702">
+<testsuite name="dashboard.spec.mjs" timestamp="2026-10-22T00:59:08.329Z" hostname="" tests="1" failures="1" skipped="0" time="0.422" errors="0">
+<testcase name="small-mobile: long experiment keys wrap without hiding evidence" classname="dashboard.spec.mjs" time="0.422">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../../tools/orin-task-board/test-results/dashboard-small-mobile-lon-dbad5-rap-without-hiding-evidence/error-context.md]]
+
+[[ATTACHMENT|../../tools/orin-task-board/test-results/dashboard-small-mobile-lon-dbad5-rap-without-hiding-evidence/trace.zip]]
+]]>
+</system-out>
+<failure message="expect(received).toBeLessThanOrEqual(expected)" type="expect.toBeLessThanOrEqual">
+<![CDATA[  dashboard.spec.mjs:102:1 › small-mobile: long experiment keys wrap without hiding evidence ───────
+
+    Error: expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 205
+    Received:    349
+
+      111 |   await detail.scrollIntoViewIfNeeded();
+      112 |   const overflow = await detail.evaluate(element => ({ scroll: element.scrollWidth, width: element.clientWidth }));
+    > 113 |   expect(overflow.scroll).toBeLessThanOrEqual(overflow.width + 1);
+          |                           ^
+      114 |   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      115 |   await mkdir(screenshots, { recursive: true });
+      116 |   await page.screenshot({ path: join(screenshots, 'small-mobile-long-experiment-key.png') });
+        at /home/zhangzimo/.codex/worktrees/f801/edge-fm-x/tools/orin-task-board/test/browser/dashboard.spec.mjs:113:27
+
+    Error Context: ../../test-results/dashboard-small-mobile-lon-dbad5-rap-without-hiding-evidence/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../test-results/dashboard-small-mobile-lon-dbad5-rap-without-hiding-evidence/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../test-results/dashboard-small-mobile-lon-dbad5-rap-without-hiding-evidence/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+</testcase>
+</testsuite>
+</testsuites>

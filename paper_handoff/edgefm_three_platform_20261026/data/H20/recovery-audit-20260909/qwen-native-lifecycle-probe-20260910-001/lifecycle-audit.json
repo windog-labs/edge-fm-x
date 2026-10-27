@@ -1,0 +1,95 @@
+{
+  "schema": "vlaforge.native_session_lifecycle_audit_set/1",
+  "status": "passed",
+  "reports": [
+    {
+      "schema": "vlaforge.native_session_lifecycle_audit/1",
+      "status": "passed",
+      "report": "PROVENANCE_4d4fee22f28d75ff",
+      "report_sha256": "bc7dfcb59bfc679478cfd9880dc9879d3509b954e06ae0df4a1025668938c562",
+      "bundle": "PROVENANCE_0c1acb6bc8aafe2d",
+      "bundle_manifest_sha256": "5710bfef3b323651f6090f60ae6a0becc624f09fcff7361dc50eaf9bbd0a0f90",
+      "library": "PROVENANCE_048755082bba150b",
+      "library_sha256": "023c67ea7053fa134c97eba43c1e249f4933a6cbcc7728cd49bee1cfff2026a2",
+      "shape_rejections": 7,
+      "accepted_false_rejected": true,
+      "baseline_outputs": {
+        "tokens": "9d4ac218fb54041e3a70a8e14db1ea1af9f570f4842b4702ef9323f1ad8f0ec4",
+        "logits": "8601cbc31abd12183f4b0ba9d9d110f38d65b5ace2cdbde57c295a3f97be2e8e"
+      },
+      "alternate_outputs": {
+        "tokens": "9d4ac218fb54041e3a70a8e14db1ea1af9f570f4842b4702ef9323f1ad8f0ec4",
+        "logits": "fa65d1c2be102fe0e37cd6befd010734fbd91fe37c417482ad3098ea45aa7670"
+      },
+      "lifecycle_checks": 20
+    },
+    {
+      "schema": "vlaforge.native_session_lifecycle_audit/1",
+      "status": "passed",
+      "report": "PROVENANCE_7c41704b7acd8e65",
+      "report_sha256": "074deb1d79578cd072a5b31e5845d186b0843502d4f24bb88b0c35da28f1c8a4",
+      "bundle": "PROVENANCE_368e984ca9fcafb2",
+      "bundle_manifest_sha256": "dda5205e6f63cf2f478ba1abfa534e5587da9c60f771872429ac727caff87d08",
+      "library": "PROVENANCE_9c59de8bebb5086e",
+      "library_sha256": "1da3704ec782242537e1c80683f5fa1c03ecb81f625cbd1e7d21a7678ad67a35",
+      "shape_rejections": 7,
+      "accepted_false_rejected": true,
+      "baseline_outputs": {
+        "tokens": "f74f95a8a8e09f234a83389caddf75fb38f35f5b7cff58fd185ee7b70993ef50",
+        "logits": "493a56e2fbca4456d0cfca95c5143cafd5661cc18f20079651db8e401dcfcfd7"
+      },
+      "alternate_outputs": {
+        "tokens": "dc520ac787c7150709b69e544c478d6784f69d94e5ff05dc9bdbbfe80ba3cfd0",
+        "logits": "7255fe9f75b479c17fb1a2c923634cf38e459cf0cb7bd1f1d735a80657f26189"
+      },
+      "lifecycle_checks": 20
+    },
+    {
+      "schema": "vlaforge.native_session_lifecycle_audit/1",
+      "status": "passed",
+      "report": "PROVENANCE_b4b2343dd8cf5c9b",
+      "report_sha256": "6fe5e059472750ab0be385917d70e5bac80f1975051b520391edb1e433528706",
+      "bundle": "PROVENANCE_8faec6d9e220faa5",
+      "bundle_manifest_sha256": "cef2531b90c13bb7069ad279910288146f87859f5215946cb0cd9b7cd7330ad0",
+      "library": "PROVENANCE_c08812ed208e00e9",
+      "library_sha256": "19305c7684b4ac2962921a5386c552fadaa2fab987e23429115fd20b4b186ead",
+      "shape_rejections": 7,
+      "accepted_false_rejected": true,
+      "baseline_outputs": {
+        "tokens": "7d285e1b2a7e5da30a0e4dc8f7f335dcd92a29b4a6dad71edf6159fa4ca6d339",
+        "logits": "6197a3f140d3ffdc7d2b3ecd561e29587fa4dbc0e773421cd4dbe54bd1f34357"
+      },
+      "alternate_outputs": {
+        "tokens": "7d285e1b2a7e5da30a0e4dc8f7f335dcd92a29b4a6dad71edf6159fa4ca6d339",
+        "logits": "77c905a80779c8e86e9cb5d5e6880610118a806cbf88be9c1085475af47d1a90"
+      },
+      "lifecycle_checks": 20
+    },
+    {
+      "schema": "vlaforge.native_session_lifecycle_audit/1",
+      "status": "passed",
+      "report": "PROVENANCE_f24accbb6dcb35cf",
+      "report_sha256": "85a16f7e2b13b653243545a888ffdc32a985333b9bf0f99dc41458f8b06a9502",
+      "bundle": "PROVENANCE_f3a7230aed589624",
+      "bundle_manifest_sha256": "a77b424461d504b4c09082685003e42e3dfeadb344d4508b713ff7ce20518d5b",
+      "library": "PROVENANCE_f4407457f6e59996",
+      "library_sha256": "02fa99b9740ca2d03bdd808c565f2198b885a0a6f73e8750d39e95c79cb2989d",
+      "shape_rejections": 7,
+      "accepted_false_rejected": true,
+      "baseline_outputs": {
+        "tokens": "31e908f021c462272def8f45e798528ffaf0f0cd608a0b02c0d620ff830671e9",
+        "logits": "2a5cc61a7057a3f89cd967ff5b3eda510f7a1edf53117f1e3069b4a0bb3cb14c"
+      },
+      "alternate_outputs": {
+        "tokens": "6b2146593615fdd998a14c89c470e7879095532faa94427b6fc1289aad438042",
+        "logits": "16178dab9ef2b76ce38fc5031b3cadf48459a9a9abb3224abaef3e3af63420ce"
+      },
+      "lifecycle_checks": 20
+    }
+  ],
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

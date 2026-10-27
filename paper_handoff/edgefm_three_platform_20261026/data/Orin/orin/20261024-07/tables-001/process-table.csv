@@ -1,0 +1,61 @@
+model,mode,round,measured,mean_ms
+SmolVLA,off,0,1024,133.8499379375
+SmolVLA,batch-only,0,1024,133.81716409375
+SmolVLA,required,0,1024,114.224336125
+SmolVLA,batch-only,1,1024,133.38201290625
+SmolVLA,required,1,1024,114.86386053125
+SmolVLA,off,1,1024,134.6198333125
+SmolVLA,required,2,1024,114.38304721875
+SmolVLA,off,2,1024,134.86190409375
+SmolVLA,batch-only,2,1024,132.02814853125
+SmolVLA,off,3,1024,134.5819585
+SmolVLA,batch-only,3,1024,132.3310755625
+SmolVLA,required,3,1024,110.5112476875
+SmolVLA,batch-only,4,1024,133.78063628125
+SmolVLA,required,4,1024,111.71715096875
+SmolVLA,off,4,1024,134.13451465625
+RDT-1B,off,0,1024,3048.973461
+RDT-1B,batch-only,0,1024,3099.416612875
+RDT-1B,required,0,1024,2996.78706359375
+RDT-1B,batch-only,1,1024,3073.94055590625
+RDT-1B,required,1,1024,3003.0699104375
+RDT-1B,off,1,1024,3067.603587625
+RDT-1B,required,2,1024,2955.61288275
+RDT-1B,off,2,1024,3088.29302190625
+RDT-1B,batch-only,2,1024,3029.95512396875
+RDT-1B,off,3,1024,3065.1755315625
+RDT-1B,batch-only,3,1024,3034.46006665625
+RDT-1B,required,3,1024,2963.37324975
+RDT-1B,batch-only,4,1024,3084.99602653125
+RDT-1B,required,4,1024,2959.0936079375
+RDT-1B,off,4,1024,3058.0804869375
+pi0,ordinary-repeated-candidate,0,1024,1156.16736440625
+pi0,verified-arena-candidate,0,1024,1137.4538414375
+pi0,verified-arena-candidate,1,1024,1135.519644375
+pi0,ordinary-repeated-candidate,1,1024,1120.9218171875
+pi0,ordinary-repeated-candidate,2,1024,1127.58067709375
+pi0,verified-arena-candidate,2,1024,1117.76182909375
+pi0,verified-arena-candidate,3,1024,1109.58179678125
+pi0,ordinary-repeated-candidate,3,1024,1121.89168034375
+pi0,ordinary-repeated-candidate,4,1024,1122.78815571875
+pi0,verified-arena-candidate,4,1024,1126.57899409375
+pi0.5,ordinary-source-candidate,0,1024,1253.59574321875
+pi0.5,verified-arena-candidate,0,1024,1264.403386375
+pi0.5,verified-arena-candidate,1,1024,1263.809903
+pi0.5,ordinary-source-candidate,1,1024,1251.53956865625
+pi0.5,ordinary-source-candidate,2,1024,1265.79153678125
+pi0.5,verified-arena-candidate,2,1024,1261.41080440625
+pi0.5,verified-arena-candidate,3,1024,1247.2094645
+pi0.5,ordinary-source-candidate,3,1024,1251.40107365625
+pi0.5,ordinary-source-candidate,4,1024,1271.6356365
+pi0.5,verified-arena-candidate,4,1024,1247.94446603125
+CogACT (actual ~7.63B public-dependency configuration),ordinary-source,0,1024,692.9757399375
+CogACT (actual ~7.63B public-dependency configuration),verified-arena,0,1024,694.82374796875
+CogACT (actual ~7.63B public-dependency configuration),verified-arena,1,1024,694.16627434375
+CogACT (actual ~7.63B public-dependency configuration),ordinary-source,1,1024,694.82169621875
+CogACT (actual ~7.63B public-dependency configuration),ordinary-source,2,1024,695.10403503125
+CogACT (actual ~7.63B public-dependency configuration),verified-arena,2,1024,693.5098771875
+CogACT (actual ~7.63B public-dependency configuration),verified-arena,3,1024,693.51220821875
+CogACT (actual ~7.63B public-dependency configuration),ordinary-source,3,1024,694.4747894375
+CogACT (actual ~7.63B public-dependency configuration),ordinary-source,4,1024,694.59067825
+CogACT (actual ~7.63B public-dependency configuration),verified-arena,4,1024,692.94042459375

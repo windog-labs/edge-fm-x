@@ -1,5 +1,23 @@
 # VLAForge Report Status
 
+Latest repository delivery: [code, documentation and validation closeout](repository_closeout_20261027.md).
+Latest retention: [authorized local/NAS cleanup and replay boundaries](local_bulk_cleanup_20261026.md).
+Earlier packet preparation: [self-contained packet and cold-model cleanup](edgefm_handoff_and_retention_20261026.md).
+The paper packet has relative internal links and no machine/NAS/connection dependencies.
+The versioned paper packet retains the selected measurements, quality tables
+and CDFs. Local raw experiment/case directories and reproduction payloads have
+been retired; fresh inference or replay requires preparing weights/data again.
+
+## Three-Platform Paper Summary
+
+Start with [the final H20 / J6M / Orin paper data summary](edgefm_h20_j6m_orin_paper_summary_20261026.md)
+(2026-10-26): full VLA/VLM tables, CDFs, output checks, operator and integrated
+ablations, resource scope, unmeasured/cancelled items and claim boundaries.
+H20 and Orin have five complete VLA profiles; J6M remains SmolVLA stage-level.
+Orin0.8B is complete and Orin2B user-cancelled; H20 retains both measured sizes.
+Earlier Orin-deferred or optional-Qwen-pending text below is historical, not
+the current three-platform coverage. No original measurement is overwritten.
+
 Deployment design: [J6P VLM with two complete HBM models](../j6p_vlm_deployment_and_kv_cache.md)
 documents the Python example and explicit prefill/decode cache ABI. It is not
 board execution evidence.
@@ -10,10 +28,10 @@ Start with [the final H20 experiment delivery](h20_vla_experiment_delivery_20260
 [Goal status](../edgefm_vla_goal_status.md) and
 [the PDF claim review](h20_paper_scope_review_20260910.md).
 
-The current H20 evidence deliverables are complete, including the Goal's allowed
-Qwen native deployment for the fixed H20 profile. Full edge-paper acceptance is
-not complete: Orin remains deferred, J6M coverage is limited to the SmolVLA
-stage evidence below, and each model's documented profile limitations remain in force.
+The H20 deliverables are complete, including the allowed fixed-profile Qwen
+native deployment. Later Orin completion is indexed in the three-platform
+summary above; J6M remains limited to SmolVLA stages. This does not certify
+every stronger paper claim, and each profile's limitations remain in force.
 
 | Evidence | Final Report |
 |---|---|

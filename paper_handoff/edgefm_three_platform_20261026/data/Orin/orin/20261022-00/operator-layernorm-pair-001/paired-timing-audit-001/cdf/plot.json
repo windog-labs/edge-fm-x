@@ -1,0 +1,20 @@
+{
+  "schema": "edgefm.operator_ecdf/1",
+  "audit_sha256": "c28452d66f6e806ab637f07773527e8f29f9d753209e7715868f28bd6bb92212",
+  "csv_sha256": "c9318515c3abf35c4a6ec6f81d9a561ce631297555c021e0ae8ea2fd9babd458",
+  "rows": 20480,
+  "all_tails_kept": true,
+  "centered": false,
+  "formal_vla_cdf": false,
+  "files": [
+    {
+      "path": "layernorm-operator-cdf.png",
+      "sha256": "0920ddbeaa2c1ff28735007a72abb552a66e6ef101ca80911a484a902e2e76ed"
+    },
+    {
+      "path": "layernorm-operator-cdf.pdf",
+      "sha256": "17a98723e319634057b99acbc1c5aecb28e0c9679faea162bbf2cc3eb108b119"
+    }
+  ],
+  "producer_sha256": "584679489b3ed9112e772e21704f7a2005ffdeafed4c72fa2e8d82bc15e047b4"
+}

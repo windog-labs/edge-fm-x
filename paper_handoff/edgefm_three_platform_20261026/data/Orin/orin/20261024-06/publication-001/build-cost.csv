@@ -1,0 +1,5 @@
+family,variant,builder_controller_elapsed_s,child_maxrss_kib_process_lifetime,engine_bytes,compile_exit_code,candidate_budget,workspace_mib
+embedding,baseline,5.55001392,2765312,189243786,0,one frozen recipe per family; four builds; no precision/quantization search,256
+embedding,candidate,4.858371104,2789956,189243788,0,one frozen recipe per family; four builds; no precision/quantization search,256
+rope,baseline,3.678219968,2233916,1152250,0,one frozen recipe per family; four builds; no precision/quantization search,256
+rope,candidate,40.650732768,2244196,268368,0,one frozen recipe per family; four builds; no precision/quantization search,256

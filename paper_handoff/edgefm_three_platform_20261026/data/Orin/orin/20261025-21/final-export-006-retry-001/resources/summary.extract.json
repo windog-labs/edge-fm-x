@@ -1,0 +1,284 @@
+{
+  "schema": "edgefm.paper_handoff_audit_extract/1",
+  "original_full_audit_included": false,
+  "source": {
+    "path": "PROVENANCE_ffd894eaefe1bfb8",
+    "bytes": 205143000,
+    "sha256": "7c6e3917f209e2fd1a56872beb7b44b316acff06f2eb99cc9d09b4189b79ed8b"
+  },
+  "original_paths_are_provenance_not_package_dependencies": true,
+  "selected_fields": {
+    "schema": "edgefm.native_resident_resource_audit/1",
+    "status": "complete-sampled-resources-verified",
+    "formal_acceptance": false,
+    "whole_goal_complete": false,
+    "policies": [
+      {
+        "policy": "off",
+        "processes": 5,
+        "samples": 9170,
+        "VmRSS_max_kib": 6782032,
+        "VmHWM_max_kib": 6890616,
+        "RssAnon_max_kib": 6009484,
+        "RssFile_max_kib": 1297076,
+        "RssShmem_max_kib": 0,
+        "guard_min_available_kib": 10278148
+      },
+      {
+        "policy": "verified",
+        "processes": 5,
+        "samples": 8291,
+        "VmRSS_max_kib": 6865348,
+        "VmHWM_max_kib": 6867196,
+        "RssAnon_max_kib": 6019536,
+        "RssFile_max_kib": 1268764,
+        "RssShmem_max_kib": 0,
+        "guard_min_available_kib": 10291176
+      }
+    ],
+    "coverage": {
+      "first_process_init_unobserved": true,
+      "initial_gap": "sidecar attached after first process began",
+      "VmHWM": "kernel lifetime high-water at read time; not limited to sidecar coverage",
+      "final_second_peak_guaranteed": false,
+      "private_gpu_peak_measured": false,
+      "zero_allocation_proven": false,
+      "formal_acceptance": false,
+      "accounting": "system meminfo and process RSS separate; never add GPU shared physical memory",
+      "scope": "bounded observed envelopes; observer prefixes only; one complete model cohort",
+      "row_timestamp_scope": "sidecar cycle end, not exact native exit time",
+      "request_aligned_steady_state": false,
+      "power_watts_verified": false,
+      "CPU_GPU_shared_memory_added": false,
+      "observer_restart_count": 3,
+      "model_restart_performed": false,
+      "partial_model_cohorts_merged": false,
+      "continuous_1Hz_coverage_claimed": false,
+      "missing_rows_imputed": false,
+      "unobserved_RSS_peaks_known": false,
+      "gaps": [
+        {
+          "previous_root": "PROVENANCE_6083fb0e5a158c16",
+          "next_root": "PROVENANCE_5ec288401de02650",
+          "after_last_valid_row_ns": 437843989523328,
+          "before_first_valid_row_ns": 438418380799808,
+          "observation_gap_ns": 574391276480,
+          "observer_downtime_ns": 573388241280,
+          "RSS_during_gap": "unknown; no rows or zero values inferred"
+        },
+        {
+          "previous_root": "PROVENANCE_5ec288401de02650",
+          "next_root": "PROVENANCE_4b612b58829d2677",
+          "after_last_valid_row_ns": 443500381069760,
+          "before_first_valid_row_ns": 443817798708576,
+          "observation_gap_ns": 317417638816,
+          "observer_downtime_ns": 316413092256,
+          "RSS_during_gap": "unknown; no rows or zero values inferred"
+        },
+        {
+          "previous_root": "PROVENANCE_4b612b58829d2677",
+          "next_root": "PROVENANCE_cf6bb3422218211a",
+          "after_last_valid_row_ns": 451032798724064,
+          "before_first_valid_row_ns": 451195988747808,
+          "observation_gap_ns": 163190023744,
+          "observer_downtime_ns": 162185338400,
+          "RSS_during_gap": "unknown; no rows or zero values inferred"
+        }
+      ]
+    },
+    "sampler_timing": {
+      "samples": 17631,
+      "first_monotonic_ns": 434246989631232,
+      "last_monotonic_ns": 452928994882016,
+      "max_gap_ns": 574391276480,
+      "interval_seconds": 1.0
+    },
+    "sampler_system_memory_kib": {
+      "Buffers": {
+        "min": 19668,
+        "max": 36436,
+        "samples": 17631,
+        "missing": 0
+      },
+      "Shmem": {
+        "min": 487004,
+        "max": 568664,
+        "samples": 17631,
+        "missing": 0
+      },
+      "Cached": {
+        "min": 1298704,
+        "max": 9922824,
+        "samples": 17631,
+        "missing": 0
+      },
+      "MemFree": {
+        "min": 2210004,
+        "max": 21288384,
+        "samples": 17631,
+        "missing": 0
+      },
+      "SwapFree": {
+        "min": 24315524,
+        "max": 24538756,
+        "samples": 17631,
+        "missing": 0
+      },
+      "MemTotal": {
+        "min": 64307324,
+        "max": 64307324,
+        "samples": 17631,
+        "missing": 0
+      },
+      "SwapTotal": {
+        "min": 32153616,
+        "max": 32153616,
+        "samples": 17631,
+        "missing": 0
+      },
+      "MemAvailable": {
+        "min": 10345996,
+        "max": 26122436,
+        "samples": 17631,
+        "missing": 0
+      }
+    },
+    "CPU_GPU_shared_memory_added": false,
+    "segments": [
+      {
+        "root": "PROVENANCE_6083fb0e5a158c16",
+        "status": "error",
+        "error": "ValueError('native cgroup escape')",
+        "source": {
+          "path": "PROVENANCE_3184a28219af6d7d",
+          "sha256": "9b1cdd786cd63fbd29c961983a2f349b47c735711232d985f93b0c3039594129",
+          "bytes": 17100
+        },
+        "timing": {
+          "samples": 3598,
+          "first_monotonic_ns": 434246989631232,
+          "last_monotonic_ns": 437843989523328,
+          "max_gap_ns": 1001844512,
+          "interval_seconds": 1.0
+        },
+        "coverage": {
+          "first_process_init_unobserved": true,
+          "initial_gap": "sidecar attached after first process began",
+          "VmHWM": "kernel lifetime high-water at read time; not limited to sidecar coverage",
+          "final_second_peak_guaranteed": false,
+          "private_gpu_peak_measured": false,
+          "zero_allocation_proven": false,
+          "formal_acceptance": false,
+          "accounting": "system meminfo and process RSS separate; never add GPU shared physical memory",
+          "scope": "whole process including initialization and warmup; no absolute per-request alignment",
+          "row_timestamp_scope": "sidecar cycle end, not exact native exit time",
+          "request_aligned_steady_state": false,
+          "power_watts_verified": false,
+          "CPU_GPU_shared_memory_added": false
+        }
+      },
+      {
+        "root": "PROVENANCE_5ec288401de02650",
+        "status": "error",
+        "error": "ValueError('native cgroup escape')",
+        "source": {
+          "path": "PROVENANCE_9ddc1d18c20a19f8",
+          "sha256": "faf9786ed78d447d4adbd66df3fef3a8110802a14dd37bf269fb93e2a1f2674d",
+          "bytes": 18212
+        },
+        "timing": {
+          "samples": 5083,
+          "first_monotonic_ns": 438418380799808,
+          "last_monotonic_ns": 443500381069760,
+          "max_gap_ns": 1003782560,
+          "interval_seconds": 1.0
+        },
+        "coverage": {
+          "first_process_init_unobserved": true,
+          "initial_gap": "sidecar attached after first process began",
+          "VmHWM": "kernel lifetime high-water at read time; not limited to sidecar coverage",
+          "final_second_peak_guaranteed": false,
+          "private_gpu_peak_measured": false,
+          "zero_allocation_proven": false,
+          "formal_acceptance": false,
+          "accounting": "system meminfo and process RSS separate; never add GPU shared physical memory",
+          "scope": "whole process including initialization and warmup; no absolute per-request alignment",
+          "row_timestamp_scope": "sidecar cycle end, not exact native exit time",
+          "request_aligned_steady_state": false,
+          "power_watts_verified": false,
+          "CPU_GPU_shared_memory_added": false
+        }
+      },
+      {
+        "root": "PROVENANCE_4b612b58829d2677",
+        "status": "error",
+        "error": "ValueError('native cgroup escape')",
+        "source": {
+          "path": "PROVENANCE_57ce57f87bdb2a41",
+          "sha256": "581b55d8018e2ba4cb3a42146e2331567c9a22ae78f9051cf3988877460e69c1",
+          "bytes": 18565
+        },
+        "timing": {
+          "samples": 7216,
+          "first_monotonic_ns": 443817798708576,
+          "last_monotonic_ns": 451032798724064,
+          "max_gap_ns": 1003119616,
+          "interval_seconds": 1.0
+        },
+        "coverage": {
+          "first_process_init_unobserved": true,
+          "initial_gap": "sidecar attached after first process began",
+          "VmHWM": "kernel lifetime high-water at read time; not limited to sidecar coverage",
+          "final_second_peak_guaranteed": false,
+          "private_gpu_peak_measured": false,
+          "zero_allocation_proven": false,
+          "formal_acceptance": false,
+          "accounting": "system meminfo and process RSS separate; never add GPU shared physical memory",
+          "scope": "whole process including initialization and warmup; no absolute per-request alignment",
+          "row_timestamp_scope": "sidecar cycle end, not exact native exit time",
+          "request_aligned_steady_state": false,
+          "power_watts_verified": false,
+          "CPU_GPU_shared_memory_added": false
+        }
+      },
+      {
+        "root": "PROVENANCE_cf6bb3422218211a",
+        "status": "parent_terminal_empty",
+        "error": null,
+        "source": {
+          "path": "PROVENANCE_07d4e6660c2bf01e",
+          "sha256": "f2f53b61cffdfc16e956cef60e980def2d1815b69d5a90329208b3fcd3b18c51",
+          "bytes": 18818
+        },
+        "timing": {
+          "samples": 1734,
+          "first_monotonic_ns": 451195988747808,
+          "last_monotonic_ns": 452928994882016,
+          "max_gap_ns": 1007319488,
+          "interval_seconds": 1.0
+        },
+        "coverage": {
+          "first_process_init_unobserved": true,
+          "initial_gap": "sidecar attached after first process began",
+          "VmHWM": "kernel lifetime high-water at read time; not limited to sidecar coverage",
+          "final_second_peak_guaranteed": false,
+          "private_gpu_peak_measured": false,
+          "zero_allocation_proven": false,
+          "formal_acceptance": false,
+          "accounting": "system meminfo and process RSS separate; never add GPU shared physical memory",
+          "scope": "whole process including initialization and warmup; no absolute per-request alignment",
+          "row_timestamp_scope": "sidecar cycle end, not exact native exit time",
+          "request_aligned_steady_state": false,
+          "power_watts_verified": false,
+          "CPU_GPU_shared_memory_added": false
+        }
+      }
+    ]
+  },
+  "not_a_new_experiment_or_independent_audit": true,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

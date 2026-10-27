@@ -1,0 +1,127 @@
+{
+  "schema": "vlaforge.hrt_latency_summary/1",
+  "status": "passed",
+  "warmup_per_process": 128,
+  "processes": [
+    {
+      "label": "run-1",
+      "source": "PROVENANCE_9fad27a3ddc03fc9",
+      "source_sha256": "b58d43a10fef742a0fb0d170342cfbf99cbfc8b6735c5240d8cc254f54a8c725",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 1404812431.640625,
+        "min_ns": 1397490000,
+        "p50_ns": 1403440000,
+        "p95_ns": 1412990000,
+        "p99_ns": 1419000000,
+        "max_ns": 1431410000,
+        "std_ns": 4368329.249813952
+      },
+      "cdf_csv": "PROVENANCE_3a0fc389483059fc",
+      "cdf_csv_sha256": "4efd4a4fca6e3e938bfdfd4ccd997c36bb47ea0f7379d821fd563e97ce4d2f42"
+    },
+    {
+      "label": "run-2",
+      "source": "PROVENANCE_c7eb79784ae36660",
+      "source_sha256": "64a656b6fda5cd59237c6b0aa99b292ad1fc2021e4e93abf152c3b4ca8412042",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 1401650029.296875,
+        "min_ns": 1396980000,
+        "p50_ns": 1401450000,
+        "p95_ns": 1405470000,
+        "p99_ns": 1407530000,
+        "max_ns": 1409700000,
+        "std_ns": 1850864.5306613997
+      },
+      "cdf_csv": "PROVENANCE_02411dc3a89bf142",
+      "cdf_csv_sha256": "2083d81faeaff8fcff4675b871ce599e2b9be9805a0731077338702fb2dbca59"
+    },
+    {
+      "label": "run-3",
+      "source": "PROVENANCE_ef9a40c1c667bb08",
+      "source_sha256": "49e30d2ffa2e4ab73eeab00218f40bd32ef824fa221c08d5618147f61ae10ad6",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 1402147724.609375,
+        "min_ns": 1397580000,
+        "p50_ns": 1401860000,
+        "p95_ns": 1406300000,
+        "p99_ns": 1408150000,
+        "max_ns": 1410810000,
+        "std_ns": 1901761.0563807047
+      },
+      "cdf_csv": "PROVENANCE_6554d6325303bb90",
+      "cdf_csv_sha256": "2d995b599df7989432503c762004139b9d82b9fa8269be38df2413c538f387ea"
+    },
+    {
+      "label": "run-4",
+      "source": "PROVENANCE_5d8da892a1624d69",
+      "source_sha256": "f76b9df826f5875fe685aff61025d66ade21531a08bd5d3a4a63d2ffe925307b",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 1403835605.46875,
+        "min_ns": 1399340000,
+        "p50_ns": 1403640000,
+        "p95_ns": 1407270000,
+        "p99_ns": 1409260000,
+        "max_ns": 1410950000,
+        "std_ns": 1721618.9194244158
+      },
+      "cdf_csv": "PROVENANCE_18fa376dbb808c04",
+      "cdf_csv_sha256": "b037b45660b8a7f52e9dc889040be2b044d6f234bee8026aa52672475872dba4"
+    },
+    {
+      "label": "run-5",
+      "source": "PROVENANCE_65e9a822da5e0fea",
+      "source_sha256": "2a90cab1e797dcffa21ffff9c909b0213c0d38b6dddd18ab8f9327d883407fe2",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 1402543808.59375,
+        "min_ns": 1397780000,
+        "p50_ns": 1402290000,
+        "p95_ns": 1406710000,
+        "p99_ns": 1408050000,
+        "max_ns": 1410990000,
+        "std_ns": 1816380.7448436155
+      },
+      "cdf_csv": "PROVENANCE_183aacc93796794f",
+      "cdf_csv_sha256": "9459133c67376176a4b7d18850537c9643dc708a6d3cfa12180ec9807ac0bc3a"
+    }
+  ],
+  "pooled": {
+    "samples": 5120,
+    "mean_ns": 1402997919.921875,
+    "min_ns": 1396980000,
+    "p50_ns": 1402430000,
+    "p95_ns": 1408200000,
+    "p99_ns": 1412990000,
+    "max_ns": 1431410000,
+    "std_ns": 2797425.027870496
+  },
+  "measured_csv": "PROVENANCE_0ceba77df0377d12",
+  "measured_csv_sha256": "29c2766152ddabe70b1f1a2cc542544b0f7a0c442e3afd76e0976e21eead6f1c",
+  "cdf_csv": "PROVENANCE_0f527feac4a714fd",
+  "cdf_csv_sha256": "ce4821db31bf86de89613b2cd4dc80cb4c04e6fc08d8550a55720f58913203e1",
+  "outliers_removed": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

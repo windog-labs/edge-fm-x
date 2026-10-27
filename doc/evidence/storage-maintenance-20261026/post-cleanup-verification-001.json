@@ -1,0 +1,114 @@
+{
+  "schema": "edgefm.final_model_retirement_verification/1",
+  "status": "verified-self-contained-packet-and-retained-paper-data-after-cleanup",
+  "checked_host_utc": "2026-10-26T02:28:21.170181+00:00",
+  "cleanups": [
+    {
+      "plan": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/local-orin-plan-001.json",
+        "bytes": 190184,
+        "sha256": "4a36395d3c9e087f66e1d040efc11278466ebc99db7b6f34d8a0837c4a7d13be"
+      },
+      "result": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/local-orin-cleanup-001.json",
+        "bytes": 127558,
+        "sha256": "152cc13b31a8a72e522f74d252754d67fd9cfe92726effc7d38829f192807983"
+      },
+      "journal": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/local-orin-cleanup-001.journal.jsonl",
+        "bytes": 138329,
+        "sha256": "0b84c8b8f392f1939769462d9525e03f2743ad672608007f7ca3b3ff071dcd2d"
+      },
+      "paths": 211,
+      "local": true,
+      "reclaimed_allocated_bytes": 129064284160
+    },
+    {
+      "plan": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/local-h20-plan-002.json",
+        "bytes": 4247,
+        "sha256": "f6987444871f83dcd912edb2b8dbd4db532a02d0a821d3d3ba9b762284c7c64f"
+      },
+      "result": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/local-h20-cleanup-001.json",
+        "bytes": 4080,
+        "sha256": "9177bc782ce3537cee1bddc2a81aa55713e7030f8701debc53209bcef7eba9ea"
+      },
+      "journal": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/local-h20-cleanup-001.journal.jsonl",
+        "bytes": 1971,
+        "sha256": "20b05ecf3ad13fc228766ce164770231efa085b8d606bab581d44a955bb10d6a"
+      },
+      "paths": 3,
+      "local": true,
+      "reclaimed_allocated_bytes": 9878097920
+    },
+    {
+      "plan": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/target-plan-001.json",
+        "bytes": 25520,
+        "sha256": "75b1333816933b17b7f5b41f51e10f4ef0b1b7a4e4a0fa120d561ca03a898f2a"
+      },
+      "result": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/target-cleanup-001.json",
+        "bytes": 29535,
+        "sha256": "5f5330505aaf86dd116dfe168ef4cf497295e467b8debbb28377306a7c683f05"
+      },
+      "journal": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/target-cleanup-001.journal.jsonl",
+        "bytes": 28748,
+        "sha256": "52b25c1e4545ee35effc6f0611ceccbb598908e7e2cd0f68da91303acb9df7a4"
+      },
+      "paths": 48,
+      "local": false,
+      "reclaimed_allocated_bytes": 45770293248
+    }
+  ],
+  "source_evidence_before": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/evidence-before-cleanup-001.json",
+    "bytes": 27771,
+    "sha256": "d2f207c1ec877cb0242a8a59924c17327b332367690f0df0e811906f29e1bfbd"
+  },
+  "source_evidence_after": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/evidence-after-cleanup-001.json",
+    "bytes": 27771,
+    "sha256": "3c2a4f7acbc7cce8d0c59777803c731f17b646b56d164de088fce53e1c82c6e5"
+  },
+  "unchanged_retained_source_pins": 105,
+  "unchanged_numeric_table_rows": 52,
+  "unchanged_local_evidence_links": 109,
+  "handoff_gate": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/paper-summary-20261026/handoff-closeout-003.json",
+    "bytes": 1685,
+    "sha256": "390e96fb2f9e77138fbed551a8c939c7395a7160ad5c67208beec622ae7fe502"
+  },
+  "packet": {
+    "status": "portable-paper-package-verified",
+    "files": 272,
+    "local_markdown_links": 282,
+    "bytes": 75275893,
+    "original_workspace_required": false,
+    "model_inference": false,
+    "numerical_experiment_rerun": false
+  },
+  "archive": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/paper_handoff/edgefm_three_platform_20261026.zip",
+    "bytes": 11739409,
+    "sha256": "8d70859f0d11efbf221f61b352398939c7f4dfdc857d9c45122d37815c2a1740"
+  },
+  "target_postcheck": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026/target-postcheck-001.json",
+    "bytes": 611,
+    "sha256": "8d98f3009b95e6a04eed836cce105681df8d680217eebc0838e1e50d954c223f"
+  },
+  "local_reclaimed_allocated_GiB": 129.40017700195312,
+  "target_reclaimed_allocated_GiB": 42.62690734863281,
+  "local_available_GiB": 214.44746017456055,
+  "target_available_GiB": 234.2230339050293,
+  "models_or_engines_now_rebuild_required": true,
+  "reference_measurement_or_quality_data_deleted": false,
+  "SDK_or_service_changes": false,
+  "shared_NAS_or_other_repository_roots_selected": false,
+  "J6M_incomplete_full_chain_selected": false,
+  "new_model_inference": false
+}

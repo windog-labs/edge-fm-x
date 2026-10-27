@@ -1,0 +1,471 @@
+{
+  "verifiedAt": "2026-10-22T22:01:03.106Z",
+  "status": "collected-independent-audit-pending",
+  "campaign_sha256": "80c5a6c32e91b89a06afe529df4b165a19dbb56eed62ddd7edee14d54e9597e8",
+  "boot_id": "3c801f5d-6897-4d97-b021-3c52db38a750",
+  "serial": "1421524312594",
+  "elapsed_seconds": 69349.875103552,
+  "controller": {
+    "pid": 2258939,
+    "start_ticks": "11907296",
+    "argv": [
+      "/usr/bin/python3",
+      "/data/datalog/edgefm-orin/20261022-01/collect_managed_raw_formal.py",
+      "--root",
+      "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001",
+      "--pilot",
+      "/data/datalog/edgefm-orin/20261022-01/rdt-raw-pilots-001/campaign.json",
+      "--pilot-audit",
+      "/data/datalog/edgefm-orin/20261022-01/rdt-pilot-audit-001.json",
+      "--observations",
+      "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+      "--reference",
+      "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001",
+      "--input-build",
+      "/data/datalog/edgefm-orin/20261021-07/native-input-build-001",
+      "--helper",
+      "/data/datalog/edgefm-orin/20261020-00/collect_qualified_raw_formal.py",
+      "--environment-probe",
+      "/data/datalog/edgefm-orin/20261020-00/capture_environment.py",
+      "--service-lease",
+      "/data/datalog/edgefm-orin/20261022-01/service-window-freeze-001.json",
+      "--service-helper",
+      "/data/datalog/edgefm-orin/20261022-01/temporary_services_v2.py",
+      "--request",
+      "/data/datalog/edgefm-orin/20261022-01/formal-request-001.json"
+    ]
+  },
+  "controller_identity": {
+    "present": false,
+    "matches": false
+  },
+  "protocol": {
+    "processes_per_mode": 5,
+    "warmup_per_process": 128,
+    "measured_per_process": 1024,
+    "batch": 1,
+    "sample_count": 16,
+    "sample_policy": "run modulo finite 16-observation pack, not independent trajectories",
+    "mode_order": "round-robin rotated across five rounds",
+    "drop_slow_samples": false,
+    "telemetry_interval_seconds": 1,
+    "owner_scan_interval_seconds": 30,
+    "device_settings": "existing MAXN/governors; no global power or clock changes",
+    "timeout_per_process_seconds": 7744,
+    "timeout_basis": "600s + 2 * pilot maximum * 1152 calls; watchdog only",
+    "quality_gate": "same Orin/engines/precision/inputs: MSE < 1e-5, cosine > .9999; additionally byte exact in pilot",
+    "h20_used_as_primary_gate": false,
+    "minimum_available_kib": 16777216,
+    "resource_floor_kib": 2097152,
+    "service_window": "two explicitly authorized programs temporarily stopped; parent guard restores on collection exit/failure",
+    "fresh_campaign": true,
+    "old_interrupted_rows_merged": false
+  },
+  "cases": [
+    {
+      "round": 0,
+      "mode": "off",
+      "directory": "round-00-off",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2260072,
+        "start_ticks": "11912672",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-off-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-00-off",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 0,
+      "mode": "batch-only",
+      "directory": "round-00-batch-only",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2329235,
+        "start_ticks": "12268193",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-batch-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-00-batch-only",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 0,
+      "mode": "required",
+      "directory": "round-00-required",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2399781,
+        "start_ticks": "12629557",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-replay-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-00-required",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 1,
+      "mode": "batch-only",
+      "directory": "round-01-batch-only",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2468652,
+        "start_ticks": "12979712",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-batch-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-01-batch-only",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 1,
+      "mode": "required",
+      "directory": "round-01-required",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2538597,
+        "start_ticks": "13338191",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-replay-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-01-required",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 1,
+      "mode": "off",
+      "directory": "round-01-off",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2606579,
+        "start_ticks": "13688902",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-off-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-01-off",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 2,
+      "mode": "required",
+      "directory": "round-02-required",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2675956,
+        "start_ticks": "14046818",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-replay-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-02-required",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 2,
+      "mode": "off",
+      "directory": "round-02-off",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2742836,
+        "start_ticks": "14392239",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-off-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-02-off",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 2,
+      "mode": "batch-only",
+      "directory": "round-02-batch-only",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2812635,
+        "start_ticks": "14752557",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-batch-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-02-batch-only",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 3,
+      "mode": "off",
+      "directory": "round-03-off",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2881147,
+        "start_ticks": "15106107",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-off-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-03-off",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 3,
+      "mode": "batch-only",
+      "directory": "round-03-batch-only",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 2950581,
+        "start_ticks": "15463803",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-batch-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-03-batch-only",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 3,
+      "mode": "required",
+      "directory": "round-03-required",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 3019073,
+        "start_ticks": "15817980",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-replay-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-03-required",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 4,
+      "mode": "batch-only",
+      "directory": "round-04-batch-only",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 3086136,
+        "start_ticks": "16164441",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-batch-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-04-batch-only",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 4,
+      "mode": "required",
+      "directory": "round-04-required",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 3155729,
+        "start_ticks": "16524491",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-replay-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-04-required",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    },
+    {
+      "round": 4,
+      "mode": "off",
+      "directory": "round-04-off",
+      "calls": 1152,
+      "measured": 1024,
+      "warmup": 128,
+      "flags_passed": true,
+      "exit_code": 0,
+      "child": {
+        "pid": 3222446,
+        "start_ticks": "16870506",
+        "argv": [
+          "/data/datalog/edgefm-orin/20261021-07/raw-runner-off-001/pilot-20261022-svc-001/raw-observation-runner",
+          "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle",
+          "/data/datalog/edgefm-orin/20261021-07/native-observations-001",
+          "/data/datalog/edgefm-orin/20261021-07/same-orin-reference-001/inputs",
+          "/data/datalog/edgefm-orin/20261022-01/rdt-raw-formal-001/round-04-off",
+          "128",
+          "1024"
+        ]
+      },
+      "identity": {
+        "present": false,
+        "matches": false
+      }
+    }
+  ]
+}

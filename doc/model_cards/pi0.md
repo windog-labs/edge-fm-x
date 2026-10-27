@@ -1,5 +1,11 @@
 # π0 Model Adaptation Card
 
+> Historical L0/L1 fixture card, not the real checkpoint/deployment profile.
+> Its four-step fixture below must not replace the ten-step OpenPI workload.
+> Current source/data identities are in the [2026-10-22 asset assessment](../reports/orin_source_asset_assessment_20261022.md)
+> and [real H20 variants](../reports/pi0_execution_variants_20260908.md).
+> Orin deployment/compile/output acceptance is separate and still pending.
+
 | 项 | 当前记录 |
 |---|---|
 | Upstream mapping | `huggingface/lerobot@0d383d09f2051444de211739196a28cc94736861` |

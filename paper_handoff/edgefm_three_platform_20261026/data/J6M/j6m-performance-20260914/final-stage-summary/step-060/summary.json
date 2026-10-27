@@ -1,0 +1,127 @@
+{
+  "schema": "vlaforge.hrt_latency_summary/1",
+  "status": "passed",
+  "warmup_per_process": 128,
+  "processes": [
+    {
+      "label": "run-1",
+      "source": "PROVENANCE_47e6a594d93a98d5",
+      "source_sha256": "997ee3590412cc4a4a92287d82b0da82d57f1380b0ea96c83e42326e7a22f927",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 89927292.96875,
+        "min_ns": 87499000,
+        "p50_ns": 89854000,
+        "p95_ns": 91334000,
+        "p99_ns": 95766000,
+        "max_ns": 96394000,
+        "std_ns": 1158425.194713684
+      },
+      "cdf_csv": "PROVENANCE_df32d221db1ddece",
+      "cdf_csv_sha256": "50e84ef9f5e1d13a1158a82e6a43112e33f602061ff544fecd7bcac095db9ea6"
+    },
+    {
+      "label": "run-2",
+      "source": "PROVENANCE_96b34689929b5352",
+      "source_sha256": "39edefeb7bd8c8e6b0c000385eb62299554d1eb28156c0d18a7aa2a8d275f893",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 89942394.53125,
+        "min_ns": 87422000,
+        "p50_ns": 89879000,
+        "p95_ns": 91290000,
+        "p99_ns": 95402000,
+        "max_ns": 96071000,
+        "std_ns": 1161934.789768005
+      },
+      "cdf_csv": "PROVENANCE_6ccc939c765b2ef9",
+      "cdf_csv_sha256": "1dc2ad24647cefe5f68695f56f0fe15d10badd8ea1469224f77d6a67f02e7484"
+    },
+    {
+      "label": "run-3",
+      "source": "PROVENANCE_495894573428a496",
+      "source_sha256": "613f4bf16cac2ef2db02b85d2e38faa2c6bc2b3d57b0636fefd64afdbcdd3a32",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 89896021.484375,
+        "min_ns": 87653000,
+        "p50_ns": 89824000,
+        "p95_ns": 91151000,
+        "p99_ns": 95439000,
+        "max_ns": 96304000,
+        "std_ns": 1138818.5582096898
+      },
+      "cdf_csv": "PROVENANCE_b93b504e5d40ffb7",
+      "cdf_csv_sha256": "9f4f837ff95c5138e48b941a0703787c153be2ecd8a74df5e58898e5178894f4"
+    },
+    {
+      "label": "run-4",
+      "source": "PROVENANCE_4fd7f82cf5dacc6e",
+      "source_sha256": "b4a7a4e151d95db25a795d5ce4462a6c22f247364d2c5280089be5e51648f54e",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 89866475.5859375,
+        "min_ns": 87584000,
+        "p50_ns": 89737000,
+        "p95_ns": 91156000,
+        "p99_ns": 95518000,
+        "max_ns": 96510000,
+        "std_ns": 1188073.4311984165
+      },
+      "cdf_csv": "PROVENANCE_80af0a464340c4f5",
+      "cdf_csv_sha256": "99db32de08735d01892754def39b3884ccd8f5fd2ef1d988be7d5578b3ddc35e"
+    },
+    {
+      "label": "run-5",
+      "source": "PROVENANCE_7afbb39b8e234b6a",
+      "source_sha256": "9912871edb6f78ef67f5a2c3ce29ab20f530ae9785da1f4eafdfe34c881a5ed1",
+      "calls": 1152,
+      "warmup": 128,
+      "measured": 1024,
+      "statistics": {
+        "samples": 1024,
+        "mean_ns": 89970808.59375,
+        "min_ns": 87721000,
+        "p50_ns": 89874000,
+        "p95_ns": 91240000,
+        "p99_ns": 95694000,
+        "max_ns": 96615000,
+        "std_ns": 1167160.803110168
+      },
+      "cdf_csv": "PROVENANCE_da3813a4b265f3f3",
+      "cdf_csv_sha256": "a505fab4010250687f2f12db6cb03ce075d0146af3774c9d0a8e4d22c1ce9a0f"
+    }
+  ],
+  "pooled": {
+    "samples": 5120,
+    "mean_ns": 89920598.6328125,
+    "min_ns": 87422000,
+    "p50_ns": 89834000,
+    "p95_ns": 91249000,
+    "p99_ns": 95632000,
+    "max_ns": 96615000,
+    "std_ns": 1163555.427997123
+  },
+  "measured_csv": "PROVENANCE_6e9c832093dc4a65",
+  "measured_csv_sha256": "2c65ba41e949b4687cc627c1fa7fd2d1fd3df99cfa0c9757da34b979534fbe85",
+  "cdf_csv": "PROVENANCE_2491b1c8b9625a01",
+  "cdf_csv_sha256": "a9fdaa98b7c05ed3fd69780995ce2ac0e46d2f2f44703162b28db3e1ee90eac3",
+  "outliers_removed": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

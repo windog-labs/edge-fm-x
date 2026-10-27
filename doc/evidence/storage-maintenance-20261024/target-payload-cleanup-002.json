@@ -1,0 +1,3575 @@
+{
+  "schema": "edgefm.released_model_payload_cleanup/1",
+  "status": "released-cold-model-payloads-removed",
+  "created_utc": "2023-03-19T05:25:34.910717+00:00",
+  "host": {
+    "pid": 1881447,
+    "host": "ugv",
+    "machine": "aarch64",
+    "argv": [
+      "python3",
+      "-B",
+      "/data/datalog/edgefm-storage-maintenance-20261024/retire_model_payloads_py38.py",
+      "apply",
+      "--plan",
+      "/data/datalog/edgefm-storage-maintenance-20261024/target-payload-plan-001.json",
+      "--output",
+      "/data/datalog/edgefm-storage-maintenance-20261024/target-payload-cleanup-002.json"
+    ],
+    "start_ticks": "31058385",
+    "boot_id": "3c801f5d-6897-4d97-b021-3c52db38a750",
+    "serial": "1421524312594",
+    "active_owned_units": 0
+  },
+  "root": "/data/datalog/edgefm-orin",
+  "actions": [
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/single-view-terminal-build-001/model.engine",
+      "sha256": "3c5259c52ef111ddc66bc59abaac8ea8eac139ac4ed1618fbc62df209e1634d3",
+      "before": {
+        "device": 66304,
+        "inode": 20972379,
+        "bytes": 484615455,
+        "mtime_ns": 1679085841728000000,
+        "ctime_ns": 1679085841728000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 484618240
+      },
+      "prepared_utc": "2023-03-19T05:20:30.406323+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/split-002/producer/model.onnx.data",
+      "sha256": "5c7ed5145a602c9dac0f16037ff9691df67dbc9ca644d2b9d72e00b7d72df329",
+      "before": {
+        "device": 66304,
+        "inode": 20972329,
+        "bytes": 963512320,
+        "mtime_ns": 1792710205604820576,
+        "ctime_ns": 1679084893112000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 963518464
+      },
+      "prepared_utc": "2023-03-19T05:20:31.798394+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/split-002/consumer/model.onnx.data",
+      "sha256": "3521f64857892fc63ca2e604df6eb5a3ac64cae3181c45115a3696935372abbe",
+      "before": {
+        "device": 66304,
+        "inode": 20972345,
+        "bytes": 1799438336,
+        "mtime_ns": 1792710213653067604,
+        "ctime_ns": 1679084995340000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1799442432
+      },
+      "prepared_utc": "2023-03-19T05:20:34.413159+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/repeated-resource-bundle-001/artifacts/nested-region-7-3c5259c52ef111dd.engine",
+      "sha256": "3c5259c52ef111ddc66bc59abaac8ea8eac139ac4ed1618fbc62df209e1634d3",
+      "before": {
+        "device": 66304,
+        "inode": 20972550,
+        "bytes": 484615455,
+        "mtime_ns": 1679087648728000000,
+        "ctime_ns": 1679087648728000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 484622336
+      },
+      "prepared_utc": "2023-03-19T05:20:35.250438+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/repeated-resource-bundle-001/artifacts/nested-region-8-649815c14f778d36.engine",
+      "sha256": "649815c14f778d36c521a1aea69e43d9268175c6066d4afa457d0b309bea424f",
+      "before": {
+        "device": 66304,
+        "inode": 20972562,
+        "bytes": 901156854,
+        "mtime_ns": 1679087651248000000,
+        "ctime_ns": 1679087651248000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 901160960
+      },
+      "prepared_utc": "2023-03-19T05:20:36.560682+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/repeated-resource-bundle-001/artifacts/region-4.engine",
+      "sha256": "b130aa7e403bc203f7d46db60c840a7a5a9e8d9d8941887e7ecc9e45a1a99d1d",
+      "before": {
+        "device": 66304,
+        "inode": 20972556,
+        "bytes": 640218807,
+        "mtime_ns": 1679087625508000000,
+        "ctime_ns": 1679087625508000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 640225280
+      },
+      "prepared_utc": "2023-03-19T05:20:37.548011+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/repeated-resource-bundle-001/artifacts/region-6.engine",
+      "sha256": "86ffeda4d78ffe6ad355d7195d8dc536f37ac7f235b51d4ec4694942c548a800",
+      "before": {
+        "device": 66304,
+        "inode": 20972559,
+        "bytes": 2461615407,
+        "mtime_ns": 1679087632396000000,
+        "ctime_ns": 1679087632396000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2461622272
+      },
+      "prepared_utc": "2023-03-19T05:20:41.109104+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/repeated-resource-bundle-001/artifacts/region-8.engine",
+      "sha256": "6e75f62c371df54b0fbd1777bb4a21fb89dcb293dc20986171166e2ea611cf21",
+      "before": {
+        "device": 66304,
+        "inode": 20972544,
+        "bytes": 1389692573,
+        "mtime_ns": 1679087639752000000,
+        "ctime_ns": 1679087639752000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389699072
+      },
+      "prepared_utc": "2023-03-19T05:20:43.274416+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/repeated-resource-bundle-001/artifacts/region-9.engine",
+      "sha256": "fa7757733df0fb006407093539463d7f70dfc459e1776d35e0c66a9e4eecf439",
+      "before": {
+        "device": 66304,
+        "inode": 20972545,
+        "bytes": 1458965093,
+        "mtime_ns": 1679087645088000000,
+        "ctime_ns": 1679087645088000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1458970624
+      },
+      "prepared_utc": "2023-03-19T05:20:45.448544+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/consumer-build-001/model.engine",
+      "sha256": "649815c14f778d36c521a1aea69e43d9268175c6066d4afa457d0b309bea424f",
+      "before": {
+        "device": 66304,
+        "inode": 20972418,
+        "bytes": 901156854,
+        "mtime_ns": 1679086792188000000,
+        "ctime_ns": 1679086792188000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 901160960
+      },
+      "prepared_utc": "2023-03-19T05:20:46.843865+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/producer-build-001/model.engine",
+      "sha256": "d6912acc543c4accf4607761c77c459a432df5e58c93812f1b270ebe415ad2b0",
+      "before": {
+        "device": 66304,
+        "inode": 20972349,
+        "bytes": 488599688,
+        "mtime_ns": 1679085277532000000,
+        "ctime_ns": 1679085277532000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 488603648
+      },
+      "prepared_utc": "2023-03-19T05:20:47.620045+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-20/single-view-terminal-001/model.onnx.data",
+      "sha256": "5c7ed5145a602c9dac0f16037ff9691df67dbc9ca644d2b9d72e00b7d72df329",
+      "before": {
+        "device": 66304,
+        "inode": 20972363,
+        "bytes": 963512320,
+        "mtime_ns": 1792710994097723703,
+        "ctime_ns": 1679085630672000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 963518464
+      },
+      "prepared_utc": "2023-03-19T05:20:49.020148+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-104/embedding-native-001/case/baseline.onnx",
+      "sha256": "994ff9238ddf0dea9881308c9bb13f65ef87718e53616b106194bccf860793a2",
+      "before": {
+        "device": 66304,
+        "inode": 13645037,
+        "bytes": 189236032,
+        "mtime_ns": 1792646160000000000,
+        "ctime_ns": 1679153236048000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189243392
+      },
+      "prepared_utc": "2023-03-19T05:20:49.290585+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-104/embedding-native-001/case/candidate.onnx",
+      "sha256": "4ab1ef67c6d8405cb6203c38a2037269844f5afb707b34ac327a09dfbda79ae3",
+      "before": {
+        "device": 66304,
+        "inode": 13645038,
+        "bytes": 189235874,
+        "mtime_ns": 1792646163000000000,
+        "ctime_ns": 1679153238164000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189239296
+      },
+      "prepared_utc": "2023-03-19T05:20:49.497892+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-104/embedding-native-001/baseline-build-001/model.engine",
+      "sha256": "9fd08533d031608353d0475c63629a56d976070445ea83ef7d9ee4498d0939e2",
+      "before": {
+        "device": 66304,
+        "inode": 13645111,
+        "bytes": 189243717,
+        "mtime_ns": 1679153401792000000,
+        "ctime_ns": 1679153401792000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189247488
+      },
+      "prepared_utc": "2023-03-19T05:20:49.805662+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-104/embedding-native-001/candidate-build-001/model.engine",
+      "sha256": "49c3bf3155efc6e2e2e30a946563fa48003fd7da35bc652ff3fb22600344c634",
+      "before": {
+        "device": 66304,
+        "inode": 13645131,
+        "bytes": 189243701,
+        "mtime_ns": 1679153425520000000,
+        "ctime_ns": 1679153425520000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189247488
+      },
+      "prepared_utc": "2023-03-19T05:20:50.118819+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-44/stage000-build-001/model.engine",
+      "sha256": "abaa024c127da0af4c8f67a3658f6abfc33352d0e19270d921c9459e24338933",
+      "before": {
+        "device": 66304,
+        "inode": 20996167,
+        "bytes": 1407746956,
+        "mtime_ns": 1679108099312000000,
+        "ctime_ns": 1679108099312000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1407754240
+      },
+      "prepared_utc": "2023-03-19T05:20:52.128069+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-002-build-001/model.engine",
+      "sha256": "50a8c4fbb14e2d640c6ff03854015f3d203c3ddef3e36a66e02be5a3e157be21",
+      "before": {
+        "device": 66304,
+        "inode": 20319496,
+        "bytes": 2316429163,
+        "mtime_ns": 1678940036272000000,
+        "ctime_ns": 1678949260900000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316435456
+      },
+      "prepared_utc": "2023-03-19T05:20:55.520033+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-000-build-001/model.engine",
+      "sha256": "9c39c004d285b963ff6534b423df2804195b0338124939cb3b45d50e861063a1",
+      "before": {
+        "device": 66304,
+        "inode": 20319351,
+        "bytes": 2842883613,
+        "mtime_ns": 1678937451232000000,
+        "ctime_ns": 1678949255132000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2842890240
+      },
+      "prepared_utc": "2023-03-19T05:20:59.548049+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-003-build-001/model.engine",
+      "sha256": "dfcd5f02537f9cef7454d5d1edf8278034ac09566827b23870f1c2d09fd54b84",
+      "before": {
+        "device": 66304,
+        "inode": 20319539,
+        "bytes": 2316440894,
+        "mtime_ns": 1678941154612000000,
+        "ctime_ns": 1678949263232000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316447744
+      },
+      "prepared_utc": "2023-03-19T05:21:02.833204+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-001-build-002/model.engine",
+      "sha256": "7952ff0d3e9286bf6db41208fc92b4ccde5a83a3389dd3a68f7f9736a9920a1d",
+      "before": {
+        "device": 66304,
+        "inode": 20319518,
+        "bytes": 2484174867,
+        "mtime_ns": 1678940734056000000,
+        "ctime_ns": 1678949258604000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2484183040
+      },
+      "prepared_utc": "2023-03-19T05:21:06.366523+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-003/carrier.onnx.data",
+      "sha256": "25954069ef15c7e6cbf3c7fa69603784ffa10ace9ed9651b5311a27613876012",
+      "before": {
+        "device": 66304,
+        "inode": 20319435,
+        "bytes": 4630724608,
+        "mtime_ns": 1792558704218656000,
+        "ctime_ns": 1678939945340000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 4630728704
+      },
+      "prepared_utc": "2023-03-19T05:21:12.951626+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-001-build-001/model.engine",
+      "sha256": "d1be1ae06701a32a66c5dad657c067b630db95bf3c8d02645279f160da10ae00",
+      "before": {
+        "device": 66304,
+        "inode": 20319431,
+        "bytes": 2316425095,
+        "mtime_ns": 1678939207328000000,
+        "ctime_ns": 1678939207328000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2316431360
+      },
+      "prepared_utc": "2023-03-19T05:21:16.643499+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-002/carrier.onnx.data",
+      "sha256": "a1b2a760ecfbda1fd77a549bd30e1220129c3a6d4a49faa52cbfb420dc30f794",
+      "before": {
+        "device": 66304,
+        "inode": 20319421,
+        "bytes": 4630708224,
+        "mtime_ns": 1792558630379342000,
+        "ctime_ns": 1678939591788000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 4630712320
+      },
+      "prepared_utc": "2023-03-19T05:21:23.347850+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-04/t5-part-001/carrier.onnx.data",
+      "sha256": "87cffb85dc03d71ebadc883fddcb7790d6d966a6ea81b1f2d81f4ed1133df765",
+      "before": {
+        "device": 66304,
+        "inode": 20319367,
+        "bytes": 4630708224,
+        "mtime_ns": 1792558556602764000,
+        "ctime_ns": 1678938802936000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 4630712320
+      },
+      "prepared_utc": "2023-03-19T05:21:30.261759+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-29/pi05-step-source-001/pi05-step.onnx.data",
+      "sha256": "659447eac0ee4a5bfae88f797b16eed2106759360756b230187bb8f43ae71e81",
+      "before": {
+        "device": 66304,
+        "inode": 20972867,
+        "bytes": 1720393728,
+        "mtime_ns": 1792685435794753360,
+        "ctime_ns": 1679093065680000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1720397824
+      },
+      "prepared_utc": "2023-03-19T05:21:33.129418+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-29/pi05-prefix-source-parts-001/parts/stage-002/model.onnx.data",
+      "sha256": "44e7bd616fbbfa8ed441185916679b087360b2b927572ae84b88fb418e862971",
+      "before": {
+        "device": 66304,
+        "inode": 20972859,
+        "bytes": 2776727552,
+        "mtime_ns": 1792717829998643654,
+        "ctime_ns": 1679092663456000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2776731648
+      },
+      "prepared_utc": "2023-03-19T05:21:37.211428+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-29/pi05-prefix-source-parts-001/parts/stage-003/model.onnx.data",
+      "sha256": "5584bd2471c0ea5887b31f341eda642e63a9e74fedecdd7c2dfa587c21fe1aca",
+      "before": {
+        "device": 66304,
+        "inode": 20972863,
+        "bytes": 2915147776,
+        "mtime_ns": 1792717847052278826,
+        "ctime_ns": 1679092699104000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2915151872
+      },
+      "prepared_utc": "2023-03-19T05:21:41.581201+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-29/pi05-prefix-source-parts-001/parts/stage-001/model.onnx.data",
+      "sha256": "cce883aaa51be86abea207753decc70b8f3ae274b0fe9e760f27fbe09a507cb3",
+      "before": {
+        "device": 66304,
+        "inode": 20972855,
+        "bytes": 2762950656,
+        "mtime_ns": 1792717813193032908,
+        "ctime_ns": 1679092630424000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2762956800
+      },
+      "prepared_utc": "2023-03-19T05:21:45.750743+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-29/pi05-prefix-source-parts-001/parts/stage-000/model.onnx.data",
+      "sha256": "21fef8c8b9c4fd0efa782f7ed954720037aaf60bb7614b9bc0d47daa8407f1c9",
+      "before": {
+        "device": 66304,
+        "inode": 20972851,
+        "bytes": 2802293696,
+        "mtime_ns": 1792717795742361031,
+        "ctime_ns": 1679092597216000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2802298880
+      },
+      "prepared_utc": "2023-03-19T05:21:49.956633+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-51/resource-bundle-001/artifacts/region-3.engine",
+      "sha256": "a3b54076a12984303b1a6aba87a7010a9c1b97f93ff301c0f8e3f3a52c59a14e",
+      "before": {
+        "device": 66304,
+        "inode": 20996493,
+        "bytes": 1101543612,
+        "mtime_ns": 1679115625140000000,
+        "ctime_ns": 1679115625140000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1101549568
+      },
+      "prepared_utc": "2023-03-19T05:21:51.802761+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-51/resource-bundle-001/artifacts/region-5.engine",
+      "sha256": "abaa024c127da0af4c8f67a3658f6abfc33352d0e19270d921c9459e24338933",
+      "before": {
+        "device": 66304,
+        "inode": 20996495,
+        "bytes": 1407746956,
+        "mtime_ns": 1679115628896000000,
+        "ctime_ns": 1679115628896000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1407754240
+      },
+      "prepared_utc": "2023-03-19T05:21:53.923025+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-51/resource-bundle-001/artifacts/region-6.engine",
+      "sha256": "0e388152c8d683c91658e9f22b5e3910c665760b174dd7c787b9452d94ebb34c",
+      "before": {
+        "device": 66304,
+        "inode": 20996496,
+        "bytes": 484582813,
+        "mtime_ns": 1679115631124000000,
+        "ctime_ns": 1679115631124000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 484589568
+      },
+      "prepared_utc": "2023-03-19T05:21:54.773389+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-51/resource-bundle-001/artifacts/region-7.engine",
+      "sha256": "089a2ab8b37ed570e246b618bf730744afbb0b2399734427e1e2493beb2d4b28",
+      "before": {
+        "device": 66304,
+        "inode": 20996497,
+        "bytes": 901004425,
+        "mtime_ns": 1679115633648000000,
+        "ctime_ns": 1679115633648000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 901009408
+      },
+      "prepared_utc": "2023-03-19T05:21:56.117695+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-51/resource-bundle-001/artifacts/region-8.engine",
+      "sha256": "3c25d5dd87dca44bf7112a5f686f47ddae8f37ab5aedf7c319ecc7a31369d0c8",
+      "before": {
+        "device": 66304,
+        "inode": 20996498,
+        "bytes": 1389687337,
+        "mtime_ns": 1679115637832000000,
+        "ctime_ns": 1679115637832000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389694976
+      },
+      "prepared_utc": "2023-03-19T05:21:58.184045+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-51/resource-bundle-001/artifacts/region-9.engine",
+      "sha256": "2118428d4188e461d7d604678cbca17c9ab961671c72ff04a454fb98ccd7e63e",
+      "before": {
+        "device": 66304,
+        "inode": 20996499,
+        "bytes": 1458999614,
+        "mtime_ns": 1679115643264000000,
+        "ctime_ns": 1679115643264000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1459007488
+      },
+      "prepared_utc": "2023-03-19T05:22:00.404899+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261024-06/build-00/model.engine",
+      "sha256": "a579512d381aa2306a8b9c1c69c742242d805f2801738162188bc1c59125cfeb",
+      "before": {
+        "device": 66304,
+        "inode": 13716361,
+        "bytes": 189243786,
+        "mtime_ns": 1679195236092000000,
+        "ctime_ns": 1679195236092000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189247488
+      },
+      "prepared_utc": "2023-03-19T05:22:00.730618+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261024-06/build-01/model.engine",
+      "sha256": "6d4fb5accdb6fb3a556ea2dd926275a242c9e7f136b45844376e32467aef45af",
+      "before": {
+        "device": 66304,
+        "inode": 13716373,
+        "bytes": 189243788,
+        "mtime_ns": 1679195244908000000,
+        "ctime_ns": 1679195244908000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189247488
+      },
+      "prepared_utc": "2023-03-19T05:22:00.941222+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-105-attention-baseline/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:01.280511+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-105-attention-baseline/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:02.244208+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-105/attention-prefix-build-001/engine-build/model.engine",
+      "sha256": "5a9aec6fd6a25ec1c98ef5eb2cdfce7b71c66f7ec918e0f1aed8c5e6e4bf57ac",
+      "before": {
+        "device": 66304,
+        "inode": 13645179,
+        "bytes": 657544346,
+        "mtime_ns": 1679154758384000000,
+        "ctime_ns": 1679155138104000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 657551360
+      },
+      "prepared_utc": "2023-03-19T05:22:03.169393+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-105/attention-integrated-prefix-002/candidate.onnx",
+      "sha256": "c3abe66a6a9eceff411ee3a0dde76ceadb8ac7496e2632ba448d35ca6ed5f152",
+      "before": {
+        "device": 66304,
+        "inode": 13645167,
+        "bytes": 1400188971,
+        "mtime_ns": 1792645371000000000,
+        "ctime_ns": 1679154545284000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1400197120
+      },
+      "prepared_utc": "2023-03-19T05:22:05.176940+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-integrated-prefix-build-20261022-001/engine-build/model.engine",
+      "sha256": "2a88ae417e13ff59fb52eba7ded9c5e269e105c8e8a9aebde28627eda427d750",
+      "before": {
+        "device": 66304,
+        "inode": 15082863,
+        "bytes": 657625444,
+        "mtime_ns": 1679002712164000000,
+        "ctime_ns": 1679002917464000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 657633280
+      },
+      "prepared_utc": "2023-03-19T05:22:06.232936+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-prefix-phase-001/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:06.515798+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-prefix-phase-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "769eceafd1cc73add22bbe07e26eb32299c48f307935526a252c196805fc3e72",
+      "before": {
+        "device": 66304,
+        "inode": 20054956,
+        "bytes": 599907972,
+        "mtime_ns": 1678923598008000000,
+        "ctime_ns": 1678892786740000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 599912448
+      },
+      "prepared_utc": "2023-03-19T05:22:07.380176+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/prefix-neural-key-float-build-001/model.engine",
+      "sha256": "372d2f854940d5b65e48db7953e250f72eab641a6d8f26952a35b293abad1609",
+      "before": {
+        "device": 66304,
+        "inode": 20055346,
+        "bytes": 609777479,
+        "mtime_ns": 1678924756864000000,
+        "ctime_ns": 1678892786784000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 609783808
+      },
+      "prepared_utc": "2023-03-19T05:22:08.261071+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/norm-ablation-baseline-20261022-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:08.262229+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/norm-ablation-baseline-20261022-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "fca6c023ad5a72a381f3c2fb83d0f535df369c7279bf27334b7b2c93d30f3927",
+      "before": {
+        "device": 66304,
+        "inode": 20055674,
+        "bytes": 610531988,
+        "mtime_ns": 1678925823680000000,
+        "ctime_ns": 1679000536716000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 3,
+        "allocated_bytes": 610537472
+      },
+      "prepared_utc": "2023-03-19T05:22:09.143164+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/qualified-mode-off-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:09.144143+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/qualified-mode-off-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:09.144508+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-mode-batch-002/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:09.144856+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-mode-batch-002/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.engine",
+      "sha256": "6611dac93662dcc62f110411c955b3bdb2d9ed5662c93218dcc896c7af65e392",
+      "before": {
+        "device": 66304,
+        "inode": 15598447,
+        "bytes": 599997225,
+        "mtime_ns": 1678908286992000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 7,
+        "allocated_bytes": 600002560
+      },
+      "prepared_utc": "2023-03-19T05:22:09.987736+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/qualified-mode-batch-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:09.988520+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/qualified-mode-batch-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:09.988854+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-integrated-candidate-20261022-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:09.989314+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-integrated-candidate-20261022-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "2a88ae417e13ff59fb52eba7ded9c5e269e105c8e8a9aebde28627eda427d750",
+      "before": {
+        "device": 66304,
+        "inode": 15082863,
+        "bytes": 657625444,
+        "mtime_ns": 1679002712164000000,
+        "ctime_ns": 1679002917464000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 657633280
+      },
+      "prepared_utc": "2023-03-19T05:22:09.989629+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/prefix-neural-build-001/model.engine",
+      "sha256": "769eceafd1cc73add22bbe07e26eb32299c48f307935526a252c196805fc3e72",
+      "before": {
+        "device": 66304,
+        "inode": 20054956,
+        "bytes": 599907972,
+        "mtime_ns": 1678923598008000000,
+        "ctime_ns": 1678892786740000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 599912448
+      },
+      "prepared_utc": "2023-03-19T05:22:10.053312+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/norm-ablation-candidate-20261022-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:10.109059+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/norm-ablation-candidate-20261022-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:10.109791+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-layernorm-plugin-001/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:10.110155+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-layernorm-plugin-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:10.110520+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/step-build-002/model.engine",
+      "sha256": "8980eb5d4e76b324b9d082c53226917479e3a7235caebeb476441b3c5aad8945",
+      "before": {
+        "device": 66304,
+        "inode": 19138562,
+        "bytes": 200604691,
+        "mtime_ns": 1678917861804000000,
+        "ctime_ns": 1678892786792000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:10.408126+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-control-rebuilt-20261022-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:10.408913+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-control-rebuilt-20261022-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "b0b77654c8b4312e6fe355709a12afa54005c83e3e2ddec1935b2fcbffd8c42e",
+      "before": {
+        "device": 66304,
+        "inode": 18220047,
+        "bytes": 657634710,
+        "mtime_ns": 1679003204036000000,
+        "ctime_ns": 1679003367180000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 657641472
+      },
+      "prepared_utc": "2023-03-19T05:22:11.327739+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-fp32-island-002/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:11.328561+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-fp32-island-002/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.engine",
+      "sha256": "6611dac93662dcc62f110411c955b3bdb2d9ed5662c93218dcc896c7af65e392",
+      "before": {
+        "device": 66304,
+        "inode": 15598447,
+        "bytes": 599997225,
+        "mtime_ns": 1678908286992000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 7,
+        "allocated_bytes": 600002560
+      },
+      "prepared_utc": "2023-03-19T05:22:11.328967+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/prefix-build-005/model.engine",
+      "sha256": "6611dac93662dcc62f110411c955b3bdb2d9ed5662c93218dcc896c7af65e392",
+      "before": {
+        "device": 66304,
+        "inode": 15598447,
+        "bytes": 599997225,
+        "mtime_ns": 1678908286992000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 7,
+        "allocated_bytes": 600002560
+      },
+      "prepared_utc": "2023-03-19T05:22:11.329436+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-mode-off-002/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:11.329804+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-mode-off-002/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.engine",
+      "sha256": "6611dac93662dcc62f110411c955b3bdb2d9ed5662c93218dcc896c7af65e392",
+      "before": {
+        "device": 66304,
+        "inode": 15598447,
+        "bytes": 599997225,
+        "mtime_ns": 1678908286992000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 7,
+        "allocated_bytes": 600002560
+      },
+      "prepared_utc": "2023-03-19T05:22:11.330111+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-integrated-baseline-20261022-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:11.330428+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-integrated-baseline-20261022-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:11.330715+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/models/prefix-basic.onnx",
+      "sha256": "10e5405e81cf8cff311b1fae560238c357e663197b6b7850f3f9e73222beb922",
+      "before": {
+        "device": 66304,
+        "inode": 15598413,
+        "bytes": 1208168807,
+        "mtime_ns": 1678907161032000000,
+        "ctime_ns": 1678892786768000000,
+        "mode": 420,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1208176640
+      },
+      "prepared_utc": "2023-03-19T05:22:13.075864+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/models/prefix-layernorm.onnx",
+      "sha256": "841d6adede228f52e7eb3939528ce06e85a8a853add6944b01749b8dcf502114",
+      "before": {
+        "device": 66304,
+        "inode": 15598398,
+        "bytes": 122857331,
+        "mtime_ns": 1678906650948000000,
+        "ctime_ns": 1678892786768000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 122859520
+      },
+      "prepared_utc": "2023-03-19T05:22:13.365149+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/models/prefix-opset17-v2.onnx",
+      "sha256": "bd7e6b15ecc0dcded195ed3a1a60796557983e60ed01f7e5a5a01554e81d4252",
+      "before": {
+        "device": 66304,
+        "inode": 15598406,
+        "bytes": 122854075,
+        "mtime_ns": 1678907059056000000,
+        "ctime_ns": 1678892786768000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 122859520
+      },
+      "prepared_utc": "2023-03-19T05:22:13.558223+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/models/prefix-source-f32.onnx",
+      "sha256": "6fbab20cf07adb5a18b6dcbeb0aa262e086f6fcf44909de5966e8361e0f2206a",
+      "before": {
+        "device": 66304,
+        "inode": 15598391,
+        "bytes": 1297403067,
+        "mtime_ns": 1678906361308000000,
+        "ctime_ns": 1678892786768000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1297408000
+      },
+      "prepared_utc": "2023-03-19T05:22:15.431383+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/models/step-opset17.onnx",
+      "sha256": "e97d3f4f0513a363de9b802703daa12f2d25d54faa843c37c8f814dc689ac33c",
+      "before": {
+        "device": 66304,
+        "inode": 15598420,
+        "bytes": 399856283,
+        "mtime_ns": 1678907623044000000,
+        "ctime_ns": 1678892786768000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 399863808
+      },
+      "prepared_utc": "2023-03-19T05:22:16.123320+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/prefix-build-004/model.engine",
+      "sha256": "26e6fc0188aac3563e7994856f4c54ee735b8dfb405a76cc5853a2eaf959befe",
+      "before": {
+        "device": 66304,
+        "inode": 15598422,
+        "bytes": 596080746,
+        "mtime_ns": 1678907421980000000,
+        "ctime_ns": 1678892786768000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 596086784
+      },
+      "prepared_utc": "2023-03-19T05:22:17.014489+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-rebuild-control-20261022-001/engine-build/model.engine",
+      "sha256": "b0b77654c8b4312e6fe355709a12afa54005c83e3e2ddec1935b2fcbffd8c42e",
+      "before": {
+        "device": 66304,
+        "inode": 18220047,
+        "bytes": 657634710,
+        "mtime_ns": 1679003204036000000,
+        "ctime_ns": 1679003367180000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 657641472
+      },
+      "prepared_utc": "2023-03-19T05:22:17.072383+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/qualified-mode-replay-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:17.134058+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/qualified-mode-replay-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:17.134568+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-prefix-key-float-001/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:17.134887+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-prefix-key-float-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "372d2f854940d5b65e48db7953e250f72eab641a6d8f26952a35b293abad1609",
+      "before": {
+        "device": 66304,
+        "inode": 20055346,
+        "bytes": 609777479,
+        "mtime_ns": 1678924756864000000,
+        "ctime_ns": 1678892786784000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 609783808
+      },
+      "prepared_utc": "2023-03-19T05:22:17.135159+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-step-float-output-001/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "8980eb5d4e76b324b9d082c53226917479e3a7235caebeb476441b3c5aad8945",
+      "before": {
+        "device": 66304,
+        "inode": 19138562,
+        "bytes": 200604691,
+        "mtime_ns": 1678917861804000000,
+        "ctime_ns": 1678892786792000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:17.189689+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-step-float-output-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.engine",
+      "sha256": "6611dac93662dcc62f110411c955b3bdb2d9ed5662c93218dcc896c7af65e392",
+      "before": {
+        "device": 66304,
+        "inode": 15598447,
+        "bytes": 599997225,
+        "mtime_ns": 1678908286992000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 7,
+        "allocated_bytes": 600002560
+      },
+      "prepared_utc": "2023-03-19T05:22:17.211307+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-prefix-key-patch-float-001/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:17.211891+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-prefix-key-patch-float-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "fca6c023ad5a72a381f3c2fb83d0f535df369c7279bf27334b7b2c93d30f3927",
+      "before": {
+        "device": 66304,
+        "inode": 20055674,
+        "bytes": 610531988,
+        "mtime_ns": 1678925823680000000,
+        "ctime_ns": 1679000536716000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 3,
+        "allocated_bytes": 610537472
+      },
+      "prepared_utc": "2023-03-19T05:22:17.212197+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-mode-replay-002/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:17.212504+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-mode-replay-002/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.engine",
+      "sha256": "6611dac93662dcc62f110411c955b3bdb2d9ed5662c93218dcc896c7af65e392",
+      "before": {
+        "device": 66304,
+        "inode": 15598447,
+        "bytes": 599997225,
+        "mtime_ns": 1678908286992000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 7,
+        "allocated_bytes": 600002560
+      },
+      "prepared_utc": "2023-03-19T05:22:17.212790+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-control-baseline-20261022-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:17.213089+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/gemm-control-baseline-20261022-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:17.213380+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/step-build-001/model.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:17.213743+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/prefix-neural-layernorm-plugin-build-001/model.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:17.214026+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-session-001/bundle/artifacts/smolvla_fresh_step.engine",
+      "sha256": "7c3389406c52e6724efa726c3408f57b41aeddd1f59603a585eaee21b40867fe",
+      "before": {
+        "device": 66304,
+        "inode": 15598462,
+        "bytes": 200603483,
+        "mtime_ns": 1678908572316000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 9,
+        "allocated_bytes": 200609792
+      },
+      "prepared_utc": "2023-03-19T05:22:17.214319+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-session-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51.engine",
+      "sha256": "6611dac93662dcc62f110411c955b3bdb2d9ed5662c93218dcc896c7af65e392",
+      "before": {
+        "device": 66304,
+        "inode": 15598447,
+        "bytes": 599997225,
+        "mtime_ns": 1678908286992000000,
+        "ctime_ns": 1678892786828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 7,
+        "allocated_bytes": 600002560
+      },
+      "prepared_utc": "2023-03-19T05:22:17.233877+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-layernorm-solver-001/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:17.287801+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/native-layernorm-solver-001/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "e3eaeaf3988b0a0ff919173275213c24a5fa9b3e27e156329135ddda72ae8ab3",
+      "before": {
+        "device": 66304,
+        "inode": 20185796,
+        "bytes": 657852105,
+        "mtime_ns": 1678928854208000000,
+        "ctime_ns": 1679155099828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 10,
+        "allocated_bytes": 657858560
+      },
+      "prepared_utc": "2023-03-19T05:22:17.288291+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/prefix-neural-key-patch-float-build-001/model.engine",
+      "sha256": "fca6c023ad5a72a381f3c2fb83d0f535df369c7279bf27334b7b2c93d30f3927",
+      "before": {
+        "device": 66304,
+        "inode": 20055674,
+        "bytes": 610531988,
+        "mtime_ns": 1678925823680000000,
+        "ctime_ns": 1679000536716000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 3,
+        "allocated_bytes": 610537472
+      },
+      "prepared_utc": "2023-03-19T05:22:17.354593+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/trt-smolvla-001/step-core-build-001/model.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:22:17.410011+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/prefix-phase-partition-001/consumer-layernorm-plugin.onnx",
+      "sha256": "567ef82105c2ebbb7f7afde0faa7c3a960cf80c0711e31bc5a4c10dbef58a147",
+      "before": {
+        "device": 66304,
+        "inode": 20059459,
+        "bytes": 1400189097,
+        "mtime_ns": 1678928561104000000,
+        "ctime_ns": 1678892786904000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1400197120
+      },
+      "prepared_utc": "2023-03-19T05:22:19.457816+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/prefix-phase-partition-001/consumer.onnx",
+      "sha256": "3d9ad15beab85a57b894f700df95915be2704d8299dedddede290956ceddab02",
+      "before": {
+        "device": 66304,
+        "inode": 20054928,
+        "bytes": 1400288650,
+        "mtime_ns": 1678923401160000000,
+        "ctime_ns": 1678892786904000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1400295424
+      },
+      "prepared_utc": "2023-03-19T05:22:21.671745+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261020-00/step-fp32-tail-partition-001/core.onnx",
+      "sha256": "715918eaa872dfd697bbb70013e4fe8f8f74d9bb02156303c0c7f2723dad00d1",
+      "before": {
+        "device": 66304,
+        "inode": 19664360,
+        "bytes": 399785922,
+        "mtime_ns": 1678919437840000000,
+        "ctime_ns": 1678892787024000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 399790080
+      },
+      "prepared_utc": "2023-03-19T05:22:22.391674+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle/artifacts/rdt_denoiser.engine",
+      "sha256": "0327f1933653e0bb20c26a57483764543aa76ef35e6dee3f5b388faf2ba05531",
+      "before": {
+        "device": 66304,
+        "inode": 20319793,
+        "bytes": 2438692823,
+        "mtime_ns": 1678944976672000000,
+        "ctime_ns": 1678949250304000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2438696960
+      },
+      "prepared_utc": "2023-03-19T05:22:25.864505+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle/artifacts/rdt_text_part_000.engine",
+      "sha256": "9c39c004d285b963ff6534b423df2804195b0338124939cb3b45d50e861063a1",
+      "before": {
+        "device": 66304,
+        "inode": 20319351,
+        "bytes": 2842883613,
+        "mtime_ns": 1678937451232000000,
+        "ctime_ns": 1678949255132000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2842890240
+      },
+      "prepared_utc": "2023-03-19T05:22:25.865535+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle/artifacts/rdt_text_part_001.engine",
+      "sha256": "7952ff0d3e9286bf6db41208fc92b4ccde5a83a3389dd3a68f7f9736a9920a1d",
+      "before": {
+        "device": 66304,
+        "inode": 20319518,
+        "bytes": 2484174867,
+        "mtime_ns": 1678940734056000000,
+        "ctime_ns": 1678949258604000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2484183040
+      },
+      "prepared_utc": "2023-03-19T05:22:25.866026+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle/artifacts/rdt_text_part_002.engine",
+      "sha256": "50a8c4fbb14e2d640c6ff03854015f3d203c3ddef3e36a66e02be5a3e157be21",
+      "before": {
+        "device": 66304,
+        "inode": 20319496,
+        "bytes": 2316429163,
+        "mtime_ns": 1678940036272000000,
+        "ctime_ns": 1678949260900000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316435456
+      },
+      "prepared_utc": "2023-03-19T05:22:25.866315+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle/artifacts/rdt_text_part_003.engine",
+      "sha256": "dfcd5f02537f9cef7454d5d1edf8278034ac09566827b23870f1c2d09fd54b84",
+      "before": {
+        "device": 66304,
+        "inode": 20319539,
+        "bytes": 2316440894,
+        "mtime_ns": 1678941154612000000,
+        "ctime_ns": 1678949263232000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316447744
+      },
+      "prepared_utc": "2023-03-19T05:22:25.866612+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-batch-20261021-06-002/bundle/artifacts/vf_cached_rdt_vision_20.engine",
+      "sha256": "23c4384acfe4d8d0976544de4dbf2fdfb8a98bc6265a5bf219234da4d9a0f88f",
+      "before": {
+        "device": 66304,
+        "inode": 20319326,
+        "bytes": 830409561,
+        "mtime_ns": 1678936487132000000,
+        "ctime_ns": 1678949251144000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 830414848
+      },
+      "prepared_utc": "2023-03-19T05:22:27.017928+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-10.engine",
+      "sha256": "6c3e33801582042c813af3c37e08a3e28f0b3f3ee33f8d09b75cada762e72a62",
+      "before": {
+        "device": 66304,
+        "inode": 13643889,
+        "bytes": 1315899476,
+        "mtime_ns": 1679142891980000000,
+        "ctime_ns": 1679148751816000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1315905536
+      },
+      "prepared_utc": "2023-03-19T05:22:28.755619+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-11.engine",
+      "sha256": "3599681f97de8ef7f2a4d7d5f0548c7591f1b7e990029607399873aeee560dc1",
+      "before": {
+        "device": 66304,
+        "inode": 13643905,
+        "bytes": 1315880852,
+        "mtime_ns": 1679143213888000000,
+        "ctime_ns": 1679148753124000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1315885056
+      },
+      "prepared_utc": "2023-03-19T05:22:30.547590+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-12.engine",
+      "sha256": "9f4e59950717e46b183d47fbc0892a053b8c6a4157e36543fa8c96348329f1f4",
+      "before": {
+        "device": 66304,
+        "inode": 13643921,
+        "bytes": 1315966659,
+        "mtime_ns": 1679143537080000000,
+        "ctime_ns": 1679148754388000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1315971072
+      },
+      "prepared_utc": "2023-03-19T05:22:31.763754+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-13.engine",
+      "sha256": "67539b7bd1c03bcd5b5535e0a73dfd573666c329189f533b1aee9d6c94493618",
+      "before": {
+        "device": 66304,
+        "inode": 13643937,
+        "bytes": 1406177140,
+        "mtime_ns": 1679143887184000000,
+        "ctime_ns": 1679148755652000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1406181376
+      },
+      "prepared_utc": "2023-03-19T05:22:33.088604+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-14.engine",
+      "sha256": "258329592700d34606ce148ed3192317751ec43b673a4908b5ca343efcd7aed5",
+      "before": {
+        "device": 66304,
+        "inode": 13643953,
+        "bytes": 1406043004,
+        "mtime_ns": 1679144239592000000,
+        "ctime_ns": 1679148757000000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1406050304
+      },
+      "prepared_utc": "2023-03-19T05:22:34.541693+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-15.engine",
+      "sha256": "4b3dd14684d0c15d677350526cc3834a0d6e569be3e6f363b227ef85f024ad82",
+      "before": {
+        "device": 66304,
+        "inode": 13643969,
+        "bytes": 1406146947,
+        "mtime_ns": 1679144573360000000,
+        "ctime_ns": 1679148758360000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1406152704
+      },
+      "prepared_utc": "2023-03-19T05:22:35.894358+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-2.engine",
+      "sha256": "87607e27aee059483b713acf4e79996d59ede278a83d9f5aa5790053164b5fc5",
+      "before": {
+        "device": 66304,
+        "inode": 13644053,
+        "bytes": 356888568,
+        "mtime_ns": 1679144658616000000,
+        "ctime_ns": 1679148759692000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 356888576
+      },
+      "prepared_utc": "2023-03-19T05:22:36.258317+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-5.engine",
+      "sha256": "3c11c25c8f14f342b84e0cea2edcada1e312720cb68061931e2fbdbe10791c7e",
+      "before": {
+        "device": 66304,
+        "inode": 13643621,
+        "bytes": 1528139126,
+        "mtime_ns": 1679141240468000000,
+        "ctime_ns": 1679148742748000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1528143872
+      },
+      "prepared_utc": "2023-03-19T05:22:37.679488+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-6.engine",
+      "sha256": "0a231ce558e76e1b144b434998f20b244715b73b6a341d87e9b1eed5f072c670",
+      "before": {
+        "device": 66304,
+        "inode": 13643822,
+        "bytes": 1751052970,
+        "mtime_ns": 1679141544844000000,
+        "ctime_ns": 1679148744964000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1751060480
+      },
+      "prepared_utc": "2023-03-19T05:22:39.316759+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-7.engine",
+      "sha256": "d512d484e2a59193c8bbee65cf8fb9b86c436fc6e45b1feb9890316514b74d17",
+      "before": {
+        "device": 66304,
+        "inode": 13643841,
+        "bytes": 1574072870,
+        "mtime_ns": 1679141891444000000,
+        "ctime_ns": 1679148747432000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1574080512
+      },
+      "prepared_utc": "2023-03-19T05:22:41.559384+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-8.engine",
+      "sha256": "3b2118970280777cb2f45d95d67c41bb2c3a627216c30e05299e2d39c7c8b566",
+      "before": {
+        "device": 66304,
+        "inode": 13643857,
+        "bytes": 1496247586,
+        "mtime_ns": 1679142226900000000,
+        "ctime_ns": 1679148748916000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1496252416
+      },
+      "prepared_utc": "2023-03-19T05:22:43.658646+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-96/resources-001/artifacts/region-9.engine",
+      "sha256": "b2762262b2d687d64ce988835f461619f05c60f69c40e865daaf31eddd2d58ae",
+      "before": {
+        "device": 66304,
+        "inode": 13643873,
+        "bytes": 1574134598,
+        "mtime_ns": 1679142571900000000,
+        "ctime_ns": 1679148750304000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1574141952
+      },
+      "prepared_utc": "2023-03-19T05:22:45.885704+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-005/model.onnx.data",
+      "sha256": "f08e348310d78912c8205fa27eca746d215dc77aca5191c1b362f0a5bf353801",
+      "before": {
+        "device": 66304,
+        "inode": 21245319,
+        "bytes": 2428603764,
+        "mtime_ns": 1679138686856000000,
+        "ctime_ns": 1679138686856000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2428608512
+      },
+      "prepared_utc": "2023-03-19T05:22:49.325810+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-004/model.onnx.data",
+      "sha256": "1e517a1c01bdc9f9817e0a7c262c7de644da20d61522a31614b8398622fcad44",
+      "before": {
+        "device": 66304,
+        "inode": 21245315,
+        "bytes": 2877428208,
+        "mtime_ns": 1679138651316000000,
+        "ctime_ns": 1679138651316000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2877435904
+      },
+      "prepared_utc": "2023-03-19T05:22:53.607760+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-003/model.onnx.data",
+      "sha256": "30eb8b86b0c1c39b4768c251478fb71881cc8ceffa0fe49ebe7d803a88c2af19",
+      "before": {
+        "device": 66304,
+        "inode": 21245311,
+        "bytes": 2789313908,
+        "mtime_ns": 1679138609908000000,
+        "ctime_ns": 1679138609908000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2789318656
+      },
+      "prepared_utc": "2023-03-19T05:22:57.806397+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-006/model.onnx.data",
+      "sha256": "f2285563a7a2c09e15f85fd4eba669e02c8dbb8ae94b6e8caa107d14b5a133ad",
+      "before": {
+        "device": 66304,
+        "inode": 21245323,
+        "bytes": 2428603764,
+        "mtime_ns": 1679138722120000000,
+        "ctime_ns": 1679138722120000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2428608512
+      },
+      "prepared_utc": "2023-03-19T05:23:01.497004+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-008/model.onnx.data",
+      "sha256": "a95da885272bd06c9df969517a585a838042d3744e5beaeedf8301ba47ef9858",
+      "before": {
+        "device": 66304,
+        "inode": 21245331,
+        "bytes": 2608958836,
+        "mtime_ns": 1679138792368000000,
+        "ctime_ns": 1679138792368000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2608963584
+      },
+      "prepared_utc": "2023-03-19T05:23:05.383942+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-002/model.onnx.data",
+      "sha256": "915aa2e0f5b75634ae2f8495372ed41a17fe5d036a7889d3e6faa8692fdf45b1",
+      "before": {
+        "device": 66304,
+        "inode": 21245307,
+        "bytes": 2877428208,
+        "mtime_ns": 1679138569732000000,
+        "ctime_ns": 1679138569732000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2877435904
+      },
+      "prepared_utc": "2023-03-19T05:23:09.678279+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-009/model.onnx.data",
+      "sha256": "25e924255066d13138252700155c5f69465d3899b92cdb464961d949bf9295ee",
+      "before": {
+        "device": 66304,
+        "inode": 21245335,
+        "bytes": 2608958836,
+        "mtime_ns": 1679138831636000000,
+        "ctime_ns": 1679138831636000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2608963584
+      },
+      "prepared_utc": "2023-03-19T05:23:13.605888+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/neural-step/neural-opset17.onnx",
+      "sha256": "2ed2fbeccb768c9ee842f214445dd6bbe014395ea20f34948346a3d0b1a09754",
+      "before": {
+        "device": 66304,
+        "inode": 21245341,
+        "bytes": 356173643,
+        "mtime_ns": 1679138878472000000,
+        "ctime_ns": 1679138878472000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 356179968
+      },
+      "prepared_utc": "2023-03-19T05:23:14.376652+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-001/model.onnx.data",
+      "sha256": "314d7fb176561396e551af4f6bc3eec24d2a757b3ed7b07b204c355ea3ce2de5",
+      "before": {
+        "device": 66304,
+        "inode": 21245302,
+        "bytes": 2773585268,
+        "mtime_ns": 1679138528656000000,
+        "ctime_ns": 1679138528656000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2773590016
+      },
+      "prepared_utc": "2023-03-19T05:23:18.313174+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-010/model.onnx.data",
+      "sha256": "ab1da5911bdeff34d4a65a3328041352d751f36f1ebdcaeb2e1d7bbcfd8adf90",
+      "before": {
+        "device": 66304,
+        "inode": 21245339,
+        "bytes": 2608975220,
+        "mtime_ns": 1679138868380000000,
+        "ctime_ns": 1679138868380000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2608979968
+      },
+      "prepared_utc": "2023-03-19T05:23:22.244981+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-000/model.onnx.data",
+      "sha256": "ab3c5d6d3e3f8ebdfa82db743e511e3617660f3de1ce8171ab016945a5f6ac0b",
+      "before": {
+        "device": 66304,
+        "inode": 21245292,
+        "bytes": 3036867200,
+        "mtime_ns": 1679136694228000000,
+        "ctime_ns": 1679136694228000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 3036872704
+      },
+      "prepared_utc": "2023-03-19T05:23:26.816546+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-76/sources/prefix-stage-007/model.onnx.data",
+      "sha256": "6249f4f6669d7b5ba25fff6619af5e4390ea281baa37ba11f039dd0bd1e5c589",
+      "before": {
+        "device": 66304,
+        "inode": 21245327,
+        "bytes": 2428603764,
+        "mtime_ns": 1679138756288000000,
+        "ctime_ns": 1679138756288000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2428608512
+      },
+      "prepared_utc": "2023-03-19T05:23:30.550835+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261022-00/gemm-integrated-prefix-001/candidate.onnx",
+      "sha256": "264e85dc20365864285570262f0d91b39a3fbf86f224be04666cd2898d46b869",
+      "before": {
+        "device": 66304,
+        "inode": 20450496,
+        "bytes": 1401419141,
+        "mtime_ns": 1679002432484000000,
+        "ctime_ns": 1679002432484000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1401425920
+      },
+      "prepared_utc": "2023-03-19T05:23:32.769214+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-43/pi05-repeated-source-001/shared/model.onnx.data",
+      "sha256": "a4a674932bbc3e32aa1d6d200dd55ad4f382c2c5c52281413eca38e8ec8734ac",
+      "before": {
+        "device": 66304,
+        "inode": 20996145,
+        "bytes": 963512320,
+        "mtime_ns": 1679107871600000000,
+        "ctime_ns": 1679107871600000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 963518464
+      },
+      "prepared_utc": "2023-03-19T05:23:34.282499+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-43/pi05-repeated-source-001/consumer/model.onnx.data",
+      "sha256": "56cdc48d9997ad3e4c6fc51ed2d99dfabff86f28d59baec69ce3a77aeb0e4f16",
+      "before": {
+        "device": 66304,
+        "inode": 20996163,
+        "bytes": 1799438336,
+        "mtime_ns": 1679107894604000000,
+        "ctime_ns": 1679107894604000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1799442432
+      },
+      "prepared_utc": "2023-03-19T05:23:36.927370+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-45/stage002-build-001/model.engine",
+      "sha256": "3c25d5dd87dca44bf7112a5f686f47ddae8f37ab5aedf7c319ecc7a31369d0c8",
+      "before": {
+        "device": 66304,
+        "inode": 20996255,
+        "bytes": 1389687337,
+        "mtime_ns": 1679110051260000000,
+        "ctime_ns": 1679110051260000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389694976
+      },
+      "prepared_utc": "2023-03-19T05:23:39.074926+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-45/stage003-build-001/model.engine",
+      "sha256": "2118428d4188e461d7d604678cbca17c9ab961671c72ff04a454fb98ccd7e63e",
+      "before": {
+        "device": 66304,
+        "inode": 20996284,
+        "bytes": 1458999614,
+        "mtime_ns": 1679110802092000000,
+        "ctime_ns": 1679110802092000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1459007488
+      },
+      "prepared_utc": "2023-03-19T05:23:41.281459+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-45/consumer-build-001/model.engine",
+      "sha256": "089a2ab8b37ed570e246b618bf730744afbb0b2399734427e1e2493beb2d4b28",
+      "before": {
+        "device": 66304,
+        "inode": 20996229,
+        "bytes": 901004425,
+        "mtime_ns": 1679109317860000000,
+        "ctime_ns": 1679109317860000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 901009408
+      },
+      "prepared_utc": "2023-03-19T05:23:42.724531+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-45/shared-build-001/model.engine",
+      "sha256": "0e388152c8d683c91658e9f22b5e3910c665760b174dd7c787b9452d94ebb34c",
+      "before": {
+        "device": 66304,
+        "inode": 20996195,
+        "bytes": 484582813,
+        "mtime_ns": 1679108684032000000,
+        "ctime_ns": 1679108684032000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 484585472
+      },
+      "prepared_utc": "2023-03-19T05:23:43.527881+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-45/step-build-001/model.engine",
+      "sha256": "a3b54076a12984303b1a6aba87a7010a9c1b97f93ff301c0f8e3f3a52c59a14e",
+      "before": {
+        "device": 66304,
+        "inode": 20996310,
+        "bytes": 1101543612,
+        "mtime_ns": 1679111204656000000,
+        "ctime_ns": 1679111204656000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1101549568
+      },
+      "prepared_utc": "2023-03-19T05:23:45.160828+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-05/conditions-opmath-001/carrier.onnx.data",
+      "sha256": "0ca1312e40bf3fc1b85aea05350626462339d0feebe7d12da5f38ba565faf145",
+      "before": {
+        "device": 66304,
+        "inode": 20319654,
+        "bytes": 112254976,
+        "mtime_ns": 1792568519087335000,
+        "ctime_ns": 1678943364820000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 112254976
+      },
+      "prepared_utc": "2023-03-19T05:23:45.450252+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-05/denoiser-opmath-001/carrier.onnx.data",
+      "sha256": "af605f980a4081e5675445e3812befd3b3c47860df8385a4ec00389ac37e518e",
+      "before": {
+        "device": 66304,
+        "inode": 20319651,
+        "bytes": 4828332032,
+        "mtime_ns": 1792563636247651000,
+        "ctime_ns": 1678943683296000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 4828336128
+      },
+      "prepared_utc": "2023-03-19T05:23:52.355576+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-05/denoiser-build-001/model.engine",
+      "sha256": "0327f1933653e0bb20c26a57483764543aa76ef35e6dee3f5b388faf2ba05531",
+      "before": {
+        "device": 66304,
+        "inode": 20319793,
+        "bytes": 2438692823,
+        "mtime_ns": 1678944976672000000,
+        "ctime_ns": 1678949250304000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2438696960
+      },
+      "prepared_utc": "2023-03-19T05:23:52.814420+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-05/denoiser-opmath-002/carrier.onnx.data",
+      "sha256": "af605f980a4081e5675445e3812befd3b3c47860df8385a4ec00389ac37e518e",
+      "before": {
+        "device": 66304,
+        "inode": 20319699,
+        "bytes": 4828332032,
+        "mtime_ns": 1678943810168000000,
+        "ctime_ns": 1678943810168000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 4828336128
+      },
+      "prepared_utc": "2023-03-19T05:23:59.873166+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle/artifacts/rdt_denoiser.engine",
+      "sha256": "0327f1933653e0bb20c26a57483764543aa76ef35e6dee3f5b388faf2ba05531",
+      "before": {
+        "device": 66304,
+        "inode": 20319793,
+        "bytes": 2438692823,
+        "mtime_ns": 1678944976672000000,
+        "ctime_ns": 1678949250304000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2438696960
+      },
+      "prepared_utc": "2023-03-19T05:24:00.337283+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle/artifacts/rdt_text_part_000.engine",
+      "sha256": "9c39c004d285b963ff6534b423df2804195b0338124939cb3b45d50e861063a1",
+      "before": {
+        "device": 66304,
+        "inode": 20319351,
+        "bytes": 2842883613,
+        "mtime_ns": 1678937451232000000,
+        "ctime_ns": 1678949255132000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2842890240
+      },
+      "prepared_utc": "2023-03-19T05:24:00.338369+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle/artifacts/rdt_text_part_001.engine",
+      "sha256": "7952ff0d3e9286bf6db41208fc92b4ccde5a83a3389dd3a68f7f9736a9920a1d",
+      "before": {
+        "device": 66304,
+        "inode": 20319518,
+        "bytes": 2484174867,
+        "mtime_ns": 1678940734056000000,
+        "ctime_ns": 1678949258604000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2484183040
+      },
+      "prepared_utc": "2023-03-19T05:24:00.338667+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle/artifacts/rdt_text_part_002.engine",
+      "sha256": "50a8c4fbb14e2d640c6ff03854015f3d203c3ddef3e36a66e02be5a3e157be21",
+      "before": {
+        "device": 66304,
+        "inode": 20319496,
+        "bytes": 2316429163,
+        "mtime_ns": 1678940036272000000,
+        "ctime_ns": 1678949260900000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316435456
+      },
+      "prepared_utc": "2023-03-19T05:24:00.338988+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle/artifacts/rdt_text_part_003.engine",
+      "sha256": "dfcd5f02537f9cef7454d5d1edf8278034ac09566827b23870f1c2d09fd54b84",
+      "before": {
+        "device": 66304,
+        "inode": 20319539,
+        "bytes": 2316440894,
+        "mtime_ns": 1678941154612000000,
+        "ctime_ns": 1678949263232000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316447744
+      },
+      "prepared_utc": "2023-03-19T05:24:00.339271+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-replay-20261021-06-002/bundle/artifacts/vf_cached_rdt_vision_20.engine",
+      "sha256": "23c4384acfe4d8d0976544de4dbf2fdfb8a98bc6265a5bf219234da4d9a0f88f",
+      "before": {
+        "device": 66304,
+        "inode": 20319326,
+        "bytes": 830409561,
+        "mtime_ns": 1678936487132000000,
+        "ctime_ns": 1678949251144000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 830414848
+      },
+      "prepared_utc": "2023-03-19T05:24:00.339538+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-00/graphs/pi0-prefix/pi0-prefix.onnx.data",
+      "sha256": "57bb7126f7cfe7a49e8cf917a85912267c6eca69c3ebcde58056a54904762d03",
+      "before": {
+        "device": 66304,
+        "inode": 20711570,
+        "bytes": 11257119680,
+        "mtime_ns": 1792685115105623237,
+        "ctime_ns": 1679067903780000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 11257126912
+      },
+      "prepared_utc": "2023-03-19T05:24:16.241400+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-00/graphs/pi0-step/pi0-step.onnx.data",
+      "sha256": "9274b28467c75fff33567cc7e13695ce3e4b468f919be83ceff2c9f0b42b02e0",
+      "before": {
+        "device": 66304,
+        "inode": 20711529,
+        "bytes": 1258852352,
+        "mtime_ns": 1792685421499952992,
+        "ctime_ns": 1679066258448000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1258856448
+      },
+      "prepared_utc": "2023-03-19T05:24:19.095947+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-00/pi0-step-build-006/model.engine",
+      "sha256": "b130aa7e403bc203f7d46db60c840a7a5a9e8d9d8941887e7ecc9e45a1a99d1d",
+      "before": {
+        "device": 66304,
+        "inode": 20712303,
+        "bytes": 640218807,
+        "mtime_ns": 1679069247576000000,
+        "ctime_ns": 1679069247576000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 640225280
+      },
+      "prepared_utc": "2023-03-19T05:24:20.180628+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle/artifacts/rdt_denoiser.engine",
+      "sha256": "0327f1933653e0bb20c26a57483764543aa76ef35e6dee3f5b388faf2ba05531",
+      "before": {
+        "device": 66304,
+        "inode": 20319793,
+        "bytes": 2438692823,
+        "mtime_ns": 1678944976672000000,
+        "ctime_ns": 1678949250304000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2438696960
+      },
+      "prepared_utc": "2023-03-19T05:24:20.261885+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle/artifacts/rdt_text_part_000.engine",
+      "sha256": "9c39c004d285b963ff6534b423df2804195b0338124939cb3b45d50e861063a1",
+      "before": {
+        "device": 66304,
+        "inode": 20319351,
+        "bytes": 2842883613,
+        "mtime_ns": 1678937451232000000,
+        "ctime_ns": 1678949255132000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2842890240
+      },
+      "prepared_utc": "2023-03-19T05:24:20.262384+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle/artifacts/rdt_text_part_001.engine",
+      "sha256": "7952ff0d3e9286bf6db41208fc92b4ccde5a83a3389dd3a68f7f9736a9920a1d",
+      "before": {
+        "device": 66304,
+        "inode": 20319518,
+        "bytes": 2484174867,
+        "mtime_ns": 1678940734056000000,
+        "ctime_ns": 1678949258604000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2484183040
+      },
+      "prepared_utc": "2023-03-19T05:24:20.262728+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle/artifacts/rdt_text_part_002.engine",
+      "sha256": "50a8c4fbb14e2d640c6ff03854015f3d203c3ddef3e36a66e02be5a3e157be21",
+      "before": {
+        "device": 66304,
+        "inode": 20319496,
+        "bytes": 2316429163,
+        "mtime_ns": 1678940036272000000,
+        "ctime_ns": 1678949260900000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316435456
+      },
+      "prepared_utc": "2023-03-19T05:24:20.263038+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle/artifacts/rdt_text_part_003.engine",
+      "sha256": "dfcd5f02537f9cef7454d5d1edf8278034ac09566827b23870f1c2d09fd54b84",
+      "before": {
+        "device": 66304,
+        "inode": 20319539,
+        "bytes": 2316440894,
+        "mtime_ns": 1678941154612000000,
+        "ctime_ns": 1678949263232000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316447744
+      },
+      "prepared_utc": "2023-03-19T05:24:20.263336+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-mode-off-20261021-06-002/bundle/artifacts/vf_cached_rdt_vision_20.engine",
+      "sha256": "23c4384acfe4d8d0976544de4dbf2fdfb8a98bc6265a5bf219234da4d9a0f88f",
+      "before": {
+        "device": 66304,
+        "inode": 20319326,
+        "bytes": 830409561,
+        "mtime_ns": 1678936487132000000,
+        "ctime_ns": 1678949251144000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 830414848
+      },
+      "prepared_utc": "2023-03-19T05:24:20.263620+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-105-attention-candidate/bundle/artifacts/smolvla_fresh_step__numeric_core.engine",
+      "sha256": "bb2ebd05e926ac037daeb87f4862303670273ffe3049d1439599a9cf97c12953",
+      "before": {
+        "device": 66304,
+        "inode": 19794619,
+        "bytes": 200597648,
+        "mtime_ns": 1678919535060000000,
+        "ctime_ns": 1679155138308000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 14,
+        "allocated_bytes": 200605696
+      },
+      "prepared_utc": "2023-03-19T05:24:20.264595+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-105-attention-candidate/bundle/artifacts/vf_cached_smolvla_fresh_prefix_51__neural.engine",
+      "sha256": "5a9aec6fd6a25ec1c98ef5eb2cdfce7b71c66f7ec918e0f1aed8c5e6e4bf57ac",
+      "before": {
+        "device": 66304,
+        "inode": 13645179,
+        "bytes": 657544346,
+        "mtime_ns": 1679154758384000000,
+        "ctime_ns": 1679155138104000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 657551360
+      },
+      "prepared_utc": "2023-03-19T05:24:20.268420+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/stage002-build-001/model.engine",
+      "sha256": "6e75f62c371df54b0fbd1777bb4a21fb89dcb293dc20986171166e2ea611cf21",
+      "before": {
+        "device": 66304,
+        "inode": 20844927,
+        "bytes": 1389692573,
+        "mtime_ns": 1679079785348000000,
+        "ctime_ns": 1679079785348000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389699072
+      },
+      "prepared_utc": "2023-03-19T05:24:22.269725+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/stage003-build-001/model.engine",
+      "sha256": "fa7757733df0fb006407093539463d7f70dfc459e1776d35e0c66a9e4eecf439",
+      "before": {
+        "device": 66304,
+        "inode": 20844943,
+        "bytes": 1458965093,
+        "mtime_ns": 1679080369932000000,
+        "ctime_ns": 1679080369932000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1458970624
+      },
+      "prepared_utc": "2023-03-19T05:24:24.531687+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/stage001-build-001/model.engine",
+      "sha256": "d9ed520163f9f3da387a754e9f0b619160c15c5d9c91291070a781465edc0c58",
+      "before": {
+        "device": 66304,
+        "inode": 20844911,
+        "bytes": 1389525332,
+        "mtime_ns": 1679079221212000000,
+        "ctime_ns": 1679079221212000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389531136
+      },
+      "prepared_utc": "2023-03-19T05:24:26.701895+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/vision-tail-probe-001/model.onnx.data",
+      "sha256": "5c7ed5145a602c9dac0f16037ff9691df67dbc9ca644d2b9d72e00b7d72df329",
+      "before": {
+        "device": 66304,
+        "inode": 20846154,
+        "bytes": 963512320,
+        "mtime_ns": 1792708133107190333,
+        "ctime_ns": 1679082836212000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 963518464
+      },
+      "prepared_utc": "2023-03-19T05:24:28.255265+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/vision-tail-probe-build-001/model.engine",
+      "sha256": "3b56f0122c993f91ca3c241dbd7dd11ac8ed1457db9c15ebcb8c5155aef3d089",
+      "before": {
+        "device": 66304,
+        "inode": 20846208,
+        "bytes": 484697037,
+        "mtime_ns": 1679083344452000000,
+        "ctime_ns": 1679083344452000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 484704256
+      },
+      "prepared_utc": "2023-03-19T05:24:29.082202+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/stage000-build-001/model.engine",
+      "sha256": "86ffeda4d78ffe6ad355d7195d8dc536f37ac7f235b51d4ec4694942c548a800",
+      "before": {
+        "device": 66304,
+        "inode": 20844892,
+        "bytes": 2461615407,
+        "mtime_ns": 1679078269144000000,
+        "ctime_ns": 1679078269144000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2461622272
+      },
+      "prepared_utc": "2023-03-19T05:24:32.649032+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-004/bundle/artifacts/region-4.engine",
+      "sha256": "b130aa7e403bc203f7d46db60c840a7a5a9e8d9d8941887e7ecc9e45a1a99d1d",
+      "before": {
+        "device": 66304,
+        "inode": 20845216,
+        "bytes": 640218807,
+        "mtime_ns": 1792706904839892841,
+        "ctime_ns": 1679081958888000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 640225280
+      },
+      "prepared_utc": "2023-03-19T05:24:33.850450+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-004/bundle/artifacts/region-6.engine",
+      "sha256": "86ffeda4d78ffe6ad355d7195d8dc536f37ac7f235b51d4ec4694942c548a800",
+      "before": {
+        "device": 66304,
+        "inode": 20845218,
+        "bytes": 2461615407,
+        "mtime_ns": 1792706907626191700,
+        "ctime_ns": 1679081964572000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2461622272
+      },
+      "prepared_utc": "2023-03-19T05:24:37.432423+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-004/bundle/artifacts/region-7.engine",
+      "sha256": "d9ed520163f9f3da387a754e9f0b619160c15c5d9c91291070a781465edc0c58",
+      "before": {
+        "device": 66304,
+        "inode": 20845219,
+        "bytes": 1389525332,
+        "mtime_ns": 1792706910743525992,
+        "ctime_ns": 1679081966260000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389531136
+      },
+      "prepared_utc": "2023-03-19T05:24:39.707870+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-004/bundle/artifacts/region-8.engine",
+      "sha256": "6e75f62c371df54b0fbd1777bb4a21fb89dcb293dc20986171166e2ea611cf21",
+      "before": {
+        "device": 66304,
+        "inode": 20845220,
+        "bytes": 1389692573,
+        "mtime_ns": 1792706912896756852,
+        "ctime_ns": 1679081967500000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389699072
+      },
+      "prepared_utc": "2023-03-19T05:24:41.863801+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-004/bundle/artifacts/region-9.engine",
+      "sha256": "fa7757733df0fb006407093539463d7f70dfc459e1776d35e0c66a9e4eecf439",
+      "before": {
+        "device": 66304,
+        "inode": 20845221,
+        "bytes": 1458965093,
+        "mtime_ns": 1792706915109994107,
+        "ctime_ns": 1679081968804000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1458970624
+      },
+      "prepared_utc": "2023-03-19T05:24:44.119162+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/parts/stage-002/model.onnx.data",
+      "sha256": "8cf8ad32bccf5e3c7d149a8e5ceca7175bc433f8c5326e10af5ac6d4a4d4d5a1",
+      "before": {
+        "device": 66304,
+        "inode": 20844885,
+        "bytes": 2776727552,
+        "mtime_ns": 1792703372267958128,
+        "ctime_ns": 1679078265276000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2776731648
+      },
+      "prepared_utc": "2023-03-19T05:24:48.239467+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/parts/stage-003/model.onnx.data",
+      "sha256": "bc9c2131daab928629c944d7e001bbf6ce77b616e1dca3ef08b9cbd66df565be",
+      "before": {
+        "device": 66304,
+        "inode": 20844888,
+        "bytes": 2915147776,
+        "mtime_ns": 1792703388980497790,
+        "ctime_ns": 1679078267896000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2915151872
+      },
+      "prepared_utc": "2023-03-19T05:24:52.766909+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/parts/stage-001/model.onnx.data",
+      "sha256": "e79d66a05fa7d72d1cb301521320f1df5d4035b54f49492492772638a07ad7b0",
+      "before": {
+        "device": 66304,
+        "inode": 20844882,
+        "bytes": 2762950656,
+        "mtime_ns": 1792703174237742748,
+        "ctime_ns": 1679078261620000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2762956800
+      },
+      "prepared_utc": "2023-03-19T05:24:57.014364+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/parts/stage-000/model.onnx.data",
+      "sha256": "71ea0cf58ec3ab12899f31793edf328d86348f6e4279750e36c92113a359f8ac",
+      "before": {
+        "device": 66304,
+        "inode": 20844863,
+        "bytes": 2802293696,
+        "mtime_ns": 1792703157084167777,
+        "ctime_ns": 1679077883128000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2802298880
+      },
+      "prepared_utc": "2023-03-19T05:25:01.281206+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-003/bundle/artifacts/region-4.engine",
+      "sha256": "b130aa7e403bc203f7d46db60c840a7a5a9e8d9d8941887e7ecc9e45a1a99d1d",
+      "before": {
+        "device": 66304,
+        "inode": 20845118,
+        "bytes": 640218807,
+        "mtime_ns": 1792706904839892841,
+        "ctime_ns": 1679081538072000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 640225280
+      },
+      "prepared_utc": "2023-03-19T05:25:02.514256+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-003/bundle/artifacts/region-6.engine",
+      "sha256": "86ffeda4d78ffe6ad355d7195d8dc536f37ac7f235b51d4ec4694942c548a800",
+      "before": {
+        "device": 66304,
+        "inode": 20845120,
+        "bytes": 2461615407,
+        "mtime_ns": 1792706907626191700,
+        "ctime_ns": 1679081566320000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2461622272
+      },
+      "prepared_utc": "2023-03-19T05:25:06.101014+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-003/bundle/artifacts/region-7.engine",
+      "sha256": "d9ed520163f9f3da387a754e9f0b619160c15c5d9c91291070a781465edc0c58",
+      "before": {
+        "device": 66304,
+        "inode": 20845121,
+        "bytes": 1389525332,
+        "mtime_ns": 1792706910743525992,
+        "ctime_ns": 1679081581936000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389531136
+      },
+      "prepared_utc": "2023-03-19T05:25:08.366907+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-003/bundle/artifacts/region-8.engine",
+      "sha256": "6e75f62c371df54b0fbd1777bb4a21fb89dcb293dc20986171166e2ea611cf21",
+      "before": {
+        "device": 66304,
+        "inode": 20845122,
+        "bytes": 1389692573,
+        "mtime_ns": 1792706912896756852,
+        "ctime_ns": 1679081597548000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1389699072
+      },
+      "prepared_utc": "2023-03-19T05:25:10.543295+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-15/ordinary-session-003/bundle/artifacts/region-9.engine",
+      "sha256": "fa7757733df0fb006407093539463d7f70dfc459e1776d35e0c66a9e4eecf439",
+      "before": {
+        "device": 66304,
+        "inode": 20845123,
+        "bytes": 1458965093,
+        "mtime_ns": 1792706915109994107,
+        "ctime_ns": 1679081614156000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1458970624
+      },
+      "prepared_utc": "2023-03-19T05:25:12.809878+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-session-20261021-05-001/bundle/artifacts/rdt_denoiser.engine",
+      "sha256": "0327f1933653e0bb20c26a57483764543aa76ef35e6dee3f5b388faf2ba05531",
+      "before": {
+        "device": 66304,
+        "inode": 20319793,
+        "bytes": 2438692823,
+        "mtime_ns": 1678944976672000000,
+        "ctime_ns": 1678949250304000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2438696960
+      },
+      "prepared_utc": "2023-03-19T05:25:12.974085+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-session-20261021-05-001/bundle/artifacts/rdt_text_part_000.engine",
+      "sha256": "9c39c004d285b963ff6534b423df2804195b0338124939cb3b45d50e861063a1",
+      "before": {
+        "device": 66304,
+        "inode": 20319351,
+        "bytes": 2842883613,
+        "mtime_ns": 1678937451232000000,
+        "ctime_ns": 1678949255132000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2842890240
+      },
+      "prepared_utc": "2023-03-19T05:25:13.041668+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-session-20261021-05-001/bundle/artifacts/rdt_text_part_001.engine",
+      "sha256": "7952ff0d3e9286bf6db41208fc92b4ccde5a83a3389dd3a68f7f9736a9920a1d",
+      "before": {
+        "device": 66304,
+        "inode": 20319518,
+        "bytes": 2484174867,
+        "mtime_ns": 1678940734056000000,
+        "ctime_ns": 1678949258604000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2484183040
+      },
+      "prepared_utc": "2023-03-19T05:25:13.092029+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-session-20261021-05-001/bundle/artifacts/rdt_text_part_002.engine",
+      "sha256": "50a8c4fbb14e2d640c6ff03854015f3d203c3ddef3e36a66e02be5a3e157be21",
+      "before": {
+        "device": 66304,
+        "inode": 20319496,
+        "bytes": 2316429163,
+        "mtime_ns": 1678940036272000000,
+        "ctime_ns": 1678949260900000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316435456
+      },
+      "prepared_utc": "2023-03-19T05:25:13.136872+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-session-20261021-05-001/bundle/artifacts/rdt_text_part_003.engine",
+      "sha256": "dfcd5f02537f9cef7454d5d1edf8278034ac09566827b23870f1c2d09fd54b84",
+      "before": {
+        "device": 66304,
+        "inode": 20319539,
+        "bytes": 2316440894,
+        "mtime_ns": 1678941154612000000,
+        "ctime_ns": 1678949263232000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 2316447744
+      },
+      "prepared_utc": "2023-03-19T05:25:13.177726+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/rdt-session-20261021-05-001/bundle/artifacts/vf_cached_rdt_vision_20.engine",
+      "sha256": "23c4384acfe4d8d0976544de4dbf2fdfb8a98bc6265a5bf219234da4d9a0f88f",
+      "before": {
+        "device": 66304,
+        "inode": 20319326,
+        "bytes": 830409561,
+        "mtime_ns": 1678936487132000000,
+        "ctime_ns": 1678949251144000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 830414848
+      },
+      "prepared_utc": "2023-03-19T05:25:13.218735+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-02/conditions-carrier-001/carrier-v1.onnx.data",
+      "sha256": "0ca1312e40bf3fc1b85aea05350626462339d0feebe7d12da5f38ba565faf145",
+      "before": {
+        "device": 66304,
+        "inode": 20319207,
+        "bytes": 112254976,
+        "mtime_ns": 1792555880526947000,
+        "ctime_ns": 1678930708360000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 112259072
+      },
+      "prepared_utc": "2023-03-19T05:25:13.397662+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-110/embedding-baseline-refit-001/model.engine",
+      "sha256": "26ea3d91f01644cc4858c42bfc51031d7f4989cf4874f81eb13e45fdfff02f76",
+      "before": {
+        "device": 66304,
+        "inode": 13651476,
+        "bytes": 189246619,
+        "mtime_ns": 1679167317964000000,
+        "ctime_ns": 1679167317964000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189247488
+      },
+      "prepared_utc": "2023-03-19T05:25:13.708292+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-110/embedding-candidate-refit-001/model.engine",
+      "sha256": "ba28158c53e401ef84736f5538f6011c4e32e2c34b1249fa1e5cd72c452e39f2",
+      "before": {
+        "device": 66304,
+        "inode": 13651488,
+        "bytes": 189245012,
+        "mtime_ns": 1679167330628000000,
+        "ctime_ns": 1679167330628000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 189247488
+      },
+      "prepared_utc": "2023-03-19T05:25:14.030342+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-03/vision-carrier-build-002/model.engine",
+      "sha256": "403304d2916369da4ea12d6115a89aaf110a63f7fe0457ab7f0ee272f114ba75",
+      "before": {
+        "device": 66304,
+        "inode": 20319290,
+        "bytes": 832682171,
+        "mtime_ns": 1678933726828000000,
+        "ctime_ns": 1678933726828000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 832688128
+      },
+      "prepared_utc": "2023-03-19T05:25:15.283082+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-03/t5-part-000/carrier.onnx.data",
+      "sha256": "51935d8cadbed575e7693f644164a6832fde7f483de2475dd6feb9b6bf73c28c",
+      "before": {
+        "device": 66304,
+        "inode": 20319288,
+        "bytes": 5157101568,
+        "mtime_ns": 1792558481672953000,
+        "ctime_ns": 1678934064852000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 5157105664
+      },
+      "prepared_utc": "2023-03-19T05:25:22.743450+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-03/vision-carrier-build-003/model.engine",
+      "sha256": "23c4384acfe4d8d0976544de4dbf2fdfb8a98bc6265a5bf219234da4d9a0f88f",
+      "before": {
+        "device": 66304,
+        "inode": 20319326,
+        "bytes": 830409561,
+        "mtime_ns": 1678936487132000000,
+        "ctime_ns": 1678949251144000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 5,
+        "allocated_bytes": 830414848
+      },
+      "prepared_utc": "2023-03-19T05:25:23.246930+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-03/vision-carrier-001/carrier-opmath-v1.onnx.data",
+      "sha256": "165031bfa04cbf8fffd54b187690828c63ddcb5266a1108e7df3b9741b12b63d",
+      "before": {
+        "device": 66304,
+        "inode": 20319312,
+        "bytes": 1651954824,
+        "mtime_ns": 1678935548616000000,
+        "ctime_ns": 1678935548616000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1651961856
+      },
+      "prepared_utc": "2023-03-19T05:25:25.667604+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261021-03/vision-carrier-001/carrier-v1.onnx.data",
+      "sha256": "165031bfa04cbf8fffd54b187690828c63ddcb5266a1108e7df3b9741b12b63d",
+      "before": {
+        "device": 66304,
+        "inode": 20319259,
+        "bytes": 1651954824,
+        "mtime_ns": 1792557241580003000,
+        "ctime_ns": 1678932520840000000,
+        "mode": 384,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 1651961856
+      },
+      "prepared_utc": "2023-03-19T05:25:28.232581+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-009-build-001/model.engine",
+      "sha256": "258329592700d34606ce148ed3192317751ec43b673a4908b5ca343efcd7aed5",
+      "before": {
+        "device": 66304,
+        "inode": 13643953,
+        "bytes": 1406043004,
+        "mtime_ns": 1679144239592000000,
+        "ctime_ns": 1679148757000000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1406050304
+      },
+      "prepared_utc": "2023-03-19T05:25:28.414693+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-002-build-001/model.engine",
+      "sha256": "d512d484e2a59193c8bbee65cf8fb9b86c436fc6e45b1feb9890316514b74d17",
+      "before": {
+        "device": 66304,
+        "inode": 13643841,
+        "bytes": 1574072870,
+        "mtime_ns": 1679141891444000000,
+        "ctime_ns": 1679148747432000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1574080512
+      },
+      "prepared_utc": "2023-03-19T05:25:28.573704+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-003-build-001/model.engine",
+      "sha256": "3b2118970280777cb2f45d95d67c41bb2c3a627216c30e05299e2d39c7c8b566",
+      "before": {
+        "device": 66304,
+        "inode": 13643857,
+        "bytes": 1496247586,
+        "mtime_ns": 1679142226900000000,
+        "ctime_ns": 1679148748916000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1496252416
+      },
+      "prepared_utc": "2023-03-19T05:25:28.672324+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-008-build-001/model.engine",
+      "sha256": "67539b7bd1c03bcd5b5535e0a73dfd573666c329189f533b1aee9d6c94493618",
+      "before": {
+        "device": 66304,
+        "inode": 13643937,
+        "bytes": 1406177140,
+        "mtime_ns": 1679143887184000000,
+        "ctime_ns": 1679148755652000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1406181376
+      },
+      "prepared_utc": "2023-03-19T05:25:28.824298+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-001-build-001/model.engine",
+      "sha256": "0a231ce558e76e1b144b434998f20b244715b73b6a341d87e9b1eed5f072c670",
+      "before": {
+        "device": 66304,
+        "inode": 13643822,
+        "bytes": 1751052970,
+        "mtime_ns": 1679141544844000000,
+        "ctime_ns": 1679148744964000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1751060480
+      },
+      "prepared_utc": "2023-03-19T05:25:28.978992+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-005-build-001/model.engine",
+      "sha256": "6c3e33801582042c813af3c37e08a3e28f0b3f3ee33f8d09b75cada762e72a62",
+      "before": {
+        "device": 66304,
+        "inode": 13643889,
+        "bytes": 1315899476,
+        "mtime_ns": 1679142891980000000,
+        "ctime_ns": 1679148751816000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1315905536
+      },
+      "prepared_utc": "2023-03-19T05:25:29.150384+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/neural-step-build-001/model.engine",
+      "sha256": "87607e27aee059483b713acf4e79996d59ede278a83d9f5aa5790053164b5fc5",
+      "before": {
+        "device": 66304,
+        "inode": 13644053,
+        "bytes": 356888568,
+        "mtime_ns": 1679144658616000000,
+        "ctime_ns": 1679148759692000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 356888576
+      },
+      "prepared_utc": "2023-03-19T05:25:29.199742+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-000-build-001/model.engine",
+      "sha256": "3c11c25c8f14f342b84e0cea2edcada1e312720cb68061931e2fbdbe10791c7e",
+      "before": {
+        "device": 66304,
+        "inode": 13643621,
+        "bytes": 1528139126,
+        "mtime_ns": 1679141240468000000,
+        "ctime_ns": 1679148742748000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1528143872
+      },
+      "prepared_utc": "2023-03-19T05:25:29.258753+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-007-build-001/model.engine",
+      "sha256": "9f4e59950717e46b183d47fbc0892a053b8c6a4157e36543fa8c96348329f1f4",
+      "before": {
+        "device": 66304,
+        "inode": 13643921,
+        "bytes": 1315966659,
+        "mtime_ns": 1679143537080000000,
+        "ctime_ns": 1679148754388000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1315971072
+      },
+      "prepared_utc": "2023-03-19T05:25:29.406409+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-006-build-001/model.engine",
+      "sha256": "3599681f97de8ef7f2a4d7d5f0548c7591f1b7e990029607399873aeee560dc1",
+      "before": {
+        "device": 66304,
+        "inode": 13643905,
+        "bytes": 1315880852,
+        "mtime_ns": 1679143213888000000,
+        "ctime_ns": 1679148753124000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1315885056
+      },
+      "prepared_utc": "2023-03-19T05:25:29.532431+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-004-build-001/model.engine",
+      "sha256": "b2762262b2d687d64ce988835f461619f05c60f69c40e865daaf31eddd2d58ae",
+      "before": {
+        "device": 66304,
+        "inode": 13643873,
+        "bytes": 1574134598,
+        "mtime_ns": 1679142571900000000,
+        "ctime_ns": 1679148750304000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1574141952
+      },
+      "prepared_utc": "2023-03-19T05:25:29.572104+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/20261023-85/builds/prefix-stage-010-build-001/model.engine",
+      "sha256": "4b3dd14684d0c15d677350526cc3834a0d6e569be3e6f363b227ef85f024ad82",
+      "before": {
+        "device": 66304,
+        "inode": 13643969,
+        "bytes": 1406146947,
+        "mtime_ns": 1679144573360000000,
+        "ctime_ns": 1679148758360000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 2,
+        "allocated_bytes": 1406152704
+      },
+      "prepared_utc": "2023-03-19T05:25:29.737958+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/assets/smolvla/SmolVLM2-500M-Video-Instruct/model.safetensors",
+      "sha256": "b9bfd456c9472c0acd5719d6e514c4b859891af205ee1a736552fd3497b8b0c3",
+      "before": {
+        "device": 66304,
+        "inode": 13634017,
+        "bytes": 2029990624,
+        "mtime_ns": 1777255946982741302,
+        "ctime_ns": 1678892790288000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 2029998080
+      },
+      "prepared_utc": "2023-03-19T05:25:33.032481+00:00"
+    },
+    {
+      "path": "/data/datalog/edgefm-orin/assets/smolvla/SmolVLA-Base/model.safetensors",
+      "sha256": "7cd549ac2351fb069c0ddb3c34ad2d09cfc92b56a15dccdfc2e41467aaca01eb",
+      "before": {
+        "device": 66304,
+        "inode": 13633925,
+        "bytes": 906712520,
+        "mtime_ns": 1777281629903062815,
+        "ctime_ns": 1678892790288000000,
+        "mode": 436,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "allocated_bytes": 906719232
+      },
+      "prepared_utc": "2023-03-19T05:25:34.758604+00:00"
+    }
+  ],
+  "journal": "/data/datalog/edgefm-storage-maintenance-20261024/target-payload-cleanup-002.journal.jsonl",
+  "planned_unique_inode_reclaim_bytes": 204141780992,
+  "available_before_bytes": 51303272448,
+  "available_after_bytes": 255441461248,
+  "proc_directories_unreadable": 6,
+  "global_exclusivity_claimed": false,
+  "raw_measurements_or_reports_selected": false,
+  "environment_or_service_changed": false,
+  "reproduction_payloads_retained": false,
+  "backup_created": false,
+  "rebuild_note": "recreate model/engine payloads before new inference or payload-level closure rechecks; old receipts describe the actual pre-cleanup experiment",
+  "source_sha256": "f54d0c5e2d29e3122dab0f70864719c78b68f2e181a2fe29ae36e0590e42981c"
+}

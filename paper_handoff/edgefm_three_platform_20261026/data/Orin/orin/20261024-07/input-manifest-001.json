@@ -1,0 +1,1033 @@
+{
+  "schema": "edgefm.explicit_public_output_table_inputs/1",
+  "models": [
+    {
+      "label": "SmolVLA",
+      "sources": {
+        "acceptance": {
+          "path": "PROVENANCE_c007e549076bfc23",
+          "bytes": 30616,
+          "sha256": "7c7d5d103232a2b6b0871abc8e081be18f8ac0b2120b07152563c9fe3dddb3c7"
+        },
+        "data": {
+          "path": "PROVENANCE_c007e549076bfc23",
+          "bytes": 30616,
+          "sha256": "7c7d5d103232a2b6b0871abc8e081be18f8ac0b2120b07152563c9fe3dddb3c7"
+        },
+        "csv": {
+          "path": "PROVENANCE_e99395a996be22aa",
+          "bytes": 1216857,
+          "sha256": "239103e749acf66b0ca9945b999fe61a543c4f0f2cca1382ec15e3a57dbcdaa4"
+        },
+        "figure-0": {
+          "path": "PROVENANCE_9feb54a45da2b44f",
+          "bytes": 67865,
+          "sha256": "fb3926a76a59d0347c5c1a880402911c217415ba1fd9604d841cebe29f219b73"
+        },
+        "figure-1": {
+          "path": "PROVENANCE_e2bc16a2a472e041",
+          "bytes": 46991,
+          "sha256": "7b7c1a10676094804c50b959ca6e095b159503dd18af4667c15186024713a0af"
+        }
+      },
+      "modes": [
+        [
+          "off",
+          "Conventional TRT"
+        ],
+        [
+          "batch-only",
+          "Shared stream"
+        ],
+        [
+          "required",
+          "Full-loop replay"
+        ]
+      ],
+      "columns": {
+        "round": "process_round",
+        "latency": "latency_ns",
+        "flags": {
+          "finite": "1",
+          "direct_exact": "1"
+        }
+      },
+      "complete_tensors_field": [
+        "complete_action_tensors"
+      ],
+      "statistics_file": "data",
+      "statistics_root": [
+        "modes"
+      ],
+      "statistics_suffix": [
+        "latency_ms"
+      ],
+      "stat_names": {
+        "mean": "mean",
+        "p50": "p50",
+        "p95": "p95",
+        "p99": "p99",
+        "max": "max",
+        "std": "std",
+        "chunks_per_second": "chunks_per_second"
+      },
+      "checks": [
+        [
+          "acceptance",
+          [
+            "status"
+          ],
+          "passed"
+        ],
+        [
+          "data",
+          [
+            "same_target_action_quality",
+            "all_byte_exact"
+          ],
+          true
+        ]
+      ],
+      "bindings": [
+        [
+          "data",
+          [
+            "generated_files",
+            "all-requests.csv"
+          ],
+          "csv"
+        ],
+        [
+          "data",
+          [
+            "generated_files",
+            "smolvla-e2e-cdf.png"
+          ],
+          "figure-0"
+        ],
+        [
+          "data",
+          [
+            "generated_files",
+            "smolvla-e2e-cdf.pdf"
+          ],
+          "figure-1"
+        ]
+      ],
+      "quality_evidence": "previous hash-bound full-output audit; only latency CSV is recalculated here",
+      "public_outputs_per_request": 2,
+      "numeric_outputs_per_request": 2,
+      "exact_auxiliary_outputs_per_request": 0
+    },
+    {
+      "label": "RDT-1B",
+      "sources": {
+        "acceptance": {
+          "path": "PROVENANCE_4a6640524cd55d21",
+          "bytes": 5023,
+          "sha256": "e793f5c7a1b0a3a63ac003eec8220e00892bfa8d888daf4dc6b1081fb8fa4f6f"
+        },
+        "data": {
+          "path": "PROVENANCE_9dfed760f1cf6c77",
+          "bytes": 67528,
+          "sha256": "c82241104031d2b8e080308d7e833b4c652488e60f24e6aa2a8ff7d740823ec0"
+        },
+        "csv": {
+          "path": "PROVENANCE_edb74172c1002ebc",
+          "bytes": 1562494,
+          "sha256": "314c366f717b11174e8f9d190318c71587c9c5ff38f10fbceada7fb9d1e59e80"
+        },
+        "curves": {
+          "path": "PROVENANCE_a0e2568b927fa95e",
+          "bytes": 1301,
+          "sha256": "641cd35381f6b22e020e7691dea190e75be85dcbcc202b5fc92011ab4e9b80e8"
+        },
+        "figure-0": {
+          "path": "PROVENANCE_bd19b66e23f4c842",
+          "bytes": 88943,
+          "sha256": "a9aa4923fe8fb2dc5afd3746e3a5cefdc8c0e3947ec5ce55c86d93301000dbac"
+        },
+        "figure-1": {
+          "path": "PROVENANCE_eeb278a1fc601c9f",
+          "bytes": 63288,
+          "sha256": "f692d38650b8b1c93f462e5265ebe0a6a105d6a7e465e697c42201a31778bd98"
+        },
+        "figure-2": {
+          "path": "PROVENANCE_39339feb44c957da",
+          "bytes": 158723,
+          "sha256": "2d8bcb7ab41b530d2e700187b2b4f7a73cb6b1d8ceede096afcaf5017ce14bcf"
+        },
+        "figure-3": {
+          "path": "PROVENANCE_774ac156960c394e",
+          "bytes": 79766,
+          "sha256": "d4109e21ed31d0bbb20753aa2f7c4a2627b4afc032ce3544f90468c776a7a826"
+        }
+      },
+      "modes": [
+        [
+          "off",
+          "Conventional TRT"
+        ],
+        [
+          "batch-only",
+          "Shared stream"
+        ],
+        [
+          "required",
+          "Full-loop replay"
+        ]
+      ],
+      "columns": {
+        "round": "round",
+        "latency": "latency_ns",
+        "flags": {
+          "finite": "1",
+          "direct_exact": "1"
+        }
+      },
+      "complete_tensors_field": [
+        "complete_action_tensors"
+      ],
+      "statistics_file": "data",
+      "statistics_root": [
+        "modes"
+      ],
+      "statistics_suffix": [],
+      "stat_names": {
+        "mean": "mean",
+        "p50": "p50",
+        "p95": "p95",
+        "p99": "p99",
+        "max": "max",
+        "std": "std",
+        "chunks_per_second": "chunks_per_second"
+      },
+      "checks": [
+        [
+          "acceptance",
+          [
+            "status"
+          ],
+          "full-data-and-restoration-verified"
+        ],
+        [
+          "acceptance",
+          [
+            "formal_sampling"
+          ],
+          true
+        ],
+        [
+          "data",
+          [
+            "status"
+          ],
+          "passed"
+        ],
+        [
+          "data",
+          [
+            "h20_used_as_primary_gate"
+          ],
+          false
+        ],
+        [
+          "data",
+          [
+            "primary_tolerance"
+          ],
+          {
+            "mse_lt": 1e-05,
+            "cosine_gt": 0.9999
+          }
+        ]
+      ],
+      "bindings": [
+        [
+          "acceptance",
+          [
+            "base_audit_sha256"
+          ],
+          "data"
+        ],
+        [
+          "data",
+          [
+            "all_requests_csv_sha256"
+          ],
+          "csv"
+        ],
+        [
+          "curves",
+          [
+            "audit_sha256"
+          ],
+          "data"
+        ],
+        [
+          "curves",
+          [
+            "csv_sha256"
+          ],
+          "csv"
+        ],
+        [
+          "curves",
+          [
+            "files",
+            "e2e-cdf.png"
+          ],
+          "figure-0"
+        ],
+        [
+          "curves",
+          [
+            "files",
+            "e2e-cdf.pdf"
+          ],
+          "figure-1"
+        ],
+        [
+          "curves",
+          [
+            "files",
+            "e2e-cdf-processes.png"
+          ],
+          "figure-2"
+        ],
+        [
+          "curves",
+          [
+            "files",
+            "e2e-cdf-processes.pdf"
+          ],
+          "figure-3"
+        ]
+      ],
+      "quality_evidence": "previous hash-bound full-output audit; only latency CSV is recalculated here",
+      "public_outputs_per_request": 2,
+      "numeric_outputs_per_request": 2,
+      "exact_auxiliary_outputs_per_request": 0
+    },
+    {
+      "label": "pi0",
+      "sources": {
+        "acceptance": {
+          "path": "PROVENANCE_49f49c30061a794c",
+          "bytes": 78894,
+          "sha256": "bb79a25109973dd5a0ea4e7c30ebc9901d7c40d84a6594e702a2b345af245d8c"
+        },
+        "data": {
+          "path": "PROVENANCE_fd9e5d270c33ecce",
+          "bytes": 10576689,
+          "sha256": "9702b9011774e15d75a6b40e30a6e82c5d07eeaeffa1a80f9d5f60b998abfcab"
+        },
+        "csv": {
+          "path": "PROVENANCE_e3cd1706a587e519",
+          "bytes": 11410893,
+          "sha256": "dc00f5a26c6b7fc3a9446d5e54039ff535663c6937a74cb8fd3a3ebd07450774"
+        },
+        "statistics": {
+          "path": "PROVENANCE_4c7a725c6ff01aab",
+          "bytes": 19644,
+          "sha256": "a0efde689f893ce055859a27e749b6c035bfefd245a10731bee3c0bea75467f5"
+        },
+        "curves": {
+          "path": "PROVENANCE_738512290c8c10a1",
+          "bytes": 5387,
+          "sha256": "d9c72e9f10a7f8813b33166bd6d7a9f5e05b7cf45596568ad8ee9464a1d6be8d"
+        },
+        "figure-0": {
+          "path": "PROVENANCE_48f6856f61dfd962",
+          "bytes": 36672,
+          "sha256": "72a392aaf0180edecb50f02930c50ef5a868e22bae19e55c0a306c9c17e6c11d"
+        },
+        "figure-1": {
+          "path": "PROVENANCE_20a2daaf86d8d850",
+          "bytes": 69387,
+          "sha256": "25b04171083d62f86bedf2a6d5b04001dde04d86f59b73306c30ae4ea5b82180"
+        },
+        "figure-2": {
+          "path": "PROVENANCE_d169f5cab39af238",
+          "bytes": 66126,
+          "sha256": "8f5d9f1246d04eb483becf9f1c9d805633d73d222ab8af068dfbbbb924affcf0"
+        },
+        "figure-3": {
+          "path": "PROVENANCE_9fae33a1c50d530d",
+          "bytes": 159052,
+          "sha256": "12f7ae3a4b4bdea6b8baac4b7cfc7e6677ea9967d00e8aeb584547a4f9c82df4"
+        }
+      },
+      "modes": [
+        [
+          "ordinary-repeated-candidate",
+          "Ordinary repeated-call TRT"
+        ],
+        [
+          "verified-arena-candidate",
+          "Verified arena; no replay"
+        ]
+      ],
+      "columns": {
+        "round": "process_round",
+        "latency": "e2e_ns",
+        "flags": {
+          "all_outputs_finite": "1",
+          "bitwise_exact_all_outputs": "1",
+          "normalized_quality_gate": "1",
+          "request_accepted": "1",
+          "software_test_only": "0"
+        }
+      },
+      "complete_tensors_field": [
+        "complete_action_tensors_checked"
+      ],
+      "statistics_file": "statistics",
+      "statistics_root": [
+        "modes_statistics"
+      ],
+      "statistics_suffix": [],
+      "stat_names": {
+        "mean": "mean_ms",
+        "p50": "p50_ms",
+        "p95": "p95_ms",
+        "p99": "p99_ms",
+        "max": "max_ms",
+        "std": "std_ms",
+        "chunks_per_second": "chunks_per_second"
+      },
+      "checks": [
+        [
+          "acceptance",
+          [
+            "formal_acceptance"
+          ],
+          true
+        ],
+        [
+          "acceptance",
+          [
+            "formal_sampling"
+          ],
+          true
+        ],
+        [
+          "acceptance",
+          [
+            "nonmodel_fixture"
+          ],
+          false
+        ],
+        [
+          "data",
+          [
+            "model_data_audited"
+          ],
+          true
+        ],
+        [
+          "data",
+          [
+            "status"
+          ],
+          "complete-native-model-data-verified"
+        ],
+        [
+          "data",
+          [
+            "h20_used_as_primary_gate"
+          ],
+          false
+        ],
+        [
+          "data",
+          [
+            "normalized_gate"
+          ],
+          {
+            "mse_lt": 1e-05,
+            "cosine_gt": 0.9999
+          }
+        ]
+      ],
+      "bindings": [
+        [
+          "acceptance",
+          [
+            "input_hashes",
+            "model"
+          ],
+          "data"
+        ],
+        [
+          "acceptance",
+          [
+            "input_hashes",
+            "latency"
+          ],
+          "statistics"
+        ],
+        [
+          "statistics",
+          [
+            "files",
+            "raw-requests.csv",
+            "sha256"
+          ],
+          "csv"
+        ],
+        [
+          "curves",
+          [
+            "joint",
+            "sha256"
+          ],
+          "acceptance"
+        ],
+        [
+          "curves",
+          [
+            "summary",
+            "sha256"
+          ],
+          "statistics"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            0,
+            "sha256"
+          ],
+          "figure-0"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            1,
+            "sha256"
+          ],
+          "figure-1"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            2,
+            "sha256"
+          ],
+          "figure-2"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            3,
+            "sha256"
+          ],
+          "figure-3"
+        ]
+      ],
+      "quality_evidence": "previous hash-bound full-output audit; only latency CSV is recalculated here",
+      "public_outputs_per_request": 2,
+      "numeric_outputs_per_request": 2,
+      "exact_auxiliary_outputs_per_request": 0
+    },
+    {
+      "label": "pi0.5",
+      "sources": {
+        "acceptance": {
+          "path": "PROVENANCE_ed25aabbf940c2c1",
+          "bytes": 82368,
+          "sha256": "6cd1256e08f0c0c2781e6daf0b99866a82be06b90c6007d916a785f29cc8c213"
+        },
+        "data": {
+          "path": "PROVENANCE_d1e70ca20d5457cc",
+          "bytes": 10577073,
+          "sha256": "7950528ff02abf90726859ab58ea22eacd76ed3f0e9ebc8110f4ded2d0c1b0fc"
+        },
+        "csv": {
+          "path": "PROVENANCE_d25fdd749230e6b0",
+          "bytes": 11376347,
+          "sha256": "5d3e70488912d70c4669dd5a76b4a8440deabaad1c6a4f0febd04d59fbb2da35"
+        },
+        "statistics": {
+          "path": "PROVENANCE_b9ec66cf06f9b1b2",
+          "bytes": 20143,
+          "sha256": "8a0e938fc28319ed6d640144f9e7ba1942e877ea7036f369ff494566f93be79e"
+        },
+        "curves": {
+          "path": "PROVENANCE_dc254f953e849aeb",
+          "bytes": 5517,
+          "sha256": "f43fb3d345fe2281a9ffb741835d7ce9b256d4a823ae9bc76d341fbdba156e87"
+        },
+        "figure-0": {
+          "path": "PROVENANCE_c5ae5ae825e05903",
+          "bytes": 34026,
+          "sha256": "eb7c14cd5e158b7b70a7f51ad072aef8b7f8c36ad2bec1b6a0c4911e2e72793c"
+        },
+        "figure-1": {
+          "path": "PROVENANCE_7efabd06eef928d0",
+          "bytes": 64477,
+          "sha256": "93587d99ee6703af84b82b340b08e32cb74ada63fa754fb261af22b33a6b0448"
+        },
+        "figure-2": {
+          "path": "PROVENANCE_df1019f94a55a1d1",
+          "bytes": 62898,
+          "sha256": "59810862fdcb5aee78f37cd8a167eb5ec7c379501a584da7235bbfc5f8248f88"
+        },
+        "figure-3": {
+          "path": "PROVENANCE_fb16d1246940b9e7",
+          "bytes": 154526,
+          "sha256": "59ebd44c804176f2949956788fa4b67b7bf4caf63eb6d59a7b1abe979a7cf059"
+        }
+      },
+      "modes": [
+        [
+          "ordinary-source-candidate",
+          "Ordinary repeated-call TRT"
+        ],
+        [
+          "verified-arena-candidate",
+          "Verified arena; no replay"
+        ]
+      ],
+      "columns": {
+        "round": "process_round",
+        "latency": "e2e_ns",
+        "flags": {
+          "all_outputs_finite": "1",
+          "bitwise_exact_all_outputs": "1",
+          "normalized_quality_gate": "1",
+          "request_accepted": "1",
+          "software_test_only": "0"
+        }
+      },
+      "complete_tensors_field": [
+        "complete_action_tensors_checked"
+      ],
+      "statistics_file": "statistics",
+      "statistics_root": [
+        "modes_statistics"
+      ],
+      "statistics_suffix": [],
+      "stat_names": {
+        "mean": "mean_ms",
+        "p50": "p50_ms",
+        "p95": "p95_ms",
+        "p99": "p99_ms",
+        "max": "max_ms",
+        "std": "std_ms",
+        "chunks_per_second": "chunks_per_second"
+      },
+      "checks": [
+        [
+          "acceptance",
+          [
+            "formal_acceptance"
+          ],
+          true
+        ],
+        [
+          "acceptance",
+          [
+            "formal_sampling"
+          ],
+          true
+        ],
+        [
+          "acceptance",
+          [
+            "nonmodel_fixture"
+          ],
+          false
+        ],
+        [
+          "data",
+          [
+            "model_data_audited"
+          ],
+          true
+        ],
+        [
+          "data",
+          [
+            "status"
+          ],
+          "complete-native-model-data-verified"
+        ],
+        [
+          "data",
+          [
+            "h20_used_as_primary_gate"
+          ],
+          false
+        ],
+        [
+          "data",
+          [
+            "normalized_gate"
+          ],
+          {
+            "mse_lt": 1e-05,
+            "cosine_gt": 0.9999
+          }
+        ]
+      ],
+      "bindings": [
+        [
+          "acceptance",
+          [
+            "input_hashes",
+            "model"
+          ],
+          "data"
+        ],
+        [
+          "acceptance",
+          [
+            "input_hashes",
+            "latency"
+          ],
+          "statistics"
+        ],
+        [
+          "statistics",
+          [
+            "files",
+            "raw-requests.csv",
+            "sha256"
+          ],
+          "csv"
+        ],
+        [
+          "curves",
+          [
+            "joint",
+            "sha256"
+          ],
+          "acceptance"
+        ],
+        [
+          "curves",
+          [
+            "summary",
+            "sha256"
+          ],
+          "statistics"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            0,
+            "sha256"
+          ],
+          "figure-0"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            1,
+            "sha256"
+          ],
+          "figure-1"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            2,
+            "sha256"
+          ],
+          "figure-2"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            3,
+            "sha256"
+          ],
+          "figure-3"
+        ]
+      ],
+      "quality_evidence": "previous hash-bound full-output audit; only latency CSV is recalculated here",
+      "public_outputs_per_request": 2,
+      "numeric_outputs_per_request": 2,
+      "exact_auxiliary_outputs_per_request": 0
+    },
+    {
+      "label": "CogACT (actual ~7.63B public-dependency configuration)",
+      "sources": {
+        "acceptance": {
+          "path": "PROVENANCE_d761dd0f424bb8b8",
+          "bytes": 80173,
+          "sha256": "8910cdf9e77c79db3b394d8e1beaee0f4adc75cb66d2d108a4084654b2dc98ae"
+        },
+        "data": {
+          "path": "PROVENANCE_21d24de643f76b48",
+          "bytes": 29018214,
+          "sha256": "81b8bbf8cc5a09aebb912f1aedf3aa953c007bc857379bd4ef34c2f2cf059d33"
+        },
+        "csv": {
+          "path": "PROVENANCE_ee3b1808b201e9d4",
+          "bytes": 29762491,
+          "sha256": "b0036907312e55c12bb613abaf87ba5544c1cae503f8180e01793668469bfc70"
+        },
+        "statistics": {
+          "path": "PROVENANCE_cc2b33d85fd7aa4d",
+          "bytes": 19657,
+          "sha256": "3351db8aadfb321aea0343757aa64d0c529a9c135c08116a549f156a6c30cc35"
+        },
+        "curves": {
+          "path": "PROVENANCE_823e2c0edfd4f4f1",
+          "bytes": 5346,
+          "sha256": "a5df88b78cbf4f726f03565814bacce12a032570db9565074db6d6e7cc45ada3"
+        },
+        "figure-0": {
+          "path": "PROVENANCE_db9b4f4c61463c97",
+          "bytes": 34065,
+          "sha256": "1f0300212a461fa8bdb8a16fb25e1130f4f0e11557d1c00a2418ae99fa9b3f3a"
+        },
+        "figure-1": {
+          "path": "PROVENANCE_bf23f5f62c4abf02",
+          "bytes": 61788,
+          "sha256": "b9e47991b2e89b30095dbc7e1bff41779e91a395e0ee7702c0f77b663783ba15"
+        },
+        "figure-2": {
+          "path": "PROVENANCE_6ac3e1c4214ca034",
+          "bytes": 63424,
+          "sha256": "390f2c5c19acd5562c46ae38b2d664251393d625b903198c7d1195b7332c03b5"
+        },
+        "figure-3": {
+          "path": "PROVENANCE_ae1cd649b2e5f319",
+          "bytes": 142447,
+          "sha256": "5c258951c7b99c54b019712ec8dc7530ec32045d96526ad08621ab02a1aa1710"
+        },
+        "public_io": {
+          "path": "PROVENANCE_b99355fec5337c73",
+          "bytes": 4615,
+          "sha256": "c483641c15d613c422fbdc82bc6e73c74adb47f7fb8a8926f658610f4017790e"
+        },
+        "quality_policy": {
+          "path": "PROVENANCE_93a15fc38856fdb4",
+          "bytes": 445,
+          "sha256": "06c258492c3c788d2047e43ae24c1406c5a39b36426ec3d914253b987cf1e708"
+        }
+      },
+      "modes": [
+        [
+          "ordinary-source",
+          "Ordinary repeated-call TRT"
+        ],
+        [
+          "verified-arena",
+          "Verified arena; no replay"
+        ]
+      ],
+      "columns": {
+        "round": "process_round",
+        "latency": "e2e_ns",
+        "flags": {
+          "all_outputs_finite": "1",
+          "bitwise_exact_all_outputs": "1",
+          "normalized_quality_gate": "1",
+          "request_accepted": "1",
+          "software_test_only": "0",
+          "typed_exact_gate": "1",
+          "native_finite_gate": "1"
+        }
+      },
+      "complete_tensors_field": [
+        "complete_action_tensors_checked"
+      ],
+      "statistics_file": "statistics",
+      "statistics_root": [
+        "modes_statistics"
+      ],
+      "statistics_suffix": [],
+      "stat_names": {
+        "mean": "mean_ms",
+        "p50": "p50_ms",
+        "p95": "p95_ms",
+        "p99": "p99_ms",
+        "max": "max_ms",
+        "std": "std_ms",
+        "chunks_per_second": "chunks_per_second"
+      },
+      "checks": [
+        [
+          "acceptance",
+          [
+            "formal_acceptance"
+          ],
+          true
+        ],
+        [
+          "acceptance",
+          [
+            "formal_sampling"
+          ],
+          true
+        ],
+        [
+          "acceptance",
+          [
+            "nonmodel_fixture"
+          ],
+          false
+        ],
+        [
+          "data",
+          [
+            "model_data_audited"
+          ],
+          true
+        ],
+        [
+          "data",
+          [
+            "status"
+          ],
+          "complete-native-model-data-verified"
+        ],
+        [
+          "data",
+          [
+            "h20_used_as_primary_gate"
+          ],
+          false
+        ],
+        [
+          "data",
+          [
+            "normalized_gate"
+          ],
+          {
+            "mse_lt": 1e-05,
+            "cosine_gt": 0.9999
+          }
+        ]
+      ],
+      "bindings": [
+        [
+          "acceptance",
+          [
+            "input_hashes",
+            "model"
+          ],
+          "data"
+        ],
+        [
+          "acceptance",
+          [
+            "input_hashes",
+            "latency"
+          ],
+          "statistics"
+        ],
+        [
+          "statistics",
+          [
+            "files",
+            "raw-requests.csv",
+            "sha256"
+          ],
+          "csv"
+        ],
+        [
+          "curves",
+          [
+            "joint",
+            "sha256"
+          ],
+          "acceptance"
+        ],
+        [
+          "curves",
+          [
+            "summary",
+            "sha256"
+          ],
+          "statistics"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            0,
+            "sha256"
+          ],
+          "figure-0"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            1,
+            "sha256"
+          ],
+          "figure-1"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            2,
+            "sha256"
+          ],
+          "figure-2"
+        ],
+        [
+          "curves",
+          [
+            "outputs",
+            3,
+            "sha256"
+          ],
+          "figure-3"
+        ],
+        [
+          "data",
+          [
+            "public_module_io",
+            "sha256"
+          ],
+          "public_io"
+        ]
+      ],
+      "quality_evidence": "previous hash-bound full-output audit; only latency CSV is recalculated here",
+      "public_outputs_per_request": 5,
+      "numeric_outputs_per_request": 3,
+      "exact_auxiliary_outputs_per_request": 2,
+      "typed_outputs_column": "complete_outputs"
+    }
+  ],
+  "required_models": 5,
+  "sealed_previous_manifest": {
+    "path": "PROVENANCE_1a25bf7bf57ab8d2",
+    "bytes": 20661,
+    "sha256": "749abd9574c3ea6fca3414b0ec90ec647590e09a8d9c35bb4e60ca0fbd8cc76a"
+  },
+  "sealed_previous_exporter": {
+    "path": "PROVENANCE_161e264d9ce190ed",
+    "bytes": 14589,
+    "sha256": "c83396e41da41c2f8b75fa97c512175535d4c7092907c4644649d6e9fbc514a5"
+  },
+  "source": {
+    "path": "PROVENANCE_eb55e86de7c5b4bb",
+    "bytes": 13007,
+    "sha256": "2aed2c41e5cc30d243030c4bbfbce95cabc373c9f0000f3973436c2ba490ce25"
+  },
+  "new_inference_requested": false,
+  "new_complete_tensor_byte_audit_claimed": false,
+  "whole_goal_complete": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

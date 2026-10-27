@@ -1,0 +1,342 @@
+{
+  "schema": "edgefm.paper_handoff_audit_extract/1",
+  "original_full_audit_included": false,
+  "source": {
+    "path": "PROVENANCE_4e8def28f91033ee",
+    "bytes": 3833319,
+    "sha256": "efa31157ae21784db0c7907ed3427a412ecd1dbf031102f67f728bc487388ceb"
+  },
+  "original_paths_are_provenance_not_package_dependencies": true,
+  "selected_fields": {
+    "schema": "edgefm.native_resident_formal_data_audit/1",
+    "status": "complete-native-model-data-verified",
+    "formal_acceptance": false,
+    "whole_goal_complete": false,
+    "total_requests": 11520,
+    "total_measured": 10240,
+    "complete_processes": 10,
+    "complete_token_values": 184320,
+    "complete_logit_vectors": 320,
+    "complete_logit_elements": 79462400,
+    "complete_paired_logit_comparisons": 160,
+    "all_output_tokens_exact": true,
+    "all_boundary_logits_gate_passed": true,
+    "max_boundary_mse": 0.0,
+    "min_boundary_cosine": 0.9999999999999998,
+    "all_boundary_logit_vectors_byteexact": true,
+    "witness_scope": "all11520complete16token outputs; each sample full-logit/ID witnesses at first/last cycles; no claim every intermediate logit was persisted",
+    "source_reference_is_supplemental": true,
+    "cross_device_supplemental": [
+      {
+        "sample": 0,
+        "cross_device_tokens_equal": true,
+        "original_tokens": {
+          "path": "PROVENANCE_d5504b1867a46024",
+          "bytes": 128,
+          "sha256": "f74f95a8a8e09f234a83389caddf75fb38f35f5b7cff58fd185ee7b70993ef50"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_f7b1a40a890414fd",
+          "bytes": 496640,
+          "sha256": "493a56e2fbca4456d0cfca95c5143cafd5661cc18f20079651db8e401dcfcfd7"
+        },
+        "mse": 0.006430003821981583,
+        "max_abs": 0.4375,
+        "cosine": 0.9996572089502549,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 1,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_3ac8331eaa7111a6",
+          "bytes": 128,
+          "sha256": "dc520ac787c7150709b69e544c478d6784f69d94e5ff05dc9bdbbfe80ba3cfd0"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_02648fec540984b7",
+          "bytes": 496640,
+          "sha256": "7255fe9f75b479c17fb1a2c923634cf38e459cf0cb7bd1f1d735a80657f26189"
+        },
+        "mse": 3.283483088222421,
+        "max_abs": 15.125,
+        "cosine": 0.8278204360045037,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 2,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_61273455c6293a44",
+          "bytes": 128,
+          "sha256": "d3cf0deeb13245a7767af47ff6a39fd39c33c27cc5d0fa50c20c1dd4ccde409c"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_ba29ef470d9f2f7c",
+          "bytes": 496640,
+          "sha256": "beb167098ae99c42a9b8ecb03c002956416842dd47476653cc846b91f63c67a5"
+        },
+        "mse": 5.167707678236896,
+        "max_abs": 12.59375,
+        "cosine": 0.8775456801621755,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 3,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_1522a52a86fb1264",
+          "bytes": 128,
+          "sha256": "cac73c0604c8edeae599e8ebc9116a4769a42d7719e7dbeddf45db3a54608278"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_8f3abe3731fd59c0",
+          "bytes": 496640,
+          "sha256": "f0cb0b3e475755295b1c5da71fecbcd458cc43abd672a82e5d5cb115dde86b07"
+        },
+        "mse": 5.824579104474371,
+        "max_abs": 13.78125,
+        "cosine": 0.7732789050049498,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 4,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_e9d168ced45a1d31",
+          "bytes": 128,
+          "sha256": "2864b229a521fca36b592d69b8ecc70f0df97d6db262ec10934eedb2599e38d0"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_81efafba375b3886",
+          "bytes": 496640,
+          "sha256": "f1c21b80b02444c259675c75d9f4313ec1e2b469a63defd94324d41d0dfd20eb"
+        },
+        "mse": 8.166363440239808,
+        "max_abs": 15.3671875,
+        "cosine": 0.7177930159797096,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 5,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_6e30d5042bb4966d",
+          "bytes": 128,
+          "sha256": "7b14ceac011f84bdb9d8f9d788d6853ffa4da10dfd5b3983d44b1483a75232d2"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_c9d00450383e0953",
+          "bytes": 496640,
+          "sha256": "94e2d4ae3b6cd78994822a9719329059696ee2c195fa0cc4d6dd5246ddbfa88c"
+        },
+        "mse": 8.654175832348875,
+        "max_abs": 20.4140625,
+        "cosine": 0.7335699786430714,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 6,
+        "cross_device_tokens_equal": true,
+        "original_tokens": {
+          "path": "PROVENANCE_ba40bae69427dd5d",
+          "bytes": 128,
+          "sha256": "6d35088310e6987a42249329c328aa0d0540b2d3c7f7e85724ebded5d3bb05a4"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_0554d079a2db3420",
+          "bytes": 496640,
+          "sha256": "3a7158656c71fbcee776589723945864a83a58fcb11a758b4ae8a1fc9c4981e1"
+        },
+        "mse": 0.010096409528202465,
+        "max_abs": 0.5625,
+        "cosine": 0.9996657138737668,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 7,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_2d02a64a7bf9474f",
+          "bytes": 128,
+          "sha256": "141e0597b7fac6a6c4f8ddc56afbf067b8eece98d663daea00e2116195c374aa"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_b697918a53ce3f13",
+          "bytes": 496640,
+          "sha256": "9d079266eb8d73442e53bffdf8f548e7ac3147eb36c038714e25f5cc6fcf4b1e"
+        },
+        "mse": 0.010560929697328953,
+        "max_abs": 0.765625,
+        "cosine": 0.9995023653961936,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 8,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_38138184c130693f",
+          "bytes": 128,
+          "sha256": "41df47fd4e83792007cf1d6d5817d7587f78d575c5a0eb2d4fc03d20d8112e76"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_a83e9674e89e3547",
+          "bytes": 496640,
+          "sha256": "64ffe1a94168407bf78bf51d6c2ab240d6016507c7911dc020ff2e170591a435"
+        },
+        "mse": 6.180125071454551,
+        "max_abs": 17.125,
+        "cosine": 0.6973061539148853,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 9,
+        "cross_device_tokens_equal": true,
+        "original_tokens": {
+          "path": "PROVENANCE_c0ce8205d157a8c4",
+          "bytes": 128,
+          "sha256": "bce96130243e4ea329b7f2de7c2cc748cd54d02dfcadc7dec53325e60e437194"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_f3e00aadf97386bc",
+          "bytes": 496640,
+          "sha256": "ae4b5283e7453e0c83f08cdd5cdac9160a93392ecd13d72e0a89d82efb9ddcb2"
+        },
+        "mse": 0.009546580201347939,
+        "max_abs": 0.4375,
+        "cosine": 0.9996811610114242,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 10,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_473d855258dd68df",
+          "bytes": 128,
+          "sha256": "75b9ecbd84a514389df75d83bf3c9c067e8ecd9fa4288f85c2372c106ae23c78"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_68b6c90ffca0650a",
+          "bytes": 496640,
+          "sha256": "76c7ab368e8f8165d373df445e154e4a917aeac181266456ed903d204b55b97f"
+        },
+        "mse": 8.238981187283635,
+        "max_abs": 17.5576171875,
+        "cosine": 0.755729200376517,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 11,
+        "cross_device_tokens_equal": false,
+        "original_tokens": {
+          "path": "PROVENANCE_dcecbed83dcf2d7b",
+          "bytes": 128,
+          "sha256": "2a205ce59c9bfb93f6f5ebc5bc479fcd91241d20a0dc47b58d312fc520844c31"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_2b72774a4f4cb1a5",
+          "bytes": 496640,
+          "sha256": "a819d5c4be0005d3e8445aa8e77e5d01d4d79fbd6889bdfddc66f0e1828ff75c"
+        },
+        "mse": 4.483628554139661,
+        "max_abs": 12.234375,
+        "cosine": 0.829403613394121,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 12,
+        "cross_device_tokens_equal": true,
+        "original_tokens": {
+          "path": "PROVENANCE_0f658a8c11ea932d",
+          "bytes": 128,
+          "sha256": "62609b2a9525a001f960aed643695300b63cffa5ad8a0a308a6441c6afe919df"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_98d2fb361071d919",
+          "bytes": 496640,
+          "sha256": "41beccf981c373e796d8a86dc9cc825d43b5e3b2480ac0faa6a83dba25464656"
+        },
+        "mse": 0.011529106860954692,
+        "max_abs": 0.53125,
+        "cosine": 0.9997151929446505,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 13,
+        "cross_device_tokens_equal": true,
+        "original_tokens": {
+          "path": "PROVENANCE_307d3bb6c6092200",
+          "bytes": 128,
+          "sha256": "50602a74b33d8c60a46ab3c1a13fef6cf4b685628fe1279a69b335cac091fcf1"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_8927e501f444a85d",
+          "bytes": 496640,
+          "sha256": "23a03939b223ed56e673edbf308cdfb0a97ebf0e6d61c740a235d07ec6f32229"
+        },
+        "mse": 0.007786629868916871,
+        "max_abs": 0.4375,
+        "cosine": 0.9997750937227416,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 14,
+        "cross_device_tokens_equal": true,
+        "original_tokens": {
+          "path": "PROVENANCE_994ebbbcead326fe",
+          "bytes": 128,
+          "sha256": "f4369861144be52265a0fc0a28636a4aee0fa355d19d95522cced884e5411ac8"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_4e28d956986ed626",
+          "bytes": 496640,
+          "sha256": "37998b1df74636e15a0631b2e041ceb41e035d6b1a1afb52c03733976b27dfcf"
+        },
+        "mse": 0.014947674232959285,
+        "max_abs": 0.671875,
+        "cosine": 0.999475253918852,
+        "byteexact": false,
+        "affects_primary_gate": false
+      },
+      {
+        "sample": 15,
+        "cross_device_tokens_equal": true,
+        "original_tokens": {
+          "path": "PROVENANCE_ab770844abc57dd7",
+          "bytes": 128,
+          "sha256": "bde294ab0de2799880ced9bc4e114f371547d5aec0cc08a38108335f9594eea4"
+        },
+        "original_BF16_logits": {
+          "path": "PROVENANCE_301c0de0e15157ea",
+          "bytes": 496640,
+          "sha256": "7e7ad1c8e47db8a61c2837c14cfbb9d6d7cda1c79041651908798f794eff7415"
+        },
+        "mse": 0.011209242778371332,
+        "max_abs": 0.46875,
+        "cosine": 0.9998147518852487,
+        "byteexact": false,
+        "affects_primary_gate": false
+      }
+    ]
+  },
+  "not_a_new_experiment_or_independent_audit": true,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

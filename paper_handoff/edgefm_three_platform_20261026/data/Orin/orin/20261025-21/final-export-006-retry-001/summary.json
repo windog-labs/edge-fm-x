@@ -1,0 +1,52 @@
+{
+  "schema": "edgefm.native_resident_final_export/1",
+  "status": "data-resources-performance-source-closed-visual-and-goal-review-pending",
+  "formal_acceptance": false,
+  "whole_goal_complete": false,
+  "memory_attempts": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "observer_restart_count": 3,
+  "model_restart_performed": false,
+  "source": {
+    "path": "PROVENANCE_831b2a68781e1421",
+    "bytes": 9125,
+    "sha256": "e9a9cf25b61ab3266d91507d55fdb6a677957de27de18f9fcb352a9772a14961"
+  },
+  "artifacts": [
+    {
+      "path": "PROVENANCE_7379da25ff5755b8",
+      "bytes": 7682665,
+      "sha256": "9871d1a7e0a341c7aeac3645d810f3f1343d334e36e925fa05584c22ad81c70b"
+    },
+    {
+      "path": "PROVENANCE_4e8def28f91033ee",
+      "bytes": 3833319,
+      "sha256": "efa31157ae21784db0c7907ed3427a412ecd1dbf031102f67f728bc487388ceb"
+    },
+    {
+      "path": "PROVENANCE_597c21e3f12283d1",
+      "bytes": 4007465,
+      "sha256": "c17261c184b47922bd1f6450f690fa85bf1144c009a914351e823ddadfc704ab"
+    },
+    {
+      "path": "PROVENANCE_ffd894eaefe1bfb8",
+      "bytes": 205143000,
+      "sha256": "7c6e3917f209e2fd1a56872beb7b44b316acff06f2eb99cc9d09b4189b79ed8b"
+    },
+    {
+      "path": "PROVENANCE_38ea604ff1bb2370",
+      "bytes": 4695,
+      "sha256": "5757f26659e9f62d6f384a84b9b49330e3d8a189dbbd8e3aa127a07c0816f182"
+    }
+  ],
+  "visual_inspection_completed": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

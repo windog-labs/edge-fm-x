@@ -1,0 +1,80 @@
+[
+  {
+    "configuration": "official-pytorch",
+    "output": "raw_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "official-pytorch",
+    "output": "normalized_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "official-pytorch",
+    "output": "native_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "official-pytorch",
+    "output": "rng_after",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true
+  },
+  {
+    "configuration": "official-pytorch",
+    "output": "draws_consumed",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true
+  },
+  {
+    "configuration": "session-required",
+    "output": "raw_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "session-required",
+    "output": "normalized_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "session-required",
+    "output": "native_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "session-required",
+    "output": "rng_after",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true
+  },
+  {
+    "configuration": "session-required",
+    "output": "draws_consumed",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "schema": "edgefm.operator_ecdf/1",
+  "audit_sha256": "8292119f811676020162d5e7cb183cb633282f3cf3ec8c6a78ffa226068d2aa1",
+  "csv_sha256": "6ccbc8b4f8d6e7d31201a1b2902ecd6ae223256b1dd9b0eda80cae23253d4f63",
+  "rows": 20480,
+  "all_tails_kept": true,
+  "centered": false,
+  "formal_vla_cdf": false,
+  "files": [
+    {
+      "path": "gemm-operator-cdf.png",
+      "sha256": "949740f51179187f03687f36f6442276f223d058abb766befbf76c5b6413682e"
+    },
+    {
+      "path": "gemm-operator-cdf.pdf",
+      "sha256": "50865824cd246fa04a575423c3fd64fb3caedb5e022431bde59cd0a1e9d362d2"
+    }
+  ],
+  "producer_sha256": "849582cb8339bdc0b4f8c4d0d5a4be78b56c0113b720262a30c0295310261d03"
+}

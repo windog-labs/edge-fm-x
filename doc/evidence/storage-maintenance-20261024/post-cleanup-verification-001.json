@@ -1,0 +1,212 @@
+{
+  "schema": "edgefm.paper_data_retention_verification/1",
+  "status": "paper-data-recomputed-model-payloads-explicitly-retired",
+  "checked_utc": "2026-10-24T08:03:47.642714+00:00",
+  "source": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/verify_retained_evidence.py",
+    "bytes": 6936,
+    "sha256": "1d500108fd8ecb53a5c57a469704780070ca981a7cfbc28aa2c63d2325d4c780"
+  },
+  "local": {
+    "plan": {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/local-payload-plan-001.json",
+      "bytes": 50584,
+      "sha256": "330e80d9585a6c6b70b5fe0329ef6b70f67991dc0cedcf7a602fb38faed0b850"
+    },
+    "result": {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/local-payload-cleanup-001.json",
+      "bytes": 65999,
+      "sha256": "fbd925e7723503fa90e770d0db715ed0b0a9f87ca3b7b3425a56691b2251d5b0"
+    },
+    "journal": {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/local-payload-cleanup-001.journal.jsonl",
+      "bytes": 71298,
+      "sha256": "18de1678120a48189fd57c58cb723d84ed905e2931b529456bd2eed73b5a4592"
+    },
+    "removed_paths": 108,
+    "planned_unique_inode_reclaim_bytes": 208678850560
+  },
+  "target": {
+    "plan": {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/target-payload-plan-001.json",
+      "bytes": 91885,
+      "sha256": "57adb639581a84f06cc665641612f031fc8fb00146d5d1194667826c0617074f"
+    },
+    "result": {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/target-payload-cleanup-002.json",
+      "bytes": 121536,
+      "sha256": "dda4f5f65aa03bef7b41ea5cc2d5b241c79f15b721abcd746d3017396d4c8476"
+    },
+    "journal": {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/target-payload-cleanup-002.journal.jsonl",
+      "bytes": 128872,
+      "sha256": "dac12b5d06ff4f1b2c697562db982e75ad749738d8dded179fba14c54b0785f2"
+    },
+    "removed_paths": 208,
+    "planned_unique_inode_reclaim_bytes": 204141780992
+  },
+  "target_postcheck": {
+    "serial": "1421524312594",
+    "boot_id": "3c801f5d-6897-4d97-b021-3c52db38a750",
+    "active_owned_units": 0,
+    "retired_paths_absent": 208,
+    "available_bytes": 255440277504,
+    "SDK_query": {
+      "returncode": 0,
+      "stdout": "libnvinfer8\t8.5.2-1+cuda11.4\nlibnvonnxparsers8\t8.5.2-1+cuda11.4\nnvidia-l4t-core\t35.4.1-20230801124926\n",
+      "stderr": ""
+    },
+    "managed_programs": [
+      {
+        "name": "Broadcast",
+        "state": "Running",
+        "pid": 4259
+      },
+      {
+        "name": "CameraManage",
+        "state": "Fatal",
+        "pid": 0
+      },
+      {
+        "name": "MapManage",
+        "state": "Running",
+        "pid": 4255
+      },
+      {
+        "name": "VersionManager",
+        "state": "Fatal",
+        "pid": 0
+      },
+      {
+        "name": "WsTransfer",
+        "state": "Running",
+        "pid": 4289
+      },
+      {
+        "name": "communication_interface",
+        "state": "Running",
+        "pid": 4258
+      },
+      {
+        "name": "compotask_service",
+        "state": "Running",
+        "pid": 1684984
+      },
+      {
+        "name": "data-collection.jar",
+        "state": "Running",
+        "pid": 1465074
+      },
+      {
+        "name": "module-hub",
+        "state": "Running",
+        "pid": 4253
+      },
+      {
+        "name": "router_manager",
+        "state": "Running",
+        "pid": 1684913
+      },
+      {
+        "name": "server-linux-arm64",
+        "state": "Running",
+        "pid": 4256
+      },
+      {
+        "name": "xs-ugv-starter-0.0.1-SNAPSHOT.jar",
+        "state": "Running",
+        "pid": 1465114
+      },
+      {
+        "name": "xs_remote_viewer",
+        "state": "Exited",
+        "pid": 0
+      }
+    ],
+    "target_inference_executed": false,
+    "service_or_system_operations": false
+  },
+  "local_available_bytes": 266498052096,
+  "local_dedup_then_retirement_reclaim_bytes": 240024973312,
+  "tables": [
+    {
+      "original": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/tables-001/main-table.csv",
+        "bytes": 2295,
+        "sha256": "ab05db5dc9f7d1bff5d1110a2fa29c552b0eaa5d570f7b1a913bc56cc7312675"
+      },
+      "recomputed": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/post-cleanup-five-tables-001/main-table.csv",
+        "bytes": 2295,
+        "sha256": "ab05db5dc9f7d1bff5d1110a2fa29c552b0eaa5d570f7b1a913bc56cc7312675"
+      },
+      "byte_exact": true
+    },
+    {
+      "original": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/tables-001/quality-table.csv",
+        "bytes": 807,
+        "sha256": "205052991f96c2fb0bceb9cc5dc3d04b8a091c10ab07c362cb8915ac6914c035"
+      },
+      "recomputed": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/post-cleanup-five-tables-001/quality-table.csv",
+        "bytes": 807,
+        "sha256": "205052991f96c2fb0bceb9cc5dc3d04b8a091c10ab07c362cb8915ac6914c035"
+      },
+      "byte_exact": true
+    },
+    {
+      "original": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/tables-001/process-table.csv",
+        "bytes": 3246,
+        "sha256": "3329fe231c4d2dbde7f35f3c31e701292fc4ff1476d91b8827cc6e365925b2be"
+      },
+      "recomputed": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/post-cleanup-five-tables-001/process-table.csv",
+        "bytes": 3246,
+        "sha256": "3329fe231c4d2dbde7f35f3c31e701292fc4ff1476d91b8827cc6e365925b2be"
+      },
+      "byte_exact": true
+    },
+    {
+      "original": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/tables-001/tables.md",
+        "bytes": 3100,
+        "sha256": "31b9557c0601f85f0551083bf202af06f3498aa8062281ae093aa1e8a1591d4e"
+      },
+      "recomputed": {
+        "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/post-cleanup-five-tables-001/tables.md",
+        "bytes": 3100,
+        "sha256": "31b9557c0601f85f0551083bf202af06f3498aa8062281ae093aa1e8a1591d4e"
+      },
+      "byte_exact": true
+    }
+  ],
+  "table_export": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/post-cleanup-five-tables-001/summary.json",
+    "bytes": 18545,
+    "sha256": "b76d83bdfd773cad8f246d5b55b43fe96fe702de07b43550fd5a6266a05b4786"
+  },
+  "current_requirement_review": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-08/core-requirement-audit-003.json",
+    "bytes": 44303,
+    "sha256": "c9ba89bb508e13a6afbbba9e7342738803d1c0b72a8ba1e1c5dadd3571799759"
+  },
+  "data_regression_tests": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024/post-cleanup-core-tests-001.xml",
+    "bytes": 7354,
+    "sha256": "6249b3868451fa68a1928bf075b245a7a751ca332b06724b3358e9501c599e84"
+  },
+  "data_tests_passed": 48,
+  "retention_report": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_storage_retention_20261024.md",
+    "bytes": 5720,
+    "sha256": "d02fa6911cc8c5878f4212f6e78e9cc65f92dcbea9a57f0545ea34b91fbd23db"
+  },
+  "historical_complete_output_audits_retained": true,
+  "all_raw_tensor_bytes_newly_reread": false,
+  "new_model_inference_executed": false,
+  "full_binary_reproduction_available": false,
+  "Qwen_assets_or_environments_selected": false,
+  "whole_goal_complete": false
+}

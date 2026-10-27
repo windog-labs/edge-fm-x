@@ -1,0 +1,29 @@
+{
+  "schema": "edgefm.user_authorized_storage_cleanup/1",
+  "record_type": "curated-command-result-summary",
+  "checked_host_utc": "2026-10-23T06:10:11Z",
+  "authorization": "data帮忙清理掉吧，现在不需要了。",
+  "deleted": {
+    "path": "/home/zhangzimo/data",
+    "before_allocated_bytes": 74998190080,
+    "scope": "entire explicitly named user data directory",
+    "preflight": {"resolved_path_equal": true, "symlink": false, "owner_uid": 1000, "nested_mounts": [], "visible_open_files": 0, "open_file_visibility": "lsof current-user visibility, not all-process proof"},
+    "command": "rm -r --one-file-system -- /home/zhangzimo/data",
+    "exit_code": 0,
+    "absence_postcheck_exit_code": 0,
+    "backup_created": false,
+    "backup_not_requested": true
+  },
+  "system_disk_after": {"df_used_rounded_gib": 792, "df_available_rounded_gib": 78, "df_use_percent": 92},
+  "preserved": ["active f801 EdgeFM worktree and uncommitted changes", "model/checkpoint environments and all Orin/J6M/H20 experiment evidence", "original historical experiment directory pending dependency review"],
+  "worktree_assessment": {"codex_worktree_count": 1, "active_path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x", "whole_worktree_removed": false, "reason": "only Codex worktree is active, detached and dirty; no verified disposable inactive Codex worktree"},
+  "historical_experiments": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509",
+    "approx_gib": 100,
+    "archive_destination": null,
+    "archive_performed": false,
+    "whole_directory_deleted": false,
+    "confirmed_live_reference": "artifacts/orin/20261023-26/prepared-002/requests/ir-v4.json references board-handoff/pi05-dual-data-001/pack/manifest.json and pack/source/module.json inside this directory",
+    "policy": "retain formal raw evidence and still-used references; do not treat age or a Markdown report as proof that all source files are dispensable"
+  }
+}

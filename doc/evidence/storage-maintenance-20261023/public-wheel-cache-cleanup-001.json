@@ -1,0 +1,15 @@
+{
+  "schema": "edgefm.disposable_public_wheel_cache_cleanup/1",
+  "record_type": "curated-command-result-summary",
+  "status": "completed",
+  "host_utc": "2026-10-23 06:30:12 UTC",
+  "plan": "public-wheel-cache-plan-002.json",
+  "absent_files": 17,
+  "expected_released_allocated_bytes": 4107051008,
+  "remaining_wheel_files": 93,
+  "scope": "17 cached third-party torch/triton/nvidia wheel installers only",
+  "installed_environments_removed": false,
+  "model_or_formal_data_removed": false,
+  "download_and_original_audit_logs_preserved": true,
+  "offline_wheel_reinstall_requires_reacquiring_exact_versions_and_hashes": true
+}

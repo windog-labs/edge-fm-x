@@ -1,0 +1,14 @@
+{
+  "name": "edgefm-orin-task-board",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node start.mjs",
+    "dev": "node server.mjs",
+    "sync": "node sync.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:browser": "playwright test"
+  },
+  "dependencies": { "lucide": "1.61.0" },
+  "devDependencies": { "@playwright/test": "1.64.1" }
+}

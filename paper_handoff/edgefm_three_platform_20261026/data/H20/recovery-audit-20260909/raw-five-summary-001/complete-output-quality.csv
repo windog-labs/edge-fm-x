@@ -1,0 +1,27 @@
+model_id,configuration,output,dtype,shape,complete_outputs_including_warmup,all_byte_exact,mse_max,max_abs,cosine_min
+smolvla,official-pytorch,action_chunk,f32,"[1, 50, 6]",5760,True,0.0,0.0,0.9999999999999998
+smolvla,official-pytorch,native_action_chunk,f32,"[1, 50, 6]",5760,True,0.0,0.0,1.0
+smolvla,session-required,action_chunk,f32,"[1, 50, 6]",5760,True,0.0,0.0,0.9999999999999998
+smolvla,session-required,native_action_chunk,f32,"[1, 50, 6]",5760,True,0.0,0.0,1.0
+rdt,official-pytorch,action_chunk,bf16,"[1, 64, 128]",5760,True,0.0,0.0,0.9999999999999998
+rdt,official-pytorch,robot_action_chunk,bf16,"[1, 64, 14]",5760,True,0.0,0.0,0.9999999999999999
+rdt,session-required,action_chunk,bf16,"[1, 64, 128]",5760,True,0.0,0.0,0.9999999999999998
+rdt,session-required,robot_action_chunk,bf16,"[1, 64, 14]",5760,True,0.0,0.0,0.9999999999999999
+pi0,official-pytorch,normalized_action_chunk,f32,"[1, 50, 32]",5760,True,0.0,0.0,0.9999999999999998
+pi0,official-pytorch,native_action_chunk,f64,"[1, 50, 14]",5760,True,0.0,0.0,0.9999999999999998
+pi0,session-required,normalized_action_chunk,f32,"[1, 50, 32]",5760,True,0.0,0.0,0.9999999999999998
+pi0,session-required,native_action_chunk,f64,"[1, 50, 14]",5760,True,0.0,0.0,0.9999999999999998
+pi05,official-pytorch,normalized_action_chunk,f32,"[1, 50, 32]",5760,True,0.0,0.0,0.9999999999999998
+pi05,official-pytorch,native_action_chunk,f64,"[1, 50, 14]",5760,True,0.0,0.0,0.9999999999999998
+pi05,session-required,normalized_action_chunk,f32,"[1, 50, 32]",5760,True,0.0,0.0,0.9999999999999998
+pi05,session-required,native_action_chunk,f64,"[1, 50, 14]",5760,True,0.0,0.0,0.9999999999999998
+cogact,official-pytorch,raw_action_chunk,f32,"[16, 7]",5760,True,0.0,0.0,0.9999999999999998
+cogact,official-pytorch,normalized_action_chunk,f32,"[16, 7]",5760,True,0.0,0.0,0.9999999999999998
+cogact,official-pytorch,native_action_chunk,f64,"[16, 7]",5760,True,0.0,0.0,0.9999999999999998
+cogact,official-pytorch,rng_after,u8,[16],5760,True,,,
+cogact,official-pytorch,draws_consumed,i64,[1],5760,True,,,
+cogact,session-required,raw_action_chunk,f32,"[16, 7]",5760,True,0.0,0.0,0.9999999999999998
+cogact,session-required,normalized_action_chunk,f32,"[16, 7]",5760,True,0.0,0.0,0.9999999999999998
+cogact,session-required,native_action_chunk,f64,"[16, 7]",5760,True,0.0,0.0,0.9999999999999998
+cogact,session-required,rng_after,u8,[16],5760,True,,,
+cogact,session-required,draws_consumed,i64,[1],5760,True,,,

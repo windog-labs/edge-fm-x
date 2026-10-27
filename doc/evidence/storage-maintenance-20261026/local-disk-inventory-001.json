@@ -1,0 +1,1743 @@
+{
+  "schema": "edgefm.local_disk_readonly_inventory/1",
+  "captured_host_utc": "2026-10-26T02:55:40.080051+00:00",
+  "captured_local": "2026-10-26T10:55:40.080631+08:00",
+  "mount": "/",
+  "total_bytes": 982820896768,
+  "used_bytes": 704386314240,
+  "available_bytes": 228434497536,
+  "du": [
+    {
+      "root": "/home/zhangzimo/Repos",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/Repos",
+          "allocated_bytes": 358502219776,
+          "GiB": 333.88121032714844
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private",
+          "allocated_bytes": 357931708416,
+          "GiB": 333.34988021850586
+        },
+        {
+          "path": "/home/zhangzimo/Repos/xsproto_include",
+          "allocated_bytes": 570408960,
+          "GiB": 0.5312347412109375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/eval_runner",
+          "allocated_bytes": 94208,
+          "GiB": 8.7738037109375e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/public",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/.codex",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/.codex",
+          "allocated_bytes": 106950733824,
+          "GiB": 99.60563278198242
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees",
+          "allocated_bytes": 88046968832,
+          "GiB": 82.00012969970703
+        },
+        {
+          "path": "/home/zhangzimo/.codex/attachments",
+          "allocated_bytes": 5857304576,
+          "GiB": 5.455039978027344
+        },
+        {
+          "path": "/home/zhangzimo/.codex/packages",
+          "allocated_bytes": 2775265280,
+          "GiB": 2.584667205810547
+        },
+        {
+          "path": "/home/zhangzimo/.codex/archived_sessions",
+          "allocated_bytes": 2671308800,
+          "GiB": 2.4878501892089844
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.codex-provider-migration-20260916-170617-3825237",
+          "allocated_bytes": 1919922176,
+          "GiB": 1.7880668640136719
+        },
+        {
+          "path": "/home/zhangzimo/.codex/backups",
+          "allocated_bytes": 1556836352,
+          "GiB": 1.4499168395996094
+        },
+        {
+          "path": "/home/zhangzimo/.codex/sessions",
+          "allocated_bytes": 918593536,
+          "GiB": 0.8555068969726562
+        },
+        {
+          "path": "/home/zhangzimo/.codex/visualizations",
+          "allocated_bytes": 708554752,
+          "GiB": 0.6598930358886719
+        },
+        {
+          "path": "/home/zhangzimo/.codex/plugins",
+          "allocated_bytes": 307249152,
+          "GiB": 0.2861480712890625
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.codex-reserve-model-fix-20260916-191023-3869940",
+          "allocated_bytes": 242962432,
+          "GiB": 0.22627639770507812
+        },
+        {
+          "path": "/home/zhangzimo/.codex/recovery-backups",
+          "allocated_bytes": 216092672,
+          "GiB": 0.20125198364257812
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.codex-provider-migration-residual-20260916-170843-3826052",
+          "allocated_bytes": 214876160,
+          "GiB": 0.2001190185546875
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.codex-provider-migration-residual-20260916-170916-3826107",
+          "allocated_bytes": 214876160,
+          "GiB": 0.2001190185546875
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.tmp",
+          "allocated_bytes": 102428672,
+          "GiB": 0.09539413452148438
+        },
+        {
+          "path": "/home/zhangzimo/.codex/cache",
+          "allocated_bytes": 96833536,
+          "GiB": 0.09018325805664062
+        },
+        {
+          "path": "/home/zhangzimo/.codex/skills",
+          "allocated_bytes": 92430336,
+          "GiB": 0.08608245849609375
+        },
+        {
+          "path": "/home/zhangzimo/.codex/computer-use",
+          "allocated_bytes": 55713792,
+          "GiB": 0.05188751220703125
+        },
+        {
+          "path": "/home/zhangzimo/.codex/vendor_imports",
+          "allocated_bytes": 8888320,
+          "GiB": 0.00827789306640625
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.codex-thread-model-fix-20260916-171638-3831840",
+          "allocated_bytes": 8503296,
+          "GiB": 0.0079193115234375
+        },
+        {
+          "path": "/home/zhangzimo/.codex/shell_snapshots",
+          "allocated_bytes": 778240,
+          "GiB": 0.00072479248046875
+        },
+        {
+          "path": "/home/zhangzimo/.codex/memories",
+          "allocated_bytes": 737280,
+          "GiB": 0.0006866455078125
+        },
+        {
+          "path": "/home/zhangzimo/.codex/sqlite",
+          "allocated_bytes": 385024,
+          "GiB": 0.00035858154296875
+        },
+        {
+          "path": "/home/zhangzimo/.codex/config-backup-20260917-094327",
+          "allocated_bytes": 233472,
+          "GiB": 0.000217437744140625
+        },
+        {
+          "path": "/home/zhangzimo/.codex/tmp",
+          "allocated_bytes": 135168,
+          "GiB": 0.000125885009765625
+        },
+        {
+          "path": "/home/zhangzimo/.codex/plans",
+          "allocated_bytes": 57344,
+          "GiB": 5.340576171875e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/app-server-control",
+          "allocated_bytes": 45056,
+          "GiB": 4.1961669921875e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/app-server-daemon",
+          "allocated_bytes": 36864,
+          "GiB": 3.4332275390625e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/config-backup-20260917-094350",
+          "allocated_bytes": 24576,
+          "GiB": 2.288818359375e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.codex-backup-before-openai-key-20260827T110056Z",
+          "allocated_bytes": 24576,
+          "GiB": 2.288818359375e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/.codex-sync-backup-20260916-163918-3813467",
+          "allocated_bytes": 20480,
+          "GiB": 1.9073486328125e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/logs",
+          "allocated_bytes": 20480,
+          "GiB": 1.9073486328125e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/browser",
+          "allocated_bytes": 20480,
+          "GiB": 1.9073486328125e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/ambient-suggestions",
+          "allocated_bytes": 20480,
+          "GiB": 1.9073486328125e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/rules",
+          "allocated_bytes": 16384,
+          "GiB": 1.52587890625e-05
+        },
+        {
+          "path": "/home/zhangzimo/.codex/process_manager",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/log",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/node_repl",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/bin",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/tools",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/rollout-migrations",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/thread-writer-locks",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/ipc",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/.codex/pets",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/.cache",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/.cache",
+          "allocated_bytes": 65030733824,
+          "GiB": 60.56459045410156
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal",
+          "allocated_bytes": 39890296832,
+          "GiB": 37.150733947753906
+        },
+        {
+          "path": "/home/zhangzimo/.cache/vlaforge",
+          "allocated_bytes": 24369188864,
+          "GiB": 22.695575714111328
+        },
+        {
+          "path": "/home/zhangzimo/.cache/ms-playwright",
+          "allocated_bytes": 427270144,
+          "GiB": 0.39792633056640625
+        },
+        {
+          "path": "/home/zhangzimo/.cache/pip",
+          "allocated_bytes": 83238912,
+          "GiB": 0.07752227783203125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/google-chrome",
+          "allocated_bytes": 70418432,
+          "GiB": 0.065582275390625
+        },
+        {
+          "path": "/home/zhangzimo/.cache/flashinfer",
+          "allocated_bytes": 53186560,
+          "GiB": 0.049533843994140625
+        },
+        {
+          "path": "/home/zhangzimo/.cache/LarkShell",
+          "allocated_bytes": 51466240,
+          "GiB": 0.047931671142578125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/cutile-python",
+          "allocated_bytes": 19726336,
+          "GiB": 0.01837158203125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/tracker3",
+          "allocated_bytes": 14905344,
+          "GiB": 0.013881683349609375
+        },
+        {
+          "path": "/home/zhangzimo/.cache/uv",
+          "allocated_bytes": 12304384,
+          "GiB": 0.0114593505859375
+        },
+        {
+          "path": "/home/zhangzimo/.cache/cursor-compile-cache",
+          "allocated_bytes": 6021120,
+          "GiB": 0.00560760498046875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/huggingface",
+          "allocated_bytes": 4685824,
+          "GiB": 0.004364013671875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/openpi",
+          "allocated_bytes": 4276224,
+          "GiB": 0.0039825439453125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edge-fm",
+          "allocated_bytes": 3399680,
+          "GiB": 0.00316619873046875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/nvim",
+          "allocated_bytes": 3362816,
+          "GiB": 0.003131866455078125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/fontconfig",
+          "allocated_bytes": 3330048,
+          "GiB": 0.003101348876953125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/meegle-cli-main",
+          "allocated_bytes": 3039232,
+          "GiB": 0.00283050537109375
+        },
+        {
+          "path": "/home/zhangzimo/.cache/torch_extensions",
+          "allocated_bytes": 2883584,
+          "GiB": 0.002685546875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/mesa_shader_cache",
+          "allocated_bytes": 1912832,
+          "GiB": 0.001781463623046875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/codex-runtimes",
+          "allocated_bytes": 1867776,
+          "GiB": 0.001739501953125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/nvidia",
+          "allocated_bytes": 1232896,
+          "GiB": 0.001148223876953125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/matplotlib",
+          "allocated_bytes": 425984,
+          "GiB": 0.000396728515625
+        },
+        {
+          "path": "/home/zhangzimo/.cache/thumbnails",
+          "allocated_bytes": 421888,
+          "GiB": 0.000392913818359375
+        },
+        {
+          "path": "/home/zhangzimo/.cache/gstreamer-1.0",
+          "allocated_bytes": 401408,
+          "GiB": 0.00037384033203125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/ibus",
+          "allocated_bytes": 303104,
+          "GiB": 0.00028228759765625
+        },
+        {
+          "path": "/home/zhangzimo/.cache/claude-cli-nodejs",
+          "allocated_bytes": 282624,
+          "GiB": 0.000263214111328125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/torch",
+          "allocated_bytes": 122880,
+          "GiB": 0.00011444091796875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/evolution",
+          "allocated_bytes": 53248,
+          "GiB": 4.9591064453125e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/qtshadercache-x86_64-little_endian-lp64",
+          "allocated_bytes": 36864,
+          "GiB": 3.4332275390625e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/YAPF",
+          "allocated_bytes": 32768,
+          "GiB": 3.0517578125e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/clash-verge",
+          "allocated_bytes": 28672,
+          "GiB": 2.6702880859375e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/conda-anaconda-tos",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/update-manager-core",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/Microsoft",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/conda",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/.cache/dconf",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/.cache/gnome-desktop-thumbnailer",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/.cache/ubuntu-report",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/.cache/obexd",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/.cache/ibus-table",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/miniconda3",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/miniconda3",
+          "allocated_bytes": 23880196096,
+          "GiB": 22.24016571044922
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/envs",
+          "allocated_bytes": 12192514048,
+          "GiB": 11.35516357421875
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/lib",
+          "allocated_bytes": 10233614336,
+          "GiB": 9.53079605102539
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/pkgs",
+          "allocated_bytes": 1346371584,
+          "GiB": 1.25390625
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/bin",
+          "allocated_bytes": 47652864,
+          "GiB": 0.04438018798828125
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/share",
+          "allocated_bytes": 14893056,
+          "GiB": 0.0138702392578125
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/include",
+          "allocated_bytes": 5263360,
+          "GiB": 0.004901885986328125
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/conda-meta",
+          "allocated_bytes": 1933312,
+          "GiB": 0.001800537109375
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/libexec",
+          "allocated_bytes": 319488,
+          "GiB": 0.00029754638671875
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/man",
+          "allocated_bytes": 57344,
+          "GiB": 5.340576171875e-05
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/etc",
+          "allocated_bytes": 45056,
+          "GiB": 4.1961669921875e-05
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/shell",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/ssl",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/condabin",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/x86_64-conda-linux-gnu",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/condarc.d",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/miniconda3/compiler_compat",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/.venvs",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/.venvs",
+          "allocated_bytes": 12596301824,
+          "GiB": 11.731220245361328
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/edgefm-openpi-cu128-py311-20260906",
+          "allocated_bytes": 8611188736,
+          "GiB": 8.019794464111328
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/edgefm-openpi-cpu-py311-20260906",
+          "allocated_bytes": 2017689600,
+          "GiB": 1.879119873046875
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/vlaforge-validation-py313-20260906",
+          "allocated_bytes": 1227177984,
+          "GiB": 1.1428985595703125
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/vlaforge-openvla",
+          "allocated_bytes": 320450560,
+          "GiB": 0.2984428405761719
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/edgefm-vla-smolvla-py313-20260906",
+          "allocated_bytes": 206163968,
+          "GiB": 0.19200515747070312
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/edgefm-vla-report-py313-20260906",
+          "allocated_bytes": 181706752,
+          "GiB": 0.16922760009765625
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/vlaforge-ir",
+          "allocated_bytes": 31891456,
+          "GiB": 0.02970123291015625
+        },
+        {
+          "path": "/home/zhangzimo/.venvs/vlaforge-validation-20260906",
+          "allocated_bytes": 28672,
+          "GiB": 2.6702880859375e-05
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/Packages",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/Packages",
+          "allocated_bytes": 10040008704,
+          "GiB": 9.350486755371094
+        },
+        {
+          "path": "/home/zhangzimo/Packages/hbdk4_497_host_runtime",
+          "allocated_bytes": 4174807040,
+          "GiB": 3.888092041015625
+        },
+        {
+          "path": "/home/zhangzimo/Packages/McapRecorder",
+          "allocated_bytes": 330231808,
+          "GiB": 0.3075523376464844
+        },
+        {
+          "path": "/home/zhangzimo/Packages/parser",
+          "allocated_bytes": 131686400,
+          "GiB": 0.12264251708984375
+        },
+        {
+          "path": "/home/zhangzimo/Packages/UGREEN-CM763-35265_USB无线网卡驱动_V1.4",
+          "allocated_bytes": 12021760,
+          "GiB": 0.011196136474609375
+        },
+        {
+          "path": "/home/zhangzimo/Packages/data_player",
+          "allocated_bytes": 3608576,
+          "GiB": 0.003360748291015625
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts",
+          "allocated_bytes": 109169840128,
+          "GiB": 101.67233657836914
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal",
+          "allocated_bytes": 102719557632,
+          "GiB": 95.66504287719727
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/disk-cleanup-20260907T112748Z",
+          "allocated_bytes": 6437625856,
+          "GiB": 5.995506286621094
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/3060_tuning",
+          "allocated_bytes": 11804672,
+          "GiB": 0.01099395751953125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/storage-dedup-20260909",
+          "allocated_bytes": 352256,
+          "GiB": 0.00032806396484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/disk-cleanup-20260908T091813Z",
+          "allocated_bytes": 192512,
+          "GiB": 0.000179290771484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/h20-recovery-20260909",
+          "allocated_bytes": 159744,
+          "GiB": 0.000148773193359375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/attempts",
+          "allocated_bytes": 73728,
+          "GiB": 6.866455078125e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/vlaforge_ir",
+          "allocated_bytes": 65536,
+          "GiB": 6.103515625e-05
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509",
+          "allocated_bytes": 102719553536,
+          "GiB": 95.6650390625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/openpi-inventory",
+          "allocated_bytes": 40318111744,
+          "GiB": 37.54916763305664
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/fresh-smolvla",
+          "allocated_bytes": 11955163136,
+          "GiB": 11.134113311767578
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/operator-profiles",
+          "allocated_bytes": 10029932544,
+          "GiB": 9.341102600097656
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/numerical-probes",
+          "allocated_bytes": 5559869440,
+          "GiB": 5.178031921386719
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-native-v1",
+          "allocated_bytes": 3725791232,
+          "GiB": 3.4699134826660156
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/local-smolvla",
+          "allocated_bytes": 3530002432,
+          "GiB": 3.2875709533691406
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/half-native-benchmark-001",
+          "allocated_bytes": 3194613760,
+          "GiB": 2.9752159118652344
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-free-running-v1",
+          "allocated_bytes": 2874753024,
+          "GiB": 2.6773223876953125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/execution-context",
+          "allocated_bytes": 2303569920,
+          "GiB": 2.145366668701172
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smol-native-output-session-001",
+          "allocated_bytes": 1944502272,
+          "GiB": 1.8109588623046875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/fp16-native-v1",
+          "allocated_bytes": 1817645056,
+          "GiB": 1.6928138732910156
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/bf16-native-v1",
+          "allocated_bytes": 1817354240,
+          "GiB": 1.6925430297851562
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/h20-env-prep",
+          "allocated_bytes": 1428131840,
+          "GiB": 1.3300514221191406
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/board-handoff",
+          "allocated_bytes": 1343598592,
+          "GiB": 1.2513236999511719
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/rdt",
+          "allocated_bytes": 1043714048,
+          "GiB": 0.9720344543457031
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/half-free-running-v1",
+          "allocated_bytes": 949694464,
+          "GiB": 0.8844718933105469
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/bf16-free-running-v1",
+          "allocated_bytes": 946245632,
+          "GiB": 0.8812599182128906
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/fp16-step-native-v1",
+          "allocated_bytes": 907497472,
+          "GiB": 0.8451728820800781
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/solver-integration-h100x8-20260908-001",
+          "allocated_bytes": 864174080,
+          "GiB": 0.8048248291015625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-native-pilot-v1",
+          "allocated_bytes": 724455424,
+          "GiB": 0.6747016906738281
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/h100-pi05-aten-recovery-20260909",
+          "allocated_bytes": 525000704,
+          "GiB": 0.48894500732421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/rdt-replay-resume-20260908",
+          "allocated_bytes": 466489344,
+          "GiB": 0.4344520568847656
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cogact",
+          "allocated_bytes": 458166272,
+          "GiB": 0.4267005920410156
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smolvla-h100x4-20260908-001",
+          "allocated_bytes": 390746112,
+          "GiB": 0.3639106750488281
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/wheelhouse-py311",
+          "allocated_bytes": 380067840,
+          "GiB": 0.35396575927734375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smolvla-h20-20260908-001",
+          "allocated_bytes": 365441024,
+          "GiB": 0.3403434753417969
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/pi0-summary-view-001",
+          "allocated_bytes": 266641408,
+          "GiB": 0.24832916259765625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/lifecycle-memory-h100x4-20260908-001",
+          "allocated_bytes": 254644224,
+          "GiB": 0.23715591430664062
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smol-native-output-formal-002",
+          "allocated_bytes": 253427712,
+          "GiB": 0.23602294921875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smol-native-output-formal-001",
+          "allocated_bytes": 248549376,
+          "GiB": 0.23147964477539062
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cogact-replay-20260908",
+          "allocated_bytes": 197615616,
+          "GiB": 0.18404388427734375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cogact-numerical-h20-20260908-002",
+          "allocated_bytes": 161755136,
+          "GiB": 0.15064620971679688
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/lifecycle-bound-h100x4-20260908-001",
+          "allocated_bytes": 128303104,
+          "GiB": 0.1194915771484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-001",
+          "allocated_bytes": 96043008,
+          "GiB": 0.089447021484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-kernel-v1",
+          "allocated_bytes": 82579456,
+          "GiB": 0.07690811157226562
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/precision-probe-v1",
+          "allocated_bytes": 36294656,
+          "GiB": 0.033802032470703125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/native-numerical-cpu-current-001",
+          "allocated_bytes": 29827072,
+          "GiB": 0.02777862548828125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-native-profiler-v1",
+          "allocated_bytes": 27148288,
+          "GiB": 0.0252838134765625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-probe-0637",
+          "allocated_bytes": 26652672,
+          "GiB": 0.024822235107421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-0534",
+          "allocated_bytes": 26640384,
+          "GiB": 0.024810791015625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-0609",
+          "allocated_bytes": 26640384,
+          "GiB": 0.024810791015625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-0604",
+          "allocated_bytes": 26640384,
+          "GiB": 0.024810791015625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-0552",
+          "allocated_bytes": 26640384,
+          "GiB": 0.024810791015625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source",
+          "allocated_bytes": 24825856,
+          "GiB": 0.023120880126953125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-031",
+          "allocated_bytes": 24711168,
+          "GiB": 0.023014068603515625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-030",
+          "allocated_bytes": 24698880,
+          "GiB": 0.02300262451171875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-019",
+          "allocated_bytes": 24547328,
+          "GiB": 0.022861480712890625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-020",
+          "allocated_bytes": 24539136,
+          "GiB": 0.022853851318359375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-021",
+          "allocated_bytes": 24539136,
+          "GiB": 0.022853851318359375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-018",
+          "allocated_bytes": 24530944,
+          "GiB": 0.022846221923828125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-017",
+          "allocated_bytes": 24481792,
+          "GiB": 0.022800445556640625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-016",
+          "allocated_bytes": 24469504,
+          "GiB": 0.02278900146484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-015",
+          "allocated_bytes": 24461312,
+          "GiB": 0.0227813720703125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-013",
+          "allocated_bytes": 24412160,
+          "GiB": 0.022735595703125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-012",
+          "allocated_bytes": 24387584,
+          "GiB": 0.02271270751953125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-007",
+          "allocated_bytes": 24195072,
+          "GiB": 0.022533416748046875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-006",
+          "allocated_bytes": 24195072,
+          "GiB": 0.022533416748046875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-005",
+          "allocated_bytes": 24182784,
+          "GiB": 0.02252197265625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-004",
+          "allocated_bytes": 24109056,
+          "GiB": 0.02245330810546875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-003",
+          "allocated_bytes": 23949312,
+          "GiB": 0.022304534912109375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-002",
+          "allocated_bytes": 23879680,
+          "GiB": 0.02223968505859375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/aoti-materialized-cpu-004",
+          "allocated_bytes": 19148800,
+          "GiB": 0.017833709716796875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/aoti-materialized-cpu-003",
+          "allocated_bytes": 18841600,
+          "GiB": 0.017547607421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/aoti-materialized-cpu-001",
+          "allocated_bytes": 18808832,
+          "GiB": 0.01751708984375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-torchscript-1050",
+          "allocated_bytes": 16891904,
+          "GiB": 0.0157318115234375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-028",
+          "allocated_bytes": 16609280,
+          "GiB": 0.015468597412109375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-027",
+          "allocated_bytes": 16580608,
+          "GiB": 0.01544189453125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-026",
+          "allocated_bytes": 16580608,
+          "GiB": 0.01544189453125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-025",
+          "allocated_bytes": 16547840,
+          "GiB": 0.015411376953125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-022",
+          "allocated_bytes": 16539648,
+          "GiB": 0.01540374755859375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-024",
+          "allocated_bytes": 16539648,
+          "GiB": 0.01540374755859375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-023",
+          "allocated_bytes": 16539648,
+          "GiB": 0.01540374755859375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-014",
+          "allocated_bytes": 16474112,
+          "GiB": 0.01534271240234375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-cpu-regression-1855",
+          "allocated_bytes": 15364096,
+          "GiB": 0.014308929443359375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-cpu-regression-1800",
+          "allocated_bytes": 15032320,
+          "GiB": 0.01399993896484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-cpu-regression-1705",
+          "allocated_bytes": 12939264,
+          "GiB": 0.012050628662109375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-029",
+          "allocated_bytes": 10551296,
+          "GiB": 0.00982666015625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-torchscript-context-v2",
+          "allocated_bytes": 7860224,
+          "GiB": 0.007320404052734375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-torchscript-context-v1",
+          "allocated_bytes": 7843840,
+          "GiB": 0.007305145263671875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-cpu-regression-1700",
+          "allocated_bytes": 7819264,
+          "GiB": 0.007282257080078125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-operator-workload-v4",
+          "allocated_bytes": 7770112,
+          "GiB": 0.007236480712890625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-allocator-observation-v1",
+          "allocated_bytes": 7704576,
+          "GiB": 0.007175445556640625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-torchscript-1135",
+          "allocated_bytes": 7667712,
+          "GiB": 0.00714111328125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-constant-precompute-v1",
+          "allocated_bytes": 7659520,
+          "GiB": 0.00713348388671875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-torchscript-1120",
+          "allocated_bytes": 7364608,
+          "GiB": 0.00685882568359375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-torchscript-benchmark-v1",
+          "allocated_bytes": 7200768,
+          "GiB": 0.00670623779296875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-constant-precompute-benchmark-v1",
+          "allocated_bytes": 7176192,
+          "GiB": 0.006683349609375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-aten-preserving-0942",
+          "allocated_bytes": 6696960,
+          "GiB": 0.006237030029296875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-benchmark-v2",
+          "allocated_bytes": 6664192,
+          "GiB": 0.006206512451171875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-benchmark-v1",
+          "allocated_bytes": 6651904,
+          "GiB": 0.006195068359375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-series-v4",
+          "allocated_bytes": 6635520,
+          "GiB": 0.0061798095703125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-series-v3",
+          "allocated_bytes": 6635520,
+          "GiB": 0.0061798095703125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-series-v2",
+          "allocated_bytes": 6635520,
+          "GiB": 0.0061798095703125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-series-v1",
+          "allocated_bytes": 6627328,
+          "GiB": 0.00617218017578125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-torchscript-v2",
+          "allocated_bytes": 6615040,
+          "GiB": 0.006160736083984375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-rdt-torchscript-v1",
+          "allocated_bytes": 6610944,
+          "GiB": 0.00615692138671875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-aten-preserving-0920",
+          "allocated_bytes": 6569984,
+          "GiB": 0.0061187744140625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-aten-preserving-0900",
+          "allocated_bytes": 6422528,
+          "GiB": 0.0059814453125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-aten-preserving-0833",
+          "allocated_bytes": 6287360,
+          "GiB": 0.005855560302734375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-aten-preserving-0840",
+          "allocated_bytes": 6287360,
+          "GiB": 0.005855560302734375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-aten-preserving-0828",
+          "allocated_bytes": 6254592,
+          "GiB": 0.005825042724609375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smol-native-output-cuda-001",
+          "allocated_bytes": 5328896,
+          "GiB": 0.004962921142578125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-operator-benchmark-0925",
+          "allocated_bytes": 5062656,
+          "GiB": 0.0047149658203125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cogact-numerical-h20-20260908-001",
+          "allocated_bytes": 5054464,
+          "GiB": 0.00470733642578125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-operator-benchmark-0905",
+          "allocated_bytes": 4956160,
+          "GiB": 0.00461578369140625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-smolvla-0717",
+          "allocated_bytes": 4198400,
+          "GiB": 0.003910064697265625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/aoti-materialized-bundle-cpu-002",
+          "allocated_bytes": 3969024,
+          "GiB": 0.003696441650390625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/openpi-proxy-empty-list",
+          "allocated_bytes": 3862528,
+          "GiB": 0.003597259521484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/replay-capture-cause-001",
+          "allocated_bytes": 3317760,
+          "GiB": 0.00308990478515625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/aoti-materialized-bundle-cpu-001",
+          "allocated_bytes": 2265088,
+          "GiB": 0.002109527587890625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-trajectory-errors-v2",
+          "allocated_bytes": 2211840,
+          "GiB": 0.0020599365234375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-unused-state-v1",
+          "allocated_bytes": 2068480,
+          "GiB": 0.001926422119140625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-operator-benchmark-0825",
+          "allocated_bytes": 1581056,
+          "GiB": 0.00147247314453125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/source-operator-0756",
+          "allocated_bytes": 1576960,
+          "GiB": 0.001468658447265625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/h100-reports",
+          "allocated_bytes": 1421312,
+          "GiB": 0.001323699951171875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-trajectory-errors-independent-v1",
+          "allocated_bytes": 1003520,
+          "GiB": 0.000934600830078125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cuda-session-summary-20260908-005",
+          "allocated_bytes": 409600,
+          "GiB": 0.0003814697265625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/resume-cpu-regression-011",
+          "allocated_bytes": 368640,
+          "GiB": 0.00034332275390625
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cuda-session-summary-20260908-003",
+          "allocated_bytes": 307200,
+          "GiB": 0.000286102294921875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/disk-maintenance-20260907",
+          "allocated_bytes": 204800,
+          "GiB": 0.00019073486328125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smol-native-output-cpu-001",
+          "allocated_bytes": 192512,
+          "GiB": 0.000179290771484375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smol-native-output-cpu-002",
+          "allocated_bytes": 188416,
+          "GiB": 0.00017547607421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/half-stepwise-error-001",
+          "allocated_bytes": 143360,
+          "GiB": 0.000133514404296875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/output-stage-resume-tests-002",
+          "allocated_bytes": 86016,
+          "GiB": 8.0108642578125e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-kernel-independent-v1",
+          "allocated_bytes": 77824,
+          "GiB": 7.2479248046875e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/aoti-materialized-cpu-002",
+          "allocated_bytes": 61440,
+          "GiB": 5.7220458984375e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/__pycache__",
+          "allocated_bytes": 45056,
+          "GiB": 4.1961669921875e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/smol-output-session-tools-001",
+          "allocated_bytes": 32768,
+          "GiB": 3.0517578125e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/int8-trajectory-errors-v1",
+          "allocated_bytes": 20480,
+          "GiB": 1.9073486328125e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/reference-cache-real-001",
+          "allocated_bytes": 16384,
+          "GiB": 1.52587890625e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/output-stage-resume-tests-001",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/model-count-scopes-v1",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cuda-session-summary-20260908-001",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cuda-session-summary-20260908-002",
+          "allocated_bytes": 12288,
+          "GiB": 1.1444091796875e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/cuda-session-summary-20260908-004",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/edgefm-vla-goal/20260906-044509/half-stepwise-error-001-failed",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi",
+          "allocated_bytes": 39420010496,
+          "GiB": 36.712745666503906
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/pi05_base",
+          "allocated_bytes": 12441911296,
+          "GiB": 11.587432861328125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/pi0_base",
+          "allocated_bytes": 12014624768,
+          "GiB": 11.189491271972656
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/pi05_base_strict_pytorch_chunked_001",
+          "allocated_bytes": 7233765376,
+          "GiB": 6.736968994140625
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/pi0_base_strict_pytorch_chunked_001",
+          "allocated_bytes": 7002988544,
+          "GiB": 6.522041320800781
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/aloha-dataset",
+          "allocated_bytes": 576372736,
+          "GiB": 0.5367889404296875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/input-pack-deps",
+          "allocated_bytes": 146022400,
+          "GiB": 0.13599395751953125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/processor-cache",
+          "allocated_bytes": 4276224,
+          "GiB": 0.0039825439453125
+        },
+        {
+          "path": "/home/zhangzimo/.cache/edgefm-vla-goal/openpi/pi0_base_strict_pytorch",
+          "allocated_bytes": 45056,
+          "GiB": 4.1961669921875e-05
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/.cache/vlaforge",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/.cache/vlaforge",
+          "allocated_bytes": 24369188864,
+          "GiB": 22.695575714111328
+        },
+        {
+          "path": "/home/zhangzimo/.cache/vlaforge/openvla-7b",
+          "allocated_bytes": 15472054272,
+          "GiB": 14.409473419189453
+        },
+        {
+          "path": "/home/zhangzimo/.cache/vlaforge/envs",
+          "allocated_bytes": 7799619584,
+          "GiB": 7.2639617919921875
+        },
+        {
+          "path": "/home/zhangzimo/.cache/vlaforge/wheels",
+          "allocated_bytes": 1056575488,
+          "GiB": 0.9840126037597656
+        },
+        {
+          "path": "/home/zhangzimo/.cache/vlaforge/src",
+          "allocated_bytes": 33157120,
+          "GiB": 0.030879974365234375
+        },
+        {
+          "path": "/home/zhangzimo/.cache/vlaforge/tools",
+          "allocated_bytes": 7778304,
+          "GiB": 0.007244110107421875
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/Repos/private/perception_detection_solo/case",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/Repos/private/perception_detection_solo/case",
+          "allocated_bytes": 110943440896,
+          "GiB": 103.32413101196289
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/perception_detection_solo/case/uturn_3issues_20261024",
+          "allocated_bytes": 95479074816,
+          "GiB": 88.92181777954102
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/perception_detection_solo/case/stage2_v013_rl_j6p_deployment_fix_20261026",
+          "allocated_bytes": 7585980416,
+          "GiB": 7.064994812011719
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/perception_detection_solo/case/rl_stage2_cases_20261023_155253",
+          "allocated_bytes": 4561244160,
+          "GiB": 4.247989654541016
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/perception_detection_solo/case/stage2_v013_rl_j6p_alignment_20261025",
+          "allocated_bytes": 2465923072,
+          "GiB": 2.29656982421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/perception_detection_solo/case/rl_stage2_attribution_20261023",
+          "allocated_bytes": 851214336,
+          "GiB": 0.792755126953125
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/Repos/private/model-delivery-builds",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/Repos/private/model-delivery-builds",
+          "allocated_bytes": 25177100288,
+          "GiB": 23.448001861572266
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/model-delivery-builds/bev-t6-replay-pose-units-20261022",
+          "allocated_bytes": 16874983424,
+          "GiB": 15.716053009033203
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/model-delivery-builds/bev-t6-v21001-e95ccadb71d6",
+          "allocated_bytes": 8302112768,
+          "GiB": 7.731945037841797
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/Repos/private/xs-perception",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception",
+          "allocated_bytes": 77553864704,
+          "GiB": 72.22766494750977
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/.git",
+          "allocated_bytes": 44163268608,
+          "GiB": 41.1302490234375
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/thirdparty",
+          "allocated_bytes": 10453880832,
+          "GiB": 9.73593521118164
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/output",
+          "allocated_bytes": 9431138304,
+          "GiB": 8.783432006835938
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/.codegraph",
+          "allocated_bytes": 7639232512,
+          "GiB": 7.114589691162109
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/models",
+          "allocated_bytes": 3057131520,
+          "GiB": 2.8471755981445312
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/projects",
+          "allocated_bytes": 1570070528,
+          "GiB": 1.4622421264648438
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/app",
+          "allocated_bytes": 465244160,
+          "GiB": 0.4332923889160156
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/lib",
+          "allocated_bytes": 267800576,
+          "GiB": 0.24940872192382812
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/build_tlr_check",
+          "allocated_bytes": 217976832,
+          "GiB": 0.20300674438476562
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/odtracking",
+          "allocated_bytes": 56799232,
+          "GiB": 0.052898406982421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/etc",
+          "allocated_bytes": 33992704,
+          "GiB": 0.031658172607421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/tools",
+          "allocated_bytes": 204800,
+          "GiB": 0.00019073486328125
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/docs",
+          "allocated_bytes": 176128,
+          "GiB": 0.000164031982421875
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/.remote_patch",
+          "allocated_bytes": 61440,
+          "GiB": 5.7220458984375e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/cmake",
+          "allocated_bytes": 36864,
+          "GiB": 3.4332275390625e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/.vscode",
+          "allocated_bytes": 16384,
+          "GiB": 1.52587890625e-05
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/scripts",
+          "allocated_bytes": 8192,
+          "GiB": 7.62939453125e-06
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/.agents",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/.codex",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        },
+        {
+          "path": "/home/zhangzimo/Repos/private/xs-perception/.hb_model_info",
+          "allocated_bytes": 4096,
+          "GiB": 3.814697265625e-06
+        }
+      ],
+      "stderr": ""
+    },
+    {
+      "root": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts",
+      "exit_code": 0,
+      "entries": [
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts",
+          "allocated_bytes": 87918616576,
+          "GiB": 81.8805923461914
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin",
+          "allocated_bytes": 49083916288,
+          "GiB": 45.71295928955078
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-feasibility-20260911",
+          "allocated_bytes": 34771845120,
+          "GiB": 32.38380432128906
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909",
+          "allocated_bytes": 3947069440,
+          "GiB": 3.675994873046875
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914",
+          "allocated_bytes": 63623168,
+          "GiB": 0.059253692626953125
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/edgefm-vla-goal",
+          "allocated_bytes": 43143168,
+          "GiB": 0.040180206298828125
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin-task-board",
+          "allocated_bytes": 6496256,
+          "GiB": 0.00605010986328125
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261026",
+          "allocated_bytes": 782336,
+          "GiB": 0.000728607177734375
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/repository-cleanup-20260921",
+          "allocated_bytes": 749568,
+          "GiB": 0.000698089599609375
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261024",
+          "allocated_bytes": 708608,
+          "GiB": 0.000659942626953125
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/paper-summary-20261026",
+          "allocated_bytes": 180224,
+          "GiB": 0.0001678466796875
+        },
+        {
+          "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/storage-maintenance-20261023",
+          "allocated_bytes": 98304,
+          "GiB": 9.1552734375e-05
+        }
+      ],
+      "stderr": ""
+    }
+  ],
+  "docker": {
+    "returncode": 0,
+    "stdout": "TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE\nImages          3         0         15.97GB   4.459GB (27%)\nContainers      0         0         0B        0B\nLocal Volumes   0         0         0B        0B\nBuild Cache     34        0         5.787GB   12.29kB\n",
+    "stderr": ""
+  },
+  "local_files_deleted": false,
+  "remote_NAS_not_counted_as_local_disk": true,
+  "parent_and_child_sizes_not_additive": true,
+  "independent_du_scans_may_double_count_shared_inodes": true
+}

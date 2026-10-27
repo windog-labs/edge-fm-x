@@ -1,0 +1,47 @@
+{
+  "schema": "edgefm.finish_crop_check/1",
+  "status": "checked",
+  "source_kind": "smoke",
+  "samples": 1,
+  "scope": "output crop only",
+  "source_onnx": "PROVENANCE_dd7d0c32979d2c23",
+  "source_onnx_sha256": "33f8d5029ee540a9282f5241a3d9b64f7eae3a689c6bc3b7ba9c1ef3bdc1515b",
+  "hbm_sha256": "15113d7781fdf675a7425db85cd550b52636265f16fe46b0623d7173e120af30",
+  "floating_arithmetic": false,
+  "evidence": "PROVENANCE_17d12de0af7e2539",
+  "evidence_sha256": "1ccf5ea7ff45c7ca3b9a857fcae72eb318e24ae7079f3c725b7e6fa89ddf1781",
+  "inference_log": "PROVENANCE_9cd71d2aff07b7b4",
+  "inference_log_sha256": "00b58cc921f2e7cf1f1512aaff07a33186c302d3de8f28c3826c9c0f11b90c17",
+  "input": "PROVENANCE_55bd0de42a82c3cd",
+  "input_sha256": "a352a37155d3bd78cd72d073c4fe76a5f0cd707e3f2174c2c1cd6a6e178decfc",
+  "input_shape": [
+    1,
+    50,
+    32
+  ],
+  "input_finite": true,
+  "output": "PROVENANCE_432a0954a709ee8b",
+  "output_sha256": "9b8cadff4e5a8bcce9cd80698c9cea0295e145e2345ca1d042fe7ef9e710576b",
+  "output_shape": [
+    1,
+    50,
+    6
+  ],
+  "output_dtype": "float32",
+  "exact_source_crop": true,
+  "finite": true,
+  "elements": 300,
+  "cosine": 0.9999999999999998,
+  "max_abs": 0.0,
+  "mean_abs": 0.0,
+  "mse": 0.0,
+  "new_board_inference": false,
+  "quantization_retry_planned": false,
+  "full_action_quality_claim": false,
+  "performance_status": "separate formal campaign",
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

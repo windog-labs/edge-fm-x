@@ -1,0 +1,40 @@
+{
+  "schema": "edgefm.local_bulk_cleanup_postcheck/1",
+  "checked_utc": "2026-10-26T03:50:44.741577+00:00",
+  "status": "authorized-removal-source-preservation-and-handoff-verified",
+  "removed_roots": 23,
+  "retired_nodes": 1711690,
+  "retired_unique_allocated_bytes": 397193101312,
+  "recreated_app_cache_paths": [
+    "/home/zhangzimo/.codex/cache"
+  ],
+  "compressed_metadata_manifest": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/artifacts/storage-maintenance-20261026/authorized-local-tree-manifest-001.jsonl.gz",
+    "sha256": "e9922f1fb08ac75cbdf5c31fdc5e0fae4d53a46f4c6b3185562e06728632131c",
+    "decompressed_sha256": "8fd71856ae95e75ed64d1bbd3105048f67a9aee613f1852ea4de2a14fa4250ad"
+  },
+  "source_preservation_roots": 4,
+  "f801_source_tree_retained": true,
+  "canonical_summary_table_lines_unchanged": 177,
+  "selected_model_and_run_records_unchanged": true,
+  "packet": {
+    "status": "portable-paper-package-verified",
+    "files": 272,
+    "local_markdown_links": 282,
+    "bytes": 75275893,
+    "original_workspace_required": false,
+    "model_inference": false,
+    "numerical_experiment_rerun": false
+  },
+  "packet_zip_sha256": "8d70859f0d11efbf221f61b352398939c7f4dfdc857d9c45122d37815c2a1740",
+  "local_disk_usage": {
+    "total": 982820896768,
+    "used": 306937630720,
+    "free": 625883181056
+  },
+  "NAS_removed_paths": 196,
+  "NAS_unique_allocated_bytes": 856811888640,
+  "historical_native_reproduction_payloads_still_available": false,
+  "new_model_inference": false,
+  "formal_experiment_conclusions_modified": false
+}

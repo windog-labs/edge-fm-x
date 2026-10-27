@@ -1,0 +1,56 @@
+{
+  "schema": "edgefm.released_model_payload_plan/1",
+  "created_utc": "2023-03-21T00:20:44.972783+00:00",
+  "root": "/data/datalog/edgefm-orin",
+  "host": {
+    "pid": 889124,
+    "host": "ugv",
+    "machine": "aarch64",
+    "argv": [
+      "python3",
+      "-B",
+      "/data/datalog/edgefm-storage-maintenance-20261026/retire_remote_results_v2.py",
+      "plan",
+      "--root",
+      "/data/datalog/edgefm-orin",
+      "--authorization",
+      "/data/datalog/edgefm-storage-maintenance-20261026/remote-authorization-001.json",
+      "--package-gate",
+      "/data/datalog/edgefm-storage-maintenance-20261026/handoff-closeout-003.json",
+      "--require-target-idle",
+      "--output",
+      "/data/datalog/edgefm-storage-maintenance-20261026/remaining-results-plan-002.json"
+    ],
+    "start_ticks": "46538466",
+    "boot_id": "3c801f5d-6897-4d97-b021-3c52db38a750",
+    "serial": "1421524312594",
+    "active_owned_units": 0
+  },
+  "minimum_bytes": 67108864,
+  "files": [],
+  "skipped_open_paths": [],
+  "proc_directories_unreadable": 15,
+  "require_target_idle": true,
+  "estimated_reclaimed_allocated_bytes": 0,
+  "authorization": "\u5bf9\u5e94\u7684orin\u548cnas\u76f8\u5173\u7684\u7ed3\u679c\u4e5f\u6e05\u7406\u4e00\u4e0b\u5427\u3002",
+  "retained": [
+    "unique original measurements, action/logit/reference arrays, quality/negative evidence and CDFs",
+    "source, protocols, configurations, build/failure logs and cleanup journal",
+    "shared model library, unrelated projects and all environments",
+    "local laptop directories pending user review"
+  ],
+  "rebuild_payload_backup_promised": false,
+  "authorization_record": {
+    "path": "/data/datalog/edgefm-storage-maintenance-20261026/remote-authorization-001.json",
+    "sha256": "29a6875a7c550dbf7836a4a38aef1f4b80132a861ab1e4ed39bd6bb57f0d5328"
+  },
+  "verified_package_gate": {
+    "path": "/data/datalog/edgefm-storage-maintenance-20261026/handoff-closeout-003.json",
+    "sha256": "390e96fb2f9e77138fbed551a8c939c7395a7160ad5c67208beec622ae7fe502"
+  },
+  "external_index": null,
+  "external_index_sha256": null,
+  "model_status_scope": "completed H20/Orin results; Orin2B cancelled preparation, not a tested result",
+  "final_cleanup_source_sha256": "beddb1f105271e028a54089cefe9d3739fc5cbfd00df3291f00dccf25ae12534",
+  "inherited_safety_source_sha256": "f54d0c5e2d29e3122dab0f70864719c78b68f2e181a2fe29ae36e0590e42981c"
+}

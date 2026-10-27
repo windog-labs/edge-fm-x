@@ -1,0 +1,471 @@
+{
+  "schema": "edgefm.retained_repository_evidence/1",
+  "records": [
+    {
+      "id": "local-bulk-cleanup-postcheck20261026",
+      "original_path": "artifacts/storage-maintenance-20261026/bulk-cleanup-postcheck-002.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261026/bulk-cleanup-postcheck-002.json",
+      "bytes": 1563,
+      "sha256": "5acde0abd3c42d5b05c10cd13baf981761c17ee07eee48d0be8cf364c11ccfbd",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "nas-final-retirement-postcheck20261026",
+      "original_path": "artifacts/storage-maintenance-20261026/nas-postcheck-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261026/nas-postcheck-001.json",
+      "bytes": 5868,
+      "sha256": "59f717f2c6e83374f096ddd88415e553477e6ad1cc96d62066462bfae6566ecb",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "local-disk-inventory-snapshot20261026",
+      "original_path": "artifacts/storage-maintenance-20261026/local-disk-inventory-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261026/local-disk-inventory-001.json",
+      "bytes": 64248,
+      "sha256": "508d5dbd23a5ab23165146eb7a9422c7d7dfa591399cb461ac11d1526882da84",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "nas-cold-payload-plan20261026",
+      "original_path": "artifacts/storage-maintenance-20261026/nas-plan-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261026/nas-plan-001.json",
+      "bytes": 106738,
+      "sha256": "5bb6dc26e981aa31eacc0276bac9d6ee698487528cc34080543ae2fa13020a22",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "orin-remaining-payload-plan20261026",
+      "original_path": "artifacts/storage-maintenance-20261026/orin-remaining-results-plan-002.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261026/orin-remaining-results-plan-002.json",
+      "bytes": 2400,
+      "sha256": "17f77952a453f134603057fb6b82cfb3ce1149390d9eae3257ac632ea040c50e",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "paper-retention-verification20261026",
+      "original_path": "artifacts/storage-maintenance-20261026/post-cleanup-verification-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261026/post-cleanup-verification-001.json",
+      "bytes": 5081,
+      "sha256": "327c62e82c0833f743c89af731fbfac9ea0f48ac99127ca735b42a9601d0221d",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "three-platform-paper-handoff20261026",
+      "original_path": "artifacts/paper-summary-20261026/handoff-closeout-003.json",
+      "repository_path": "doc/evidence/paper-summary-20261026/handoff-closeout-003.json",
+      "bytes": 1685,
+      "sha256": "390e96fb2f9e77138fbed551a8c939c7395a7160ad5c67208beec622ae7fe502",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "paper-retention-verification2410",
+      "original_path": "artifacts/storage-maintenance-20261024/post-cleanup-verification-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261024/post-cleanup-verification-001.json",
+      "bytes": 7848,
+      "sha256": "cde105195da39c4fd4c71caa18245ed8ed0aca5485192adaaff4eddf8b1c0651",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "local-payload-cleanup2410",
+      "original_path": "artifacts/storage-maintenance-20261024/local-payload-cleanup-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261024/local-payload-cleanup-001.json",
+      "bytes": 65999,
+      "sha256": "fbd925e7723503fa90e770d0db715ed0b0a9f87ca3b7b3425a56691b2251d5b0",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "target-payload-cleanup2410",
+      "original_path": "artifacts/storage-maintenance-20261024/target-payload-cleanup-002.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261024/target-payload-cleanup-002.json",
+      "bytes": 121536,
+      "sha256": "dda4f5f65aa03bef7b41ea5cc2d5b241c79f15b721abcd746d3017396d4c8476",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "retained-data-regression2410",
+      "original_path": "artifacts/storage-maintenance-20261024/post-cleanup-core-tests-001.xml",
+      "repository_path": "doc/evidence/storage-maintenance-20261024/post-cleanup-core-tests-001.xml",
+      "bytes": 7354,
+      "sha256": "6249b3868451fa68a1928bf075b245a7a751ca332b06724b3358e9501c599e84",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "cleanup-safety-regression2410",
+      "original_path": "artifacts/storage-maintenance-20261024/cleanup-safety-tests-002.xml",
+      "repository_path": "doc/evidence/storage-maintenance-20261024/cleanup-safety-tests-002.xml",
+      "bytes": 3178,
+      "sha256": "c255b6af56438c74cbc54f4a0bee9f4d092872d3bfac8381d025c70792a2ff91",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "float-operator-published-cdf2406",
+      "original_path": "artifacts/orin/20261024-06/publication-001/operator-cdf.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261024-06__publication-001__operator-cdf.png",
+      "bytes": 87533,
+      "sha256": "acfe962792a3d0492b33d43fdd4282231d17bf2b5c45fc3634c5870aafa7dbfc",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "cogact-published-pooled2405",
+      "original_path": "artifacts/orin/20261024-05/publication-curves-001/cdf-pooled.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261024-05__publication-curves-001__cdf-pooled.png",
+      "bytes": 34065,
+      "sha256": "1f0300212a461fa8bdb8a16fb25e1130f4f0e11557d1c00a2418ae99fa9b3f3a",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "cogact-published-pooled-pdf2405",
+      "original_path": "artifacts/orin/20261024-05/publication-curves-001/cdf-pooled.pdf",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261024-05__publication-curves-001__cdf-pooled.pdf",
+      "bytes": 61788,
+      "sha256": "b9e47991b2e89b30095dbc7e1bff41779e91a395e0ee7702c0f77b663783ba15",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "cogact-published-processes2405",
+      "original_path": "artifacts/orin/20261024-05/publication-curves-001/cdf-processes.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261024-05__publication-curves-001__cdf-processes.png",
+      "bytes": 63424,
+      "sha256": "390f2c5c19acd5562c46ae38b2d664251393d625b903198c7d1195b7332c03b5",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "cogact-published-processes-pdf2405",
+      "original_path": "artifacts/orin/20261024-05/publication-curves-001/cdf-processes.pdf",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261024-05__publication-curves-001__cdf-processes.pdf",
+      "bytes": 142447,
+      "sha256": "5c258951c7b99c54b019712ec8dc7530ec32045d96526ad08621ab02a1aa1710",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "storage-public-wheel-cache-pruned001",
+      "original_path": "artifacts/storage-maintenance-20261023/public-wheel-cache-cleanup-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261023/public-wheel-cache-cleanup-001.json",
+      "bytes": 630,
+      "sha256": "74cd114fadf8bed7dc21b76560f1ea2d25e32791eb693b4e9a965c9c1b86ff65",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "storage-user-data-cleanup001",
+      "original_path": "artifacts/storage-maintenance-20261023/cleanup-summary-001.json",
+      "repository_path": "doc/evidence/storage-maintenance-20261023/cleanup-summary-001.json",
+      "bytes": 1988,
+      "sha256": "3878c7fd12fa910242fedc6f2aef4b9741fee92b8e96128bbf9bfd91819f325a",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-final-cdf",
+      "original_path": "artifacts/orin/20261022-01/formal-cdf-001/e2e-cdf.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-01__formal-cdf-001__e2e-cdf.png",
+      "bytes": 88943,
+      "sha256": "a9aa4923fe8fb2dc5afd3746e3a5cefdc8c0e3947ec5ce55c86d93301000dbac",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "rdt-final-cdf-pdf",
+      "original_path": "artifacts/orin/20261022-01/formal-cdf-001/e2e-cdf.pdf",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-01__formal-cdf-001__e2e-cdf.pdf",
+      "bytes": 63288,
+      "sha256": "f692d38650b8b1c93f462e5265ebe0a6a105d6a7e465e697c42201a31778bd98",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "rdt-final-process-cdf",
+      "original_path": "artifacts/orin/20261022-01/formal-cdf-001/e2e-cdf-processes.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-01__formal-cdf-001__e2e-cdf-processes.png",
+      "bytes": 158723,
+      "sha256": "2d8bcb7ab41b530d2e700187b2b4f7a73cb6b1d8ceede096afcaf5017ce14bcf",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "typed-audit-board-node-tests",
+      "original_path": "artifacts/orin-task-board/typed-audit-node-tests-014.xml",
+      "repository_path": "doc/evidence/orin-task-board/typed-audit-node-tests-014.xml",
+      "bytes": 1209,
+      "sha256": "05f7bcef4bd0f999475055554ba768dd58ae44b1d6d55a4fa0b93af71d157a21",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "typed-audit-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/typed-audit-browser-tests-015.xml",
+      "repository_path": "doc/evidence/orin-task-board/typed-audit-browser-tests-015.xml",
+      "bytes": 1498,
+      "sha256": "d9ac9684ce9c974b5da5274619059399201c3316c8358337e3ac64efb94a4ab7",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "first-round-board-node-tests",
+      "original_path": "artifacts/orin-task-board/first-round-node-tests-013.xml",
+      "repository_path": "doc/evidence/orin-task-board/first-round-node-tests-013.xml",
+      "bytes": 1208,
+      "sha256": "25d7a80f7b43d4493291df4338552a2bd3e18d65e044b5aefd89828f4810e82c",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "first-round-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/first-round-browser-tests-014.xml",
+      "repository_path": "doc/evidence/orin-task-board/first-round-browser-tests-014.xml",
+      "bytes": 1508,
+      "sha256": "44fb6e68af4bd9e8c3aebca34e5b916cbbc9bd06e0921058fcd0822d244890b3",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "native-cases-board-node-tests",
+      "original_path": "artifacts/orin-task-board/native-cases-node-tests-012.xml",
+      "repository_path": "doc/evidence/orin-task-board/native-cases-node-tests-012.xml",
+      "bytes": 1207,
+      "sha256": "3a746c92be86bb348a8a85e1d961e4e73ca203f53d34aa9da5f2ac54820d919d",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "native-cases-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/native-cases-browser-tests-013.xml",
+      "repository_path": "doc/evidence/orin-task-board/native-cases-browser-tests-013.xml",
+      "bytes": 1498,
+      "sha256": "7b48b6afdb3413fea701d3b86399f9d9c604c26d102e30394c3cc76ca8bcdf2b",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "attention-source-board-node-tests",
+      "original_path": "artifacts/orin-task-board/attention-source-node-tests-011.xml",
+      "repository_path": "doc/evidence/orin-task-board/attention-source-node-tests-011.xml",
+      "bytes": 1208,
+      "sha256": "7be3acd372fcc4370ac16b80f359c7483dc563709f9ddcf67d05f8cbcf7d4071",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "attention-source-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/attention-source-browser-tests-012.xml",
+      "repository_path": "doc/evidence/orin-task-board/attention-source-browser-tests-012.xml",
+      "bytes": 1496,
+      "sha256": "fa9af3122c9ba88aaf6c9a1d3bc4f64bbdd87abb93624c2a81f6c6171b704b9b",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "completed-resource-board-node-tests",
+      "original_path": "artifacts/orin-task-board/completed-resource-node-tests-010.xml",
+      "repository_path": "doc/evidence/orin-task-board/completed-resource-node-tests-010.xml",
+      "bytes": 1208,
+      "sha256": "5fe81183ae553e0e758356a8a22a2c1708c9d9932463f338b7a27d3347620073",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "completed-resource-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/completed-resource-browser-tests-011.xml",
+      "repository_path": "doc/evidence/orin-task-board/completed-resource-browser-tests-011.xml",
+      "bytes": 1507,
+      "sha256": "ae7aba7f3a3bb7db627235287038421b0f996ae94c80eb74fd0072081375b647",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "source-board-node-tests",
+      "original_path": "artifacts/orin-task-board/source-contract-node-tests-009.xml",
+      "repository_path": "doc/evidence/orin-task-board/source-contract-node-tests-009.xml",
+      "bytes": 1208,
+      "sha256": "e79fb8ab890596eda8d6e111028c4b9bd348eb507af916551c8b0d91fa07966e",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "source-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/source-contract-browser-tests-010.xml",
+      "repository_path": "doc/evidence/orin-task-board/source-contract-browser-tests-010.xml",
+      "bytes": 1497,
+      "sha256": "93dcb2f466077b890a1c2d278b819dcfc014f60ba47b67088f7053607c33a8ca",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "managed-progress-node-tests",
+      "original_path": "artifacts/orin-task-board/managed-node-tests-008.xml",
+      "repository_path": "doc/evidence/orin-task-board/managed-node-tests-008.xml",
+      "bytes": 1208,
+      "sha256": "d3cf24fd55f891eda77cab88caae8fa9edfab4349084b032eac25c043f23aeab",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "managed-progress-browser-tests",
+      "original_path": "artifacts/orin-task-board/managed-audit-board-green-009.xml",
+      "repository_path": "doc/evidence/orin-task-board/managed-audit-board-green-009.xml",
+      "bytes": 1497,
+      "sha256": "39bd644a5f8f553a0022ee6f5f2b0ae60f1e3b332c6e3c48bb2d3a4f311333f6",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "managed-audit-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/managed-audit-board-green-008.xml",
+      "repository_path": "doc/evidence/orin-task-board/managed-audit-board-green-008.xml",
+      "bytes": 1498,
+      "sha256": "77b3cd7cde3715b0cb61ae4dc340989929229d277ca833a116a7835c958b78c1",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-previous-interrupted-run",
+      "original_path": "artifacts/orin-task-board/pre-rdt-fresh-campaign-state-20261022.json",
+      "repository_path": "doc/evidence/orin-task-board/pre-rdt-fresh-campaign-state-20261022.json",
+      "bytes": 101575,
+      "sha256": "796441b01bd974b3ba50d1fa9e1e77a0ed1c60e2449bb06734bb5caac6b5f614",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "norm-final-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/norm-raw-final-board-green-006.xml",
+      "repository_path": "doc/evidence/orin-task-board/norm-raw-final-board-green-006.xml",
+      "bytes": 1507,
+      "sha256": "4106878bc9592cbdc4bf958e12a91aef9058eae1e30cdb8382ac585fafa38c1e",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "norm-raw-formal-cdf",
+      "original_path": "artifacts/orin/20261022-00/norm-raw-e2e-pair-003/formal-cdf-001/raw-model-pair-cdf.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-00__norm-raw-e2e-pair-003__formal-cdf-001__raw-model-pair-cdf.png",
+      "bytes": 90002,
+      "sha256": "88b4565c0ac754b21841cf4992bfe8a7805475ca0914f8595b83c8dfd2980e9c",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "attention-operator-cdf",
+      "original_path": "artifacts/orin/20261022-00/operator-attention-pair-001/cdf-002/attention-operator-cdf.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-00__operator-attention-pair-001__cdf-002__attention-operator-cdf.png",
+      "bytes": 101327,
+      "sha256": "997087717b71868998cb1216f29ad0f5bfd520ebec5e4a34d49e31f2ed7664d6",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "state-board-browser-tests",
+      "original_path": "artifacts/orin-task-board/state-board-green-004.xml",
+      "repository_path": "doc/evidence/orin-task-board/state-board-green-004.xml",
+      "bytes": 1497,
+      "sha256": "451149b317917a874e7eb8dffebea09ea0ee582d0af62a95cd0c119c9cd48cbf",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "state-board-browser-red",
+      "original_path": "artifacts/orin-task-board/state-long-key-red-003.xml",
+      "repository_path": "doc/evidence/orin-task-board/state-long-key-red-003.xml",
+      "bytes": 2610,
+      "sha256": "ae4ef742ae984fb318e2fd759f2c80651ada9dcf6e7b56a0223b93e8619e7633",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "state-operator-cdf",
+      "original_path": "artifacts/orin/20261022-00/operator-state-pair-001/paired-timing-audit-001/cdf/state-operator-cdf.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-00__operator-state-pair-001__paired-timing-audit-001__cdf__state-operator-cdf.png",
+      "bytes": 100829,
+      "sha256": "11cb0a4534eb63edebce6fd55102fccabb71be6e62b0389dcc1d4075831c2e6c",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "gemm-operator-cdf",
+      "original_path": "artifacts/orin/20261022-00/operator-matmul-pair-001/paired-timing-audit-002/cdf/gemm-operator-cdf.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-00__operator-matmul-pair-001__paired-timing-audit-002__cdf__gemm-operator-cdf.png",
+      "bytes": 94553,
+      "sha256": "949740f51179187f03687f36f6442276f223d058abb766befbf76c5b6413682e",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "layernorm-operator-cdf",
+      "original_path": "artifacts/orin/20261022-00/operator-layernorm-pair-001/paired-timing-audit-001/cdf/layernorm-operator-cdf.png",
+      "repository_path": "paper_handoff/edgefm_three_platform_20261026/figures/Orin/orin__20261022-00__operator-layernorm-pair-001__paired-timing-audit-001__cdf__layernorm-operator-cdf.png",
+      "bytes": 94959,
+      "sha256": "0920ddbeaa2c1ff28735007a72abb552a66e6ef101ca80911a484a902e2e76ed",
+      "mode": "existing-byte-exact-paper-figure"
+    },
+    {
+      "id": "rdt-eleven-process-checkpoint",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261021214032352.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261021214032352.json",
+      "bytes": 12343,
+      "sha256": "e4da0728497f52d58b0158dba8ae3e95fc054734b3106cc88b09ad334093d860",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-ten-process-checkpoint",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261021204044022.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261021204044022.json",
+      "bytes": 11476,
+      "sha256": "d0a0b34ee0e8c7620184088d98901cdcb6403a262e55e42a09b5cf4aac0580e8",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-nine-process-checkpoint",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261021194223159.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261021194223159.json",
+      "bytes": 10604,
+      "sha256": "fce06b1eab2ce451af7aae7d18e7e848671383b6655808b804f9e4e0c1aac35c",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "board-resource-search-failed-tests",
+      "original_path": "artifacts/orin-task-board/browser-tests-resource-warning-failed-001.xml",
+      "repository_path": "doc/evidence/orin-task-board/browser-tests-resource-warning-failed-001.xml",
+      "bytes": 3549,
+      "sha256": "a08b5ad6941df5600f54cda0ddec88c0c55d2d86317ecd8b73a67a4e01a9f0e4",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-eight-process-checkpoint",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261021184241955.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261021184241955.json",
+      "bytes": 9757,
+      "sha256": "8e6ae6193891b5730b3fbedfe22f07b6f6c4fa5d23f8cfdb891d12335ce01805",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-seven-process-checkpoint",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261021174346579.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261021174346579.json",
+      "bytes": 8888,
+      "sha256": "869e24de65202383b25a7095f5feadff2f9b0d841b2d07ee41360ab062e6370c",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-six-process-checkpoint",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261021164607427.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261021164607427.json",
+      "bytes": 8041,
+      "sha256": "e57699c7c17cbad9f44f624336d1916d80e7ea3b2d3f2376e515123f679deb42",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "rdt-five-process-checkpoint",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261021154625053.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261021154625053.json",
+      "bytes": 7173,
+      "sha256": "0cfc9d77bb88fe3ea11e8b8d6e0e4a6b2c2698cc25480a8fac547370315091df",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "board-node-tests",
+      "original_path": "artifacts/orin-task-board/node-tests.xml",
+      "repository_path": "doc/evidence/orin-task-board/node-tests.xml",
+      "bytes": 949,
+      "sha256": "0b64e376fced9923c0c535de00fb9f8f9100261e79db6bd95b3a916de6889fb8",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "board-browser-tests",
+      "original_path": "artifacts/orin-task-board/browser-tests.xml",
+      "repository_path": "doc/evidence/orin-task-board/browser-tests.xml",
+      "bytes": 1792,
+      "sha256": "993f13bbfc825da4f6294e156fc05f6946a4f7e4ae96dd352cc7ef7ebf365c66",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "run-snapshot",
+      "original_path": "artifacts/orin-task-board/checkpoint-20261022220103106.json",
+      "repository_path": "doc/evidence/orin-task-board/checkpoint-20261022220103106.json",
+      "bytes": 15815,
+      "sha256": "75cb5752825e7f34ed0522d9bea2ff702e5e28fcbe0f9b0e0b6a56ddd8d991f0",
+      "mode": "byte-exact-small-receipt"
+    },
+    {
+      "id": "three-platform-paper-summary-check20261026",
+      "original_path": "artifacts/paper-summary-20261026/verification-002.json",
+      "repository_path": "doc/evidence/paper-summary-20261026/verification-002.json",
+      "bytes": 27771,
+      "sha256": "d62689829c777212402bc82abd0dd9010ae6bad4f5ad5df8c7dc5301d6fad4b7",
+      "mode": "byte-exact-small-receipt"
+    }
+  ],
+  "model_or_engine_payloads_included": false,
+  "evidence_content_modified": false
+}

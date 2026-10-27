@@ -1,0 +1,36 @@
+{
+  "command": [
+    "PROVENANCE_3207b497c9631971",
+    "PROVENANCE_ae08f00ee484b1f5",
+    "--output-dir",
+    "artifacts/j6m-performance-20260914/final-stage-summary/prefix-v5",
+    "--warmup",
+    "128",
+    "--input",
+    "artifacts/j6m-performance-20260914/formal-r4/prefix-v5/run-1/stdout.log",
+    "--label",
+    "run-1",
+    "--input",
+    "artifacts/j6m-performance-20260914/formal-r4/prefix-v5/run-2/stdout.log",
+    "--label",
+    "run-2",
+    "--input",
+    "artifacts/j6m-performance-20260914/formal-r4/prefix-v5/run-3/stdout.log",
+    "--label",
+    "run-3",
+    "--input",
+    "artifacts/j6m-performance-20260914/formal-r4/prefix-v5/run-4/stdout.log",
+    "--label",
+    "run-4",
+    "--input",
+    "artifacts/j6m-performance-20260914/formal-r4/prefix-v5/run-5/stdout.log",
+    "--label",
+    "run-5"
+  ],
+  "exit_code": 0,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

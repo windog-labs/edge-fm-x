@@ -1,0 +1,32 @@
+{
+  "schema": "vlaforge.latency_cdf_figure/1",
+  "status": "rendered",
+  "series": [
+    {
+      "label": "off",
+      "source": "PROVENANCE_41366e36bdc6c363",
+      "source_sha256": "57dca28bb2afbd4bfd997d54e5941a17485113de18b037fbf043c4fd47c7974a",
+      "samples": 5120,
+      "minimum_ns": 330289536,
+      "maximum_ns": 357044384,
+      "outliers_removed": false
+    },
+    {
+      "label": "verified",
+      "source": "PROVENANCE_3bd88771957a533b",
+      "source_sha256": "4646c21481343c37ba772bd6243b62552ce0792c32a5a35ccfd8ea362e16dc53",
+      "samples": 5120,
+      "minimum_ns": 328291008,
+      "maximum_ns": 357665152,
+      "outliers_removed": false
+    }
+  ],
+  "png_sha256": "ffac502bba1233d4934b717150160101e6eb168c06546e640e9dd974e97573a7",
+  "pdf_sha256": "7c731d390857418731a38984bc09ba6121055608482ad4d7b6b31282ad1c7f73",
+  "outliers_removed": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

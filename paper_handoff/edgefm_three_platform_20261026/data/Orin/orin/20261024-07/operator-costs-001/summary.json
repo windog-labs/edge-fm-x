@@ -1,0 +1,504 @@
+{
+  "schema": "edgefm.six_operator_recipe_cost_export/1",
+  "status": "six-declared-recipes-and-twelve-accepted-build-costs-indexed",
+  "source": {
+    "path": "PROVENANCE_3e35af904de88738",
+    "bytes": 6636,
+    "sha256": "5a79712974c36b646782a734a4940351f7bc7c9f0808db58a7978f5c884e6404"
+  },
+  "families": [
+    {
+      "family": "Norm",
+      "contract": {
+        "inputs": [
+          {
+            "name": "/Add_134_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              1024,
+              768
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "/LayerNormalization_25__vf_layernorm_shifted_1",
+            "dtype": "float32",
+            "shape": [
+              1,
+              1024,
+              768
+            ]
+          }
+        ]
+      },
+      "source_case": {
+        "path": "PROVENANCE_0b98ee718a1545df",
+        "bytes": 5265,
+        "sha256": "811995dbc5143a09bf80e597013b03c91edd1daf2e3a7ff715b68ef46b3793a4"
+      },
+      "quality": {
+        "path": "PROVENANCE_50986361b46afa31",
+        "bytes": 3560,
+        "sha256": "e2f85d2de0a8707c1128f9cb5fbb7a42298b629ca336c6896c5fb7f012a6cf5c"
+      },
+      "plan": {
+        "path": "PROVENANCE_f35df5f59c004042",
+        "bytes": 2302,
+        "sha256": "eeb4f376a17e7623586fef3bae16a6861a5a603468dc9f017104d60dc67ae7b3"
+      },
+      "timing": {
+        "path": "PROVENANCE_7599ca376004a41a",
+        "bytes": 42653,
+        "sha256": "c28452d66f6e806ab637f07773527e8f29f9d753209e7715868f28bd6bb92212"
+      },
+      "measured_rows": 20480,
+      "coverage": "frozen real source signature/activation; not every layer or instruction",
+      "precision_scope": "declared numerical contract/exposed data formats; no hidden instruction proof",
+      "measurement": "vendor GPU-compute/event exports,1000mswarmup; managed IO follows installed sample"
+    },
+    {
+      "family": "GEMM",
+      "contract": {
+        "inputs": [
+          {
+            "name": "/Mul_205_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              177,
+              960
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "/MatMul_196_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              177,
+              320
+            ]
+          }
+        ]
+      },
+      "source_case": {
+        "path": "PROVENANCE_b462c939ccfa70df",
+        "bytes": 5845,
+        "sha256": "8018295378e630a8be77002e9f1a1ab435666af6188ff2549c82630c4a02e3f2"
+      },
+      "quality": {
+        "path": "PROVENANCE_27055733645f4b91",
+        "bytes": 6763,
+        "sha256": "8a159048c33762afeb269c39ad8a3f918bbe9669c3d97a8f4dee2eb917677a4b"
+      },
+      "plan": {
+        "path": "PROVENANCE_6526406488a39510",
+        "bytes": 2914,
+        "sha256": "9cff0c4028a5815f35bc79b47101a76053d1399033a6cdc0b49c8b428efbeaa1"
+      },
+      "timing": {
+        "path": "PROVENANCE_56b517ce0517b2b8",
+        "bytes": 42607,
+        "sha256": "8292119f811676020162d5e7cb183cb633282f3cf3ec8c6a78ffa226068d2aa1"
+      },
+      "measured_rows": 20480,
+      "coverage": "frozen real source signature/activation; not every layer or instruction",
+      "precision_scope": "declared numerical contract/exposed data formats; no hidden instruction proof",
+      "measurement": "vendor GPU-compute/event exports,1000mswarmup; managed IO follows installed sample"
+    },
+    {
+      "family": "Attention",
+      "contract": {
+        "inputs": [
+          {
+            "name": "/Mul_105_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              12,
+              1024,
+              64
+            ]
+          },
+          {
+            "name": "/Mul_106_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              12,
+              64,
+              1024
+            ]
+          },
+          {
+            "name": "/Transpose_131_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              12,
+              1024,
+              64
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "/MatMul_101_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              12,
+              1024,
+              64
+            ]
+          }
+        ]
+      },
+      "source_case": {
+        "path": "PROVENANCE_dd753010e59f829a",
+        "bytes": 5819,
+        "sha256": "8cef6c2a11921167810168131757fc30cc09d78dafd54885fda5ec8e036c103e"
+      },
+      "quality": {
+        "path": "PROVENANCE_aa2db61f14100d14",
+        "bytes": 13556,
+        "sha256": "8d59f5499cd96b74da97aaae2cff0eb8172d6e54d37ec2b963b622b367a2b1cd"
+      },
+      "plan": {
+        "path": "PROVENANCE_52d935794469ee9e",
+        "bytes": 4118,
+        "sha256": "a84bce326414e2b09a51989c8a3f451168e5a9b9a7dba3bf4985f0e669983dc9"
+      },
+      "timing": {
+        "path": "PROVENANCE_c901ea0a8e3b176e",
+        "bytes": 47133,
+        "sha256": "c3480e35451e0a46197fd59d6d1a0d7365a8233c03e4f826bcfdfecfa3924f20"
+      },
+      "measured_rows": 20800,
+      "coverage": "frozen real source signature/activation; not every layer or instruction",
+      "precision_scope": "all declared real inputs and FP32 stage ports with inspector-observed dense data/weight types; not full-model quality",
+      "measurement": "vendor GPU-compute/event exports,1000mswarmup; managed IO follows installed sample"
+    },
+    {
+      "family": "VLA state",
+      "contract": {
+        "inputs": [
+          {
+            "name": "input_4",
+            "dtype": "float32",
+            "shape": [
+              1,
+              6
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "/Unsqueeze_5_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              1,
+              960
+            ]
+          }
+        ]
+      },
+      "source_case": {
+        "path": "PROVENANCE_7aacffa913078123",
+        "bytes": 29808,
+        "sha256": "5b0e3cd84eb5a6ad2dd09aa9b2ac75e471fd262ddf0e5e35f902ad26a376e2e7"
+      },
+      "quality": {
+        "path": "PROVENANCE_1247195d980c57cc",
+        "bytes": 21918,
+        "sha256": "7d39054a617747eebf67c4625faf0722a30a0ff0102ed038ef5ec5e6d0d54878"
+      },
+      "plan": {
+        "path": "PROVENANCE_69e615e473ee7c8c",
+        "bytes": 3370,
+        "sha256": "be5f84a2cfa5b15c1b0b76283fafa09dc54c2873a42bdbac15cd8afba2321f08"
+      },
+      "timing": {
+        "path": "PROVENANCE_db02d7c58627bce3",
+        "bytes": 42664,
+        "sha256": "2f033629f16b78982678939cadc301cbabea4746a8a1fce4a241381ae4643097"
+      },
+      "measured_rows": 20480,
+      "coverage": "frozen real source signature/activation; not every layer or instruction",
+      "precision_scope": "all declared real inputs and FP32 stage ports; configured precision enforced by OBEY, fused internals explicitly unobserved; not a claim of observed effective-precision parity or full-model quality",
+      "measurement": "vendor GPU-compute/event exports,1000mswarmup; managed IO follows installed sample"
+    },
+    {
+      "family": "embedding",
+      "contract": {
+        "inputs": [
+          {
+            "name": "input_5",
+            "dtype": "int32",
+            "shape": [
+              1,
+              48
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "/Mul_203_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              48,
+              960
+            ]
+          }
+        ]
+      },
+      "source_case": {
+        "path": "PROVENANCE_c35d52b55e584208",
+        "bytes": 4611,
+        "sha256": "0f9e5f051e04f8fdb723a8c95e8dae211336d994377be2f5383ba11693311a87"
+      },
+      "quality": {
+        "path": "PROVENANCE_fde93e138cacc17c",
+        "bytes": 15932,
+        "sha256": "2265c742ae524d5ec0268b53e9e23f8a97a738491b89ed637115dd21ad8ca9b8"
+      },
+      "plan": {
+        "path": "PROVENANCE_64aa9dcbbcc14fc3",
+        "bytes": 7367,
+        "sha256": "a0849180479421782a8a8021f919201a7589cb5b491d59d775741d962bc4a975"
+      },
+      "timing": {
+        "path": "PROVENANCE_67ca7fd859a1eb44",
+        "bytes": 10267,
+        "sha256": "91e6a883d82d35c31097cb389500df4731dfcb559594d8df2bcc60c406f1bfcf"
+      },
+      "measured_rows": 20480,
+      "coverage": "all original quality points; fixed first real point per timing process, not arbitrary shapes or instructions",
+      "precision_scope": "separate standalone FLOAT/no FP16/INT8/TF32 SDK policy, old104/110failures unchanged",
+      "measurement": "native CUDA start/end bracket,128warmup+1024measured, preloaded pinned-host IO"
+    },
+    {
+      "family": "rope",
+      "contract": {
+        "inputs": [
+          {
+            "name": "/Concat_11_output_0",
+            "dtype": "float32",
+            "shape": [
+              1,
+              177,
+              5,
+              64
+            ]
+          },
+          {
+            "name": "probe_input_1",
+            "dtype": "float32",
+            "shape": [
+              1,
+              177,
+              1,
+              32
+            ]
+          },
+          {
+            "name": "probe_input_2",
+            "dtype": "float32",
+            "shape": [
+              1,
+              177,
+              1,
+              32
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "name": "output_1",
+            "dtype": "float32",
+            "shape": [
+              1,
+              177,
+              5,
+              64
+            ]
+          }
+        ]
+      },
+      "source_case": {
+        "path": "PROVENANCE_8497cfaa8aeb2f39",
+        "bytes": 9496,
+        "sha256": "72d9ff7f267f75407483714b8368190f43341347ed55798cec8d701d7b0b9198"
+      },
+      "quality": {
+        "path": "PROVENANCE_fde93e138cacc17c",
+        "bytes": 15932,
+        "sha256": "2265c742ae524d5ec0268b53e9e23f8a97a738491b89ed637115dd21ad8ca9b8"
+      },
+      "plan": {
+        "path": "PROVENANCE_64aa9dcbbcc14fc3",
+        "bytes": 7367,
+        "sha256": "a0849180479421782a8a8021f919201a7589cb5b491d59d775741d962bc4a975"
+      },
+      "timing": {
+        "path": "PROVENANCE_67ca7fd859a1eb44",
+        "bytes": 10267,
+        "sha256": "91e6a883d82d35c31097cb389500df4731dfcb559594d8df2bcc60c406f1bfcf"
+      },
+      "measured_rows": 20480,
+      "coverage": "all original quality points; fixed first real point per timing process, not arbitrary shapes or instructions",
+      "precision_scope": "separate standalone FLOAT/no FP16/INT8/TF32 SDK policy, old104/110failures unchanged",
+      "measurement": "native CUDA start/end bracket,128warmup+1024measured, preloaded pinned-host IO"
+    }
+  ],
+  "costs": [
+    {
+      "family": "Norm",
+      "variant": "baseline",
+      "builder_controller_seconds": 16.054662016,
+      "engine_bytes": 37646,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "fc1bae8a83a1efb3c39ecbf8c33990af4f0a3b24ed204e9408aa81a8e61cc18f"
+    },
+    {
+      "family": "Norm",
+      "variant": "candidate",
+      "builder_controller_seconds": 3.638929504,
+      "engine_bytes": 11076,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "4622ce2d0f06a7be53e6aa0c9deb05ea2d3f42854f94ce530ae973ef84e351cc"
+    },
+    {
+      "family": "GEMM",
+      "variant": "baseline",
+      "builder_controller_seconds": 9.020167872,
+      "engine_bytes": 621864,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "2c44e8e53993c2397f638a42119b9050c5fd57594dfe8a7f41e2cc010221f2fe"
+    },
+    {
+      "family": "GEMM",
+      "variant": "candidate",
+      "builder_controller_seconds": 7.191311264,
+      "engine_bytes": 626090,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "2f36a5e408b7e41c6293e9a531cad4ed287d50883de117ec8fafba1a71f0d37c"
+    },
+    {
+      "family": "Attention",
+      "variant": "baseline",
+      "builder_controller_seconds": 8.83782336,
+      "engine_bytes": 4211193,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "63d6be862aa4ba15f8176a7180a78b4043943330e9f02cf1e1aa0704efe11bb7"
+    },
+    {
+      "family": "Attention",
+      "variant": "candidate",
+      "builder_controller_seconds": 4.693982688,
+      "engine_bytes": 38975,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "6668338538877a121ffd4ef3fb0346cd94bdf2130d079454f8541c83c5c373a9"
+    },
+    {
+      "family": "VLA state",
+      "variant": "baseline",
+      "builder_controller_seconds": 5.810064672,
+      "engine_bytes": 96254,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "1e66b368da995fa83cf8ed29d3ceb2e88eebc9d8c8bf25c904f6f8627fa386bf"
+    },
+    {
+      "family": "VLA state",
+      "variant": "candidate",
+      "builder_controller_seconds": 6.846257056,
+      "engine_bytes": 95833,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "1000ms",
+      "build_receipt_sha256": "929058131ce0ba2f3089180969c12aae334a619bac95d51c76fdabac2e78fbf1"
+    },
+    {
+      "family": "embedding",
+      "variant": "baseline",
+      "builder_controller_seconds": 5.55001392,
+      "engine_bytes": 189243786,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "128calls",
+      "build_receipt_sha256": "fbcc5e860fb803849c508914c6a871bb5a3b86ba3b6cad05a502f391c6d1f598"
+    },
+    {
+      "family": "embedding",
+      "variant": "candidate",
+      "builder_controller_seconds": 4.858371104,
+      "engine_bytes": 189243788,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "128calls",
+      "build_receipt_sha256": "f6bb238593f61d7c07b194229ab8ca4c5b708f26cfa9b4b3eca882bf42385944"
+    },
+    {
+      "family": "rope",
+      "variant": "baseline",
+      "builder_controller_seconds": 3.678219968,
+      "engine_bytes": 1152250,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "128calls",
+      "build_receipt_sha256": "a2a1be7f4b97afa006530b62debff9aa31feb0b1d0d64d4f56ff9410766ab5ae"
+    },
+    {
+      "family": "rope",
+      "variant": "candidate",
+      "builder_controller_seconds": 40.650732768,
+      "engine_bytes": 268368,
+      "compile_exit_code": 0,
+      "one_declared_recipe_budget": 1,
+      "agent_reasoning_seconds": null,
+      "timing_warmup": "128calls",
+      "build_receipt_sha256": "a4c3038c137180940640d3febb7cf041be3fd2fd74b68e9e6e09afb54808711b"
+    }
+  ],
+  "build_cost_scope": "controller elapsed of these actual accepted engine builds, not inference or unrecorded Agent reasoning",
+  "all_historical_failed_builds_counted_as_zero": false,
+  "autonomous_kernel_search_claimed": false,
+  "cross_family_absolute_latency_ranking_claimed": false,
+  "new_GPU_execution": false,
+  "whole_goal_complete": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

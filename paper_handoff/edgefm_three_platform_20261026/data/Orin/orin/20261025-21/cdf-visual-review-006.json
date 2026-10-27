@@ -1,0 +1,47 @@
+{
+  "schema": "edgefm.actual_cdf_visual_review/1",
+  "status": "inspected",
+  "checked_host_utc": "2026-10-25T23:34:51.255875+00:00",
+  "method": "Both actual PNG files displayed through view_image; visible labels, complete latency axes and full right tails inspected. PDF/rank hashes independently checked by exporter and selected-scope reviewer.",
+  "plots": [
+    {
+      "field": "ttft_ms",
+      "png": {
+        "path": "PROVENANCE_6c4f16529b8eb1f8",
+        "bytes": 52431,
+        "sha256": "ffac502bba1233d4934b717150160101e6eb168c06546e640e9dd974e97573a7"
+      },
+      "pdf": {
+        "path": "PROVENANCE_10bf8e5902b95e48",
+        "bytes": 41322,
+        "sha256": "7c731d390857418731a38984bc09ba6121055608482ad4d7b6b31282ad1c7f73"
+      },
+      "nonblank": true,
+      "readable": true,
+      "full_tails": true
+    },
+    {
+      "field": "full16_ms",
+      "png": {
+        "path": "PROVENANCE_57ba2a7b8ddf4ae6",
+        "bytes": 53900,
+        "sha256": "14f59740dfb6d093439a0ed783f7f2a5e3284cb3aba64f6fa18a85706037dd34"
+      },
+      "pdf": {
+        "path": "PROVENANCE_a05c66c5b1db39a2",
+        "bytes": 42126,
+        "sha256": "1adc29a081d69e5070cbb92e8b75489e11c08cab4260bba09d03aad569578159"
+      },
+      "nonblank": true,
+      "readable": true,
+      "full_tails": true
+    }
+  ],
+  "observed_boundary": "Verified mean/p95/p99 improve but observed maxima are higher in both plots; no universal tail improvement claim.",
+  "synthetic_or_NONMODEL": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "schema": "vlaforge.latency_cdf_figure/1",
+  "status": "rendered",
+  "series": [
+    {
+      "label": "Qwen3.5-0.8B first token",
+      "source": "PROVENANCE_fb4739c449c2821e",
+      "source_sha256": "4422b5e8828b7cd02af28ea6d9cec257dde9783f7458f899361eac73d22c0655",
+      "samples": 5120,
+      "minimum_ns": 80832063,
+      "maximum_ns": 167637292,
+      "outliers_removed": false
+    },
+    {
+      "label": "Qwen3.5-2B first token",
+      "source": "PROVENANCE_a2f4e691d43e2a09",
+      "source_sha256": "b112366e3aa3fec33b39996d2b57bba98923061e52b3580fe4a1da1796cb7de5",
+      "samples": 5120,
+      "minimum_ns": 83383348,
+      "maximum_ns": 169666646,
+      "outliers_removed": false
+    }
+  ],
+  "png_sha256": "b4d1dc046137e7a7cba008e994e64edd9f75107e1badb4633e511de698c2bbd1",
+  "pdf_sha256": "e92f1240fd5bdec9823315c0f2ef00773bbab5e067a2b0d769a02cd97530902d",
+  "outliers_removed": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

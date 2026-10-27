@@ -1,0 +1,5 @@
+# Preserve the bytes covered by publication and provenance manifests.
+paper_handoff/** -text
+# Recorded CSV exports use CRLF; preserve it without whitespace warnings.
+paper_handoff/**/*.csv whitespace=cr-at-eol
+doc/evidence/** -text

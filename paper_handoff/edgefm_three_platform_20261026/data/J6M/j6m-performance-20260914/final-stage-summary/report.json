@@ -1,0 +1,260 @@
+{
+  "schema": "vlaforge.hbm_campaign_summary/1",
+  "status": "measured",
+  "campaign_sha256": "75c1d8124982f743cecc4d473fad14733a25c9bc9d89f9d9aefc6c93a54838ad",
+  "manifest_sha256": "937cd647c5cb78f57154beed4973ab06756ffd43acb39ee1f56a1fdf437bfa06",
+  "source_script_sha256": "d5403825aeeefa22e1affd39c600c083a0556696d4b01199a7e62571a59e1222",
+  "campaign_status_at_audit": "completed",
+  "whole_campaign_audited": true,
+  "audited_stages": [
+    "prefix-v2",
+    "prefix-v5",
+    "step-060"
+  ],
+  "stages": [
+    {
+      "stage": "prefix-v5",
+      "scope": "single-stage",
+      "performance_status": "measured",
+      "hbm_sha256": "b05a1c4d62d29b37e29f7a347f7003440b73cbdbe6d76b44d67c1491adf30993",
+      "samples": 5120,
+      "mean_ms": 553.9296681640625,
+      "min_ms": 551.615,
+      "p50_ms": 553.805,
+      "p95_ms": 555.397,
+      "p99_ms": 557.017,
+      "max_ms": 570.17,
+      "std_ms": 0.9082941120509772,
+      "inverse_mean_stage_calls_per_s": 1.8052833373492836,
+      "peak_process_rss_mib": 33.75,
+      "model_load_ms_by_process": [
+        [
+          839.774
+        ],
+        [
+          842.1
+        ],
+        [
+          834.736
+        ],
+        [
+          832.074
+        ],
+        [
+          837.162
+        ]
+      ],
+      "copy_sync_timing": "not independently exposed by hrt_model_exec",
+      "summary": "PROVENANCE_fe30452d63475336",
+      "cdf_csv": "PROVENANCE_aec72bcb9962c4fb",
+      "fidelity_status": "separate limited check; no accuracy claim from timing"
+    },
+    {
+      "stage": "prefix-v2",
+      "scope": "single-stage",
+      "performance_status": "measured",
+      "hbm_sha256": "0944337d66ff3a9b7a9b7c82201e3dc06528e6349669d20a86943faab4838b84",
+      "samples": 5120,
+      "mean_ms": 1402.997919921875,
+      "min_ms": 1396.98,
+      "p50_ms": 1402.43,
+      "p95_ms": 1408.2,
+      "p99_ms": 1412.99,
+      "max_ms": 1431.41,
+      "std_ms": 2.7974250278704957,
+      "inverse_mean_stage_calls_per_s": 0.7127594316431234,
+      "peak_process_rss_mib": 35.8125,
+      "model_load_ms_by_process": [
+        [
+          864.771
+        ],
+        [
+          860.222
+        ],
+        [
+          878.019
+        ],
+        [
+          859.888
+        ],
+        [
+          860.877
+        ]
+      ],
+      "copy_sync_timing": "not independently exposed by hrt_model_exec",
+      "summary": "PROVENANCE_6036a75627c89c9d",
+      "cdf_csv": "PROVENANCE_0f527feac4a714fd",
+      "fidelity_status": "separate limited check; no accuracy claim from timing"
+    },
+    {
+      "stage": "step-060",
+      "scope": "single-stage",
+      "performance_status": "measured",
+      "hbm_sha256": "457c50eb182d7694c3e6b5d79215f9a01208e0488497148c98e2133f840ca7b3",
+      "samples": 5120,
+      "mean_ms": 89.9205986328125,
+      "min_ms": 87.422,
+      "p50_ms": 89.834,
+      "p95_ms": 91.249,
+      "p99_ms": 95.632,
+      "max_ms": 96.615,
+      "std_ms": 1.163555427997123,
+      "inverse_mean_stage_calls_per_s": 11.120922404925969,
+      "peak_process_rss_mib": 34.0,
+      "model_load_ms_by_process": [
+        [
+          500.631
+        ],
+        [
+          487.938
+        ],
+        [
+          494.015
+        ],
+        [
+          490.365
+        ],
+        [
+          489.299
+        ]
+      ],
+      "copy_sync_timing": "not independently exposed by hrt_model_exec",
+      "summary": "PROVENANCE_2fec09cb5b1ceac4",
+      "cdf_csv": "PROVENANCE_2491b1c8b9625a01",
+      "fidelity_status": "separate limited check; no accuracy claim from timing"
+    }
+  ],
+  "processes_sequential": true,
+  "board_identity": {
+    "serial_number": "0e190a0d3392371c"
+  },
+  "resource_evidence_by_process": [
+    {
+      "stage": "prefix-v5",
+      "label": "run-1",
+      "status": "before-after-snapshots-only",
+      "poll_interval_s": null,
+      "observations": null
+    },
+    {
+      "stage": "prefix-v5",
+      "label": "run-2",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 640
+    },
+    {
+      "stage": "prefix-v5",
+      "label": "run-3",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 640
+    },
+    {
+      "stage": "prefix-v5",
+      "label": "run-4",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 640
+    },
+    {
+      "stage": "prefix-v5",
+      "label": "run-5",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 640
+    },
+    {
+      "stage": "prefix-v2",
+      "label": "run-1",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 1619
+    },
+    {
+      "stage": "prefix-v2",
+      "label": "run-2",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 1615
+    },
+    {
+      "stage": "prefix-v2",
+      "label": "run-3",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 1616
+    },
+    {
+      "stage": "prefix-v2",
+      "label": "run-4",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 1618
+    },
+    {
+      "stage": "prefix-v2",
+      "label": "run-5",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 1616
+    },
+    {
+      "stage": "step-060",
+      "label": "run-1",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 106
+    },
+    {
+      "stage": "step-060",
+      "label": "run-2",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 106
+    },
+    {
+      "stage": "step-060",
+      "label": "run-3",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 106
+    },
+    {
+      "stage": "step-060",
+      "label": "run-4",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 106
+    },
+    {
+      "stage": "step-060",
+      "label": "run-5",
+      "status": "clear-at-poll-points",
+      "poll_interval_s": 1,
+      "observations": 106
+    }
+  ],
+  "rejected_processes": [
+    {
+      "path": "PROVENANCE_3943326aeccd83af",
+      "reason": "incomplete or failed process"
+    }
+  ],
+  "reused_processes": [
+    "PROVENANCE_57ed1c08a9805b60",
+    "PROVENANCE_8263741837f0a8e4",
+    "PROVENANCE_8fbd41013c5543b9",
+    "PROVENANCE_0e28feae1860af98",
+    "PROVENANCE_7bd0b3e778cc9202",
+    "PROVENANCE_98927ed4058d399e",
+    "PROVENANCE_61aacc016460fe17"
+  ],
+  "outliers_removed": false,
+  "full_chain_e2e": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "scope": "one solver update, not a final action chunk",
+  "samples": 1,
+  "source": "existing smoke dumps; no new board inference",
+  "historical_report": "PROVENANCE_273d1cd48cd5b9df",
+  "historical_report_sha256": "a421e8f2a799fb00c6db46ff186eecdc037d809d89e97ee8ddb608c9d82116f1",
+  "outputs": [
+    {
+      "output": "solver_sample",
+      "source": "PROVENANCE_cb17edb11d0f0c94",
+      "sha256": "f4de8610733eca9b83c404962bec7942b55bca4c40db1368519053c15adb8cb6",
+      "board_dtype": "float32",
+      "shape": [
+        1,
+        50,
+        32
+      ],
+      "reference": "PROVENANCE_930d46bada40b3af",
+      "reference_sha256": "4e36206944c10033b554c49a3d9bb12616ba0de54bb2ef0451e78269da500334",
+      "historical_board_sha256": "f4de8610733eca9b83c404962bec7942b55bca4c40db1368519053c15adb8cb6",
+      "matches_historical_board_bytes": true,
+      "exact_reference": false,
+      "finite": true,
+      "elements": 1600,
+      "cosine": 0.9999994983908165,
+      "max_abs": 0.003674030303955078,
+      "mean_abs": 0.0007449017039289174,
+      "mse": 8.980497730075133e-07
+    },
+    {
+      "output": "step_index",
+      "source": "PROVENANCE_6c52cf4abed23ad5",
+      "sha256": "7c9fa136d4413fa6173637e883b6998d32e1d675f88cddff9dcbcf331820f4b8",
+      "board_dtype": "int64",
+      "shape": [
+        1
+      ],
+      "reference": "PROVENANCE_88ec65d74d96a175",
+      "reference_sha256": "fc44e6cab97678b988677b1e24dc073c80b029ccf6566c7bc1bd9ec1061a6106",
+      "historical_board_sha256": "7c9fa136d4413fa6173637e883b6998d32e1d675f88cddff9dcbcf331820f4b8",
+      "matches_historical_board_bytes": true,
+      "exact_reference": true,
+      "finite": true,
+      "elements": 1,
+      "cosine": 1.0,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "mse": 0.0
+    }
+  ],
+  "finite": true,
+  "matches_historical_board_bytes": true,
+  "step_index_exact": true,
+  "quantization_retry_planned": false,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

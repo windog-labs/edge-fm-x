@@ -1,0 +1,2373 @@
+{
+  "schema": "edgefm.task_board/1",
+  "project": {
+    "id": "edgefm-orin",
+    "title": "EdgeFM / Orin",
+    "status": "running",
+    "subtitle": "ICRA 2027 · VLA 部署补充实验",
+    "verifiedAt": "2026-10-22T02:18:05.132Z",
+    "currentTaskId": "rdt-formal",
+    "currentModel": "rdt",
+    "currentStage": "用户授权的两 Java 服务窗口已建立，可用内存约 43.49 GiB；RDT 新三模式 pilot 运行，正式十五进程尚待核验后启动",
+    "scope": "五个必需 VLA；Qwen3.5 为后置可选。复用 H20/J6M 资产，不新增其他平台性能实验。",
+    "acceptance": "同一 Orin、同精度 / 输入 / noise：标准化完整 action 主门槛 MSE < 1e-5、cosine > 0.9999；native 误差和 H20 差异单列。Runtime 对照固定 engine，图消融显式记录 engine 差异。",
+    "device": "Jetson AGX Orin",
+    "serial": "1421524312594",
+    "sdk": "TensorRT 8.5.2.2 · CUDA 11.4 · L4T 35.4.1",
+    "powerMode": "既有 MAXN，未标为 60W",
+    "constraints": [
+      "Orin 不安装或运行 Torch 模型",
+      "不以全模型 FP32 回退凑表，不开展量化搜索",
+      "板端顺序运行，不争用其他任务",
+      "不删慢样本，不缩减模型、进程或迭代次数"
+    ]
+  },
+  "run": {
+    "taskId": "rdt-formal",
+    "id": "rdt-raw-e2e-formal-001",
+    "status": "failed",
+    "label": "RDT · 采样已中断，资源待确认",
+    "verifiedAt": "2026-10-22T02:18:05.132Z",
+    "completedProcesses": 11,
+    "totalProcesses": 15,
+    "measured": 11411,
+    "plannedMeasured": 15360,
+    "plannedCalls": 17280,
+    "round": 4,
+    "mode": "完整迭代 replay",
+    "callsInProcess": 275,
+    "warmupInProcess": 128,
+    "measuredInProcess": 147,
+    "plannedInProcess": 1024,
+    "qualityFlagsPassed": true,
+    "qualityNote": "11 个完整进程及末进程部分数据均保留；25894 个已写入完整动作张量独立核验字节一致，仍不是 15 个完整进程或正式结果。",
+    "protocol": "每模式 5 个独立进程，每进程 128 warmup + 1024 measured，batch=1，模式顺序轮转。",
+    "estimate": "保留数据已在限定范围核验；资源条件待确认，正式协议未完成，不自动重启。",
+    "interruption": {
+      "kind": "resource-safety-stop",
+      "at": "2026-10-21T21:54:33.881685Z",
+      "evidenceId": "rdt-safety-stop",
+      "completeProcessMeasured": 11264,
+      "partialProcessMeasured": 147,
+      "formalComplete": false
+    },
+    "controller": {
+      "pid": 1211540,
+      "startTicks": "6178131",
+      "identityVerified": false
+    },
+    "worker": {
+      "pid": 1918313,
+      "startTicks": "10076756",
+      "identityVerified": false
+    },
+    "bootId": "3c801f5d-6897-4d97-b021-3c52db38a750",
+    "targetPath": "/data/datalog/edgefm-orin/20261021-07/raw-e2e-formal-001/",
+    "evidenceIds": [
+      "rdt-pilot",
+      "postprocess",
+      "run-snapshot"
+    ],
+    "observationPath": "artifacts/orin-task-board/checkpoint-20261022021805132.json"
+  },
+  "models": [
+    {
+      "id": "smolvla",
+      "name": "SmolVLA",
+      "optional": false,
+      "deployment": "passed",
+      "fidelity": "formal-passed",
+      "formal": "done",
+      "engines": 7,
+      "steps": 10,
+      "profile": "FP16 dense + 已声明数值岛",
+      "next": "算子回集成与公共资源缺口",
+      "metrics": {
+        "baselineMs": 134.40963,
+        "replayMs": 113.139929,
+        "chunksPerSecond": 8.838613,
+        "speedup": 1.187995
+      },
+      "evidenceIds": [
+        "smol-formal",
+        "smol-soak",
+        "smol-cdf"
+      ]
+    },
+    {
+      "id": "rdt",
+      "name": "RDT-1B",
+      "optional": false,
+      "deployment": "passed",
+      "fidelity": "pilot-passed",
+      "formal": "blocked",
+      "engines": 11,
+      "steps": 5,
+      "profile": "FLOAT carrier / FP16 dense + 已声明数值岛",
+      "next": "保留输出已核验；明确资源条件和完整正式安排后再验收",
+      "pilot": {
+        "completeTensors": 120,
+        "mse": 0,
+        "cosine": 0.9999999999999999
+      },
+      "evidenceIds": [
+        "rdt-pilot",
+        "rdt-audit",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "pi0",
+      "name": "pi0",
+      "optional": false,
+      "deployment": "planned",
+      "fidelity": "planned",
+      "formal": "planned",
+      "profile": "待实际支持评估",
+      "next": "RDT 闭合后，冻结资产并验证完整 TRT 链",
+      "evidenceIds": []
+    },
+    {
+      "id": "pi05",
+      "name": "pi0.5",
+      "optional": false,
+      "deployment": "planned",
+      "fidelity": "planned",
+      "formal": "planned",
+      "profile": "待实际支持评估",
+      "next": "独立于 pi0 冻结配置与验收",
+      "evidenceIds": []
+    },
+    {
+      "id": "cogact",
+      "name": "CogACT",
+      "optional": false,
+      "deployment": "planned",
+      "fidelity": "planned",
+      "formal": "planned",
+      "profile": "既有公开依赖配置约 7.63B，不标成名义 3B",
+      "next": "先核查容量和算子支持，再验证完整链",
+      "evidenceIds": []
+    },
+    {
+      "id": "qwen08",
+      "name": "Qwen3.5 0.8B",
+      "optional": true,
+      "deployment": "planned",
+      "fidelity": "planned",
+      "formal": "planned",
+      "profile": "完整 vision / prefill / decode",
+      "next": "核心 VLA 优先完成后再评估",
+      "evidenceIds": []
+    },
+    {
+      "id": "qwen2",
+      "name": "Qwen3.5 2B",
+      "optional": true,
+      "deployment": "planned",
+      "fidelity": "planned",
+      "formal": "planned",
+      "profile": "完整 vision / prefill / decode",
+      "next": "0.8B 路径明确后独立评估",
+      "evidenceIds": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "rdt-partial-evidence",
+      "title": "RDT 中断证据归档与输出核验",
+      "stage": "D2 / D4",
+      "model": "rdt",
+      "priority": "P0",
+      "status": "done",
+      "summary": "范围内归档与输出检查完成：25894 个保留动作张量逐字节一致；正式协议仍未完成，不产出正式主表或 CDF。",
+      "verified": [
+        "仅对身份一致的本任务 worker 发送 SIGTERM，外部服务未改动",
+        "控制器按原失败逻辑退出，保留完整 / 部分原始文件",
+        "新目录 SCP 退出 0，终态 campaign / protocol hash 与目标端一致",
+        "11 个完整进程文件 hash / 调用数匹配，25344 个动作张量逐字节核验通过",
+        "部分进程 275 行恰好对应完整输出文件，550 个张量核验通过；原始文件未裁剪",
+        "原正式审计门槛拒绝未完成 campaign；25 项安全 / 范围 / 哈希检查通过"
+      ],
+      "remaining": [],
+      "deliverables": [
+        "安全中断 / 归档完整性记录",
+        "范围明确的输出核验与正式结果缺口"
+      ],
+      "dependsOn": [],
+      "estimate": "主机证据核验；不新增板端推理",
+      "evidenceIds": [
+        "rdt-safety-stop",
+        "rdt-safety-report",
+        "rdt-retained-checks",
+        "rdt-partial-payload-checks",
+        "rdt-interruption-tests",
+        "run-snapshot"
+      ]
+    },
+    {
+      "id": "rdt-formal",
+      "title": "RDT 三模式正式采样",
+      "stage": "D3",
+      "model": "rdt",
+      "priority": "P0",
+      "status": "running",
+      "summary": "用户已授权临时停止两个服务，新资源窗口和自动恢复守护已建立；正在重跑三模式完整 raw pilot。新正式采样尚未启动，旧 11 个完整进程及部分数据独立保留，不拼接。",
+      "verified": [
+        "11 个 engine 与原 rounding DSO 已冻结",
+        "112/112 个原生输入张量逐字节一致",
+        "三模式 raw pilot 120 个完整动作张量逐字节一致",
+        "首轮常规 / 共享流 / replay 各 128 warmup + 1024 measured，3 个进程均 exit 0，已记录 finite / direct_exact 标志均正常；全量独立审计仍未完成",
+        "用户明确授权检查后临时停止 data-collection.jar 与 xs-ugv-starter.jar；只控制两个精确 Supervisor 程序，配置 / JAR 哈希不变，其他受管 PID / 状态不变",
+        "新窗口 MemAvailable 45602956 KiB、SwapFree 29874976 KiB；恢复守护监控两服务状态，准备超时或正式采样结束 / 失败后恢复"
+      ],
+      "remaining": [
+        "完成全部 15 个独立进程",
+        "保留全部时延、动作、replay 计数与遥测"
+      ],
+      "deliverables": [
+        "每模式 5120 条 measured latency",
+        "全部完整动作与资源记录"
+      ],
+      "dependsOn": [
+        "rdt-raw-pilot"
+      ],
+      "estimate": "整组约 14–15 小时纯采样，初始化与审计另计",
+      "evidenceIds": [
+        "rdt-pilot",
+        "postprocess",
+        "run-snapshot"
+      ]
+    },
+    {
+      "id": "operator-ablation",
+      "title": "同平台算子调优消融",
+      "stage": "D4",
+      "model": "common",
+      "priority": "P0",
+      "status": "running",
+      "summary": "Attention 完整上下文字节一致，20 进程 / 20800 行审计通过：resident 1.458263x，IO event 1.239668x；首轮短一行失败保留。Norm / GEMM / 状态结果保留；Embedding / RoPE 未测。",
+      "verified": [
+        "SmolVLA 7 个实际 ONNX 源图与 engine/build/hash 绑定",
+        "236 个分区域逻辑签名组",
+        "相关签名 / 架构测试 24 项通过",
+        "真实 LayerNorm [1,1024,768]：相同接口、常量和 epsilon；786432 个原始 CPU 输出逐字节一致",
+        "原表达式与标准语义影子通过预设门槛；新候选的 Orin 构建 / 正确性 / 时延仍未验证",
+        "用例、通用重写及签名相关回归 68 项通过",
+        "RoPE/cache 两个真实观测共 113280 个输出值与原冻结 K 输出逐字节一致，非 Scatter 数学定义不变",
+        "静态索引加入值独立性与 SSA 身份检查，不信任中间形状注解；常量索引不执行整张模型",
+        "RoPE / 静态索引回归 21 项通过；最新全量主机回归 2639 passed / 74 skipped / 6 subtests",
+        "GEMM V 投影保留原 FP16 请求与输出约束；两观测 113280 个 CPU 原始输出值逐字节一致",
+        "三类真实算子及静态索引组合回归 48 项通过；测试夹具改为独立副本，原始外部权重 hash / inode 未变",
+        "真实 Attention Core：原始观测重算 Q/K/V 和 786432 个上下文输出；只消除静态零掩码，原缩放及 FP16 dense / FLOAT Softmax 请求不变",
+        "四类真实算子及静态索引组合回归 67 项通过；TensorRT 可能已做同类优化，不预设收益",
+        "真实语言 Embedding 46080 个输出值逐字节一致、完整 47308800 个变换权重值重算一致；16 观测只含一个不同指令 tensor",
+        "索引原 INT64 / native INT32 范围和 roundtrip、原 engine IO hash 绑定；新配对实际 ABI / 存储及计算精度仍未验证",
+        "新增独立 v3 构建器保留空精度映射，不补造约束；135 项算子与构建器组合回归通过，原 v2 / RDT engine 未改动",
+        "VLA 状态用例：16 个不同真实状态、15360 个完整 token 值逐字节一致；投影权重及原 FP16 请求不变，不计为动作或 E2E 结果",
+        "输入沿正式 baseline / native pilot / build / preparation 哈希链核验；独立重算填充与投影通过 CPU 门槛",
+        "六类用例及构建器组合回归 143 项通过，覆盖 12 份实际精度配置",
+        "新 LayerNorm 两端均在 Orin 构建，workspace 同为 256 MiB；观测数据流及 IO 均为线性 FP32，原归一化合同不变",
+        "786432 个值同平台前后比较 MSE 2.290928e-15、cosine 0.9999999999999932；不是逐字节相同，未计时",
+        "每次操作前可用内存大于 8 GiB、实际约 10 GiB；只做小型算子，未重启 RDT 或改变既有服务",
+        "两种边界各 5 组独立进程对 / 每端 5120 条记录，20 个 native 进程、20480 条原始记录全部保留",
+        "resident GPU compute 186.408 -> 43.062 us（4.329x）；IO event latency 489.500 -> 297.729 us（1.644x）",
+        "候选 resident std 与 IO max 未更好，完整尾部保留；20 项捕获 / 原始计时 / 范围回归通过",
+        "完整七 engine、十步求解的配对已在 Orin 跑通；34 个完整动作对已独立审计，标准化通过但 native 同一 MSE 阈值失败，未发布回集成加速比",
+        "通用 record-based 算子请求 / admission / owned-child 清理回归 15 项通过；GEMM 原 FP16 请求和空输出精度映射保留，真机前置已启动",
+        "GEMM 两份输入共 113280 个输出值通过同 Orin 门槛：最坏 MSE 3.836792e-9，最低 cosine 0.9999980099；非逐字节一致",
+        "两端 dense 输入 / 输出及 307200 个权重的 inspector 类型均为 FP16/Half；Cublas 与 Cask tactic 不同，内部累加未独立测量",
+        "候选相对 CPU FLOAT 诊断误差更高，完整保留；请求 / 真实配对 / 坏精度和 ABI / 原始计时回归 39 项通过",
+        "GEMM 两种边界各五组配对 / 20 个 native 进程，全部 20480 条记录独立审计通过；完整 PNG/PDF CDF 已生成",
+        "GEMM resident compute 38.142144 -> 26.338613 us（1.448146x），IO event 59.466626 -> 58.993376 us（1.008022x）；IO compute 比值 0.997989、两组 IO event 负收益均保留",
+        "新增计时审计绑定参考 engine / 输入 / boot / producer，并重验全部旧 LayerNorm 行；最新组合 47 项回归通过",
+        "GEMM 全模型及同源重建控制已完成，两次各 34 个完整动作对；对原模型 MSE 1.324e-5，对新重建控制 1.376e-5，均失败，未启动正式 E2E",
+        "通用请求 v2 支持明确单端口未命名记录及样本根相对路径，拒绝歧义 / 错样本 / 越界 / 外部 symlink；25 项请求 / admission 组合回归通过",
+        "状态投影请求绑定全部 16 个不同状态输入、原 FP16 投影及空输出精度覆盖；旧脚本和原 case 未修改，实际构建 / 完整输出采集完成",
+        "状态投影 16 份真实输入、15360 个完整值通过门槛：最坏 MSE 2.877260e-8、最低 cosine 0.9999999529；不是逐字节一致",
+        "baseline 为一个 Myelin 融合层，内部数据 / 权重精度未展开；candidate 为可见 FP16 / Half Cask。两者同 FP16 请求 + OBEY，不冒充实际精度完全相同",
+        "仅明确的配置口径允许数值通过后计时，same_effective_precision_main_table_qualified=false 保留；32 项布局 / 数值 / 融合边界与旧数据回归通过",
+        "状态两种边界各五组配对 / 20 个 native 进程、全部 20480 行独立审计通过，配置口径和限制随结果保留",
+        "状态 resident compute 29.811383 -> 30.402696 us（0.980551x），IO event 39.361035 -> 40.169228 us（0.979880x）；均值退化、resident max 变差，不选该候选回集成",
+        "完整 CDF PNG/PDF、原始 CSV 和 50 项布局 / 数值 / 融合不确定性 / 计时范围回归就绪；不宣称观察到相同内部实际精度",
+        "看板长实验字段在 320px 不再横向溢出；完整文本换行，保留失败 trace 并新增固定夹具，九项浏览器回归通过",
+        "Attention 真实观测 6 的 Q/K/V 三输入与缩放保持不变，正零 mask Add 删除从实际图和常量证明；28 项请求 / 策略回归通过",
+        "Attention 真机 786432 个完整上下文值逐字节一致（MSE 0、cosine 1）；CPU FLOAT 诊断误差在两端一致，非新 PyTorch FP16 等价结论",
+        "两端 QK/PV 数据 FP16、Softmax 数据 FP32 可观测，保留算子及 FP32 Softmax 输出约束不变；删除的仅正零 mask 加法及其约束",
+        "Attention 20 进程 / 20800 行审计通过，resident 1.458263x、IO event 1.239668x；完整尾部 CDF、首次短记录拒绝与全部重跑数据保留"
+      ],
+      "remaining": [
+        "扩充真实输入 / 指令覆盖，并根据实测热点决定是否补充其他签名",
+        "记录真实编译失败、候选搜索及编译成本，不以主机准备时长替代板端代价",
+        "Norm 正式原始输入 E2E 已审计，标准化主门槛通过但候选慢 6.43%；仍缺正收益整模型图改写。GEMM 回集成标准化 MSE 失败，不进入正式采样",
+        "Embedding、RoPE/cache 仍需完整输出 / 配置或实际精度证据及真机配对；状态融合内部精度限制继续随结果保留，不替代主线 VLA 验收"
+      ],
+      "deliverables": [
+        "真实签名的同 Orin 微基准表",
+        "候选搜索与失败 / 负收益记录"
+      ],
+      "dependsOn": [],
+      "estimate": "尚无可靠整项估时；不与正式采样争用 Orin",
+      "evidenceIds": [
+        "operator-inventory",
+        "inventory-tests",
+        "operator-case-report",
+        "layernorm-pair",
+        "layernorm-case-tests",
+        "rope-pair",
+        "rope-case-tests",
+        "scatter-source-tests",
+        "full-scatter-tests",
+        "gemm-pair",
+        "operator-case-tests",
+        "operator-fixture-repair",
+        "attention-pair",
+        "four-operator-case-tests",
+        "embedding-pair",
+        "embedding-case-tests",
+        "five-operator-case-tests",
+        "operator-builder-tests",
+        "trt-builder-v3-tests",
+        "state-feature-pair",
+        "state-feature-builder-tests",
+        "six-operator-builder-tests",
+        "layernorm-target-quality",
+        "layernorm-target-report",
+        "layernorm-timing-audit",
+        "layernorm-timing-csv",
+        "layernorm-operator-cdf",
+        "layernorm-timing-tests",
+        "norm-integration-quality",
+        "norm-integration-report",
+        "gemm-target-request",
+        "gemm-target-quality",
+        "gemm-target-capture",
+        "gemm-target-tests",
+        "gemm-timing-plan",
+        "gemm-timing-pilot",
+        "gemm-timing-audit",
+        "gemm-timing-csv",
+        "gemm-operator-cdf",
+        "gemm-target-report",
+        "gemm-target-full-tests",
+        "state-target-request",
+        "state-request-tests",
+        "state-target-quality",
+        "state-target-capture",
+        "state-contract-tests",
+        "state-timing-plan",
+        "state-timing-pilot",
+        "state-timing-audit",
+        "state-timing-csv",
+        "state-operator-cdf",
+        "state-target-report",
+        "state-target-full-tests",
+        "state-board-browser-tests",
+        "state-board-browser-red",
+        "attention-target-request",
+        "attention-target-quality",
+        "attention-request-tests",
+        "attention-multi-input-tests",
+        "attention-timing-plan",
+        "attention-timing-pilot",
+        "attention-timing-checkpoint",
+        "attention-timing-audit",
+        "attention-count-failure",
+        "attention-target-report",
+        "attention-operator-cdf",
+        "operator-current-summary"
+      ]
+    },
+    {
+      "id": "rdt-audit",
+      "title": "RDT 全量审计、CDF 与归档",
+      "stage": "D2 / D3",
+      "model": "rdt",
+      "priority": "P0",
+      "status": "waiting",
+      "summary": "审计和绘图工具已就绪，等待正式采样结束。",
+      "verified": [
+        "采集 / 审计 / 绘图回归 37 项通过",
+        "绘图已用既有真实 SmolVLA 正式数据验证"
+      ],
+      "remaining": [
+        "拉回全部正式数据并逐条独立核验",
+        "导出 pooled / 逐进程 CDF 和主表",
+        "保留所有慢样本与负收益"
+      ],
+      "deliverables": [
+        "正式时延 / 吞吐与完整动作质量表",
+        "CSV / JSON / PNG / PDF 和证据索引"
+      ],
+      "dependsOn": [
+        "rdt-formal"
+      ],
+      "estimate": "采集完成后执行，不能提前验收",
+      "evidenceIds": [
+        "postprocess",
+        "raw-tests"
+      ]
+    },
+    {
+      "id": "pi0",
+      "title": "pi0 完整 TRT 部署与正式实验",
+      "stage": "D1–D3",
+      "model": "pi0",
+      "priority": "P0",
+      "status": "planned",
+      "summary": "第三个必需 VLA，尚未进入本轮 Orin 实验。",
+      "verified": [],
+      "remaining": [
+        "冻结 checkpoint / 输入 / noise / scheduler",
+        "验证导出、解析、容量和完整常驻链",
+        "通过同 Orin 动作门槛后做正式采样"
+      ],
+      "deliverables": [
+        "完整链支持边界",
+        "正式 E2E / CDF / 动作核验"
+      ],
+      "dependsOn": [
+        "rdt-audit"
+      ],
+      "estimate": "取决于实际支持与容量，不预先承诺工期",
+      "evidenceIds": []
+    },
+    {
+      "id": "pi05",
+      "title": "pi0.5 独立配置与完整实验",
+      "stage": "D1–D3",
+      "model": "pi05",
+      "priority": "P0",
+      "status": "planned",
+      "summary": "不能以 pi0 数据改名代替。",
+      "verified": [],
+      "remaining": [
+        "独立冻结模型与处理器合同",
+        "完整部署、同平台核验与正式协议"
+      ],
+      "deliverables": [
+        "独立 pi0.5 主表与证据"
+      ],
+      "dependsOn": [
+        "pi0"
+      ],
+      "estimate": "在实际支持评估后估时",
+      "evidenceIds": []
+    },
+    {
+      "id": "cogact",
+      "title": "CogACT 容量、完整链与正式实验",
+      "stage": "D1–D3",
+      "model": "cogact",
+      "priority": "P0",
+      "status": "planned",
+      "summary": "保留实际约 7.63B 身份及公开依赖限定。",
+      "verified": [],
+      "remaining": [
+        "先验证容量与首个算子边界",
+        "完整视觉 / 语言 / 动作链及质量门槛",
+        "真实支持后再进入正式采样"
+      ],
+      "deliverables": [
+        "明确配置身份和支持证据",
+        "完整 E2E / CDF / 动作核验"
+      ],
+      "dependsOn": [
+        "pi05"
+      ],
+      "estimate": "容量与支持风险较高，尚无可靠估时",
+      "evidenceIds": []
+    },
+    {
+      "id": "operator-integration",
+      "title": "有效算子候选回集成",
+      "stage": "D4",
+      "model": "common",
+      "priority": "P0",
+      "status": "waiting",
+      "summary": "Norm 五组完整 E2E / 10240 measured / 23040 张量已审计：125.900306 -> 133.994095 ms，候选慢 6.4287%，五组一致。标准化主门槛通过、native 误差单列；完整 CDF 与负收益保留，仍缺正收益集成候选。",
+      "verified": [
+        "候选完整 ONNX hash 与重新执行通用改写的结果一致，其他节点和权重不变",
+        "匹配构建器 / FP16 + noTF32 / workspace 2048 MiB；450 个原 FLOAT Norm 节点替换为 50 个 FLOAT 插件",
+        "43 个绑定顺序及已报告描述一致；两份 inspector 都缺少三个输入描述，不伪造完整 ABI 通过",
+        "来源审计八项回归通过；首版 inspector 覆盖不足记录保留",
+        "两条原生七 engine 路径各 1 warmup + 16 measured，全部十步求解，只有一个 prefix engine 不同",
+        "34 个完整标准化 / native 动作对及逐维误差已审计；候选两输出均与冻结同 engine pilot 逐字节一致",
+        "实际 native 调用通过完整 type/layout/location/shape guard；两份 IR/Plan、其余六 engine 和输入 / noise 相同",
+        "标准化论文阈值通过，native 同一数值 MSE 阈值失败；保守 all-output gate 保持 failed，未宣称整模型加速",
+        "22 项来源、真实完整配对、坏输出及仅属本任务的清理测试通过",
+        "GEMM 完整 source 节点定义、边界类型和不可覆盖常量逐项匹配；2088 -> 2093 个源节点，原 840 个 initializer 不变",
+        "新值 / 节点全局避让名称冲突；共享原权重保留，只增加候选转置权重和 shape 常量；compute / output precision 映射完全不变",
+        "通用 splice 与原候选组合 27 项主机测试通过，涵盖共享权重、名称冲突、错误定义 / 类型 / override / opset",
+        "完整 prefix 真机构建 161.949 秒；运行中最低 MemAvailable 8981964 KiB，高于 2 GiB 安全线；原 MAXN / 其他服务不变",
+        "候选完整 engine hash 2a88ae417e13ff59fb52eba7ded9c5e269e105c8e8a9aebde28627eda427d750；43 绑定顺序与已报告描述不变，三处未报告描述仍需 native guard",
+        "独立重新读取两份完整图核对所有其他节点、原 initializer、新片段和映射；另有 15 项组合的红测试 / admission 检查通过，未把编译当模型通过",
+        "GEMM 完整七 engine / 十步求解、两端各 17 次调用、34 个完整动作对均已审计；baseline 与原采用模型输出逐字节一致",
+        "GEMM 标准化 max MSE 1.324344964e-5（失败）、min cosine 0.9999970631；native max MSE 0.0124503239（失败），不因 cosine 高而放行",
+        "单算子质量和计时结果保留，但未升级为整模型通过，也未开展正式 E2E；用原图重建控制完成编译漂移核验",
+        "同 ONNX / 同 profile 字节的重建控制已完成全模型核验：标准化最坏 MSE 4.519215e-7 通过、native MSE 0.00104099844 同阈值失败，非字节一致",
+        "试验相对新重建控制仍有标准化 MSE 1.375922937e-5、native MSE 0.0127836698，候选不通过；未用新 baseline 抹掉原失败",
+        "两次各 34 对完整动作及所有匹配输入 / noise / IR / Plan / 其余六 engine 的控制比较归档；43 项回归通过",
+        "用户明确标准化 action 为主门槛、native 误差单列，原始阈值及失败 all-output receipt 不变；Norm 可进入原始输入验证，GEMM 仍失败",
+        "Norm 原始输入 pilot 两端各 4+16 调用，80 个完整动作张量与各自冻结参考字节一致；短 pilot 候选较慢，不丢负收益",
+        "Norm 正式 10/10 进程、10240 measured、11520 次完整调用、23040 张量独立审计通过；均与各自冻结参考字节一致，两图间不是字节一致",
+        "完整 E2E 125.900306 -> 133.994095 ms（0.939596x），五组均为负收益；完整 CDF、慢样本和更差 p99/std 全保留",
+        "最低采样系统 MemAvailable 9767304 KiB，未触发安全线；CV raw -256 读数保留为未确认，未伪造有效温度或叠加共享 CPU/GPU 内存",
+        "采集器及全部 worker 已退出，无本任务推理进程遗留；141 项算子 / 回集成组合回归通过"
+      ],
+      "remaining": [
+        "Norm 此配对已完整测量但无正收益；其他数值有效候选（如 Attention）仍需完整模型 E2E，不能以负结果替代正收益验收",
+        "GEMM 此候选不进入 E2E；其他有效候选仍需同边界完整动作及正式 E2E，不能以负结果报告替代成功验收",
+        "区分 graph recipe、Agent 与 runtime 收益"
+      ],
+      "deliverables": [
+        "集成后的正式对照",
+        "不可支持主张的准确边界"
+      ],
+      "dependsOn": [
+        "operator-ablation"
+      ],
+      "estimate": "Norm 本次采集与最终审计已结束；后续有效候选依赖实际构建 / 全输出验证，暂不承诺固定工期",
+      "evidenceIds": [
+        "claim-gap",
+        "norm-integration-source",
+        "norm-integration-source-tests",
+        "norm-integration-quality",
+        "norm-integration-report",
+        "norm-integration-tests",
+        "norm-primary-acceptance",
+        "norm-raw-pilot",
+        "norm-raw-protocol",
+        "norm-raw-checkpoint",
+        "norm-raw-formal-audit",
+        "norm-raw-formal-report",
+        "norm-raw-formal-cdf",
+        "norm-raw-formal-resources",
+        "operator-integration-regression-141",
+        "norm-final-board-browser-tests",
+        "gemm-full-splice",
+        "gemm-full-splice-tests",
+        "gemm-full-prefix-build",
+        "gemm-full-source-audit",
+        "gemm-composition-admission-tests",
+        "gemm-integrated-quality-failed",
+        "gemm-integrated-report",
+        "gemm-integrated-tests",
+        "gemm-rebuild-checkpoint",
+        "gemm-rebuild-source-audit",
+        "gemm-rebuild-target-build",
+        "gemm-rebuild-action-audit",
+        "gemm-matched-rebuild-actions",
+        "gemm-integrated-control-tests"
+      ]
+    },
+    {
+      "id": "memory",
+      "title": "内存峰值与私有 SDK 归因",
+      "stage": "D4",
+      "model": "common",
+      "priority": "P0",
+      "status": "waiting",
+      "summary": "已有覆盖范围内证据；RDT 系统资源压力已单列，完整归因及性能影响仍待审计。",
+      "verified": [
+        "SmolVLA 稳态 RSS / 匿名内存观察",
+        "12 次覆盖范围内 CUDART 生命周期验证",
+        "03:24 只读资源快照：MemAvailable 约 3.10 GiB、swap 近满，当前 RDT worker VmSwap 为 0",
+        "已有 Java 服务分别占用大量 RSS / swap；未终止服务，也不把系统增长归因于模型泄漏",
+        "三个资源快照的解析及原始哈希检查 9 项通过；GPU owner 可见性受权限限制",
+        "04:25 复查：系统可用内存约 2.39 GiB、swap 仍近满，新 worker VmSwap 0；不同模式快照不作泄漏因果判断",
+        "05:27 复查：系统可用约 1.19 GiB、swap 满，当前 worker VmSwap 0；已有服务 RSS / 线程数进一步增加，存在耗尽风险，未改服务或采样"
+      ],
+      "remaining": [
+        "补私有 SDK / driver 分配范围",
+        "分清共享内存、权重、KV、workspace 与峰值",
+        "关联完整 RDT 模式 / 轮次资源轨迹，核验环境压力与性能解释；不删样本或默认无影响",
+        "明确后续测试必须保留的台架服务；当前采样配置保持不变"
+      ],
+      "deliverables": [
+        "不重复相加 CPU / GPU 的内存表",
+        "资源结论与限制"
+      ],
+      "dependsOn": [
+        "rdt-audit"
+      ],
+      "estimate": "按实际可观测接口评估",
+      "evidenceIds": [
+        "smol-soak",
+        "smol-formal",
+        "rdt-resource-snapshot",
+        "rdt-resource-note",
+        "resource-observation-tests",
+        "rdt-resource-followup",
+        "resource-followup-tests",
+        "rdt-resource-third",
+        "resource-third-tests"
+      ]
+    },
+    {
+      "id": "power",
+      "title": "匹配功耗基线与另一合法模式",
+      "stage": "D4",
+      "model": "common",
+      "priority": "P0",
+      "status": "waiting",
+      "summary": "主模式五模型优先，不把 MAXN 改称 60W。",
+      "verified": [
+        "SmolVLA 35 分钟同 worker soak",
+        "337 秒部分窗口输入电源轨数据"
+      ],
+      "remaining": [
+        "补匹配基线与完整传感器口径",
+        "五模型主模式后评估另一合法功耗模式"
+      ],
+      "deliverables": [
+        "功率 / 温度 / 频率与范围限制",
+        "实际支持的另一模式代表模型结果"
+      ],
+      "dependsOn": [
+        "cogact"
+      ],
+      "estimate": "主模式完成后评估权限与支持",
+      "evidenceIds": [
+        "smol-soak"
+      ]
+    },
+    {
+      "id": "qwen08",
+      "title": "Qwen3.5 0.8B 原生 VLM",
+      "stage": "D5",
+      "model": "qwen08",
+      "priority": "P1",
+      "status": "planned",
+      "optional": true,
+      "summary": "后置可选项，不挤占核心五模型。",
+      "verified": [],
+      "remaining": [
+        "完整 vision / prefill / decode 与状态生命周期",
+        "16-token 生成、TTFT / tokens/s 与输出核验"
+      ],
+      "deliverables": [
+        "原生 VLM 完整生成补充"
+      ],
+      "dependsOn": [
+        "cogact"
+      ],
+      "estimate": "核心任务后评估，不承诺一定支持",
+      "evidenceIds": []
+    },
+    {
+      "id": "qwen2",
+      "title": "Qwen3.5 2B 原生 VLM",
+      "stage": "D5",
+      "model": "qwen2",
+      "priority": "P1",
+      "status": "planned",
+      "optional": true,
+      "summary": "0.8B 路径明确后独立评估。",
+      "verified": [],
+      "remaining": [
+        "完整图文生成链与 KV / conv / recurrent state",
+        "独立输出与性能验收"
+      ],
+      "deliverables": [
+        "2B 的独立原生生成数据"
+      ],
+      "dependsOn": [
+        "qwen08"
+      ],
+      "estimate": "后置可选",
+      "evidenceIds": []
+    },
+    {
+      "id": "delivery",
+      "title": "五模型最终论文证据包",
+      "stage": "D5",
+      "model": "common",
+      "priority": "P0",
+      "status": "waiting",
+      "summary": "分模型结果和公共消融齐备后交付，不修改 PDF 凑结果。",
+      "verified": [
+        "已有分模型报告及 claim-gap"
+      ],
+      "remaining": [
+        "汇总五模型主表、质量表、消融与 CDF",
+        "核验资源 / 功耗和全部证据索引",
+        "清晰保留不支持或未完成主张"
+      ],
+      "deliverables": [
+        "最终 Markdown 报告与可复跑命令",
+        "完整交付审计"
+      ],
+      "dependsOn": [
+        "cogact",
+        "operator-integration",
+        "memory",
+        "power"
+      ],
+      "estimate": "核心结果闭合后整理",
+      "evidenceIds": [
+        "claim-gap",
+        "goal-status"
+      ]
+    },
+    {
+      "id": "environment",
+      "title": "Orin 原生 TRT 基础链路",
+      "stage": "D0",
+      "model": "common",
+      "priority": "P0",
+      "status": "done",
+      "summary": "真实台架的原生运行路径已验证，可复用。",
+      "verified": [
+        "板载 TRT / CUDA 链路及 DSO 检查",
+        "两个完整 VLA 已真实运行",
+        "没有用 backend smoke 替代模型验收"
+      ],
+      "remaining": [],
+      "deliverables": [
+        "环境和支持边界记录"
+      ],
+      "dependsOn": [],
+      "evidenceIds": [
+        "environment",
+        "goal-status"
+      ]
+    },
+    {
+      "id": "smol-formal",
+      "title": "SmolVLA 正式 E2E 与连续 CDF",
+      "stage": "D1–D3",
+      "model": "smolvla",
+      "priority": "P0",
+      "status": "done",
+      "summary": "三模式正式协议完成，完整动作逐字节一致。",
+      "verified": [
+        "每模式 5 × (128 + 1024)",
+        "34,560 个完整动作张量一致",
+        "常规 134.409630 ms，replay 113.139929 ms"
+      ],
+      "remaining": [],
+      "deliverables": [
+        "正式主表 / CDF / 完整动作审计"
+      ],
+      "dependsOn": [
+        "environment"
+      ],
+      "evidenceIds": [
+        "smol-formal",
+        "smol-cdf",
+        "smol-process-cdf"
+      ]
+    },
+    {
+      "id": "rdt-raw-pilot",
+      "title": "RDT 原生输入与完整动作 pilot",
+      "stage": "D1 / D2",
+      "model": "rdt",
+      "priority": "P0",
+      "status": "done",
+      "summary": "已达到正式采样的同 Orin 门槛。",
+      "verified": [
+        "112/112 个输入张量逐字节一致",
+        "120 个完整动作张量一致，MSE 0",
+        "replay 20 次，捕获 5 步，零普通回退"
+      ],
+      "remaining": [],
+      "deliverables": [
+        "raw E2E pilot 的独立审计"
+      ],
+      "dependsOn": [
+        "environment"
+      ],
+      "evidenceIds": [
+        "rdt-pilot",
+        "rdt-audit",
+        "raw-tests"
+      ]
+    },
+    {
+      "id": "smol-runtime",
+      "title": "代表模型 runtime 与热稳态",
+      "stage": "D4",
+      "model": "smolvla",
+      "priority": "P0",
+      "status": "done",
+      "summary": "完成限定范围内的功能与稳态验证，未宣称全部资源归因。",
+      "verified": [
+        "实际 replay / fallback 计数",
+        "故障恢复、reset 与多 Session 隔离",
+        "35 分钟同 worker soak"
+      ],
+      "remaining": [],
+      "deliverables": [
+        "有明确范围的 runtime / 热稳态报告"
+      ],
+      "dependsOn": [
+        "smol-formal"
+      ],
+      "evidenceIds": [
+        "smol-soak",
+        "smol-formal"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "memory-pressure",
+      "level": "warning",
+      "title": "RDT 因资源风险安全中断",
+      "value": "11 完整进程 + 147 条部分测量",
+      "detail": "持续低于 512 MiB 且 swap 耗尽后，仅结束本任务 worker；外部服务未变。原始记录保留，原正式门槛拒绝未完成采集；资源条件未明确前不自动重启。",
+      "evidenceIds": [
+        "rdt-safety-stop",
+        "rdt-safety-report",
+        "rdt-resource-third",
+        "rdt-resource-followup",
+        "rdt-resource-snapshot",
+        "rdt-resource-note"
+      ]
+    },
+    {
+      "id": "owner-visibility",
+      "level": "warning",
+      "title": "GPU 进程检查并非全覆盖",
+      "value": "260 个权限受限条目",
+      "detail": "05:27 owner 快照仅见当前 worker 和两个桌面进程；当前用户 device-FD 可见性不能证明全设备独占。未终止非本任务服务。",
+      "evidenceIds": [
+        "rdt-resource-third",
+        "rdt-resource-followup",
+        "rdt-resource-snapshot",
+        "rdt-resource-note"
+      ]
+    },
+    {
+      "id": "jitter",
+      "level": "warning",
+      "title": "抖动目标未达成",
+      "value": "2.034434 ms",
+      "detail": "SmolVLA pooled replay std 高于草稿 <1.2 ms，也高于常规模式；更低 mean 不等于所有抖动指标改善。",
+      "evidenceIds": [
+        "smol-formal"
+      ]
+    },
+    {
+      "id": "negative-benefit",
+      "level": "warning",
+      "title": "保留共享流负收益",
+      "value": "RDT pilot",
+      "detail": "RDT 短测共享流慢于常规路径；正式采样完结前不发布正式加速比。",
+      "evidenceIds": [
+        "rdt-pilot"
+      ]
+    },
+    {
+      "id": "h20",
+      "level": "info",
+      "title": "跨设备误差单列",
+      "value": "非正式采样门槛",
+      "detail": "H20 差异不删除、不改阈值；主要门槛是同一 Orin、同精度常规 TRT 与优化路径。",
+      "evidenceIds": [
+        "goal-status"
+      ]
+    },
+    {
+      "id": "scope",
+      "level": "info",
+      "title": "三个 VLA 尚待适配",
+      "value": "不预先承诺支持",
+      "detail": "pi0、pi0.5、CogACT 的导出、算子与容量尚待实测。有限输入循环也不等于独立机器人轨迹。",
+      "evidenceIds": [
+        "claim-gap"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "rdt-service-window-report",
+      "title": "RDT 明确授权的两服务临时窗口、首次保护恢复和新 pilot 门槛",
+      "kind": "md",
+      "path": "doc/reports/orin_rdt_resource_requalification_20261022.md"
+    },
+    {
+      "id": "rdt-service-authorization",
+      "title": "用户直接确认的两个精确程序临时停机范围，非全平台清理授权",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-01/service_authorization.json"
+    },
+    {
+      "id": "rdt-service-lease",
+      "title": "两服务 PID 0 / Exited，配置和其他受管程序不变；需在窗口结束恢复",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-01/rdt-service-lease-002.json"
+    },
+    {
+      "id": "rdt-service-readiness",
+      "title": "RDT 停两服务后只读资源快照：可用约 43.49 GiB，非精确模型内存",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-01/readiness-after-services-002.json"
+    },
+    {
+      "id": "rdt-service-control-tests",
+      "title": "22 项严格 PID / 程序范围 / 终态 / 恢复纯测试通过",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-01/service-control-regression-002.xml"
+    },
+    {
+      "id": "norm-final-board-browser-tests",
+      "title": "最终 Norm 负结果看板九项浏览器回归通过：桌面 / 平板 / 390 / 320px",
+      "kind": "xml",
+      "path": "artifacts/orin-task-board/norm-raw-final-board-green-006.xml"
+    },
+    {
+      "id": "norm-raw-formal-audit",
+      "title": "Norm 正式 10 进程 / 10240 measured / 23040 张量完整审计：负收益不抹除",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-raw-e2e-pair-003/formal-audit-001/audit.json"
+    },
+    {
+      "id": "norm-raw-formal-report",
+      "title": "Norm 完整模型 E2E 对照：主质量通过，但候选慢 6.43%",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_layernorm_raw_e2e_20261022.md"
+    },
+    {
+      "id": "norm-raw-formal-cdf",
+      "title": "Norm 完整原始输入 E2E 全尾部 CDF：含所有慢样本",
+      "kind": "image",
+      "path": "artifacts/orin/20261022-00/norm-raw-e2e-pair-003/formal-cdf-001/raw-model-pair-cdf.png"
+    },
+    {
+      "id": "norm-raw-formal-resources",
+      "title": "Norm 正式窗口资源：采样内存 / 温度及未确认 CV -256 读数均保留",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-raw-e2e-pair-003/formal-resources-002.json"
+    },
+    {
+      "id": "operator-integration-regression-141",
+      "title": "141 项算子 / 完整回集成 / 原始正式数据 / 未确认温度回归通过",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/all-operator-and-integration-regression-002.xml"
+    },
+    {
+      "id": "operator-integration-regression-139",
+      "title": "139 项全部算子 / 回集成组合回归通过，非全源码测试替代",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/all-operator-and-integration-regression-001.xml"
+    },
+    {
+      "id": "operator-current-summary",
+      "title": "四类算子当前实测汇总，保留负收益与融合精度限制；非 E2E 主表",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_ablation_results_20261022.md"
+    },
+    {
+      "id": "norm-raw-and-attention-tests",
+      "title": "32 项原始输入 / 输出口径 / 缺行拒绝 / owned-child / 多输入回归通过",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/raw-pair-and-attention-regression-002.xml"
+    },
+    {
+      "id": "norm-raw-pilot",
+      "title": "Norm 原始输入 pilot：80 完整张量与各自参考字节一致；负收益保留",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-raw-e2e-pair-003/pilot-audit-002/audit.json"
+    },
+    {
+      "id": "norm-raw-protocol",
+      "title": "Norm 两端 ordinary / 五进程对 / 128+1024 冻结正式协议与安全工具 hash",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-raw-e2e-pair-003/formal-request-002.json"
+    },
+    {
+      "id": "norm-raw-checkpoint",
+      "title": "Norm 正式采集终态：全部进程 exit 0，采集器及 workers 已退出",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-raw-e2e-pair-003/live-snapshot-terminal-001.json"
+    },
+    {
+      "id": "attention-target-report",
+      "title": "Attention 算子配对时延、完整 CDF、精度和首轮短记录限制",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_attention_pair_20261022.md"
+    },
+    {
+      "id": "attention-operator-cdf",
+      "title": "Attention 原始全部尾部 CDF：不是 VLA E2E",
+      "kind": "image",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/cdf-002/attention-operator-cdf.png"
+    },
+    {
+      "id": "norm-primary-acceptance",
+      "title": "用户确认标准化 action 主门槛，native 误差单列；历史收据不改",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-full-model-pair-001/primary-acceptance-001.json"
+    },
+    {
+      "id": "attention-timing-audit",
+      "title": "Attention 20 进程 / 20800 行完整审计，非 VLA E2E",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/paired-timing-audit-002/timing-audit.json"
+    },
+    {
+      "id": "attention-count-failure",
+      "title": "首轮 1023 行拒绝证据与保留的完整 20479 行，未放宽门槛",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/export-count-failure-001.json"
+    },
+    {
+      "id": "attention-multi-input-tests",
+      "title": "多输入计时、正零证明、实际混合精度及单输入兼容回归：38 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/attention-multi-input-regression-002.xml"
+    },
+    {
+      "id": "attention-timing-plan",
+      "title": "Attention 三输入冻结五进程对协议，所有输入显式加载",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/frozen-timing-plan-002.json"
+    },
+    {
+      "id": "attention-timing-pilot",
+      "title": "Attention 四次 pilot / 512 条记录及完整最后输出审计",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/timing-pilot-audit-001.json"
+    },
+    {
+      "id": "attention-timing-checkpoint",
+      "title": "Attention 配对计时进行中快照：11/20 完成，非最终审计",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/timing-checkpoint-001.json"
+    },
+    {
+      "id": "attention-target-request",
+      "title": "Attention 真实观测的三输入完整请求，缩放及混合精度配置保留",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/request.json"
+    },
+    {
+      "id": "attention-target-quality",
+      "title": "Attention 真机 786432 值字节一致与 FP16 QK/PV、FP32 Softmax 证据",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-attention-pair-001/quality-001/quality.json"
+    },
+    {
+      "id": "attention-request-tests",
+      "title": "多输入请求、正零 elision、保留精度约束及旧格式兼容回归：28 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/attention-request-policy-regression-001.xml"
+    },
+    {
+      "id": "state-board-browser-tests",
+      "title": "看板长字段换行、桌面 / 平板 / 390 / 320px 浏览器回归：9 passed",
+      "kind": "xml",
+      "path": "artifacts/orin-task-board/state-board-green-004.xml"
+    },
+    {
+      "id": "state-board-browser-red",
+      "title": "保留的 320px 长字段溢出失败回归，修复前证据",
+      "kind": "xml",
+      "path": "artifacts/orin-task-board/state-long-key-red-003.xml"
+    },
+    {
+      "id": "state-timing-audit",
+      "title": "状态配置对照 20 进程 / 20480 行审计：无均值加速，融合实际精度限制保留",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/paired-timing-audit-001/timing-audit.json"
+    },
+    {
+      "id": "state-timing-csv",
+      "title": "状态配置对照全部 20480 条原始记录，不移除慢样本",
+      "kind": "csv",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/paired-timing-audit-001/all-operator-records.csv"
+    },
+    {
+      "id": "state-operator-cdf",
+      "title": "状态配置口径算子完整 CDF，非 VLA E2E / 非实际精度认证",
+      "kind": "image",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/paired-timing-audit-001/cdf/state-operator-cdf.png"
+    },
+    {
+      "id": "state-target-report",
+      "title": "VLA 状态投影配置对照报告：负收益、代价及融合证据限制",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_state_pair_20261022.md"
+    },
+    {
+      "id": "state-target-full-tests",
+      "title": "状态输入 / 数值 / 融合边界 / 计时范围组合回归：50 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/state-target-scoped-regression-002.xml"
+    },
+    {
+      "id": "state-timing-checkpoint",
+      "title": "状态投影计时进行中快照：18/20 完成，尚非最终审计",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/timing-checkpoint-001.json"
+    },
+    {
+      "id": "state-timing-plan",
+      "title": "状态投影冻结配对协议：仅同 OBEY 配置口径，不宣称融合实际精度相同",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/frozen-timing-plan-001.json"
+    },
+    {
+      "id": "state-timing-pilot",
+      "title": "状态投影四次 pilot / 512 条导出记录及最后输出审计，不是主结果",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/timing-pilot-audit-001.json"
+    },
+    {
+      "id": "state-target-quality",
+      "title": "状态投影 16 输入数值通过；仅配置精度口径，融合内部仍不可视",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/quality-001/quality.json"
+    },
+    {
+      "id": "state-target-capture",
+      "title": "状态投影两构建 / 32 个 native 完整输出捕获，非计时",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-state-retrieval-001/campaign.json"
+    },
+    {
+      "id": "state-contract-tests",
+      "title": "输入布局、融合显式边界、数值及旧 GEMM 兼容回归：32 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/state-contract-quality-regression-001.xml"
+    },
+    {
+      "id": "state-target-request",
+      "title": "VLA 状态投影真机请求：16 份不同状态、原 FP16 投影配置",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-state-pair-001/request.json"
+    },
+    {
+      "id": "state-request-tests",
+      "title": "通用记录布局、路径边界、旧 GEMM 兼容及 admission 回归：25 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/state-request-regression-001.xml"
+    },
+    {
+      "id": "gemm-rebuild-action-audit",
+      "title": "相同源图重建的 34 个完整动作对：标准化通过，native 同阈值失败",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-rebuild-full-model-pair-001/quality-001.json"
+    },
+    {
+      "id": "gemm-matched-rebuild-actions",
+      "title": "GEMM 对新重建控制的完整动作比较：标准化 MSE 1.3759e-5 仍失败",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-full-model-pair-001/matched-rebuild-control-001.json"
+    },
+    {
+      "id": "gemm-integrated-control-tests",
+      "title": "完整回集成 / 同源控制 / 匹配数据与失败门槛回归：43 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/gemm-full-integration-control-regression-002.xml"
+    },
+    {
+      "id": "gemm-rebuild-source-audit",
+      "title": "原 ONNX / precision profile 字节不变的重建控制来源审计",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-integrated-prefix-001/rebuild-source-audit-001.json"
+    },
+    {
+      "id": "gemm-rebuild-target-build",
+      "title": "相同源图重建的真机编译和资源保护证据，非完整动作验收",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-rebuild-control-retrieval-001/capture.json"
+    },
+    {
+      "id": "gemm-integrated-report",
+      "title": "GEMM 整模型 MSE 失败与未改图重建控制，未发布 E2E 收益",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_gemm_integration_20261022.md"
+    },
+    {
+      "id": "gemm-integrated-tests",
+      "title": "图嵌入、独立组成、admission 与真实完整动作门槛回归：38 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/gemm-full-integration-regression-001.xml"
+    },
+    {
+      "id": "gemm-rebuild-checkpoint",
+      "title": "相同 ONNX / precision profile 的重建控制运行快照，非质量通过",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-integrated-prefix-001/rebuild-control-checkpoint-001.json"
+    },
+    {
+      "id": "gemm-integrated-quality-failed",
+      "title": "GEMM 全模型 34 个动作对：标准化 / native MSE 均失败，未进入 E2E",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-full-model-pair-001/quality-001.json"
+    },
+    {
+      "id": "gemm-full-prefix-build",
+      "title": "GEMM 完整 prefix 真机编译与资源保护记录，非整模型通过",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-prefix-build-retrieval-001/capture.json"
+    },
+    {
+      "id": "gemm-full-source-audit",
+      "title": "重新读取完整图 / 精度约束 / 43 个绑定的独立配对审计",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-integrated-prefix-001/source-pair-audit-001.json"
+    },
+    {
+      "id": "gemm-composition-admission-tests",
+      "title": "完整图独立审计、splice 和低内存拒绝回归：15 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/gemm-composition-admission-regression-001.xml"
+    },
+    {
+      "id": "gemm-full-build-checkpoint",
+      "title": "GEMM 完整 prefix 构建快照：admission 15.1 GiB，非编译通过",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-integrated-prefix-001/build-checkpoint-001.json"
+    },
+    {
+      "id": "gemm-full-splice",
+      "title": "GEMM 单算子候选嵌回完整 prefix 的结构 / 原权重 / 精度映射证明，非真机通过",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/gemm-integrated-prefix-001/splice.json"
+    },
+    {
+      "id": "gemm-full-splice-tests",
+      "title": "完整图 splice 和原 MatMul 候选回归：27 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/gemm-full-splice-regression-001.xml"
+    },
+    {
+      "id": "gemm-timing-audit",
+      "title": "GEMM 20 进程 / 20480 条记录计时审计：resident 1.448x，IO compute 略退化",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/paired-timing-audit-002/timing-audit.json"
+    },
+    {
+      "id": "gemm-timing-csv",
+      "title": "GEMM 全部 20480 条原始计时记录，不剔除尾部",
+      "kind": "csv",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/paired-timing-audit-002/all-operator-records.csv"
+    },
+    {
+      "id": "gemm-operator-cdf",
+      "title": "GEMM 算子两种边界的完整 CDF，非 VLA E2E",
+      "kind": "image",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/paired-timing-audit-002/cdf/gemm-operator-cdf.png"
+    },
+    {
+      "id": "gemm-target-report",
+      "title": "GEMM 真机配对、质量、成本及边界相关负收益报告",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_gemm_pair_20261022.md"
+    },
+    {
+      "id": "gemm-target-full-tests",
+      "title": "GEMM / 通用捕获 / 精度 ABI / 计时参考与旧数据兼容回归：47 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/gemm-target-regression-002.xml"
+    },
+    {
+      "id": "gemm-timing-checkpoint",
+      "title": "GEMM 微基准采集中快照：12/20 完成，非最终结果",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/timing-collection-checkpoint-001.json"
+    },
+    {
+      "id": "gemm-timing-plan",
+      "title": "GEMM 冻结微基准协议：两种边界各五组独立进程对，不删慢样本",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/frozen-timing-plan-001.json"
+    },
+    {
+      "id": "gemm-timing-pilot",
+      "title": "GEMM 四次计时 pilot / 512 条记录及完整输出审计，不是主结果",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/timing-pilot-audit-001.json"
+    },
+    {
+      "id": "gemm-target-quality",
+      "title": "GEMM 两份真实输入 / 113280 值真机质量与 FP16 数据合同审计",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/quality-001/quality.json"
+    },
+    {
+      "id": "gemm-target-capture",
+      "title": "GEMM 真机双构建及四个完整输出捕获，非计时",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-matmul-retrieval-002/campaign.json"
+    },
+    {
+      "id": "gemm-target-tests",
+      "title": "GEMM / 通用请求 / 精度 ABI / 计时回归：39 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/gemm-request-quality-timing-regression-001.xml"
+    },
+    {
+      "id": "gemm-target-request",
+      "title": "GEMM 通用真机请求：两份真实输入、原 FP16 请求，无输出精度覆盖",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-matmul-pair-001/request.json"
+    },
+    {
+      "id": "operator-request-capture-tests",
+      "title": "通用算子请求 / admission / owned-child 回归：15 passed",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/operator-request-capture-regression-001.xml"
+    },
+    {
+      "id": "norm-integration-quality",
+      "title": "全模型 34 个动作对：标准化通过 / native 同阈值失败，非正式 E2E",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-full-model-pair-001/quality-001.json"
+    },
+    {
+      "id": "norm-integration-report",
+      "title": "LayerNorm 完整七 engine 回集成 pilot 与保留的 native 误差",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_layernorm_integration_20261022.md"
+    },
+    {
+      "id": "norm-integration-tests",
+      "title": "完整配对 / 来源 / admission / owned-cleanup 回归：22 passed",
+      "kind": "data",
+      "path": "artifacts/orin/20261022-00/norm-integration-regression-001.xml"
+    },
+    {
+      "id": "norm-integration-source",
+      "title": "完整 prefix 的 Norm-only 来源和精度审计，非整模型通过",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/norm-integration-source-audit-002.json"
+    },
+    {
+      "id": "norm-integration-source-tests",
+      "title": "Norm 回集成来源审计回归：8 passed",
+      "kind": "data",
+      "path": "artifacts/orin/20261022-00/norm-integration-source-tests-002.xml"
+    },
+    {
+      "id": "layernorm-timing-audit",
+      "title": "LayerNorm 20 个独立进程 / 20480 条记录计时审计：非 VLA E2E",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-layernorm-pair-001/paired-timing-audit-001/timing-audit.json"
+    },
+    {
+      "id": "layernorm-timing-csv",
+      "title": "LayerNorm 两种边界的全部未裁剪计时 CSV",
+      "kind": "csv",
+      "path": "artifacts/orin/20261022-00/operator-layernorm-pair-001/paired-timing-audit-001/all-operator-records.csv"
+    },
+    {
+      "id": "layernorm-operator-cdf",
+      "title": "LayerNorm 原语 CDF：完整尾部，不是 VLA 端到端曲线",
+      "kind": "image",
+      "path": "artifacts/orin/20261022-00/operator-layernorm-pair-001/paired-timing-audit-001/cdf/layernorm-operator-cdf.png"
+    },
+    {
+      "id": "layernorm-timing-tests",
+      "title": "20 项原语捕获 / 计时范围 / 全记录与不利尾部检查",
+      "kind": "xml",
+      "path": "artifacts/orin/20261022-00/operator-layernorm-pair-001/operator-timing-regression-r2.xml"
+    },
+    {
+      "id": "layernorm-target-quality",
+      "title": "LayerNorm Orin 新配对完整输出门槛：已通过、未计时",
+      "kind": "json",
+      "path": "artifacts/orin/20261022-00/operator-layernorm-pair-001/same-target-quality-001/quality.json"
+    },
+    {
+      "id": "layernorm-target-report",
+      "title": "LayerNorm Orin 小内存配对构建 / 输出核验与边界",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_layernorm_pair_20261022.md"
+    },
+    {
+      "id": "rdt-retained-checks",
+      "title": "中断后 11 个完整进程的文件 / 全部动作核验：非正式验收",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-07/interrupted-retained-checks-001/retained-checks.json"
+    },
+    {
+      "id": "rdt-partial-payload-checks",
+      "title": "第 12 个部分进程已写入输出核验：不计完整进程",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-07/interrupted-partial-payload-checks-001/partial-payload-checks.json"
+    },
+    {
+      "id": "rdt-interruption-tests",
+      "title": "25 项安全 / 中断范围 / 文件哈希回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-07/interruption-verification-regression.xml"
+    },
+    {
+      "id": "rdt-safety-stop",
+      "title": "RDT 仅终止本任务 worker 的资源安全中断回执",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-07/safety-stop-20261022-001/receipt.json"
+    },
+    {
+      "id": "rdt-safety-report",
+      "title": "RDT 资源安全中断：保留范围与未完成验收",
+      "kind": "md",
+      "path": "doc/reports/orin_rdt_safety_interruption_20261022.md"
+    },
+    {
+      "id": "rdt-eleven-process-checkpoint",
+      "title": "RDT 第 11 进程完整退出 / 第 12 replay 进程身份快照",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261021214032352.json"
+    },
+    {
+      "id": "rdt-resource-third",
+      "title": "05:27 RDT 只读资源快照：余量约 1.19 GiB / swap 满",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-07/resource-observation-20261022-003/snapshot.json"
+    },
+    {
+      "id": "resource-third-tests",
+      "title": "9 项三快照 / 原始哈希 / 资源解析检查",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-07/readonly-resource-regression-r3.xml"
+    },
+    {
+      "id": "rdt-ten-process-checkpoint",
+      "title": "RDT 第 10 进程完整退出 / 第 11 共享流进程身份快照",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261021204044022.json"
+    },
+    {
+      "id": "rdt-resource-followup",
+      "title": "04:25 RDT 只读资源复查：第二个冻结快照",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-07/resource-observation-20261022-002/snapshot.json"
+    },
+    {
+      "id": "resource-followup-tests",
+      "title": "8 项双快照 / 原始哈希 / 资源解析检查",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-07/readonly-resource-regression-r2.xml"
+    },
+    {
+      "id": "rdt-nine-process-checkpoint",
+      "title": "RDT 前三轮 9 个进程完整退出 / 第 10 进程身份快照",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261021194223159.json"
+    },
+    {
+      "id": "board-resource-search-failed-tests",
+      "title": "已保留的网页搜索计数假设失败：非模型实验失败",
+      "kind": "xml",
+      "path": "artifacts/orin-task-board/browser-tests-resource-warning-failed-001.xml"
+    },
+    {
+      "id": "rdt-resource-snapshot",
+      "title": "RDT 只读资源快照：原始日志 / 进程状态与哈希",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-07/resource-observation-20261022-001/snapshot.json"
+    },
+    {
+      "id": "rdt-resource-note",
+      "title": "RDT 系统内存压力与 owner 覆盖限制",
+      "kind": "md",
+      "path": "doc/reports/orin_rdt_resource_observation_20261022.md"
+    },
+    {
+      "id": "resource-observation-tests",
+      "title": "6 项资源解析 / 有界只读 / 原始哈希检查",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-07/readonly-resource-regression.xml"
+    },
+    {
+      "id": "rdt-eight-process-checkpoint",
+      "title": "RDT 第 8 进程完整退出 / 第 9 共享流进程启动身份快照",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261021184241955.json"
+    },
+    {
+      "id": "rdt-seven-process-checkpoint",
+      "title": "RDT 第 7 进程完整退出 / 第 8 进程启动身份快照",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261021174346579.json"
+    },
+    {
+      "id": "rdt-six-process-checkpoint",
+      "title": "RDT 前两轮 6 个进程退出 / 第 7 进程身份核验快照",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261021164607427.json"
+    },
+    {
+      "id": "rdt-five-process-checkpoint",
+      "title": "RDT 第五进程退出 / 第六进程身份核验的冻结快照",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261021154625053.json"
+    },
+    {
+      "id": "state-feature-pair",
+      "title": "真实 VLA 状态填充 / 投影配对：仅主机准备",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/state-feature-pair-001/case.json"
+    },
+    {
+      "id": "state-feature-builder-tests",
+      "title": "39 项真实状态用例与 12 份配置 / 构建器检查",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/state-feature-and-builder-regression.xml"
+    },
+    {
+      "id": "six-operator-builder-tests",
+      "title": "143 项六类算子与构建器组合回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/six-operator-and-builder-regression.xml"
+    },
+    {
+      "id": "embedding-pair",
+      "title": "真实语言 Embedding 配对：单个真实指令、仅主机准备",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/embedding-pair-001/case.json"
+    },
+    {
+      "id": "embedding-case-tests",
+      "title": "37 项 Embedding / INT32 索引边界与完整权重重算",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/embedding-case-regression.xml"
+    },
+    {
+      "id": "five-operator-case-tests",
+      "title": "104 项五类真实算子 / 静态索引回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/five-operator-cases-regression.xml"
+    },
+    {
+      "id": "operator-builder-tests",
+      "title": "135 项真实算子与独立构建器组合回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/operator-and-builder-regression.xml"
+    },
+    {
+      "id": "trt-builder-v3-tests",
+      "title": "31 项 v3 构建器主机检查；不是板端编译结果",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/trt-build-v3-regression.xml"
+    },
+    {
+      "id": "attention-pair",
+      "title": "真实 Attention Core 配对：仅主机准备",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/attention-pair-001/case.json"
+    },
+    {
+      "id": "four-operator-case-tests",
+      "title": "67 项 Attention / GEMM / RoPE / Norm / 静态索引组合回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/four-operator-cases-regression.xml"
+    },
+    {
+      "id": "gemm-pair",
+      "title": "真实 FP16 请求的 GEMM 配对：仅主机准备",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/matmul-pair-001/case.json"
+    },
+    {
+      "id": "operator-case-tests",
+      "title": "48 项 LayerNorm / RoPE / GEMM / 静态索引组合回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/real-operator-cases-regression-r2.xml"
+    },
+    {
+      "id": "operator-fixture-repair",
+      "title": "测试夹具外部权重独立副本修复记录",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/fixture-hardlink-repair-001.json"
+    },
+    {
+      "id": "rope-pair",
+      "title": "真实 RoPE/cache 前后配对：仅主机准备",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/rope-pair-004/case.json"
+    },
+    {
+      "id": "rope-case-tests",
+      "title": "21 项真实 RoPE / 静态索引回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/rope-final-regression.xml"
+    },
+    {
+      "id": "scatter-source-tests",
+      "title": "15 项静态索引依赖 / 标签 / 形状边界",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/scatter-final-regression.xml"
+    },
+    {
+      "id": "full-scatter-tests",
+      "title": "最新全量主机回归：2639 passed / 74 skipped",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/full-host-regression-scatter-final.xml"
+    },
+    {
+      "id": "operator-case-report",
+      "title": "算子消融准备及真实输入边界",
+      "kind": "md",
+      "path": "doc/reports/orin_operator_ablation_preparation_20261021.md"
+    },
+    {
+      "id": "layernorm-pair",
+      "title": "真实 LayerNorm 前后配对：未做板端性能测量",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/layernorm-pair-001/case.json"
+    },
+    {
+      "id": "layernorm-case-tests",
+      "title": "68 项真实用例 / 重写 / 签名回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/layernorm-case-regression.xml"
+    },
+    {
+      "id": "board-node-tests",
+      "title": "网页看板：6 项状态与只读服务测试",
+      "kind": "xml",
+      "path": "artifacts/orin-task-board/node-tests.xml"
+    },
+    {
+      "id": "board-browser-tests",
+      "title": "网页看板：桌面 / 手机及采集终态浏览器测试",
+      "kind": "xml",
+      "path": "artifacts/orin-task-board/browser-tests.xml"
+    },
+    {
+      "id": "task-board",
+      "title": "Markdown 任务看板",
+      "kind": "md",
+      "path": "doc/edgefm_orin_task_board.md"
+    },
+    {
+      "id": "goal-status",
+      "title": "详细状态与历史证据",
+      "kind": "md",
+      "path": "doc/edgefm_orin_goal_status.md"
+    },
+    {
+      "id": "environment",
+      "title": "Orin 环境检查",
+      "kind": "md",
+      "path": "doc/reports/orin_environment_20261020.md"
+    },
+    {
+      "id": "smol-formal",
+      "title": "SmolVLA 正式 E2E / CDF 报告",
+      "kind": "md",
+      "path": "doc/reports/orin_smolvla_formal_e2e_20261021.md"
+    },
+    {
+      "id": "smol-soak",
+      "title": "SmolVLA soak 与资源边界",
+      "kind": "md",
+      "path": "doc/reports/orin_smolvla_soak_memory_20261021.md"
+    },
+    {
+      "id": "smol-cdf",
+      "title": "SmolVLA 正式 pooled CDF",
+      "kind": "image",
+      "path": "artifacts/orin/20261021-07/smolvla-formal-cdf-check-001/e2e-cdf.png"
+    },
+    {
+      "id": "smol-process-cdf",
+      "title": "SmolVLA 独立进程 CDF",
+      "kind": "image",
+      "path": "artifacts/orin/20261021-07/smolvla-formal-cdf-check-001/e2e-cdf-processes.png"
+    },
+    {
+      "id": "rdt-pilot",
+      "title": "RDT raw E2E pilot 与采样入口",
+      "kind": "md",
+      "path": "doc/reports/orin_rdt_native_raw_e2e_20261021.md"
+    },
+    {
+      "id": "rdt-audit",
+      "title": "RDT pilot 完整动作独立审计",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-07/raw-e2e-audit-001.json"
+    },
+    {
+      "id": "postprocess",
+      "title": "RDT 恢复、审计与绘图命令",
+      "kind": "md",
+      "path": "artifacts/orin/20261021-07/POSTPROCESS.md"
+    },
+    {
+      "id": "raw-tests",
+      "title": "37 项采集 / 审计 / 绘图回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-07/all-raw-audit-regression.xml"
+    },
+    {
+      "id": "operator-inventory",
+      "title": "七个已验证源图的算子逻辑清单",
+      "kind": "json",
+      "path": "artifacts/orin/20261021-08/smolvla-qualified-operators-001/inventory.json"
+    },
+    {
+      "id": "inventory-tests",
+      "title": "24 项算子签名 / 架构回归",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/operator-inventory-regression.xml"
+    },
+    {
+      "id": "full-tests",
+      "title": "主机全量回归：2630 passed / 74 skipped",
+      "kind": "xml",
+      "path": "artifacts/orin/20261021-08/full-host-regression.xml"
+    },
+    {
+      "id": "claim-gap",
+      "title": "论文主张与证据缺口",
+      "kind": "md",
+      "path": "doc/reports/orin_claim_gap_20261021.md"
+    },
+    {
+      "id": "run-snapshot",
+      "title": "当前采样进程 / CSV 只读核验",
+      "kind": "json",
+      "path": "artifacts/orin-task-board/checkpoint-20261022021805132.json"
+    }
+  ],
+  "events": [
+    {
+      "id": "rdt-authorized-service-window-established",
+      "at": "2026-10-22T02:35:10Z",
+      "title": "RDT 获得两服务临时停机授权，资源窗口建立，正在重新核验 pilot",
+      "detail": "仅两个精确 Supervisor 程序被临时停止，其他受管 PID / 状态及配置不变；首次严格终态检查触发自动恢复，失败未隐藏，第二次确认实际 Exited/PID0。可用内存约43.49GiB，恢复守护已启动。新 pilot 和完整十五进程将独立于旧中断数据，不拼接。",
+      "evidenceIds": ["rdt-service-window-report", "rdt-service-authorization", "rdt-service-lease", "rdt-service-readiness", "rdt-service-control-tests"]
+    },
+    {
+      "id": "norm-raw-formal-negative-audited",
+      "at": "2026-10-22T02:13:05Z",
+      "title": "Norm 完整 E2E 审计结束，候选慢 6.43%，不计入整模型加速收益",
+      "detail": "五进程对 / 每进程 128+1024 全部保留，10240 measured 与 23040 完整张量独立核验通过。标准化主门槛通过、native MSE 0.0121001 单列；125.900306 -> 133.994095 ms，五组方向一致。完整 CDF、资源、141 项回归及失败历史均归档，所有本任务推理进程已退出；五模型 Goal 仍未完成。",
+      "evidenceIds": [
+        "norm-raw-formal-audit",
+        "norm-raw-formal-report",
+        "norm-raw-formal-cdf",
+        "norm-raw-formal-resources",
+        "operator-integration-regression-141",
+        "norm-raw-checkpoint"
+      ]
+    },
+    {
+      "id": "operator-integration-regression-139-passed",
+      "at": "2026-10-22T02:01:56Z",
+      "title": "算子与回集成 139 项组合回归通过",
+      "detail": "保留旧 failed 收据和 GEMM 标准化失败，新增标准化 primary 口径、完整 raw 输出、缺行 / producer / 内存篡改拒绝及 owned-child 清理覆盖。Norm 正式采样仍在运行，不以测试通过代替真实最终审计。",
+      "evidenceIds": [
+        "operator-integration-regression-139",
+        "norm-raw-checkpoint",
+        "norm-raw-and-attention-tests"
+      ]
+    },
+    {
+      "id": "norm-raw-formal-started",
+      "at": "2026-10-22T01:42:42Z",
+      "title": "Norm 完整原始输入对照开始正式采样",
+      "detail": "先完成两端各 4 warmup+16 measured 原始输入 pilot，80 张量字节一致到各自冻结参考。短 pilot 候选较慢，未宣称收益；两端普通调度、相同 IR/Plan/输入/noise/其余六 engine，正式五进程对 128+1024 不删样本。模板版本不匹配的首次编译失败保留，改用已验证通用冻结模板。",
+      "evidenceIds": [
+        "norm-raw-pilot",
+        "norm-raw-protocol",
+        "norm-raw-checkpoint",
+        "norm-primary-acceptance"
+      ]
+    },
+    {
+      "id": "normalized-primary-confirmed",
+      "at": "2026-10-22T01:28:00Z",
+      "title": "用户确认标准化 action 主门槛，native 误差单列",
+      "detail": "阈值和原始误差不变；Norm 原 failed all-output receipt 保留，新收据按确认口径放行原始输入验证。GEMM 标准化 MSE 自身失败，仍不进入正式 E2E。",
+      "evidenceIds": [
+        "norm-primary-acceptance",
+        "norm-integration-quality",
+        "norm-integration-report"
+      ]
+    },
+    {
+      "id": "attention-paired-timing-verified",
+      "at": "2026-10-22T01:34:00Z",
+      "title": "Attention 20 进程 / 20800 行通过完整独立审计",
+      "detail": "resident compute 1.458263x，IO event 1.239668x；全部 Q/K/V 显式加载，完整最后输出逐值核验。首轮 1023 行进程仍拒绝并归档；重跑只增加 CLI 请求余量，1024 最低导出门槛不变，全部 1040 行保留。非整模型 E2E。",
+      "evidenceIds": [
+        "attention-timing-audit",
+        "attention-count-failure",
+        "attention-target-report",
+        "attention-operator-cdf"
+      ]
+    },
+    {
+      "id": "attention-multi-input-timing-running",
+      "at": "2026-10-22T01:22:51Z",
+      "title": "Attention 三输入五进程对采样已完成 11/20",
+      "detail": "四次 pilot / 512 条记录及完整输出已核验后冻结协议；resident 十个进程和 IO 首个已完成。漏 K、重复输入、字节数错误及单 / 多输入混合协议会在启动前拒绝；38 项回归通过，主结果仍待整体独立审计。",
+      "evidenceIds": [
+        "attention-timing-plan",
+        "attention-timing-pilot",
+        "attention-timing-checkpoint",
+        "attention-multi-input-tests"
+      ]
+    },
+    {
+      "id": "attention-native-full-context-quality-passed",
+      "at": "2026-10-22T01:13:17Z",
+      "title": "Attention 三输入真机上下文输出逐字节一致",
+      "detail": "观测 6 的全部 786432 值 MSE=0、cosine=1。两端 QK/PV 数据 FP16、Softmax FP32 可观测；只删除实际正零 mask 加法，缩放不变。28 项请求 / 策略回归通过；准备多输入计时，尚无时延或整模型收益结论。",
+      "evidenceIds": [
+        "attention-target-request",
+        "attention-target-quality",
+        "attention-request-tests"
+      ]
+    },
+    {
+      "id": "state-board-long-key-wrap-fixed",
+      "at": "2026-10-22T01:00:03Z",
+      "title": "看板长实验字段的 320px 溢出已修复",
+      "detail": "实验记录和阈值未改；进展段落可完整换行，不隐藏溢出、不缩小字体。保留失败 trace / XML，固定长字段夹具先红后绿；桌面、平板、390px、320px 等九项浏览器回归通过。",
+      "evidenceIds": [
+        "state-board-browser-tests",
+        "state-board-browser-red",
+        "state-target-report"
+      ]
+    },
+    {
+      "id": "state-configured-paired-timing-audited",
+      "at": "2026-10-22T00:52:37Z",
+      "title": "状态配置对照已审计：无均值加速，保留全部负结果及精度可视性限制",
+      "detail": "20 个 native 进程 / 20480 行全部保留：resident 29.811 -> 30.403 us（0.981x），IO event 39.361 -> 40.169 us（0.980x）；resident max 也变差。50 项回归及完整 CDF 就绪，same_effective_precision_main_table_qualified=false 不变，不选该候选回集成。RDT 不重启、五模型 Goal 未完成。",
+      "evidenceIds": [
+        "state-timing-audit",
+        "state-timing-csv",
+        "state-operator-cdf",
+        "state-target-report",
+        "state-target-full-tests"
+      ]
+    },
+    {
+      "id": "state-timing-18-processes",
+      "at": "2026-10-22T00:49:03Z",
+      "title": "状态投影配置对照完成 18/20 个进程",
+      "detail": "resident 十个进程和 IO 八个进程已结束，第十九个已启动。所有原始导出仍待整体审计；融合实际精度缺口继续保留，不因采样结束变为同实际精度主表通过。",
+      "evidenceIds": [
+        "state-timing-checkpoint",
+        "state-timing-plan"
+      ]
+    },
+    {
+      "id": "state-configured-timing-protocol-frozen",
+      "at": "2026-10-22T00:46:56Z",
+      "title": "状态投影配置口径配对计时协议已冻结并启动",
+      "detail": "四次 pilot / 512 条记录及最后输出已核验；两种边界各五组独立进程对、至少 1024 measured，所有记录保留。协议显式 same_effective_precision_main_table_qualified=false，不以计时完成抹掉 baseline 融合内部不可视的限制。",
+      "evidenceIds": [
+        "state-timing-plan",
+        "state-timing-pilot",
+        "state-target-quality"
+      ]
+    },
+    {
+      "id": "state-numeric-quality-and-precision-boundary",
+      "at": "2026-10-22T00:43:32Z",
+      "title": "状态投影完整输出通过，融合实际精度缺口显式保留",
+      "detail": "全部 16 输入 / 15360 值通过 MSE/cosine 门槛。baseline Myelin 内部不可视，candidate FP16/Half 可见；同 FP16 请求和 OBEY 配置经 SDK 合同及实际 argv 检查。仅做配置口径计时，实际精度完全相同主张未通过；32 项回归通过。",
+      "evidenceIds": [
+        "state-target-quality",
+        "state-target-capture",
+        "state-contract-tests"
+      ]
+    },
+    {
+      "id": "state-target-pair-started",
+      "at": "2026-10-22T00:35:10Z",
+      "title": "VLA 状态投影 16 份输入的真机配对已启动",
+      "detail": "两图 / 精度 profile / 全部 16 个不同输入与期望输出均 hash 绑定。通用请求补充显式单端口与两种明确路径约定，25 项回归通过；未改原 case 或旧脚本。尚无质量、计时或模型收益通过结论，RDT 不重启。",
+      "evidenceIds": [
+        "state-target-request",
+        "state-request-tests"
+      ]
+    },
+    {
+      "id": "gemm-full-integration-rejected-after-control",
+      "at": "2026-10-22T00:29:12Z",
+      "title": "GEMM 回集成及重建控制已审计，候选不进入整模型计时",
+      "detail": "原图重建标准化 MSE 4.519e-7 通过，但 GEMM 相对该新控制仍为 1.376e-5、超过 1e-5。两次各 34 个完整动作对保留，原模型对候选失败不被新 baseline 取代。43 项回归通过。微基准仍只支持其独立边界，四类算子 / 有效 E2E 及五模型主线仍未闭合。",
+      "evidenceIds": [
+        "gemm-integrated-report",
+        "gemm-rebuild-action-audit",
+        "gemm-matched-rebuild-actions",
+        "gemm-integrated-control-tests"
+      ]
+    },
+    {
+      "id": "gemm-unchanged-source-rebuild-compiled",
+      "at": "2026-10-22T00:25:31Z",
+      "title": "未改图 / 同 profile 的完整 prefix 控制重建通过",
+      "detail": "原 ONNX 和 precision profile hash 均与旧模型完全相同，数值 CLI 设置一致，生成新 engine b0b77654…。已组装同一七 engine / 十步求解进行完整动作控制核验，结果仍待审计；不是第二个优化候选，原 GEMM MSE 失败不被抹掉。",
+      "evidenceIds": [
+        "gemm-rebuild-source-audit",
+        "gemm-rebuild-target-build",
+        "gemm-integrated-quality-failed"
+      ]
+    },
+    {
+      "id": "gemm-complete-action-gate-failed",
+      "at": "2026-10-22T00:22:40Z",
+      "title": "GEMM 完整动作标准化 MSE 失败，正式 E2E 不启动",
+      "detail": "34 个完整动作对：标准化最坏 MSE 1.324344964e-5 超阈值，native MSE 0.0124503239；baseline 与原采用 pilot 字节一致。38 项回归通过。未改图 / 未改 profile 的重建控制 PID 2096349 / start 11040202 已确认运行，用于区分编译漂移与改写，不抹掉失败或新增量化搜索。",
+      "evidenceIds": [
+        "gemm-integrated-quality-failed",
+        "gemm-integrated-report",
+        "gemm-integrated-tests",
+        "gemm-rebuild-checkpoint"
+      ]
+    },
+    {
+      "id": "gemm-full-prefix-build-and-source-audited",
+      "at": "2026-10-22T00:16:30Z",
+      "title": "完整 GEMM prefix 编译与来源配对审计通过",
+      "detail": "构建约 162 秒，328 个内存观测最低 8.6 GiB，未触发安全线。独立读完整图确认仅指定 GEMM 片段改变，精度映射与已报告绑定不变；三处缺失描述留给 native guard。正在组装完整七 engine / 十步求解，尚无动作或 E2E 通过结论。",
+      "evidenceIds": [
+        "gemm-full-prefix-build",
+        "gemm-full-source-audit",
+        "gemm-composition-admission-tests"
+      ]
+    },
+    {
+      "id": "gemm-full-prefix-build-running",
+      "at": "2026-10-22T00:14:32Z",
+      "title": "完整 GEMM prefix 的 Orin 构建已确认运行",
+      "detail": "构建控制子进程 PID 2086450 / start 10990726；启动前可用内存 15859892 KiB，12 GiB admission 和 2 GiB safety floor 生效。尚无 engine / 模型通过结论，不重启 RDT，不更改其他服务。",
+      "evidenceIds": [
+        "gemm-full-build-checkpoint",
+        "gemm-full-splice"
+      ]
+    },
+    {
+      "id": "gemm-full-prefix-source-composed",
+      "at": "2026-10-22T00:11:51Z",
+      "title": "GEMM 候选已嵌回完整 prefix，结构与边界检查通过",
+      "detail": "只替换已测单个 MatMul；其他源节点、840 个原 initializer、全部 compute / output precision 映射不变。27 项组合回归通过，候选文件已传至 Orin；拟按 12 GiB admission / 2 GiB 安全线构建，编译不等于整模型通过。RDT 仍停止。",
+      "evidenceIds": [
+        "gemm-full-splice",
+        "gemm-full-splice-tests",
+        "gemm-target-quality"
+      ]
+    },
+    {
+      "id": "gemm-paired-timing-independently-audited",
+      "at": "2026-10-22T00:01:02Z",
+      "title": "GEMM 两种五进程对计时审计完成，负结果保留",
+      "detail": "全部 20480 行保留：resident GPU compute 38.142 -> 26.339 us（1.448x），IO event 59.467 -> 58.993 us（1.008x）；IO compute 略退化、两组 IO event 负收益及较高 CPU 诊断误差均保留。完整 CDF 和 47 项回归就绪，不是整模型收益。RDT 未重启。",
+      "evidenceIds": [
+        "gemm-timing-audit",
+        "gemm-timing-csv",
+        "gemm-operator-cdf",
+        "gemm-target-report",
+        "gemm-target-full-tests"
+      ]
+    },
+    {
+      "id": "gemm-paired-collection-12",
+      "at": "2026-10-21T23:57:47Z",
+      "title": "GEMM 微基准完成 12/20 个进程，整体审计待执行",
+      "detail": "resident 边界十个进程均完成；IO 边界已完成两个并启动第三个。新版计时审计对旧 LayerNorm 全部 20480 条记录回归通过，含错误 engine / boot / 输入 / producer 的拒绝测试，共六项通过。此快照不认证整体完成或 VLA E2E。",
+      "evidenceIds": [
+        "gemm-timing-checkpoint",
+        "gemm-timing-plan"
+      ]
+    },
+    {
+      "id": "gemm-timing-protocol-frozen",
+      "at": "2026-10-21T23:55:58Z",
+      "title": "GEMM 算子计时 pilot 通过，五进程对协议已冻结",
+      "detail": "四次 pilot / 512 条完整导出记录及最后输出检查通过；两种边界各五组独立进程对、交替顺序、每进程最低 1024 measured，保留全部记录。原生 CLI 计时边界不改，不以 pilot 或算子收益代替 VLA E2E。",
+      "evidenceIds": [
+        "gemm-timing-plan",
+        "gemm-timing-pilot",
+        "gemm-target-quality"
+      ]
+    },
+    {
+      "id": "gemm-real-output-quality-verified",
+      "at": "2026-10-21T23:53:37Z",
+      "title": "GEMM 两份真实输入的真机精度门槛通过",
+      "detail": "113280 个完整输出值：最坏 MSE 3.836792e-9、最低 cosine 0.9999980099，不是逐字节一致。相同 FP16 dense 数据 / Half 权重，vendor tactic 不同；候选对 CPU FLOAT 的误差更高已保留。39 项回归通过，尚未测收益。",
+      "evidenceIds": [
+        "gemm-target-quality",
+        "gemm-target-capture",
+        "gemm-target-tests"
+      ]
+    },
+    {
+      "id": "gemm-target-request-started",
+      "at": "2026-10-21T23:50:08Z",
+      "title": "GEMM 原 FP16 合同的真机配对已启动",
+      "detail": "数据清单绑定两份真实输入、两图 / 精度配置 hash；通用前置回归 15 项通过。实际 baseline 构建已进入 native 正确性 probe，未开始配对计时，也未宣称收益。RDT 控制器和 worker 均不匹配，保持停止。",
+      "evidenceIds": [
+        "gemm-target-request",
+        "operator-request-capture-tests"
+      ]
+    },
+    {
+      "id": "norm-full-model-quality-audited",
+      "at": "2026-10-21T23:45:04Z",
+      "title": "LayerNorm 完整动作配对已核验，native MSE 失败保留",
+      "detail": "两端均为七 engine / 十步求解，34 个完整动作对：标准化最坏 MSE 5.30e-6、cosine 0.9999985；native MSE 0.0121 未过同一阈值。候选与原同 engine 输出字节一致。22 项回归通过；未启动正式 E2E，未重启 RDT 或终止既有服务。",
+      "evidenceIds": [
+        "norm-integration-quality",
+        "norm-integration-report",
+        "norm-integration-tests"
+      ]
+    },
+    {
+      "id": "norm-integration-source-verified",
+      "at": "2026-10-21T23:36:01Z",
+      "title": "LayerNorm 全模型回集成的来源配对通过",
+      "detail": "精确重跑通用改写得到同一完整 prefix ONNX hash；50 处 Norm 替换，非 Norm 权重 / 节点 / 精度不变。尚未验证完整动作或 E2E；三处缺失 inspector 描述留给 native ABI 验证。RDT 未重启。",
+      "evidenceIds": [
+        "norm-integration-source",
+        "norm-integration-source-tests"
+      ]
+    },
+    {
+      "id": "layernorm-paired-timing-verified",
+      "at": "2026-10-21T23:20:09Z",
+      "title": "LayerNorm 五进程对计时完成独立审计",
+      "detail": "resident compute 4.329x / IO event latency 1.644x，仅单个真实算子签名。20 个进程、20480 条记录全部保留；候选 std 和部分最大值不更好。仍未做全模型回集成，RDT 未重启。",
+      "evidenceIds": [
+        "layernorm-timing-audit",
+        "layernorm-timing-csv",
+        "layernorm-operator-cdf",
+        "layernorm-target-report"
+      ]
+    },
+    {
+      "id": "layernorm-target-quality-ready",
+      "at": "2026-10-22T06:54:15+08:00",
+      "title": "LayerNorm 小内存 Orin 配对通过全输出门槛",
+      "detail": "两端新 engine 同为 256 MiB workspace / 原 FP32 归一化合同；786432 个值 MSE 2.29e-15、cosine 近 1，但非 byte-exact。尚未计时，不算整模型 E2E 或 RDT 正式结果。",
+      "evidenceIds": [
+        "layernorm-target-quality",
+        "layernorm-target-report"
+      ]
+    },
+    {
+      "id": "rdt-retained-evidence-verified",
+      "at": "2026-10-21T22:23:11Z",
+      "title": "RDT 保留数据完成限定范围核验",
+      "detail": "11 个完整进程及第 12 个已写入的部分数据共 25894 个动作张量逐字节一致；原始文件未裁剪，正式门槛仍拒绝未完成 campaign。当前无采样 worker，不自动重启。",
+      "evidenceIds": [
+        "rdt-retained-checks",
+        "rdt-partial-payload-checks",
+        "rdt-safety-report"
+      ]
+    },
+    {
+      "id": "rdt-resource-safety-interruption",
+      "at": "2026-10-21T21:54:33.881685Z",
+      "title": "RDT 资源安全中断，完整 / 部分证据保留",
+      "detail": "持续低内存和满 swap 下，仅结束本任务 worker；控制器记录失败并退出。11 个完整进程及末进程 147 条 measured 保留，外部服务不变；不是正式完成或数值失败。",
+      "evidenceIds": [
+        "rdt-safety-stop",
+        "rdt-safety-report"
+      ]
+    },
+    {
+      "id": "rdt-processes-11",
+      "at": "2026-10-21T21:40:32.352Z",
+      "title": "RDT 正式采样完成 11/15 个进程",
+      "detail": "累计 11,264 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-eleven-process-checkpoint",
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "rdt-resource-third-003",
+      "at": "2026-10-22T05:29:53+08:00",
+      "title": "系统内存耗尽风险已更新",
+      "detail": "05:27 快照：可用约 1.19 GiB、swap 满，当前 RDT worker VmSwap 0；已有服务 RSS / 线程数继续增加。9 项证据检查通过，未作泄漏或延迟因果结论，采样及服务配置不变。",
+      "evidenceIds": [
+        "rdt-resource-third",
+        "resource-third-tests",
+        "rdt-resource-note"
+      ]
+    },
+    {
+      "id": "rdt-processes-10",
+      "at": "2026-10-21T20:40:44.022Z",
+      "title": "RDT 正式采样完成 10/15 个进程",
+      "detail": "累计 10,240 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-ten-process-checkpoint",
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "rdt-resource-followup-002",
+      "at": "2026-10-22T04:26:49+08:00",
+      "title": "RDT 资源压力复查已归档",
+      "detail": "系统可用内存约 2.39 GiB，较前次降约 0.71 GiB；新 worker VmSwap 0，已有 Java RSS / 线程数增加。8 项检查通过，两个快照保留；不作泄漏或无性能影响结论，采样继续。",
+      "evidenceIds": [
+        "rdt-resource-followup",
+        "resource-followup-tests",
+        "rdt-resource-note"
+      ]
+    },
+    {
+      "id": "rdt-processes-9",
+      "at": "2026-10-21T19:42:23.159Z",
+      "title": "RDT 正式采样完成 9/15 个进程",
+      "detail": "累计 9,216 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-nine-process-checkpoint",
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "resource-risk-board-verified",
+      "at": "2026-10-21T19:38:57Z",
+      "title": "资源警告页及搜索回归通过",
+      "detail": "7 项浏览器检查覆盖桌面 / 手机风险页，无文字溢出；搜索用例不再写死实时任务匹配数量。原失败记录保留，未改真实任务或 Orin 实验。",
+      "evidenceIds": [
+        "board-browser-tests",
+        "board-resource-search-failed-tests",
+        "rdt-resource-note"
+      ]
+    },
+    {
+      "id": "rdt-resource-pressure-observed",
+      "at": "2026-10-22T03:29:07+08:00",
+      "title": "RDT 系统资源压力与可见性限制已归档",
+      "detail": "当前 worker VmSwap 0；系统可用内存约 3.10 GiB、swap 近满，已有 Java 服务占用高。6 项证据 / 解析检查通过。未改环境、未下泄漏或无性能影响结论，正式采样继续。",
+      "evidenceIds": [
+        "rdt-resource-snapshot",
+        "rdt-resource-note",
+        "resource-observation-tests"
+      ]
+    },
+    {
+      "id": "rdt-processes-8",
+      "at": "2026-10-21T18:42:41.955Z",
+      "title": "RDT 正式采样完成 8/15 个进程",
+      "detail": "累计 8,192 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-eight-process-checkpoint",
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "rdt-processes-7",
+      "at": "2026-10-21T17:43:46.579Z",
+      "title": "RDT 正式采样完成 7/15 个进程",
+      "detail": "累计 7,168 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-seven-process-checkpoint",
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "rdt-processes-6",
+      "at": "2026-10-21T16:46:07.427Z",
+      "title": "RDT 正式采样完成 6/15 个进程",
+      "detail": "累计 6,144 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-six-process-checkpoint",
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "rdt-processes-5",
+      "at": "2026-10-21T15:46:25.053Z",
+      "title": "RDT 正式采样完成 5/15 个进程",
+      "detail": "累计 5,120 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-five-process-checkpoint",
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "state-feature-source-ready",
+      "at": "2026-10-21T23:39:50+08:00",
+      "title": "第六类 VLA 状态用例完成主机准备",
+      "detail": "16 个不同真实输入、15360 个状态 token 值逐字节一致；原投影及 FP16 请求不变，输入哈希链与独立重算已核验。143 项组合回归通过；仍无新 Orin 构建、测时或热点结论。",
+      "evidenceIds": [
+        "state-feature-pair",
+        "six-operator-builder-tests",
+        "operator-case-report"
+      ]
+    },
+    {
+      "id": "embedding-pair-and-builder-source-ready",
+      "at": "2026-10-21T23:19:48+08:00",
+      "title": "真实语言 Embedding 与独立构建器完成主机检查",
+      "detail": "46080 个实际输出及完整缩放表重算一致；16 观测共享一个指令，不夸大提示覆盖。新 v3 不补造计算 / 输出精度约束，135 项组合回归通过；尚未传到 Orin 或产生新性能结果。",
+      "evidenceIds": [
+        "embedding-pair",
+        "operator-builder-tests",
+        "trt-builder-v3-tests",
+        "operator-case-report"
+      ]
+    },
+    {
+      "id": "attention-pair-source-ready",
+      "at": "2026-10-21T22:58:34+08:00",
+      "title": "真实 Attention Core 配对完成主机准备",
+      "detail": "原始观测重算 Q/K/V 与 786432 个上下文值逐字节一致；只移除静态零掩码，保留缩放及原精度请求。67 项组合回归通过；没有新 Orin 构建、测时或收益结论。",
+      "evidenceIds": [
+        "attention-pair",
+        "four-operator-case-tests",
+        "operator-case-report"
+      ]
+    },
+    {
+      "id": "gemm-pair-source-ready",
+      "at": "2026-10-21T22:48:46+08:00",
+      "title": "真实 GEMM 配对与组合回归完成主机验证",
+      "detail": "保留原 FP16 请求、不增加输出精度约束；两观测 113280 个原始 CPU 输出值逐字节一致。48 项组合回归通过，原外部权重未变。板端配对仍未构建、核验或测时，不计优化收益。",
+      "evidenceIds": [
+        "gemm-pair",
+        "operator-case-tests",
+        "operator-fixture-repair",
+        "operator-case-report"
+      ]
+    },
+    {
+      "id": "rdt-processes-4",
+      "at": "2026-10-21T14:46:38.019Z",
+      "title": "RDT 正式采样完成 4/15 个进程",
+      "detail": "累计 4,096 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "rdt-processes-3",
+      "at": "2026-10-21T13:50:23.673Z",
+      "title": "RDT 正式采样完成 3/15 个进程",
+      "detail": "累计 3,072 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "rope-pair-source-ready",
+      "at": "2026-10-21T21:31:38+08:00",
+      "title": "真实 RoPE/cache 输入配对已准备",
+      "detail": "两观测 113280 个原始输出值逐字节一致，21 项回归通过；保留相同数学表达式和精度合同。尚无新 Orin 构建、正确性或性能结果。",
+      "evidenceIds": [
+        "rope-pair",
+        "rope-case-tests",
+        "operator-case-report"
+      ]
+    },
+    {
+      "id": "scatter-value-independence-checked",
+      "at": "2026-10-21T21:31:38+08:00",
+      "title": "通用静态索引改写补齐依赖保护",
+      "detail": "拒绝三探针假静态、可覆盖 initializer 和中间形状注解；使用 SSA 输出区分匿名/重名节点。15 项边界测试、全量 2639 项主机测试通过；冻结 RDT engine 未改动。",
+      "evidenceIds": [
+        "scatter-source-tests",
+        "full-scatter-tests",
+        "operator-case-report"
+      ]
+    },
+    {
+      "id": "rdt-processes-2",
+      "at": "2026-10-21T12:53:22.498Z",
+      "title": "RDT 正式采样完成 2/15 个进程",
+      "detail": "累计 2,048 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "layernorm-pair-prepared",
+      "at": "2026-10-21T20:22:38+08:00",
+      "title": "真实输入的首个算子配对已准备",
+      "detail": "LayerNorm 同接口 / 常量 / epsilon；原表达式和语义影子通过 CPU 门槛，68 项回归通过。新配对尚未在 Orin 构建、核验或测时，不计为算子收益。",
+      "evidenceIds": [
+        "operator-case-report",
+        "layernorm-pair",
+        "layernorm-case-tests"
+      ]
+    },
+    {
+      "id": "web-board-ready",
+      "at": "2026-10-21T20:06:10+08:00",
+      "title": "网页版任务看板已就绪",
+      "detail": "任务总览、模型矩阵、证据与 CDF；网页和 Markdown 共用状态源。6 项服务测试、7 项浏览器测试通过，覆盖桌面、平板及两种手机宽度。",
+      "evidenceIds": [
+        "board-node-tests",
+        "board-browser-tests"
+      ]
+    },
+    {
+      "id": "rdt-processes-1",
+      "at": "2026-10-21T11:52:33.988Z",
+      "title": "RDT 正式采样完成 1/15 个进程",
+      "detail": "累计 1,024 条 measured；完整输出与正式结果仍待独立审计。",
+      "evidenceIds": [
+        "rdt-pilot",
+        "postprocess"
+      ]
+    },
+    {
+      "id": "full-regression-08",
+      "at": "2026-10-21T19:25:00+08:00",
+      "title": "主机全量回归通过",
+      "detail": "2630 passed，74 skipped，6 个子测试通过；不新增 Orin 模型计算。",
+      "evidenceIds": [
+        "full-tests"
+      ]
+    },
+    {
+      "id": "inventory-08",
+      "at": "2026-10-21T19:17:00+08:00",
+      "title": "算子消融输入准备推进",
+      "detail": "七个 SmolVLA 实际源图、236 个逻辑签名组；尚无算子前后时延。",
+      "evidenceIds": [
+        "operator-inventory"
+      ]
+    },
+    {
+      "id": "board-01",
+      "at": "2026-10-21T19:17:00+08:00",
+      "title": "RDT 活跃进程已核验",
+      "detail": "首进程 367 条正式测量，已写入行 finite / direct_exact 均通过。",
+      "evidenceIds": [
+        "rdt-pilot"
+      ]
+    },
+    {
+      "id": "postprocess-01",
+      "at": "2026-10-21T19:04:00+08:00",
+      "title": "正式后处理流程已就绪",
+      "detail": "独立审计与 pooled / 逐进程 CDF 回归合计 37 项通过。",
+      "evidenceIds": [
+        "postprocess",
+        "raw-tests"
+      ]
+    },
+    {
+      "id": "rdt-pilot-01",
+      "at": "2026-10-21T18:50:00+08:00",
+      "title": "RDT raw pilot 通过，进入正式采样",
+      "detail": "112 个输入与 120 个完整动作张量逐字节一致；正式结果仍待完结审计。",
+      "evidenceIds": [
+        "rdt-pilot",
+        "rdt-audit"
+      ]
+    }
+  ]
+}

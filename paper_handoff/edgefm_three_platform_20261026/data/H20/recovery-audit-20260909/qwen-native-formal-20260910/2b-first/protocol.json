@@ -1,0 +1,382 @@
+{
+  "schema": "vlaforge.session_latency_protocol/2",
+  "boundary": "host-model-tensor: H2D, input binding, Session run, completion and complete D2H",
+  "boundary_includes": [
+    "host input staging",
+    "H2D",
+    "input binding",
+    "Session run",
+    "completion",
+    "complete typed D2H"
+  ],
+  "boundary_excludes": [
+    "image/text preprocessing",
+    "checkpoint and artifact initialization",
+    "validation and logging IO",
+    "detokenization"
+  ],
+  "separate_wall_boundary": "resident tensor runner host-call timing; not sensor or file IO",
+  "warmup": 128,
+  "measured": 1024,
+  "processes": 5,
+  "policies": [
+    "off"
+  ],
+  "bundles": {
+    "off": "PROVENANCE_8faec6d9e220faa5"
+  },
+  "quality_gate": "passed",
+  "eager_validation": "bitwise",
+  "outputs": [
+    {
+      "name": "tokens",
+      "role": "exact"
+    },
+    {
+      "name": "logits",
+      "role": "primary-action"
+    }
+  ],
+  "paper_gates": {
+    "mse_max": 0.0,
+    "cosine_min": 1.0
+  },
+  "full_paper_acceptance": false,
+  "gpu_ordinal": 0,
+  "monitor_gpu": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+  "cuda_visible_devices": "GPU-c66f42bd-8a1c-423b-e2eb-d0cc72b9fe0b",
+  "cuda_arch": "9.0",
+  "cmake_prefix_path": "PROVENANCE_e3040636f7f94c19",
+  "bundle_metadata_mode": "selection-manifest",
+  "allocator_observation": "libtorch-native/1",
+  "owner_identity_mode": "cuda-registration-handshake",
+  "sample_order": "validation-data-order",
+  "policy_order": [
+    "off"
+  ],
+  "model": "PROVENANCE_aa1939f10181f300",
+  "reference_identity": "artifact direct output; official token validation is bound separately",
+  "reference_limitations": [
+    "fixed prompt length 327",
+    "fixed image tensor shape 1200x1536",
+    "fixed generation length",
+    "16 frozen validation images"
+  ],
+  "evidence": [
+    "PROVENANCE_b0757a2377c07186",
+    "PROVENANCE_88d3ee6e2162f3dc",
+    "PROVENANCE_c9bb212d66dc5647",
+    "PROVENANCE_163045fa381d12b2"
+  ],
+  "samples": [
+    {
+      "sample_id": "validation-00",
+      "inputs": {
+        "input_ids": "PROVENANCE_0e384404a042e2c8",
+        "attention_mask": "PROVENANCE_2989c9e244fe8b5e",
+        "pixel_values": "PROVENANCE_811b2b2ddbe94503",
+        "accepted": "PROVENANCE_1ba0523c44e8fd65"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_5982a0d1f94432b0",
+          "eager": "PROVENANCE_5982a0d1f94432b0"
+        },
+        "logits": {
+          "direct": "PROVENANCE_5982a0d1f94432b0",
+          "eager": "PROVENANCE_5982a0d1f94432b0"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-01",
+      "inputs": {
+        "input_ids": "PROVENANCE_67c65c3d1538ba1c",
+        "attention_mask": "PROVENANCE_c0019c387f366a71",
+        "pixel_values": "PROVENANCE_92489621b7c71840",
+        "accepted": "PROVENANCE_e2097f7458a9cb6d"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_c2224013c579df72",
+          "eager": "PROVENANCE_c2224013c579df72"
+        },
+        "logits": {
+          "direct": "PROVENANCE_c2224013c579df72",
+          "eager": "PROVENANCE_c2224013c579df72"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-02",
+      "inputs": {
+        "input_ids": "PROVENANCE_27eaf4fd4950581a",
+        "attention_mask": "PROVENANCE_f297e2a6f1b2378c",
+        "pixel_values": "PROVENANCE_a8e2cdde304905d8",
+        "accepted": "PROVENANCE_382881d548312f84"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_4181a2446256d9bb",
+          "eager": "PROVENANCE_4181a2446256d9bb"
+        },
+        "logits": {
+          "direct": "PROVENANCE_4181a2446256d9bb",
+          "eager": "PROVENANCE_4181a2446256d9bb"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-03",
+      "inputs": {
+        "input_ids": "PROVENANCE_f475a2a095ed5ff6",
+        "attention_mask": "PROVENANCE_2d83392d9b47d77c",
+        "pixel_values": "PROVENANCE_ab48d054449e2baf",
+        "accepted": "PROVENANCE_c0bf6c0702860147"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_a981cc03c4b545ff",
+          "eager": "PROVENANCE_a981cc03c4b545ff"
+        },
+        "logits": {
+          "direct": "PROVENANCE_a981cc03c4b545ff",
+          "eager": "PROVENANCE_a981cc03c4b545ff"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-04",
+      "inputs": {
+        "input_ids": "PROVENANCE_6d5c3337ee888ba9",
+        "attention_mask": "PROVENANCE_228096d9cf71419b",
+        "pixel_values": "PROVENANCE_89a1c09eadfedcc1",
+        "accepted": "PROVENANCE_7825ed2f2b5b7586"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_3c78978a0ed12e73",
+          "eager": "PROVENANCE_3c78978a0ed12e73"
+        },
+        "logits": {
+          "direct": "PROVENANCE_3c78978a0ed12e73",
+          "eager": "PROVENANCE_3c78978a0ed12e73"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-05",
+      "inputs": {
+        "input_ids": "PROVENANCE_77a241beca62e9b8",
+        "attention_mask": "PROVENANCE_8e8fd9988b758fd0",
+        "pixel_values": "PROVENANCE_6597ce2b08456470",
+        "accepted": "PROVENANCE_b51f5b556aa6c30a"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_17ad549ed0ed439a",
+          "eager": "PROVENANCE_17ad549ed0ed439a"
+        },
+        "logits": {
+          "direct": "PROVENANCE_17ad549ed0ed439a",
+          "eager": "PROVENANCE_17ad549ed0ed439a"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-06",
+      "inputs": {
+        "input_ids": "PROVENANCE_102a40fe25b5668b",
+        "attention_mask": "PROVENANCE_41580c6efa820080",
+        "pixel_values": "PROVENANCE_ce1e6d6a3f7e3a2f",
+        "accepted": "PROVENANCE_c2807fffdad2acd9"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_b8a86c9abb428f16",
+          "eager": "PROVENANCE_b8a86c9abb428f16"
+        },
+        "logits": {
+          "direct": "PROVENANCE_b8a86c9abb428f16",
+          "eager": "PROVENANCE_b8a86c9abb428f16"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-07",
+      "inputs": {
+        "input_ids": "PROVENANCE_ebb09c8da60be421",
+        "attention_mask": "PROVENANCE_a8ba6708d580ee6b",
+        "pixel_values": "PROVENANCE_f0f27439419cacc0",
+        "accepted": "PROVENANCE_da0d4edd844b3829"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_ad06feb51003eafc",
+          "eager": "PROVENANCE_ad06feb51003eafc"
+        },
+        "logits": {
+          "direct": "PROVENANCE_ad06feb51003eafc",
+          "eager": "PROVENANCE_ad06feb51003eafc"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-08",
+      "inputs": {
+        "input_ids": "PROVENANCE_6ca7fc842bb4834d",
+        "attention_mask": "PROVENANCE_47145588ea6c4d38",
+        "pixel_values": "PROVENANCE_a7b500dc63ac36ff",
+        "accepted": "PROVENANCE_716b8362294ab6ff"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_44379be2b05119d2",
+          "eager": "PROVENANCE_44379be2b05119d2"
+        },
+        "logits": {
+          "direct": "PROVENANCE_44379be2b05119d2",
+          "eager": "PROVENANCE_44379be2b05119d2"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-09",
+      "inputs": {
+        "input_ids": "PROVENANCE_773c45ee41b22056",
+        "attention_mask": "PROVENANCE_938a9318f3925216",
+        "pixel_values": "PROVENANCE_ca362b12a9e7f005",
+        "accepted": "PROVENANCE_674373edf7dd9d99"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_c8f6ac0d4177bd5b",
+          "eager": "PROVENANCE_c8f6ac0d4177bd5b"
+        },
+        "logits": {
+          "direct": "PROVENANCE_c8f6ac0d4177bd5b",
+          "eager": "PROVENANCE_c8f6ac0d4177bd5b"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-10",
+      "inputs": {
+        "input_ids": "PROVENANCE_819a4afc4d48be13",
+        "attention_mask": "PROVENANCE_595e51e86174afe2",
+        "pixel_values": "PROVENANCE_32cd38b672ed05a7",
+        "accepted": "PROVENANCE_4f9380382c90ba2e"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_102a7b5f3df0c2fc",
+          "eager": "PROVENANCE_102a7b5f3df0c2fc"
+        },
+        "logits": {
+          "direct": "PROVENANCE_102a7b5f3df0c2fc",
+          "eager": "PROVENANCE_102a7b5f3df0c2fc"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-11",
+      "inputs": {
+        "input_ids": "PROVENANCE_4d4b365b396a9284",
+        "attention_mask": "PROVENANCE_b84936544b152220",
+        "pixel_values": "PROVENANCE_5a0b912f5d809c80",
+        "accepted": "PROVENANCE_ccf1107acfc48f13"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_c291174118e31179",
+          "eager": "PROVENANCE_c291174118e31179"
+        },
+        "logits": {
+          "direct": "PROVENANCE_c291174118e31179",
+          "eager": "PROVENANCE_c291174118e31179"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-12",
+      "inputs": {
+        "input_ids": "PROVENANCE_c6b0569946978304",
+        "attention_mask": "PROVENANCE_8ddfdfca8d00f63e",
+        "pixel_values": "PROVENANCE_95e9ef77ebb30405",
+        "accepted": "PROVENANCE_b57691e1a381b7a9"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_dc65c78427f68474",
+          "eager": "PROVENANCE_dc65c78427f68474"
+        },
+        "logits": {
+          "direct": "PROVENANCE_dc65c78427f68474",
+          "eager": "PROVENANCE_dc65c78427f68474"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-13",
+      "inputs": {
+        "input_ids": "PROVENANCE_5aec25f3c7e61ff7",
+        "attention_mask": "PROVENANCE_e757cf9efa8bc2cc",
+        "pixel_values": "PROVENANCE_0c89ff9b7408e372",
+        "accepted": "PROVENANCE_f5f1bc0e3f699a0c"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_b78532ab9f4efc2f",
+          "eager": "PROVENANCE_b78532ab9f4efc2f"
+        },
+        "logits": {
+          "direct": "PROVENANCE_b78532ab9f4efc2f",
+          "eager": "PROVENANCE_b78532ab9f4efc2f"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-14",
+      "inputs": {
+        "input_ids": "PROVENANCE_5c048b36142a8e37",
+        "attention_mask": "PROVENANCE_30b8ce7b2655350a",
+        "pixel_values": "PROVENANCE_36eeb8c3e3472ecb",
+        "accepted": "PROVENANCE_331a7ae67f0a34cc"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_0909db5af13d485f",
+          "eager": "PROVENANCE_0909db5af13d485f"
+        },
+        "logits": {
+          "direct": "PROVENANCE_0909db5af13d485f",
+          "eager": "PROVENANCE_0909db5af13d485f"
+        }
+      }
+    },
+    {
+      "sample_id": "validation-15",
+      "inputs": {
+        "input_ids": "PROVENANCE_9a236f15e02308c0",
+        "attention_mask": "PROVENANCE_13d6722cb93fefeb",
+        "pixel_values": "PROVENANCE_24028ffe7c21bdec",
+        "accepted": "PROVENANCE_34bdc4db6b1c3e46"
+      },
+      "outputs": {
+        "tokens": {
+          "direct": "PROVENANCE_9197a11242d26869",
+          "eager": "PROVENANCE_9197a11242d26869"
+        },
+        "logits": {
+          "direct": "PROVENANCE_9197a11242d26869",
+          "eager": "PROVENANCE_9197a11242d26869"
+        }
+      }
+    }
+  ],
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

@@ -1,0 +1,1172 @@
+[
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "independent acceptance",
+    "original_link": "../../artifacts/orin/20261025-21/selected-goal-review-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Actual cleanup and data-only verification",
+    "original_link": "orin_storage_retention_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "structured state",
+    "original_link": "../edgefm_orin_task_board_state.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "post-publication audit",
+    "original_link": "../../artifacts/orin/20261024-08/core-requirement-audit-002.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "current data-only review",
+    "original_link": "../../artifacts/orin/20261024-08/core-requirement-audit-003.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Reconciled scope/evidence",
+    "original_link": "orin_delivery_reconciliation_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "five-model full tables",
+    "original_link": "../../artifacts/orin/20261024-07/tables-001/tables.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Actual boundary",
+    "original_link": "../../artifacts/orin/20261024-06/power-mode-assessment-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Candidate report",
+    "original_link": "orin_generic_norm_candidate_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "non-adoption decision",
+    "original_link": "../../artifacts/orin/20261024-01/decision-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Accepted report",
+    "original_link": "orin_cogact_formal_e2e_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "joint audit",
+    "original_link": "../../artifacts/orin/20261024-05/joint-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Verified snapshot",
+    "original_link": "../../artifacts/orin/20261024-05/checkpoint-034.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Service observation",
+    "original_link": "../../artifacts/orin/20261024-05/service-observation-009.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "remaining D4matrix",
+    "original_link": "orin_d4_remaining_execution_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Plan and exact boundary",
+    "original_link": "../../artifacts/orin/20261024-06/README.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Audit scope",
+    "original_link": "../../artifacts/orin/20261024-05/README.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Live snapshot",
+    "original_link": "../../artifacts/orin/20261024-05/checkpoint-006.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "New scope",
+    "original_link": "../../artifacts/orin/20261024-05/README.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "prior failure/restoration audit",
+    "original_link": "orin_cogact_authorized_window_failure_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Live evidence",
+    "original_link": "../../artifacts/orin/20261024-03/checkpoint-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "separate new authority",
+    "original_link": "../../artifacts/orin/20261024-03/authorization.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "complete quality pilot",
+    "original_link": "orin_cogact_complete_quality_pilot_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "independent delivery audit",
+    "original_link": "../../artifacts/orin/20261023-100/pilot-delivery-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "H20supplement",
+    "original_link": "../../artifacts/orin/20261023-99/h20-supplement-002.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "ordinary-source repeat",
+    "original_link": "orin_cogact_ordinary_repeat_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "formal source package",
+    "original_link": "orin_cogact_formal_source_readiness_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "window mechanism follow-up",
+    "original_link": "orin_cogact_window_mechanism_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "no-interruption formal attempt",
+    "original_link": "orin_cogact_no_service_partial_attempt_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "fixed refit observability diagnostic",
+    "original_link": "orin_refit_observability_diagnostic_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "matched-power supplement",
+    "original_link": "orin_matched_power_supplement_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Joint closure",
+    "original_link": "../../artifacts/orin/20261023-111/joint-closure-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "power windows",
+    "original_link": "../../artifacts/orin/20261023-111/power-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "PNG/PDF receipt",
+    "original_link": "../../artifacts/orin/20261023-111/power-figures-001/receipt.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "formal report",
+    "original_link": "orin_pi05_formal_e2e_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "final joint audit",
+    "original_link": "../../artifacts/orin/20261023-58/final-001/joint-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "paired pilot report",
+    "original_link": "orin_pi05_raw_pilot_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "`joint-audit-001.json`",
+    "original_link": "../../artifacts/orin/20261023-42/joint-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "earlier pilot report",
+    "original_link": "orin_pi0_raw_pilot_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "pi0 formal report",
+    "original_link": "orin_pi0_formal_e2e_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "pi0 integration checkpoint",
+    "original_link": "orin_openpi_integration_checkpoint_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "split deployment checkpoint",
+    "original_link": "orin_prefix_split_deployment_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "actual synchronized diagnostic audit",
+    "original_link": "../../artifacts/orin/20261023-15/diagnostic-tensor-audit-002.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "actual target probe",
+    "original_link": "../../artifacts/orin/20261023-15/vision-mlp-probe-infer-001-summary.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "actual native GPU result",
+    "original_link": "../../artifacts/orin/20261023-15/vision-tail-native-infer-001/results.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "final audit",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "machine-readable main table",
+    "original_link": "../../artifacts/orin/20261023-112/tables-001/main-table.csv",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "full p50/p95 table view",
+    "original_link": "../../artifacts/orin/20261023-112/tables-001/tables.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Verification receipt",
+    "original_link": "../../artifacts/orin/20261023-112/tables-001/summary.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "pinned declaration",
+    "original_link": "../../artifacts/orin/20261023-112/input-manifest-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "14tests",
+    "original_link": "../../artifacts/orin/20261023-112/table-tests-001.xml",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "accepted complete latency table",
+    "original_link": "../../artifacts/orin/20261024-05/latency-001/latency-table.csv",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "joint audit",
+    "original_link": "../../artifacts/orin/20261024-05/joint-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "RDT complete model-data audit",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/model-data-audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "CDF render receipt",
+    "original_link": "../../artifacts/orin/20261022-01/formal-cdf-001/plot-receipt.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "full statistics",
+    "original_link": "../../artifacts/orin/20261023-42/latency-001/summary.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "neutral publication CDF receipt",
+    "original_link": "../../artifacts/orin/20261023-42/publication-curves-001/receipt.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "sealed full statistics",
+    "original_link": "../../artifacts/orin/20261023-58/final-001/latency-001/summary.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "joint acceptance",
+    "original_link": "../../artifacts/orin/20261023-58/final-001/joint-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "complete-output audit",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/model-data-audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "quality CSV",
+    "original_link": "../../artifacts/orin/20261023-112/tables-001/quality-table.csv",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "full output audit",
+    "original_link": "../../artifacts/orin/20261024-05/model-data-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Complete operator evidence",
+    "original_link": "orin_operator_attention_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Boundary",
+    "original_link": "orin_operator_state_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Soak/memory/power",
+    "original_link": "orin_smolvla_soak_memory_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "CUPTI memory-access assessment",
+    "original_link": "orin_cupti_memory_boundary_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "public SDK follow-up",
+    "original_link": "orin_sdk_layer_reservations_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "alternate-mode assessment",
+    "original_link": "../../artifacts/orin/20261024-06/power-mode-assessment-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "terminal restoration observation",
+    "original_link": "../../artifacts/orin/20261022-01/restoration-terminal-001/observation.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "final audit",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Window and requalification",
+    "original_link": "orin_rdt_resource_requalification_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "completed-worker resource check",
+    "original_link": "orin_rdt_completed_resources_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "OpenPI report",
+    "original_link": "orin_openpi_parallel_preparation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "common F64/I64 host preparation",
+    "original_link": "orin_native_host_wide_types_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "step-build-006",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-build-006/build.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "profile007",
+    "original_link": "../../artifacts/orin/20261022-08/pi0-step-carrier-sincos-001/precision-profile-007.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "source precision proof",
+    "original_link": "../../artifacts/orin/20261023-00/source-dtype-precision-boundaries-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "native CUDA 11.4 build",
+    "original_link": "../../artifacts/orin/20261023-00/native-regions-native-build-001/receipt.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "native GPU functional audit",
+    "original_link": "../../artifacts/orin/20261023-00/native-region-gpu-smoke-001-audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "precision-plugin GPU smoke pass",
+    "original_link": "../../artifacts/orin/20261023-00/scalar-native-smoke-001/scalar-plugin-smoke-direct-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "step-build-001 failure",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-build-001/build.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "GDB",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-debug-001/gdb.log",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "11 passing tests",
+    "original_link": "../../artifacts/orin/20261023-00/constant-canonicalization-regression-001.xml",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "step-build-002",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-build-002/build.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "Slice dynamic axes unsupported",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-build-002/build.log",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "root16 typed IR adapter",
+    "original_link": "orin_openpi_ir_adaptation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "root04 profile007 checkpoint",
+    "original_link": "../../artifacts/orin/20261023-04/profile007-candidate-001/README.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "host preparation",
+    "original_link": "orin_cogact_parallel_preparation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "OpenPI integration preparation",
+    "original_link": "orin_openpi_trt_preparation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "source asset assessment",
+    "original_link": "orin_source_asset_assessment_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "managed campaign runbook",
+    "original_link": "orin_managed_campaign_audit_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/edgefm_orin_experiment_delivery.md",
+    "label": "terminal audit",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/h20_vla_experiment_delivery_20260910.md",
+    "label": "the combined summary",
+    "original_link": "edgefm_h20_j6m_experiment_summary_20260914.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/h20_vla_experiment_delivery_20260910.md",
+    "label": "cache-copy export failures",
+    "original_link": "qwen35_native_blockers_20260910.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/h20_vla_experiment_delivery_20260910.md",
+    "label": "Final validation",
+    "original_link": "h20_final_validation_20260910.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Cleanup and retained-data verification",
+    "original_link": "orin_storage_retention_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "post-publication audit",
+    "original_link": "../../artifacts/orin/20261024-08/core-requirement-audit-002.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Actual new delivery",
+    "original_link": "orin_delivery_reconciliation_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Specific power boundary",
+    "original_link": "../../artifacts/orin/20261024-06/power-mode-assessment-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Actual accepted report",
+    "original_link": "orin_cogact_formal_e2e_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "D4requirement matrix",
+    "original_link": "orin_d4_remaining_execution_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Scoped report",
+    "original_link": "orin_generic_norm_candidate_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "formal report",
+    "original_link": "orin_pi0_formal_e2e_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "joint audit",
+    "original_link": "../../artifacts/orin/20261023-42/joint-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "formal report",
+    "original_link": "orin_pi05_formal_e2e_20261023.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "pilot report",
+    "original_link": "orin_cogact_complete_quality_pilot_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "ordinary-source independent repeat",
+    "original_link": "orin_cogact_ordinary_repeat_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "no-application-interruption formal attempt",
+    "original_link": "orin_cogact_no_service_partial_attempt_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "task board",
+    "original_link": "../edgefm_orin_task_board.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "terminal audit",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "step-build-006",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-build-006/build.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "profile007",
+    "original_link": "../../artifacts/orin/20261022-08/pi0-step-carrier-sincos-001/precision-profile-007.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "strict source precision proof",
+    "original_link": "../../artifacts/orin/20261023-00/source-dtype-precision-boundaries-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "five-provider native CUDA build",
+    "original_link": "../../artifacts/orin/20261023-00/native-regions-native-build-001/receipt.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "native GPU functional audit",
+    "original_link": "../../artifacts/orin/20261023-00/native-region-gpu-smoke-001-audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "target plugin GPU smoke",
+    "original_link": "../../artifacts/orin/20261023-00/scalar-native-smoke-001/scalar-plugin-smoke-direct-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "step-build-002",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-build-002/build.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Slice dynamic-axis import",
+    "original_link": "../../artifacts/orin/20261023-00/pi0-step-build-002/build.log",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "verified root16 adapter",
+    "original_link": "orin_openpi_ir_adaptation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "root04 profile007 checkpoint",
+    "original_link": "../../artifacts/orin/20261023-04/profile007-candidate-001/README.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Post-publication requirement audit",
+    "original_link": "../../artifacts/orin/20261024-08/core-requirement-audit-002.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Five-model tables",
+    "original_link": "../../artifacts/orin/20261024-07/tables-001/tables.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Same-request boundaries",
+    "original_link": "../../artifacts/orin/20261024-08/boundaries-001/summary.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "All five-model process memory envelopes",
+    "original_link": "../../artifacts/orin/20261024-07/resources-001/summary.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Actual second-mode permission boundary",
+    "original_link": "../../artifacts/orin/20261024-06/power-mode-assessment-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Goal status",
+    "original_link": "../edgefm_orin_goal_status.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Source qualification",
+    "original_link": "orin_smolvla_trt_source_qualification_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT final data/window/restoration audit",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT full model-data audit and all timing rows",
+    "original_link": "../../artifacts/orin/20261022-01/final-audit-001/model-data-audit.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT pooled/per-process CDF receipt",
+    "original_link": "../../artifacts/orin/20261022-01/formal-cdf-001/plot-receipt.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Soak, memory and power",
+    "original_link": "orin_smolvla_soak_memory_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT source recovery and export",
+    "original_link": "orin_rdt_source_exports_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT solver and conditions pilot",
+    "original_link": "orin_rdt_bfloat16_solver_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT vision and T5 checkpoint",
+    "original_link": "orin_rdt_vision_t5_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT complete text and contracts",
+    "original_link": "orin_rdt_text_chain_contracts_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT complete raw-input pilot and formal protocol",
+    "original_link": "orin_rdt_native_raw_e2e_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Operator preparation and target boundaries",
+    "original_link": "orin_operator_ablation_preparation_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Attention target pair, CDF and rejected short-count attempt",
+    "original_link": "orin_operator_attention_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "GEMM target pair and boundary-specific negative result",
+    "original_link": "orin_operator_gemm_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "State configured-policy pair and retained precision limitation",
+    "original_link": "orin_operator_state_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "LayerNorm full-model pilot and native-unit MSE limitation",
+    "original_link": "orin_operator_layernorm_integration_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT resource observation and coverage limits",
+    "original_link": "orin_rdt_resource_observation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "RDT safety interruption and bounded retained checks",
+    "original_link": "orin_rdt_safety_interruption_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_claim_gap_20261021.md",
+    "label": "Authorized RDT service window, fresh pilot and new independent formal campaign",
+    "original_link": "orin_rdt_resource_requalification_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_core_acceptance_20261024.md",
+    "label": "Scope and post-cleanup data verification",
+    "original_link": "orin_storage_retention_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_core_acceptance_20261024.md",
+    "label": "actual active objective",
+    "original_link": "../../artifacts/orin/20261024-08/active-goal-objective.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_core_acceptance_20261024.md",
+    "label": "Main/quality/percentile tables",
+    "original_link": "../../artifacts/orin/20261024-07/tables-001/tables.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_core_acceptance_20261024.md",
+    "label": "post-publication audit",
+    "original_link": "../../artifacts/orin/20261024-08/core-requirement-audit-002.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_core_acceptance_20261024.md",
+    "label": "data-only review003",
+    "original_link": "../../artifacts/orin/20261024-08/core-requirement-audit-003.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_core_acceptance_20261024.md",
+    "label": "actual clock sources and scope",
+    "original_link": "../../artifacts/orin/20261024-08/boundaries-001/summary.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_core_acceptance_20261024.md",
+    "label": "post-publication verification receipt",
+    "original_link": "../../artifacts/orin/20261024-08/publication-verification-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "Frozen original inputs/new policy",
+    "original_link": "../../artifacts/orin/20261024-06/plan-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "Build capture",
+    "original_link": "../../artifacts/orin/20261024-06/target-build-001/build-capture-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "Full quality audit",
+    "original_link": "../../artifacts/orin/20261024-06/quality-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "Target closure",
+    "original_link": "../../artifacts/orin/20261024-06/quality-target-closure-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "27checks",
+    "original_link": "../../artifacts/orin/20261024-06/quality-regression-tests-001.xml",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "Full timing audit",
+    "original_link": "../../artifacts/orin/20261024-06/formal-timing-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "Order/guard/negative-pair audit",
+    "original_link": "../../artifacts/orin/20261024-06/formal-protocol-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "Final target closure",
+    "original_link": "../../artifacts/orin/20261024-06/timing-target-closure-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_embedding_rope_float_islands_20261024.md",
+    "label": "33checks",
+    "original_link": "../../artifacts/orin/20261024-06/timing-regression-tests-001.xml",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_integration_requirement_reconciliation_20261024.md",
+    "label": "Reconciliation",
+    "original_link": "../../artifacts/orin/20261024-02/integration-reconciliation-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_integration_requirement_reconciliation_20261024.md",
+    "label": "nine checks",
+    "original_link": "../../artifacts/orin/20261024-02/reconciliation-tests-002.xml",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "the target follow-up",
+    "original_link": "orin_embedding_rope_target_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "native cases",
+    "original_link": "orin_embedding_rope_native_preparation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "typed auditor",
+    "original_link": "orin_typed_operator_audit_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "Operator",
+    "original_link": "orin_operator_layernorm_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "integration",
+    "original_link": "orin_operator_layernorm_integration_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "Operator",
+    "original_link": "orin_operator_gemm_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "Operator quality, timing, CDF and rejected attempt",
+    "original_link": "orin_operator_attention_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "Configured-policy comparison and negative results",
+    "original_link": "orin_operator_state_pair_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "original precision-unqualified target result",
+    "original_link": "orin_embedding_rope_target_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "historical source preparation",
+    "original_link": "orin_operator_ablation_preparation_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_ablation_results_20261022.md",
+    "label": "structured source",
+    "original_link": "../edgefm_orin_task_board_state.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "source preparation",
+    "original_link": "orin_attention_integration_preparation_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "Failed candidate and target closure",
+    "original_link": "../../artifacts/orin/20261023-105/failed-integration-closure-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "Actual source/build audit",
+    "original_link": "../../artifacts/orin/20261023-105/build-source-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "Complete34output-pair audit",
+    "original_link": "../../artifacts/orin/20261023-105/pair-generated-001/quality-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "Explicit normalized-primary rejection",
+    "original_link": "../../artifacts/orin/20261023-105/pair-generated-001/primary-acceptance-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "Unchanged-source control proof",
+    "original_link": "../../artifacts/orin/20261023-105/reused-source-control-audit-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "Candidate vs control full actions",
+    "original_link": "../../artifacts/orin/20261023-105/rebuild-control-actions-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "Control vs adopted baseline",
+    "original_link": "../../artifacts/orin/20261023-105/rebuild-vs-original-actions-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_operator_attention_integration_20261024.md",
+    "label": "45regressions",
+    "original_link": "../../artifacts/orin/20261023-105/elision-pair-regression-003.xml",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_rdt_formal_e2e_20261023.md",
+    "label": "managed runbook",
+    "original_link": "orin_managed_campaign_audit_20261022.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "Independent31-item acceptance",
+    "original_link": "../../artifacts/orin/20261025-21/selected-goal-review-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "original 31-item Goal",
+    "original_link": "../../artifacts/orin/20261024-08/active-goal-objective.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "explicit selected-model amendment",
+    "original_link": "../../artifacts/orin/20261025-20/user-scope-amendment-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "retained-data review",
+    "original_link": "../../artifacts/orin/20261024-08/core-requirement-audit-003.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "deleted with permission",
+    "original_link": "orin_storage_retention_20261024.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "original full tables",
+    "original_link": "../../artifacts/orin/20261024-07/tables-001/tables.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "actual target closure",
+    "original_link": "../../artifacts/orin/20261025-21/final-export-006-retry-001/target-closure.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "recorded separately",
+    "original_link": "../../artifacts/orin/20261025-21/terminal-archive-repair-001.json",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_selected_goal_acceptance_20261026.md",
+    "label": "managed-run history",
+    "original_link": "orin_qwen_managed_sampling_20261026.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_smolvla_formal_e2e_20261021.md",
+    "label": "35-minute soak and resource follow-up",
+    "original_link": "orin_smolvla_soak_memory_20261021.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_smolvla_trt_execution_modes_20261020.md",
+    "label": "original complete pilot",
+    "original_link": "orin_smolvla_trt_native_pilot_20261020.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  },
+  {
+    "report": "doc/reports/orin_smolvla_trt_execution_modes_20261020.md",
+    "label": "original-observation E2E pilot",
+    "original_link": "orin_smolvla_native_raw_e2e_20261020.md",
+    "reason": "historical detail or runtime payload outside curated data-only handoff"
+  }
+]

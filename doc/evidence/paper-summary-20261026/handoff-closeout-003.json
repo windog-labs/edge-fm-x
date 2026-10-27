@@ -1,0 +1,40 @@
+{
+  "schema": "edgefm.address_free_paper_handoff/1",
+  "status": "self-contained-no-machine-or-connection-references",
+  "checked_host_utc": "2026-10-26T02:06:44.669972+00:00",
+  "source": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/paper-summary-20261026/sanitize_handoff.py",
+    "bytes": 8022,
+    "sha256": "c98cbe00a88e56a9d8814d641c0c661351e5fdba7cd9ddae9e220a6f35dd030e"
+  },
+  "folder": "/home/zhangzimo/Repos/private/edge-fm-x/paper_handoff/edgefm_three_platform_20261026",
+  "archive": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/paper_handoff/edgefm_three_platform_20261026.zip",
+    "bytes": 11739409,
+    "sha256": "8d70859f0d11efbf221f61b352398939c7f4dfdc857d9c45122d37815c2a1740"
+  },
+  "prior_manifest": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/paper_handoff/edgefm_three_platform_20261026/MANIFEST.json",
+    "bytes": 211183,
+    "sha256": "0b65f9dd7a3cf78e909c16d95abbc646c723e509fb9a7c555bdeb465bc09d72b"
+  },
+  "manifest": {
+    "path": "/home/zhangzimo/Repos/private/edge-fm-x/paper_handoff/edgefm_three_platform_20261026/MANIFEST.json",
+    "bytes": 211183,
+    "sha256": "103b4277ac10dfe68cade3c852a4edcdf439ea9b1d02bae315431cac08f59b65"
+  },
+  "changed_files": [],
+  "validation": {
+    "status": "portable-paper-package-verified",
+    "files": 272,
+    "local_markdown_links": 282,
+    "bytes": 75275893,
+    "original_workspace_required": false,
+    "model_inference": false,
+    "numerical_experiment_rerun": false
+  },
+  "numeric_data_preserved": true,
+  "zip_extracted_and_verified_outside_source_workspace": true,
+  "local_NAS_SSH_dependencies": false,
+  "original_experiment_files_modified": false
+}

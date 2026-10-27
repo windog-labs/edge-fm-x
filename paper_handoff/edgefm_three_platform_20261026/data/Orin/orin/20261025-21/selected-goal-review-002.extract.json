@@ -1,0 +1,251 @@
+{
+  "schema": "edgefm.paper_handoff_audit_extract/1",
+  "original_full_audit_included": false,
+  "source": {
+    "path": "PROVENANCE_8faf5a5f69f119c2",
+    "bytes": 3795202,
+    "sha256": "08b64bd713b50f7a3243b217c0494e81e5decb5ad3d33e821d26f50aed6dd6bb"
+  },
+  "original_paths_are_provenance_not_package_dependencies": true,
+  "selected_fields": {
+    "schema": "edgefm.selected_goal_requirement_review/1",
+    "status": "selected-scope-deliverables-reviewed-complete-with-explicit-limits",
+    "whole_goal_complete": true,
+    "requirements_reviewed": 31,
+    "optional_pending_items": 0,
+    "selected_scope_deliverables_complete": true,
+    "Qwen_2B_user_cancelled": true,
+    "all_manuscript_claims_proven": false,
+    "facts_checked": {
+      "five_models_accepted": true,
+      "formal_configurations": 12,
+      "independent_processes": 60,
+      "raw_requests": 69120,
+      "measured_requests": 61440,
+      "CDF_files_rehashed": 18,
+      "boundary_distributions": 36,
+      "resource_samples": 78667,
+      "operator_families": 6,
+      "representative_integration_complete_with_negative_gain": true,
+      "private_GPU_peak_resolved": false,
+      "covered_steady_ModelRuns": 1024,
+      "measured_continuous_model_work_seconds": 2022.466140544,
+      "second_mode_permission_limit_recorded": true,
+      "new_inference_performed_by_audit": false
+    },
+    "resource_coverage": {
+      "first_process_init_unobserved": true,
+      "initial_gap": "sidecar attached after first process began",
+      "VmHWM": "kernel lifetime high-water at read time; not limited to sidecar coverage",
+      "final_second_peak_guaranteed": false,
+      "private_gpu_peak_measured": false,
+      "zero_allocation_proven": false,
+      "formal_acceptance": false,
+      "accounting": "system meminfo and process RSS separate; never add GPU shared physical memory",
+      "scope": "bounded observed envelopes; observer prefixes only; one complete model cohort",
+      "row_timestamp_scope": "sidecar cycle end, not exact native exit time",
+      "request_aligned_steady_state": false,
+      "power_watts_verified": false,
+      "CPU_GPU_shared_memory_added": false,
+      "observer_restart_count": 3,
+      "model_restart_performed": false,
+      "partial_model_cohorts_merged": false,
+      "continuous_1Hz_coverage_claimed": false,
+      "missing_rows_imputed": false,
+      "unobserved_RSS_peaks_known": false,
+      "gaps": [
+        {
+          "previous_root": "PROVENANCE_6083fb0e5a158c16",
+          "next_root": "PROVENANCE_5ec288401de02650",
+          "after_last_valid_row_ns": 437843989523328,
+          "before_first_valid_row_ns": 438418380799808,
+          "observation_gap_ns": 574391276480,
+          "observer_downtime_ns": 573388241280,
+          "RSS_during_gap": "unknown; no rows or zero values inferred"
+        },
+        {
+          "previous_root": "PROVENANCE_5ec288401de02650",
+          "next_root": "PROVENANCE_4b612b58829d2677",
+          "after_last_valid_row_ns": 443500381069760,
+          "before_first_valid_row_ns": 443817798708576,
+          "observation_gap_ns": 317417638816,
+          "observer_downtime_ns": 316413092256,
+          "RSS_during_gap": "unknown; no rows or zero values inferred"
+        },
+        {
+          "previous_root": "PROVENANCE_4b612b58829d2677",
+          "next_root": "PROVENANCE_cf6bb3422218211a",
+          "after_last_valid_row_ns": 451032798724064,
+          "before_first_valid_row_ns": 451195988747808,
+          "observation_gap_ns": 163190023744,
+          "observer_downtime_ns": 162185338400,
+          "RSS_during_gap": "unknown; no rows or zero values inferred"
+        }
+      ]
+    },
+    "source_equivalence_claimed": false,
+    "requirements": [
+      {
+        "id": "route.1",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Native target path/DSO/source evidence, default Torch absent; no PyTorch target baseline. Host export/reference assets remain distinct."
+      },
+      {
+        "id": "route.2",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Actual target TRT builds and complete native Sessions, not cross-platform engines or action-only timing."
+      },
+      {
+        "id": "route.3",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Smokes remain scoped components; later complete cohorts supply acceptance. Cancelled target Torch build is not resumed."
+      },
+      {
+        "id": "route.4",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Same-Orin matched-profile conventional/optimized ratios only; H20 errors separate, no PyTorch/Edge-LLM substitution."
+      },
+      {
+        "id": "route.5",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Actual006 target/SDK/owned-unit closure and original-manager restoration verified; authorized selected program PID changes remain changes, not unchanged-service claims."
+      },
+      {
+        "id": "D0.1",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Claims are mapped to evidence and explicit unsupported assertions; original PDF is unchanged."
+      },
+      {
+        "id": "D0.2",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Five models remain; CogACT actual public-dependency ~7.63B label retained, not nominal3B."
+      },
+      {
+        "id": "D0.3",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Cohort/source/checkpoint/profile/raw/noise/state contracts retain original frozen identities; a seed is not used as an actual-noise substitute."
+      },
+      {
+        "id": "D0.4",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Real build/import/failure history retained; build-only records are not full-model acceptance."
+      },
+      {
+        "id": "D1.1",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Target model integration/acceptance proceeds through five separate cohorts. Permitted host preparation is parallel, target compute serial."
+      },
+      {
+        "id": "D1.2",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Fresh complete vision/language and all solver iterations; finite observation cycles are not cached encoder features."
+      },
+      {
+        "id": "D1.3",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Declared FP16/mixed source-preserving profiles and explicit high-precision islands; standalone FLOAT microcases are not whole-model FP32fallback/quantization search."
+      },
+      {
+        "id": "D1.4",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Actual checked casts/source graph/plugin lineage and full actions; original scheduler/horizon/noise remain."
+      },
+      {
+        "id": "D1.5",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Adapter/typed IR/Plan/native Session path and explicit profile declarations; model names are data labels, not public runtime branches."
+      },
+      {
+        "id": "D2.1",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Same inputs/weights/noise/profile comparison and original host-source error evidence remain separate; same-Orin exactness is not official-BF16 equivalence."
+      },
+      {
+        "id": "D2.2",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Complete finite typed outputs/hash/shape stored in underlying audits. Byte-exact complete numeric arrays imply zero MSE/RMSE/max/mean-abs in every retained dimension; all recorded samples tie at zero error. No new raw tensor re-read is claimed. Integer auxiliary ports have no floating metrics."
+      },
+      {
+        "id": "D2.3",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Unchanged launch-fixed normalized MSE<1e-5/cos>.9999 primary gate; native/H20 supplemental per confirmed policy. Failed candidates remain failures, no robot/mathematical-losslessness claim."
+      },
+      {
+        "id": "D3.1",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Identical-resource runtime comparisons; graph integration has explicit engine differences. Arena-only modes are not replay."
+      },
+      {
+        "id": "D3.2",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Batch1 decoded CPU observations to full consumable CPU chunks with actual GPU completion, including online processing/copies/all neural iterations/finishing."
+      },
+      {
+        "id": "D3.3",
+        "verdict": "verified-with-explicit-scope",
+        "review": "All69120same-request timestamp partitions telescope; raw E2E unchanged, host-ready contiguous subinterval and resident-IO Session completion separately reported. Not independent re-runs, GPU-only time, or sums of stage means."
+      },
+      {
+        "id": "D3.4",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Every configuration has5independent processes x128warmup+1024measured with frozen pilots/protocols; no shortened/partial cohorts merged."
+      },
+      {
+        "id": "D3.5",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Full latency/throughput/tails/raw/CDF artifacts and finite16observation disclosure retained; all18original CDF files rehashed."
+      },
+      {
+        "id": "D4.1",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Six real signature families, complete quality and paired target timing with numerical/methodology limits. State configured-policy and different event/warmup implementations remain explicit; no universal hotspot ranking."
+      },
+      {
+        "id": "D4.2",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Fixed candidate budgets, real selected build costs and historical failures retained. Qualified full Norm integration remeasured complete actions/E2E; negative gain does not add a positive-gain completion prerequisite. Unknown reasoning/global historical search cost is not zero."
+      },
+      {
+        "id": "D4.3",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Representative ordinary/shared/replay counters, reset/isolation/12paired Session cycles and process high-water/1024steady covered API observations checked. Original Goal requires these measurements, not a universal zero-allocation/private-driver attribution proof. Private GPU/SDK peaks remain unknown and stronger claims unsupported."
+      },
+      {
+        "id": "D4.4",
+        "verdict": "verified-with-explicit-scope",
+        "review": "All recorded resource identities/time series retained, >30minutes measured continuous model work and matched representative power. Unknown/invalid sensors are not zero; shared CPU/GPU physical memory is not summed."
+      },
+      {
+        "id": "D4.5",
+        "verdict": "verified-with-explicit-scope",
+        "review": "After five main-mode models, actual MAXN/config/UID permissions assessed. Second-mode switching unavailable through the validated route; no switch/result or MAXN=60W claim. Concrete limitation is the Goal's explicit allowed outcome."
+      },
+      {
+        "id": "D5.1",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Complete same-Orin native0.8B vision/prefill/15decode and explicit state/reset quality verified.2B is user-cancelled, not tested, passed, or unsupported. H20/source evidence remains supplemental with its negative comparisons."
+      },
+      {
+        "id": "D5.2",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Complete10processes/5pairs,11520requests/10240measured,5120per-policy TTFT/full16/tokens/s and full CDF tails verified. RSS has 4 observer segments: all preceding errors retained, final observer native-memory-20261025-21-006 naturally terminal; gaps unknown, no continuous1Hz or imputation claim."
+      },
+      {
+        "id": "D5.3",
+        "verdict": "verified-with-explicit-scope",
+        "review": "Final31-item report, actual006 data/performance/resources/closure, full CDF artifacts and visual observation are pinned with retained core publication. Retired VLA model/engine paths remain historical; no fresh inference or full retired-payload rehash is claimed."
+      },
+      {
+        "id": "D5.4",
+        "verdict": "verified-with-explicit-scope",
+        "review": "All11recorded model-worker/native births and final observer are closed, with independent current original-manager service restoration. Historical failures and observer gaps remain recorded; no partial model cohorts were merged."
+      }
+    ]
+  },
+  "not_a_new_experiment_or_independent_audit": true,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

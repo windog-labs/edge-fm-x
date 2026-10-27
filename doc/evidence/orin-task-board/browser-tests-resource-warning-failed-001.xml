@@ -1,0 +1,62 @@
+<testsuites id="" name="" tests="7" failures="1" skipped="0" errors="0" time="8.897217000000001">
+<testsuite name="dashboard.spec.mjs" timestamp="2026-10-21T19:33:01.885Z" hostname="" tests="7" failures="1" skipped="0" time="7.88" errors="0">
+<testcase name="board, search, filters, detail and list workflow" classname="dashboard.spec.mjs" time="5.471">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../../tools/orin-task-board/test-results/dashboard-board-search-filters-detail-and-list-workflow/error-context.md]]
+
+[[ATTACHMENT|../../tools/orin-task-board/test-results/dashboard-board-search-filters-detail-and-list-workflow/trace.zip]]
+]]>
+</system-out>
+<failure message="expect(locator).toHaveCount(expected) failed" type="expect.toHaveCount">
+<![CDATA[  dashboard.spec.mjs:9:1 › board, search, filters, detail and list workflow ────────────────────────
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.task-card')
+    Expected: 3
+    Received: 4
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" locator('.task-card') with timeout 5000ms
+      - waiting for locator('.task-card')
+        14 × locator resolved to 4 elements
+           - unexpected value "4"
+
+
+      18 |   await expect(page.locator('dialog')).not.toBeVisible();
+      19 |   await page.getByRole('searchbox').fill('RDT');
+    > 20 |   await expect(page.locator('.task-card')).toHaveCount(3);
+         |                                            ^
+      21 |   await page.getByRole('searchbox').fill('不存在的任务');
+      22 |   await expect(page.locator('.task-card')).toHaveCount(0);
+      23 |   await page.getByRole('searchbox').fill('');
+        at /home/zhangzimo/.codex/worktrees/f801/edge-fm-x/tools/orin-task-board/test/browser/dashboard.spec.mjs:20:44
+
+    Error Context: ../../test-results/dashboard-board-search-filters-detail-and-list-workflow/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../test-results/dashboard-board-search-filters-detail-and-list-workflow/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../test-results/dashboard-board-search-filters-detail-and-list-workflow/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+</testcase>
+<testcase name="matrix and evidence preserve formal/pilot distinctions and actual images" classname="dashboard.spec.mjs" time="0.485">
+</testcase>
+<testcase name="refresh uses new local state while retaining the selected task view" classname="dashboard.spec.mjs" time="0.283">
+</testcase>
+<testcase name="desktop: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.427">
+</testcase>
+<testcase name="tablet: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.406">
+</testcase>
+<testcase name="mobile: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.411">
+</testcase>
+<testcase name="small-mobile: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.397">
+</testcase>
+</testsuite>
+</testsuites>

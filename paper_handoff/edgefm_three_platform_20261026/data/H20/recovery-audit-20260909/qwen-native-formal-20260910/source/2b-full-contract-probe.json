@@ -1,0 +1,172 @@
+{
+  "schema": "vlaforge.native_session_contract_probe/1",
+  "status": "passed",
+  "scope": "host-side generated C ABI rejection probe; not deployment timing or no-Python evidence",
+  "bundle": "PROVENANCE_f3a7230aed589624",
+  "bundle_manifest_sha256": "a77b424461d504b4c09082685003e42e3dfeadb344d4508b713ff7ce20518d5b",
+  "library": "PROVENANCE_f4407457f6e59996",
+  "library_sha256": "02fa99b9740ca2d03bdd808c565f2198b885a0a6f73e8750d39e95c79cb2989d",
+  "input_schema_sha256": "a125bae27c64cc12296407c116ff78f2be7a37f372ea1d782d3e2fa9ca170b29",
+  "output_schema_sha256": "b8adc57d0e8aad5116ff2a6e99b9ec5e2732ea5a239d91a4679ef5e4672271be",
+  "supported_profile": {
+    "inputs": [
+      {
+        "name": "input_ids",
+        "dtype": "i64",
+        "shape": [
+          1,
+          327
+        ],
+        "device": "cuda:0"
+      },
+      {
+        "name": "attention_mask",
+        "dtype": "i64",
+        "shape": [
+          1,
+          327
+        ],
+        "device": "cuda:0"
+      },
+      {
+        "name": "pixel_values",
+        "dtype": "f32",
+        "shape": [
+          1200,
+          1536
+        ],
+        "device": "cuda:0"
+      },
+      {
+        "name": "accepted",
+        "dtype": "bool",
+        "shape": [
+          1
+        ],
+        "device": "cuda:0"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "tokens",
+        "dtype": "i64",
+        "shape": [
+          1,
+          16
+        ],
+        "device": "cuda:0"
+      },
+      {
+        "name": "logits",
+        "dtype": "bf16",
+        "shape": [
+          1,
+          1,
+          248320
+        ],
+        "device": "cuda:0"
+      }
+    ]
+  },
+  "baseline_outputs_sha256": {
+    "tokens": "31e908f021c462272def8f45e798528ffaf0f0cd608a0b02c0d620ff830671e9",
+    "logits": "2a5cc61a7057a3f89cd967ff5b3eda510f7a1edf53117f1e3069b4a0bb3cb14c"
+  },
+  "shape_rejections": [
+    {
+      "input": "input_ids",
+      "shape": [
+        2,
+        327
+      ],
+      "size_bytes": 2616,
+      "rejected": true,
+      "code": 1,
+      "message": "tensor input contract mismatch"
+    },
+    {
+      "input": "input_ids",
+      "shape": [
+        1,
+        326
+      ],
+      "size_bytes": 2616,
+      "rejected": true,
+      "code": 1,
+      "message": "tensor input contract mismatch"
+    },
+    {
+      "input": "attention_mask",
+      "shape": [
+        2,
+        327
+      ],
+      "size_bytes": 2616,
+      "rejected": true,
+      "code": 1,
+      "message": "tensor input contract mismatch"
+    },
+    {
+      "input": "attention_mask",
+      "shape": [
+        1,
+        326
+      ],
+      "size_bytes": 2616,
+      "rejected": true,
+      "code": 1,
+      "message": "tensor input contract mismatch"
+    },
+    {
+      "input": "pixel_values",
+      "shape": [
+        1201,
+        1536
+      ],
+      "size_bytes": 7372800,
+      "rejected": true,
+      "code": 1,
+      "message": "tensor input contract mismatch"
+    },
+    {
+      "input": "pixel_values",
+      "shape": [
+        1200,
+        1535
+      ],
+      "size_bytes": 7372800,
+      "rejected": true,
+      "code": 1,
+      "message": "tensor input contract mismatch"
+    },
+    {
+      "input": "accepted",
+      "shape": [
+        2
+      ],
+      "size_bytes": 1,
+      "rejected": true,
+      "code": 1,
+      "message": "tensor input contract mismatch"
+    }
+  ],
+  "accepted_false_rejection": {
+    "rejected": true,
+    "code": 7,
+    "message": "output validation failed"
+  },
+  "committed_outputs_after_rejection": {
+    "tokens": "31e908f021c462272def8f45e798528ffaf0f0cd608a0b02c0d620ff830671e9",
+    "logits": "2a5cc61a7057a3f89cd967ff5b3eda510f7a1edf53117f1e3069b4a0bb3cb14c"
+  },
+  "final_outputs_sha256": {
+    "tokens": "31e908f021c462272def8f45e798528ffaf0f0cd608a0b02c0d620ff830671e9",
+    "logits": "2a5cc61a7057a3f89cd967ff5b3eda510f7a1edf53117f1e3069b4a0bb3cb14c"
+  },
+  "valid_outputs_unchanged_after_rejection": true,
+  "_paper_handoff_metadata": {
+    "machine_and_connection_strings_sanitized": true,
+    "original_byte_exact_audit_copy": false,
+    "numeric_values_unchanged": true
+  }
+}

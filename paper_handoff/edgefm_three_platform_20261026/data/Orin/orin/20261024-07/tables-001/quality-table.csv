@@ -1,0 +1,6 @@
+model,formal_acceptance,complete_tensors_previously_verified,numeric_tensors_previously_verified,exact_auxiliary_tensors_previously_verified,normalized_mse,normalized_cosine,native_mse_supplemental,evidence
+SmolVLA,True,34560,34560,0,0,1,0,previous hash-bound full-output audit; only latency CSV is recalculated here
+RDT-1B,True,34560,34560,0,0,1,0,previous hash-bound full-output audit; only latency CSV is recalculated here
+pi0,True,23040,23040,0,0,1,0,previous hash-bound full-output audit; only latency CSV is recalculated here
+pi0.5,True,23040,23040,0,0,1,0,previous hash-bound full-output audit; only latency CSV is recalculated here
+CogACT (actual ~7.63B public-dependency configuration),True,57600,34560,23040,0,1,0,previous hash-bound full-output audit; only latency CSV is recalculated here

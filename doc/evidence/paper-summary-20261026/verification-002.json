@@ -1,0 +1,562 @@
+{
+  "schema": "edgefm.three_platform_paper_summary_verification/1",
+  "status": "summary-data-links-and-cdf-identities-verified",
+  "checked_host_utc": "2026-10-26T01:35:08.750344+00:00",
+  "document": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/edgefm_h20_j6m_orin_paper_summary_20261026.md",
+    "bytes": 42407,
+    "sha256": "0d648195befae690f671635b52bed086d2dab3cf15f829b2629541a213b32d6c"
+  },
+  "source": {
+    "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/paper-summary-20261026/verify_summary.py",
+    "bytes": 12647,
+    "sha256": "a86ed14c6659c5e596113c660e7159f9cb72f0eb835b8cf45590256d33a779f5"
+  },
+  "checked_numeric_table_rows": 52,
+  "local_links_checked": 109,
+  "distinct_local_links": 83,
+  "self_output_created_after_checks": [],
+  "source_pins": [
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-feasibility-20260911/summary-001/operator-support-matrix.json",
+      "bytes": 15501,
+      "sha256": "1d848937934bb87a76123eb9355ab5d82749e6192b76f0afe0de8e7f5cad8198"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/evidence-index-final.md",
+      "bytes": 3979,
+      "sha256": "8485dd0a4cbc5cc61866135eb3edf1957ced9560bc6d79351b2be602f99b31b8"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-finish-crop-cdf/latency-cdf.pdf",
+      "bytes": 16820,
+      "sha256": "fbb48f3b5ea70c13a560f3e421ba42295e1bff5cc0ba56db864690bf20718aa1"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-finish-crop-cdf/latency-cdf.png",
+      "bytes": 43978,
+      "sha256": "645612ee5359fb02b54fb2f73bc49b6d6792a8f6bf5c250a06dbf51581cb6ef6"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-finish-summary/report.json",
+      "bytes": 2746,
+      "sha256": "2c88a64046f9bc61349aaeb79d0f47ee44192e7c24430888ace71304c92f1933"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-finish-summary/stage-performance.csv",
+      "bytes": 242,
+      "sha256": "bc3ade22506804ebd259e14980fcb2cf3dc2b7637e3698fa512bc9a56de9464c"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-prefix-v2-v5-cdf/latency-cdf.pdf",
+      "bytes": 17149,
+      "sha256": "f9acf17a12a753f38d2eb67493f34359a19299f623e3c90c9841ca9c86e660b4"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-prefix-v2-v5-cdf/latency-cdf.png",
+      "bytes": 54538,
+      "sha256": "61adfbf295e9f8fb70ba7a739be38713c3b3e4a00bb992879972bdcb1b8756bc"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-stage-summary/report.json",
+      "bytes": 7418,
+      "sha256": "ddfc1ea2458ebce59f99ddd5ae2671e52600f0931f5aa2035722995630ada439"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-stage-summary/stage-performance.csv",
+      "bytes": 477,
+      "sha256": "ca3a5a9da8700112f0968e1fef3d5fa8034bbc9b7f1cb9c5fb01ae887e073aa5"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-step-060-cdf/latency-cdf.pdf",
+      "bytes": 30161,
+      "sha256": "f99872dc3063efd005ee53f0e0abcaf2355b04cda4a8690b59d292844769758f"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/final-step-060-cdf/latency-cdf.png",
+      "bytes": 51030,
+      "sha256": "2513240129163500a5b66b02e20989fec40c3e9bf439cfe18bf1d6cdd54f8230"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/finish-smoke-output-check.json",
+      "bytes": 1956,
+      "sha256": "a0bb193924dc40d84b9fecf2ddf1153520e1267b99ed4167e8444b81673d8e33"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/prefix-v5-output-check.json",
+      "bytes": 20595,
+      "sha256": "4982333dd9f13fe0dbf75663986aa6baabbec57437c76354dc403f878518588a"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/reused-operator-audit.json",
+      "bytes": 8714,
+      "sha256": "bfea6336a71158eee5e13dc6c34afca4b6c57a9fda5002771a95a9e328ce906e"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/j6m-performance-20260914/step-output-check.json",
+      "bytes": 2485,
+      "sha256": "e7fd12ea7a4ba12a4bcbef7ef6a84751616ca7cb809ec59d61a5937b9c6220d1"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261021-00/smolvla-raw-formal-001/audit-output/smolvla-e2e-cdf.pdf",
+      "bytes": 46991,
+      "sha256": "7b7c1a10676094804c50b959ca6e095b159503dd18af4667c15186024713a0af"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261021-00/smolvla-raw-formal-001/audit-output/smolvla-e2e-cdf.png",
+      "bytes": 67865,
+      "sha256": "fb3926a76a59d0347c5c1a880402911c217415ba1fd9604d841cebe29f219b73"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-00/operator-attention-pair-001/paired-timing-audit-002/timing-audit.json",
+      "bytes": 47133,
+      "sha256": "c3480e35451e0a46197fd59d6d1a0d7365a8233c03e4f826bcfdfecfa3924f20"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-00/operator-layernorm-pair-001/paired-timing-audit-001/timing-audit.json",
+      "bytes": 42653,
+      "sha256": "c28452d66f6e806ab637f07773527e8f29f9d753209e7715868f28bd6bb92212"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-00/operator-matmul-pair-001/paired-timing-audit-002/timing-audit.json",
+      "bytes": 42607,
+      "sha256": "8292119f811676020162d5e7cb183cb633282f3cf3ec8c6a78ffa226068d2aa1"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-00/operator-state-pair-001/paired-timing-audit-001/timing-audit.json",
+      "bytes": 42664,
+      "sha256": "2f033629f16b78982678939cadc301cbabea4746a8a1fce4a241381ae4643097"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-01/formal-cdf-001/e2e-cdf-processes.pdf",
+      "bytes": 79766,
+      "sha256": "d4109e21ed31d0bbb20753aa2f7c4a2627b4afc032ce3544f90468c776a7a826"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-01/formal-cdf-001/e2e-cdf-processes.png",
+      "bytes": 158723,
+      "sha256": "2d8bcb7ab41b530d2e700187b2b4f7a73cb6b1d8ceede096afcaf5017ce14bcf"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-01/formal-cdf-001/e2e-cdf.pdf",
+      "bytes": 63288,
+      "sha256": "f692d38650b8b1c93f462e5265ebe0a6a105d6a7e465e697c42201a31778bd98"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261022-01/formal-cdf-001/e2e-cdf.png",
+      "bytes": 88943,
+      "sha256": "a9aa4923fe8fb2dc5afd3746e3a5cefdc8c0e3947ec5ce55c86d93301000dbac"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-25/audit-001.json",
+      "bytes": 167780,
+      "sha256": "714e6a185aa5c276979fbe51c103e4dab2f959957f2821489133bd144b28de86"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-42/publication-curves-001/cdf-pooled.pdf",
+      "bytes": 69387,
+      "sha256": "25b04171083d62f86bedf2a6d5b04001dde04d86f59b73306c30ae4ea5b82180"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-42/publication-curves-001/cdf-pooled.png",
+      "bytes": 36672,
+      "sha256": "72a392aaf0180edecb50f02930c50ef5a868e22bae19e55c0a306c9c17e6c11d"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-42/publication-curves-001/cdf-processes.pdf",
+      "bytes": 159052,
+      "sha256": "12f7ae3a4b4bdea6b8baac4b7cfc7e6677ea9967d00e8aeb584547a4f9c82df4"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-42/publication-curves-001/cdf-processes.png",
+      "bytes": 66126,
+      "sha256": "8f5d9f1246d04eb483becf9f1c9d805633d73d222ab8af068dfbbbb924affcf0"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-58/final-001/publication-curves-001/cdf-pooled.pdf",
+      "bytes": 64477,
+      "sha256": "93587d99ee6703af84b82b340b08e32cb74ada63fa754fb261af22b33a6b0448"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-58/final-001/publication-curves-001/cdf-pooled.png",
+      "bytes": 34026,
+      "sha256": "eb7c14cd5e158b7b70a7f51ad072aef8b7f8c36ad2bec1b6a0c4911e2e72793c"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-58/final-001/publication-curves-001/cdf-processes.pdf",
+      "bytes": 154526,
+      "sha256": "59ebd44c804176f2949956788fa4b67b7bf4caf63eb6d59a7b1abe979a7cf059"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261023-58/final-001/publication-curves-001/cdf-processes.png",
+      "bytes": 62898,
+      "sha256": "59810862fdcb5aee78f37cd8a167eb5ec7c379501a584da7235bbfc5f8248f88"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-05/publication-curves-001/cdf-pooled.pdf",
+      "bytes": 61788,
+      "sha256": "b9e47991b2e89b30095dbc7e1bff41779e91a395e0ee7702c0f77b663783ba15"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-05/publication-curves-001/cdf-pooled.png",
+      "bytes": 34065,
+      "sha256": "1f0300212a461fa8bdb8a16fb25e1130f4f0e11557d1c00a2418ae99fa9b3f3a"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-05/publication-curves-001/cdf-processes.pdf",
+      "bytes": 142447,
+      "sha256": "5c258951c7b99c54b019712ec8dc7530ec32045d96526ad08621ab02a1aa1710"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-05/publication-curves-001/cdf-processes.png",
+      "bytes": 63424,
+      "sha256": "390f2c5c19acd5562c46ae38b2d664251393d625b903198c7d1195b7332c03b5"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-06/formal-timing-audit-001.json",
+      "bytes": 10267,
+      "sha256": "91e6a883d82d35c31097cb389500df4731dfcb559594d8df2bcc60c406f1bfcf"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-06/publication-001/operator-statistics.csv",
+      "bytes": 1186,
+      "sha256": "de1dbc8c49e4f6599e1e4f66b8970a5e509a3e227f3777cc2c0c8edd1c7a389a"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/input-manifest-001.json",
+      "bytes": 28288,
+      "sha256": "0e3bf1ded6bacb75628cf83ddd74c931e26055988153bb09c9547cc10acbc7b3"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/operator-costs-001/summary.json",
+      "bytes": 18124,
+      "sha256": "663827ca6597f845bc2764223337a2cb5a1b950999d583c0e0c6a6957ecf8aa2"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/resources-001/per-process-resources.csv",
+      "bytes": 16753,
+      "sha256": "4c61ceef58c959189b51536ebf10ecf92e876a7a98e61d36edbe8523a34cef87"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/tables-001/main-table.csv",
+      "bytes": 2295,
+      "sha256": "ab05db5dc9f7d1bff5d1110a2fa29c552b0eaa5d570f7b1a913bc56cc7312675"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/tables-001/quality-table.csv",
+      "bytes": 807,
+      "sha256": "205052991f96c2fb0bceb9cc5dc3d04b8a091c10ab07c362cb8915ac6914c035"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261024-07/tables-001/summary.json",
+      "bytes": 18425,
+      "sha256": "e805fd9df74c4f5b7139ec588215dc613aed7d3301e1632f1c353cb528c0a157"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/cdf-visual-review-006.json",
+      "bytes": 1935,
+      "sha256": "f3f556f553d87d8a35eda34d1af0af290b0ebfa19d645e2e1bb2051f6c467e3f"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/data-audit.json",
+      "bytes": 3833319,
+      "sha256": "efa31157ae21784db0c7907ed3427a412ecd1dbf031102f67f728bc487388ceb"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/measurements.md",
+      "bytes": 4695,
+      "sha256": "5757f26659e9f62d6f384a84b9b49330e3d8a189dbbd8e3aa127a07c0816f182"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/full16_cdf/latency-cdf.pdf",
+      "bytes": 42126,
+      "sha256": "1adc29a081d69e5070cbb92e8b75489e11c08cab4260bba09d03aad569578159"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/full16_cdf/latency-cdf.png",
+      "bytes": 53900,
+      "sha256": "14f59740dfb6d093439a0ed783f7f2a5e3284cb3aba64f6fa18a85706037dd34"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/full16_ms-off-cdf.csv",
+      "bytes": 122906,
+      "sha256": "b4e31feac0685eea5de18fb597c89a8f8e21b1176ddc5eb4578aa05ce1e9f707"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/full16_ms-verified-cdf.csv",
+      "bytes": 122906,
+      "sha256": "23b6fb3bfa02113f25ff8370db0e9b816289a5f24c70e554ac7e20b7ca3fafbd"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/raw.csv",
+      "bytes": 1694963,
+      "sha256": "9f0b2687c1bbc7153cb15ba2746b03e2f0cd3b4b357dce6dd3dbbb336d624155"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/summary.json",
+      "bytes": 4007465,
+      "sha256": "c17261c184b47922bd1f6450f690fa85bf1144c009a914351e823ddadfc704ab"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/ttft_cdf/latency-cdf.pdf",
+      "bytes": 41322,
+      "sha256": "7c731d390857418731a38984bc09ba6121055608482ad4d7b6b31282ad1c7f73"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/ttft_cdf/latency-cdf.png",
+      "bytes": 52431,
+      "sha256": "ffac502bba1233d4934b717150160101e6eb168c06546e640e9dd974e97573a7"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/ttft_ms-off-cdf.csv",
+      "bytes": 117786,
+      "sha256": "57dca28bb2afbd4bfd997d54e5941a17485113de18b037fbf043c4fd47c7974a"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/performance/ttft_ms-verified-cdf.csv",
+      "bytes": 117786,
+      "sha256": "4646c21481343c37ba772bd6243b62552ce0792c32a5a35ccfd8ea362e16dc53"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/resources/summary.json",
+      "bytes": 205143000,
+      "sha256": "7c6e3917f209e2fd1a56872beb7b44b316acff06f2eb99cc9d09b4189b79ed8b"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/final-export-006-retry-001/summary.json",
+      "bytes": 1921,
+      "sha256": "2212b8945a20e921da43144ce6cfb9d48e7639f18b293d9e9c5ec66d38f3f6e4"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/orin/20261025-21/selected-goal-review-002.json",
+      "bytes": 3795202,
+      "sha256": "08b64bd713b50f7a3243b217c0494e81e5decb5ad3d33e821d26f50aed6dd6bb"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/paper-summary-20261026/verification-001.json",
+      "bytes": 27645,
+      "sha256": "ba9673ba2a28fdc395dc0b757e26b41c78fb0041282fba5e2e3993a097d4cce2"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/h20-five-summary/cuda-session-table.csv",
+      "bytes": 11267,
+      "sha256": "c3ea57c739e5b910acc4d68c6ac7a0ad69fd043ab226ec9d2561fca03e5852f4"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/host-five-summary/cuda-session-table.csv",
+      "bytes": 11575,
+      "sha256": "df39ba0503a4298bfe4caf4491d678fc2284b625a8f9cb8bdf0553235242ef9b"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/operator-six-summary-002/operator-table.csv",
+      "bytes": 3166,
+      "sha256": "9a256a1636cc437c4c649ae77085ec9d5aff15df22f6419c77685e07756baf57"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/operator-six-summary-002/report.json",
+      "bytes": 10612,
+      "sha256": "039002cdda6214b247f9bd2fdfe301a6ab8c97e9684c2b8af482f2b076f41f11"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/0p8-first/report.json",
+      "bytes": 62061275,
+      "sha256": "7850f8d94467a83af1b132f925ab752453b073f5b3dc6e1f9d4d9dd7dc7ba5ba"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/0p8-full/report.json",
+      "bytes": 62074938,
+      "sha256": "232958a8861d6c7a67298f558bd3761b249745ade7f6d43b235a7b897d3790a6"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/2b-first/report.json",
+      "bytes": 62057022,
+      "sha256": "450a939a03cedcbd64d21f375099ce4ed427d65fa6d4d9935c2674ce1a375b75"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/2b-full/report.json",
+      "bytes": 62074929,
+      "sha256": "5792227ee9d3e3505a0907471651db92909b9b6433412d38dbaeffc87cd1e63e"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/figures-first/latency-cdf.pdf",
+      "bytes": 31447,
+      "sha256": "e92f1240fd5bdec9823315c0f2ef00773bbab5e067a2b0d769a02cd97530902d"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/figures-first/latency-cdf.png",
+      "bytes": 61636,
+      "sha256": "b4d1dc046137e7a7cba008e994e64edd9f75107e1badb4633e511de698c2bbd1"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/figures-full/latency-cdf.pdf",
+      "bytes": 29835,
+      "sha256": "51839e7caef7abccb3b7f923c80307db7e0a86db7ceebe9917f506c19e6abd7b"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-formal-20260910/figures-full/latency-cdf.png",
+      "bytes": 61652,
+      "sha256": "619f78c355210f110ca999808748364092e35b5a84769472d15972ea0db28f70"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/qwen-native-lifecycle-probe-20260910-001/lifecycle-audit.json",
+      "bytes": 5329,
+      "sha256": "6297810f95794daba4306435ccd66682e6bfa6a78b581677b3e914e76c73afd5"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/raw-five-summary-001/complete-output-quality.csv",
+      "bytes": 2461,
+      "sha256": "723f752ecda899537d0fab4bc9af6988f64a1d4fa531231bbc6af061354e64ff"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/raw-five-summary-001/host-pipeline-cdf.pdf",
+      "bytes": 57226,
+      "sha256": "5101cbe062d5d66ec6dcdc2b7885c1299a19697444e52313927dd1bc570b5f16"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/raw-five-summary-001/host-pipeline-cdf.png",
+      "bytes": 215211,
+      "sha256": "4fe5c243c8ab3995bf598dab428036dc7d53b19580759c59502f507a7b67ab66"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/raw-five-summary-001/host-pipeline-table.csv",
+      "bytes": 8288,
+      "sha256": "108e60979891bd7e43b9a93d8eef36b3fd8dbd4bbb22f3cadddefc976ff6af02"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/raw-five-summary-001/report.json",
+      "bytes": 165716,
+      "sha256": "077362fc3ec81e74c8440374c677f525dd1ae6271b5d196e753849b7d2b9856c"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/artifacts/recovery-audit-20260909/raw-five-summary-001/table.md",
+      "bytes": 920,
+      "sha256": "5f58f7b74962ae0a642bea1bf7c26de6647b9440ad83596a95ccda7a21067576"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/ICRA_2027_EdgeFM.pdf",
+      "bytes": 353074,
+      "sha256": "92a3af4618a08c7ea66e62b928c3bb32d326e0445a491eee079ecccf70adf997"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/cogact_timing_boundary_formal_20260910.md",
+      "bytes": 5874,
+      "sha256": "6ead698a7584522fb7829e14a644def884ac35dbe3bce998cbaa6fc6d61691e8"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/edgefm_h20_j6m_orin_paper_summary_20261026.md",
+      "bytes": 42407,
+      "sha256": "0d648195befae690f671635b52bed086d2dab3cf15f829b2629541a213b32d6c"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/edgefm_orin_experiment_delivery.md",
+      "bytes": 50370,
+      "sha256": "70ea0fc78daf7aba721f2faa9570bfcd8455ad07ddac8cfc27922b5ccf2e70ba"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/h20_host_tensor_formal_table_20260909.md",
+      "bytes": 5608,
+      "sha256": "9565b7384b15cfcf4289afaa9a46c6ae8518dec82b2d04cb6872e2548dacda8b"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/h20_operator_table_20260909.md",
+      "bytes": 3764,
+      "sha256": "56d5bb005e4b05e22c8e9ca096c874598439f305b8a12ea3cf5ce274e6dc2aa3"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/h20_paper_scope_review_20260910.md",
+      "bytes": 7847,
+      "sha256": "c0d10d3c44acb9bdc4d0689f0cc7e85fb6ed69acdcfa15041c9ef8b6a10be48b"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/h20_vla_experiment_delivery_20260910.md",
+      "bytes": 15866,
+      "sha256": "a5f3d711dd035f6c250b54e58790b3cc6e28af8b4eb559a49c209836c06372e3"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/h20_vla_formal_table_20260909.md",
+      "bytes": 4737,
+      "sha256": "8ff73073e1743bdb2defd0a2ef5204c35e2a2bf90b32e22904a4263ac82678c5"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_claim_gap_20261021.md",
+      "bytes": 29133,
+      "sha256": "ff039cf2752c11ade8870074d0e7220f05c85d9c310570449b98e427c4b4ca32"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_core_acceptance_20261024.md",
+      "bytes": 13121,
+      "sha256": "2c5fdcc14ef725baf91f0a5ad75fbe39a52438ba5e57ee6ba15bd1f67a15c896"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_embedding_rope_float_islands_20261024.md",
+      "bytes": 5509,
+      "sha256": "cf4add3946a8c919de4bd7e28b17f4bc9db0c6fd638245af01fecd20fad34a5e"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_integration_requirement_reconciliation_20261024.md",
+      "bytes": 3211,
+      "sha256": "cd81a6fa484b9d4d553c7f48f5ca0f5f6595b7f575687db3f035d42fe63cc35a"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_operator_ablation_results_20261022.md",
+      "bytes": 8417,
+      "sha256": "4e6335d306eecb7261a4f6db3b17bafc9383f3988d43820ce8e7ea1fdc5c0113"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_operator_attention_integration_20261024.md",
+      "bytes": 7555,
+      "sha256": "c8d39d7c395877206832b7707499861c70d29d501dd30771251ee67c3ecc979d"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_operator_gemm_integration_20261022.md",
+      "bytes": 7742,
+      "sha256": "649d5b1e2d78e8ee58d65e707f674190a656d70833a9f2870c6c2560fca90d8b"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_operator_layernorm_raw_e2e_20261022.md",
+      "bytes": 9588,
+      "sha256": "47231cc0f56d98d77b67f18e49842b797a8831d8bd8b2592b55fb89df6046d15"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/orin_selected_goal_acceptance_20261026.md",
+      "bytes": 13084,
+      "sha256": "be4faaf5866634be837201cd68e5a8a8c084176b78b2a502c822f3b3c353a266"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/qwen35_native_formal_20260910.md",
+      "bytes": 12064,
+      "sha256": "67f8a02c039915c335f6c5bc8a547b43d0676ac407fdfd2ced8fb9739a9708ba"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/qwen35_natural_profile_20260909.md",
+      "bytes": 8302,
+      "sha256": "49b013c204e4a186462675dcaa37c3baa66b156e8b4775e65ba728c719aee780"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/smolvla_j6m_performance_20260914.md",
+      "bytes": 16812,
+      "sha256": "c8bfcb69998dc7cae2ab221ef78d81924ccf162a177e932666a691f3dcaa01f6"
+    },
+    {
+      "path": "/home/zhangzimo/.codex/worktrees/f801/edge-fm-x/doc/reports/smolvla_j6m_stage060_20260911.md",
+      "bytes": 8690,
+      "sha256": "97e6025c0e9745c590ca83a045de9d7a9ca21332e17add257a4ede6c8e1698ab"
+    }
+  ],
+  "measured_counts": {
+    "H20_raw_VLA": 51200,
+    "Orin_raw_VLA": 61440,
+    "J6M_stages": 20480,
+    "H20_native_Qwen": 20480,
+    "Orin_Qwen": 10240
+  },
+  "Orin_VLA_CDF_files_rehashed": 18,
+  "Orin_Qwen_CDF_ranks_per_policy": 5120,
+  "new_hardware_experiment": false,
+  "remote_connection": false,
+  "raw_action_tensors_reread": false,
+  "retired_model_payload_presence_asserted": false,
+  "original_performance_statistics_overwritten": false,
+  "J6M_full_model_E2E_accepted": false,
+  "all_manuscript_claims_proven": false
+}

@@ -1,0 +1,22 @@
+<testsuites id="" name="" tests="9" failures="0" skipped="0" errors="0" time="5.518673">
+<testsuite name="dashboard.spec.mjs" timestamp="2026-10-22T03:52:34.438Z" hostname="" tests="9" failures="0" skipped="0" time="4.924" errors="0">
+<testcase name="board, search, filters, detail and list workflow" classname="dashboard.spec.mjs" time="0.787">
+</testcase>
+<testcase name="matrix and evidence preserve formal/pilot distinctions and actual images" classname="dashboard.spec.mjs" time="0.556">
+</testcase>
+<testcase name="refresh uses new local state while retaining the selected task view" classname="dashboard.spec.mjs" time="0.294">
+</testcase>
+<testcase name="terminal collection stays distinct from active sampling and formal acceptance" classname="dashboard.spec.mjs" time="0.53">
+</testcase>
+<testcase name="small-mobile: long experiment keys wrap without hiding evidence" classname="dashboard.spec.mjs" time="0.301">
+</testcase>
+<testcase name="desktop: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.642">
+</testcase>
+<testcase name="tablet: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.638">
+</testcase>
+<testcase name="mobile: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.582">
+</testcase>
+<testcase name="small-mobile: nonblank layout, fitting titles, no page overflow" classname="dashboard.spec.mjs" time="0.594">
+</testcase>
+</testsuite>
+</testsuites>

@@ -1,0 +1,38 @@
+[
+  {
+    "configuration": "official-pytorch",
+    "output": "action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "official-pytorch",
+    "output": "robot_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999999
+  },
+  {
+    "configuration": "session-required",
+    "output": "action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999998
+  },
+  {
+    "configuration": "session-required",
+    "output": "robot_action_chunk",
+    "complete_outputs_including_warmup": 5760,
+    "all_byte_exact": true,
+    "mse_max": 0.0,
+    "max_abs": 0.0,
+    "cosine_min": 0.9999999999999999
+  }
+]
